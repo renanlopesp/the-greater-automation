@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "playwright@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true,
+    "codex-orchestrator@codex-orchestrator-marketplace": true,
+    "cartographer@cartographer-marketplace": true,
+    "ralph-loop@claude-plugins-official": true
+  }
+}
