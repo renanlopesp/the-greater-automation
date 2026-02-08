@@ -16,9 +16,9 @@
 
 **Purpose**: Install missing dependencies and ensure prerequisite shadcn components are available.
 
-- [ ] T001 Verify Zustand is installed (`bun add zustand` if not already in package.json from 001-foundation). Verify cmdk is available via shadcn command component. Verify shadcn components are installed: dialog, command, tabs, input, textarea, button, dropdown-menu, scroll-area, separator, tooltip, sheet, popover. Run `bunx shadcn@latest add <component>` for any missing.
+- [x] T001 Verify Zustand is installed (`bun add zustand` if not already in package.json from 001-foundation). Verify cmdk is available via shadcn command component. Verify shadcn components are installed: dialog, command, tabs, input, textarea, button, dropdown-menu, scroll-area, separator, tooltip, sheet, popover. Run `bunx shadcn@latest add <component>` for any missing.
 
-- [ ] T002 [P] Create directory structure for workflow editor components: `src/components/workflow-editor/`, `src/stores/`, `src/lib/workflow-editor/`.
+- [x] T002 [P] Create directory structure for workflow editor components: `src/components/workflow-editor/`, `src/stores/`, `src/lib/workflow-editor/`.
 
 **Checkpoint**: All dependencies installed, directory structure created.
 
@@ -30,15 +30,15 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create trigger metadata file at `src/lib/workflow-editor/trigger-metadata.ts`. Export a `TRIGGER_TYPES` array of objects, each with: `type` (TriggerType), `name` (display name), `description` (one-line), `icon` (Lucide icon name), `hasSubMenu` (boolean, true for "app" and "table"). All 9 trigger types: app, manual, scheduled, form, rss, mailhook, webhook, table, mcp.
+- [x] T003 Create trigger metadata file at `src/lib/workflow-editor/trigger-metadata.ts`. Export a `TRIGGER_TYPES` array of objects, each with: `type` (TriggerType), `name` (display name), `description` (one-line), `icon` (Lucide icon name), `hasSubMenu` (boolean, true for "app" and "table"). All 9 trigger types: app, manual, scheduled, form, rss, mailhook, webhook, table, mcp.
 
-- [ ] T004 [P] Create step metadata file at `src/lib/workflow-editor/step-metadata.ts`. Export a `STEP_TYPES` array of objects, each with: `type` (StepType), `name` (display name), `description` (one-line), `icon` (Lucide icon name). All 8 step types: app, flow_control, ai, web_scraping, human_in_loop, utility, http, sequence. Also export a `CONNECTED_APPS` array with: `id`, `name`, `icon` for Email, LinkedIn, X (Twitter), YouTube.
+- [x] T004 [P] Create step metadata file at `src/lib/workflow-editor/step-metadata.ts`. Export a `STEP_TYPES` array of objects, each with: `type` (StepType), `name` (display name), `description` (one-line), `icon` (Lucide icon name). All 8 step types: app, flow_control, ai, web_scraping, human_in_loop, utility, http, sequence. Also export a `CONNECTED_APPS` array with: `id`, `name`, `icon` for Email, LinkedIn, X (Twitter), YouTube.
 
-- [ ] T005 [P] Create trigger defaults file at `src/lib/workflow-editor/trigger-defaults.ts`. Export a `getTriggerDefaultConfig(type: TriggerType)` function that returns the correct default config object for each of the 9 trigger types (see plan.md "Trigger Config Default Values" table). Also export TypeScript interfaces for all 9 trigger config shapes.
+- [x] T005 [P] Create trigger defaults file at `src/lib/workflow-editor/trigger-defaults.ts`. Export a `getTriggerDefaultConfig(type: TriggerType)` function that returns the correct default config object for each of the 9 trigger types (see plan.md "Trigger Config Default Values" table). Also export TypeScript interfaces for all 9 trigger config shapes.
 
-- [ ] T006 [P] Create step defaults file at `src/lib/workflow-editor/step-defaults.ts`. Export a `getStepDefaultConfig(type: StepType)` function that returns the correct default config object for each of the 8 step types (see plan.md "Step Config Default Values" table). Also export TypeScript interfaces for all 8 step config shapes.
+- [x] T006 [P] Create step defaults file at `src/lib/workflow-editor/step-defaults.ts`. Export a `getStepDefaultConfig(type: StepType)` function that returns the correct default config object for each of the 8 step types (see plan.md "Step Config Default Values" table). Also export TypeScript interfaces for all 8 step config shapes.
 
-- [ ] T007 Create Zustand store at `src/stores/workflow-editor-store.ts`. Implement the full `WorkflowEditorStore` interface from plan.md:
+- [x] T007 Create Zustand store at `src/stores/workflow-editor-store.ts`. Implement the full `WorkflowEditorStore` interface from plan.md:
   - **State**: `workflowId`, `workflowName` (default "Untitled workflow"), `workflowEmoji` (default ""), `isStarred` (default false), `trigger` (default null), `steps` (default []), `selectedStepId` (default null), `isAssistantOpen` (default true).
   - **Actions**:
     - `setWorkflowName(name)`: updates workflowName
@@ -68,9 +68,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 Create the connector line component at `src/components/workflow-editor/connector-line.tsx`. A simple presentational component: renders a centered vertical line (2px wide, 32px tall, `bg-border` color). No props needed (purely visual). No `"use client"` needed if purely CSS -- but if using cn() only, still server-compatible. Keep it simple.
+- [x] T008 Create the connector line component at `src/components/workflow-editor/connector-line.tsx`. A simple presentational component: renders a centered vertical line (2px wide, 32px tall, `bg-border` color). No props needed (purely visual). No `"use client"` needed if purely CSS -- but if using cn() only, still server-compatible. Keep it simple.
 
-- [ ] T009 [P] Create the trigger block component at `src/components/workflow-editor/trigger-block.tsx`. `"use client"` component. Props: `trigger: WorkflowTrigger | null`, `onAddTrigger: () => void`, `onClickTrigger: () => void`. Renders a card (shadcn Card) with:
+- [x] T009 [P] Create the trigger block component at `src/components/workflow-editor/trigger-block.tsx`. `"use client"` component. Props: `trigger: WorkflowTrigger | null`, `onAddTrigger: () => void`, `onClickTrigger: () => void`. Renders a card (shadcn Card) with:
   - Header: "Trigger" label
   - Body (when trigger is null): "Add trigger" button (dashed border style, centered)
   - Body (when trigger is set): trigger type icon (from trigger-metadata) + trigger type name + brief config summary text
@@ -78,16 +78,16 @@
   - Clicking "Add trigger" calls `onAddTrigger`
   - Card width: max-w-[400px], centered in parent via mx-auto
 
-- [ ] T010 [P] Create the step card component at `src/components/workflow-editor/step-card.tsx`. `"use client"` component. Props: `step: WorkflowStep`, `stepNumber: number`, `isSelected: boolean`, `onClick: () => void`. Renders a card with:
+- [x] T010 [P] Create the step card component at `src/components/workflow-editor/step-card.tsx`. `"use client"` component. Props: `step: WorkflowStep`, `stepNumber: number`, `isSelected: boolean`, `onClick: () => void`. Renders a card with:
   - Left: step number badge (circular, numbered)
   - Center: step type icon (from step-metadata) + step name text
   - Card has hover state and selected state (ring/border highlight when isSelected)
   - Clicking calls onClick
   - Card width: max-w-[400px], centered in parent via mx-auto
 
-- [ ] T011 [P] Create the "Add step" button component at `src/components/workflow-editor/add-step-button.tsx`. `"use client"` component. Props: `onClick: () => void`. Renders a button with a "+" icon and "Add step" text, styled with dashed border, centered (max-w-[400px], mx-auto). Clicking calls onClick.
+- [x] T011 [P] Create the "Add step" button component at `src/components/workflow-editor/add-step-button.tsx`. `"use client"` component. Props: `onClick: () => void`. Renders a button with a "+" icon and "Add step" text, styled with dashed border, centered (max-w-[400px], mx-auto). Clicking calls onClick.
 
-- [ ] T012 Create the step canvas component at `src/components/workflow-editor/step-canvas.tsx`. `"use client"` component. Reads from Zustand store: `trigger`, `steps`, `selectedStepId`. Renders vertically in a ScrollArea:
+- [x] T012 Create the step canvas component at `src/components/workflow-editor/step-canvas.tsx`. `"use client"` component. Reads from Zustand store: `trigger`, `steps`, `selectedStepId`. Renders vertically in a ScrollArea:
   1. TriggerBlock (passes trigger, onAddTrigger opens trigger selector, onClickTrigger opens trigger config)
   2. If trigger is set OR steps exist: ConnectorLine
   3. For each step in steps (sorted by position):
@@ -98,19 +98,19 @@
   - Items are centered horizontally (flex flex-col items-center).
   - Manage state for triggerSelectorOpen and stepSelectorOpen (local useState).
 
-- [ ] T013 Create the top bar component at `src/components/workflow-editor/top-bar.tsx`. `"use client"` component. Reads/writes from Zustand store: workflowName, workflowEmoji, isStarred. Renders a horizontal bar (flex, items-center, gap, px-4, h-14, border-b):
+- [x] T013 Create the top bar component at `src/components/workflow-editor/top-bar.tsx`. `"use client"` component. Reads/writes from Zustand store: workflowName, workflowEmoji, isStarred. Renders a horizontal bar (flex, items-center, gap, px-4, h-14, border-b):
   - Left group: Emoji button (shows workflowEmoji or a default icon) + editable Input (value = workflowName, onChange calls setWorkflowName) + Star toggle Button (icon: Star filled/outline based on isStarred, onClick calls toggleStar) + DropdownMenu (trigger: ChevronDown icon, items: "Rename", "Change emoji", "Duplicate")
   - Right group: Bell icon Button + UserPlus icon Button + "Sharing" Button (variant outline) + MoreHorizontal icon Button
   - The dropdown menu items are non-functional stubs at this stage (just labels, no handlers).
 
-- [ ] T014 Create the editor layout component at `src/components/workflow-editor/editor-layout.tsx`. `"use client"` component. Reads from Zustand store: `isAssistantOpen`, `selectedStepId`. Renders a flex row container (flex-1, overflow-hidden):
+- [x] T014 Create the editor layout component at `src/components/workflow-editor/editor-layout.tsx`. `"use client"` component. Reads from Zustand store: `isAssistantOpen`, `selectedStepId`. Renders a flex row container (flex-1, overflow-hidden):
   - Left: AI Assistant slot -- renders `children[0]` or an "Open Assistant" button if `isAssistantOpen` is false. Width: 320px when open, transitions via CSS (transition-all duration-300). When collapsed, width = 0, overflow hidden.
   - Center: Step canvas slot -- renders `children[1]`. flex-1.
   - Right: Step config slot -- renders `children[2]` only when `selectedStepId` is not null. Width: 400px. Transitions via CSS.
   - Props: `assistantPanel: ReactNode`, `canvas: ReactNode`, `configPanel: ReactNode`.
   - Alternatively, instead of children slots, use named props for each panel.
 
-- [ ] T015 Create the editor page at `src/app/(dashboard)/workflows/[id]/edit/page.tsx`. `"use client"` component.
+- [x] T015 Create the editor page at `src/app/(dashboard)/workflows/[id]/edit/page.tsx`. `"use client"` component.
   - Read `id` from route params (via `useParams` or page props).
   - On mount, call `initializeWorkflow({ workflowId: id })` to set the workflow ID in the store.
   - Render:
@@ -125,7 +125,7 @@
   - The page fills available height (flex flex-col, h-full or min-h-0 flex-1).
   - Import and use the workflow editor store.
 
-- [ ] T016 Verify US1 integration: Run `bun dev`, navigate to `/workflows/test-id/edit`. Confirm:
+- [x] T016 Verify US1 integration: Run `bun dev`, navigate to `/workflows/test-id/edit`. Confirm:
   - Top bar renders with "Untitled workflow" name, unfilled star, dropdown menu
   - Editor tab is selected by default, Runs tab is clickable
   - Step canvas shows trigger block with "Add trigger" button
@@ -148,7 +148,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 Create the trigger selector component at `src/components/workflow-editor/trigger-selector.tsx`. `"use client"` component. Props: `open: boolean`, `onOpenChange: (open: boolean) => void`, `onSelect: (type: TriggerType) => void`. Renders a shadcn Dialog containing a Command (cmdk) component:
+- [x] T017 Create the trigger selector component at `src/components/workflow-editor/trigger-selector.tsx`. `"use client"` component. Props: `open: boolean`, `onOpenChange: (open: boolean) => void`, `onSelect: (type: TriggerType) => void`. Renders a shadcn Dialog containing a Command (cmdk) component:
   - CommandInput: placeholder "Search triggers..."
   - CommandList > CommandEmpty: "No triggers found."
   - CommandGroup: map over TRIGGER_TYPES from trigger-metadata.ts. Each CommandItem renders:
@@ -159,7 +159,7 @@
   - On CommandItem select: call `onSelect(type)`, close dialog
   - For "app" and "table" types with sub-menus: at this stage, just select the type directly (sub-menu navigation is a stretch goal). The chevron is visual only.
 
-- [ ] T018 [P] Create the step selector component at `src/components/workflow-editor/step-selector.tsx`. `"use client"` component. Props: `open: boolean`, `onOpenChange: (open: boolean) => void`, `onSelect: (type: StepType) => void`. Renders a shadcn Dialog containing a Command (cmdk) component:
+- [x] T018 [P] Create the step selector component at `src/components/workflow-editor/step-selector.tsx`. `"use client"` component. Props: `open: boolean`, `onOpenChange: (open: boolean) => void`, `onSelect: (type: StepType) => void`. Renders a shadcn Dialog containing a Command (cmdk) component:
   - CommandInput: placeholder "Search steps..."
   - CommandList > CommandEmpty: "No steps found."
   - CommandGroup label="Steps": map over STEP_TYPES from step-metadata.ts. Each CommandItem renders:
@@ -172,7 +172,7 @@
     - Name
   - On CommandItem select: call `onSelect(type)`, close dialog. For connected apps, treat them as "app" type steps with the app pre-selected in config.
 
-- [ ] T019 Wire trigger selector into step canvas. Update `src/components/workflow-editor/step-canvas.tsx`:
+- [x] T019 Wire trigger selector into step canvas. Update `src/components/workflow-editor/step-canvas.tsx`:
   - Add local state: `triggerSelectorOpen` (boolean, default false)
   - TriggerBlock's `onAddTrigger` sets `triggerSelectorOpen = true`
   - Render TriggerSelector dialog with `open={triggerSelectorOpen}`, `onOpenChange={setTriggerSelectorOpen}`
@@ -182,7 +182,7 @@
     3. Close dialog
   - TriggerBlock's `onClickTrigger` also opens the trigger selector (to allow changing trigger type)
 
-- [ ] T020 Wire step selector into step canvas. Update `src/components/workflow-editor/step-canvas.tsx`:
+- [x] T020 Wire step selector into step canvas. Update `src/components/workflow-editor/step-canvas.tsx`:
   - Add local state: `stepSelectorOpen` (boolean, default false)
   - AddStepButton's `onClick` sets `stepSelectorOpen = true`
   - Render StepSelector dialog with `open={stepSelectorOpen}`, `onOpenChange={setStepSelectorOpen}`
@@ -193,7 +193,7 @@
     4. Call store's `addStep({ id, type, name: stepMetadata.name, config: getStepDefaultConfig(type) })`
     5. Close dialog
 
-- [ ] T021 Update trigger block to show config summary. Update `src/components/workflow-editor/trigger-block.tsx`:
+- [x] T021 Update trigger block to show config summary. Update `src/components/workflow-editor/trigger-block.tsx`:
   - When trigger is set, show a brief config summary below the trigger name. The summary varies by type:
     - manual: "Click to run" (or "N run inputs" if inputs defined)
     - scheduled: show interval or cron description (e.g., "Every 1 hour")
@@ -206,7 +206,7 @@
     - app: app name + event
   - Create a helper function `getTriggerSummary(trigger: WorkflowTrigger): string` in trigger-block.tsx or in `src/lib/workflow-editor/trigger-defaults.ts`.
 
-- [ ] T022 Verify US2 integration: Run `bun dev`. Confirm:
+- [x] T022 Verify US2 integration: Run `bun dev`. Confirm:
   - Click "Add trigger" opens dialog with 9 trigger types
   - Search input filters trigger list correctly
   - Selecting "Manual" sets trigger, canvas updates to show "Manual" with icon
@@ -230,12 +230,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T023 Create the use case card component at `src/components/workflow-editor/use-case-card.tsx`. `"use client"` component (or server-compatible if no interactivity). Props: `emoji: string`, `title: string`, `description: string`, `onClick?: () => void`. Renders a card (border, rounded-lg, p-4, hover:bg-muted/50, cursor-pointer) with:
+- [x] T023 Create the use case card component at `src/components/workflow-editor/use-case-card.tsx`. `"use client"` component (or server-compatible if no interactivity). Props: `emoji: string`, `title: string`, `description: string`, `onClick?: () => void`. Renders a card (border, rounded-lg, p-4, hover:bg-muted/50, cursor-pointer) with:
   - Emoji (text-2xl)
   - Title (font-medium, text-sm)
   - Description (text-xs, text-muted-foreground)
 
-- [ ] T024 Create the AI Assistant panel at `src/components/workflow-editor/ai-assistant-panel.tsx`. `"use client"` component. Reads from store: `isAssistantOpen`. Calls store: `toggleAssistant`. Renders:
+- [x] T024 Create the AI Assistant panel at `src/components/workflow-editor/ai-assistant-panel.tsx`. `"use client"` component. Reads from store: `isAssistantOpen`. Calls store: `toggleAssistant`. Renders:
   - Header (flex, items-center, h-14, px-4, border-b):
     - Logo icon (a small diamond or relay-like icon using Lucide, e.g., Diamond or Sparkles)
     - "Relay.app Assistant" text (font-medium)
@@ -252,7 +252,7 @@
     - Send button (icon: SendHorizontal, positioned at bottom-right of textarea area)
   - The input/send are non-functional stubs (no AI backend in this phase).
 
-- [ ] T025 [P] Create the step config panel at `src/components/workflow-editor/step-config-panel.tsx`. `"use client"` component. Reads from store: `steps`, `selectedStepId`. Calls store: `updateStep`, `deleteStep`, `selectStep`. Derives `selectedStep` from `steps.find(s => s.id === selectedStepId)`. If `selectedStep` is null/undefined, render nothing. Otherwise renders (w-[400px], border-l, flex flex-col, h-full):
+- [x] T025 [P] Create the step config panel at `src/components/workflow-editor/step-config-panel.tsx`. `"use client"` component. Reads from store: `steps`, `selectedStepId`. Calls store: `updateStep`, `deleteStep`, `selectStep`. Derives `selectedStep` from `steps.find(s => s.id === selectedStepId)`. If `selectedStep` is null/undefined, render nothing. Otherwise renders (w-[400px], border-l, flex flex-col, h-full):
   - Header (flex, items-center, gap-2, h-14, px-4, border-b):
     - Step type icon (from step-metadata, based on selectedStep.type)
     - Editable Input (value = selectedStep.name, onChange calls updateStep(id, { name }))
@@ -272,27 +272,27 @@
     - "Output:" badge (a small Badge component showing the step name as a reference, e.g., "step_1.output")
     - "Done" button (variant default, onClick calls selectStep(null))
 
-- [ ] T026 Wire AI Assistant panel into editor layout. Update `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
+- [x] T026 Wire AI Assistant panel into editor layout. Update `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
   - Replace the assistant placeholder with `<AIAssistantPanel />`
   - The EditorLayout component already handles show/hide based on `isAssistantOpen`
   - When `isAssistantOpen` is false, render a small "Open Assistant" button in the canvas area or at the left edge. This can be a fixed-position button or integrated into EditorLayout.
 
-- [ ] T027 Wire step config panel into editor layout. Update `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
+- [x] T027 Wire step config panel into editor layout. Update `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
   - Replace the config placeholder with `<StepConfigPanel />`
   - The EditorLayout component already handles show/hide based on `selectedStepId`
 
-- [ ] T028 Add "Open Assistant" collapsed state to editor layout. Update `src/components/workflow-editor/editor-layout.tsx`:
+- [x] T028 Add "Open Assistant" collapsed state to editor layout. Update `src/components/workflow-editor/editor-layout.tsx`:
   - When `isAssistantOpen` is false, instead of the full assistant panel, render a small vertical strip or floating button on the left edge:
     - A button with Sparkles icon and tooltip "Open Assistant"
     - onClick calls `toggleAssistant()` from the store
   - This button should not take up significant horizontal space (e.g., w-10, centered vertically)
 
-- [ ] T029 Add responsive behavior to editor layout. Update `src/components/workflow-editor/editor-layout.tsx`:
+- [x] T029 Add responsive behavior to editor layout. Update `src/components/workflow-editor/editor-layout.tsx`:
   - Use a `useEffect` + `window.matchMedia` or Tailwind responsive classes to auto-collapse the AI Assistant when viewport width is below 1024px.
   - When below 1024px and a step is selected, render the StepConfigPanel as a Sheet (shadcn Sheet) overlay instead of a side panel.
   - This ensures the editor is usable on smaller screens without horizontal overflow.
 
-- [ ] T030 Verify US3 integration: Run `bun dev`. Confirm:
+- [x] T030 Verify US3 integration: Run `bun dev`. Confirm:
   - AI Assistant panel renders on left with welcome message, 4 use case cards, and textarea
   - Clicking collapse button hides assistant, "Open Assistant" button appears
   - Clicking "Open Assistant" restores the assistant panel
@@ -311,52 +311,52 @@
 
 **Purpose**: Visual polish, edge case handling, and build verification.
 
-- [ ] T031 Add animations and transitions to panels. Update `src/components/workflow-editor/editor-layout.tsx`:
+- [x] T031 Add animations and transitions to panels. Update `src/components/workflow-editor/editor-layout.tsx`:
   - AI Assistant panel: `transition-[width] duration-300 ease-in-out`
   - Step config panel: `transition-[width] duration-200 ease-in-out`
   - Ensure no layout shift during transitions (use `overflow-hidden` on transitioning panels)
 
-- [ ] T032 [P] Add hover and interaction states to all interactive elements:
+- [x] T032 [P] Add hover and interaction states to all interactive elements:
   - TriggerBlock: hover:shadow-md transition
   - StepCard: hover:shadow-sm, selected:ring-2 ring-primary
   - AddStepButton: hover:border-primary hover:text-primary transition
   - UseCaseCard: hover:bg-muted/50 transition
   - ConnectorLine: subtle pulse animation on hover (optional, skip if YAGNI)
 
-- [ ] T033 [P] Handle empty state edge case. In `src/components/workflow-editor/step-canvas.tsx`:
+- [x] T033 [P] Handle empty state edge case. In `src/components/workflow-editor/step-canvas.tsx`:
   - When trigger is null AND steps is empty: show only TriggerBlock (with "Add trigger") and AddStepButton, with NO connector line between them
   - When trigger is set but steps is empty: show TriggerBlock + ConnectorLine + AddStepButton
   - When trigger is null but steps exist: show TriggerBlock (with "Add trigger") + ConnectorLine + steps + AddStepButton
 
-- [ ] T034 [P] Handle step reorder. Add drag-to-reorder support for step cards in `src/components/workflow-editor/step-canvas.tsx`:
+- [x] T034 [P] Handle step reorder. Add drag-to-reorder support for step cards in `src/components/workflow-editor/step-canvas.tsx`:
   - Use HTML5 drag-and-drop or a simple up/down button approach (YAGNI -- prefer simple buttons over full drag library)
   - Option A (simple): Add up/down arrow buttons on each step card (visible on hover). Up button calls `reorderSteps(index, index - 1)`, down button calls `reorderSteps(index, index + 1)`. Hide up on first step, hide down on last step.
   - Option B (drag): If drag is needed, use native HTML drag events with `draggable` attribute on step cards. On drop, call `reorderSteps(fromIndex, toIndex)`.
   - Choose Option A for YAGNI compliance.
 
-- [ ] T035 [P] Add beforeunload warning for unsaved changes. In `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
+- [x] T035 [P] Add beforeunload warning for unsaved changes. In `src/app/(dashboard)/workflows/[id]/edit/page.tsx`:
   - Track an `isDirty` flag in the store (set to true when any action is dispatched after initialization, reset on save/load).
   - Alternatively, derive `isDirty` from a simple counter or by comparing current state to initial state.
   - Add a `useEffect` that registers a `beforeunload` event listener when `isDirty` is true.
   - Clean up the listener on unmount or when `isDirty` becomes false.
 
-- [ ] T036 [P] Add keyboard shortcuts to the editor:
+- [x] T036 [P] Add keyboard shortcuts to the editor:
   - `Escape`: deselect current step (selectStep(null)), close config panel
   - `Backspace`/`Delete` when a step is selected (and not focused on an input): delete selected step
   - These should only fire when no input/textarea is focused (use `document.activeElement` check)
 
-- [ ] T037 Add trigger replacement confirmation. Update `src/components/workflow-editor/step-canvas.tsx` or trigger-selector:
+- [x] T037 Add trigger replacement confirmation. Update `src/components/workflow-editor/step-canvas.tsx` or trigger-selector:
   - When the user clicks the trigger block and a trigger is already set, opening the trigger selector and selecting a new type should show a confirmation if the existing trigger has non-default config values.
   - Use a simple `window.confirm()` or a shadcn AlertDialog: "Changing the trigger type will reset the trigger configuration. Continue?"
   - If confirmed, replace the trigger. If cancelled, keep the existing trigger.
 
-- [ ] T038 [P] Add validation warnings to trigger block and step cards:
+- [x] T038 [P] Add validation warnings to trigger block and step cards:
   - TriggerBlock: if trigger is set but config is incomplete (e.g., scheduled with no cron/interval, webhook with empty URL), show a small warning icon (AlertTriangle, text-yellow-500) next to the trigger name.
   - StepCard: if step config is incomplete (e.g., AI with empty prompt, HTTP with empty URL), show a warning icon.
   - Create a helper function `isTriggerConfigComplete(trigger: WorkflowTrigger): boolean` in trigger-defaults.ts.
   - Create a helper function `isStepConfigComplete(step: WorkflowStep): boolean` in step-defaults.ts.
 
-- [ ] T039 Final build and lint verification:
+- [x] T039 Final build and lint verification:
   - Run `bun run build` -- must pass with zero errors
   - Run `bun run lint` -- must pass with zero warnings
   - Fix any TypeScript, ESLint, or build errors
@@ -375,7 +375,7 @@
 
 ### Unit Tests (Vitest + Testing Library)
 
-- [ ] T040 [P] Write unit tests for Zustand store at `src/stores/__tests__/workflow-editor-store.test.ts`:
+- [x] T040 [P] Write unit tests for Zustand store at `src/stores/__tests__/workflow-editor-store.test.ts`:
   - Test `setWorkflowName` updates name
   - Test `toggleStar` flips isStarred
   - Test `setTrigger` sets/clears trigger
@@ -386,36 +386,36 @@
   - Test `resetStore` returns to defaults
   - Test `initializeWorkflow` bulk-sets state
 
-- [ ] T041 [P] Write unit tests for trigger defaults at `src/lib/workflow-editor/__tests__/trigger-defaults.test.ts`:
+- [x] T041 [P] Write unit tests for trigger defaults at `src/lib/workflow-editor/__tests__/trigger-defaults.test.ts`:
   - Test `getTriggerDefaultConfig` returns correct defaults for all 9 trigger types
   - Test each config has expected shape/keys
 
-- [ ] T042 [P] Write unit tests for step defaults at `src/lib/workflow-editor/__tests__/step-defaults.test.ts`:
+- [x] T042 [P] Write unit tests for step defaults at `src/lib/workflow-editor/__tests__/step-defaults.test.ts`:
   - Test `getStepDefaultConfig` returns correct defaults for all 8 step types
   - Test each config has expected shape/keys
 
-- [ ] T043 [P] Write unit tests for validation helpers at `src/lib/workflow-editor/__tests__/validation.test.ts`:
+- [x] T043 [P] Write unit tests for validation helpers at `src/lib/workflow-editor/__tests__/validation.test.ts`:
   - Test `isTriggerConfigComplete` for complete and incomplete triggers
   - Test `isStepConfigComplete` for complete and incomplete steps
 
-- [ ] T044 [P] Write unit tests for TriggerBlock at `src/components/workflow-editor/__tests__/trigger-block.test.tsx`:
+- [x] T044 [P] Write unit tests for TriggerBlock at `src/components/workflow-editor/__tests__/trigger-block.test.tsx`:
   - Render with null trigger, verify "Add trigger" button renders
   - Render with manual trigger, verify type name and summary display
   - Verify onClick callbacks fire correctly
 
-- [ ] T045 [P] Write unit tests for StepCard at `src/components/workflow-editor/__tests__/step-card.test.tsx`:
+- [x] T045 [P] Write unit tests for StepCard at `src/components/workflow-editor/__tests__/step-card.test.tsx`:
   - Render with mock step data, verify number badge, icon, name render
   - Verify selected state applies ring/border highlight
   - Verify click calls onClick
 
-- [ ] T046 [P] Write unit tests for StepCanvas at `src/components/workflow-editor/__tests__/step-canvas.test.tsx`:
+- [x] T046 [P] Write unit tests for StepCanvas at `src/components/workflow-editor/__tests__/step-canvas.test.tsx`:
   - Mock Zustand store, verify empty state (trigger null, no steps)
   - Verify trigger block + connector + steps + add-step render correctly
   - Verify connector lines appear between elements
 
 ### End-to-End Tests (Playwright)
 
-- [ ] T047 Write e2e test at `e2e/workflow-editor.test.ts`:
+- [x] T047 Write e2e test at `e2e/workflow-editor.test.ts`:
   - Navigate to `/workflows/test-id/edit`, verify editor page loads
   - Verify top bar renders with "Untitled workflow" name
   - Click "Add trigger", verify selector dialog opens with 9 types
@@ -428,13 +428,13 @@
   - Click "Done", verify config panel closes
   - Click delete on step, verify removal and renumbering
 
-- [ ] T048 Write e2e test at `e2e/workflow-editor-panels.test.ts`:
+- [x] T048 Write e2e test at `e2e/workflow-editor-panels.test.ts`:
   - Verify AI Assistant panel renders on left with welcome message
   - Click collapse button, verify panel hides
   - Click "Open Assistant" button, verify panel reappears
   - Toggle star in top bar, verify icon changes
 
-- [ ] T049 Run `bun run test` and `bun run test:e2e` -- fix any failures.
+- [x] T049 Run `bun run test` and `bun run test:e2e` -- fix any failures.
 
 **Checkpoint**: All unit tests pass. All e2e tests pass. Store logic is fully tested.
 
@@ -495,16 +495,16 @@
 
 ### Task Count Summary
 
-| Phase | Tasks | Parallelizable |
-|-------|-------|---------------|
-| Phase 1: Setup | 2 | 1 |
-| Phase 2: Foundational | 5 | 3 |
-| Phase 3: US1 | 9 | 4 |
-| Phase 4: US2 | 6 | 1 |
-| Phase 5: US3 | 8 | 1 |
-| Phase 6: Polish | 9 | 6 |
-| Phase 7: Testing | 10 | 5 |
-| **Total** | **49** | **21** |
+| Phase                 | Tasks  | Parallelizable |
+| --------------------- | ------ | -------------- |
+| Phase 1: Setup        | 2      | 1              |
+| Phase 2: Foundational | 5      | 3              |
+| Phase 3: US1          | 9      | 4              |
+| Phase 4: US2          | 6      | 1              |
+| Phase 5: US3          | 8      | 1              |
+| Phase 6: Polish       | 9      | 6              |
+| Phase 7: Testing      | 10     | 5              |
+| **Total**             | **49** | **21**         |
 
 ---
 
