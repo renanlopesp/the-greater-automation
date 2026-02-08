@@ -1,0 +1,15 @@
+[     393ms] [ERROR] %c << subscription #9 %cinvalidation.subscribe%c %O 
+    background-color: #d83fbe;
+    color: white;
+    padding: 2px;
+   
+    background-color: #d83fbe;
+    color: white;
+    padding: 2px;
+  ; font-weight: bold; 
+    background-color: #d83fbe;
+    color: white;
+    padding: 2px;
+  ; font-weight: normal; {input: Object, result: TRPCClientError
+    at e.from (https://cdn.relay.app/app/_next/static/chunks/62e49800c7a9a2c2.js:57…, elapsedMs: 138324, context: Object} @ https://cdn.relay.app/app/_next/static/chunks/6fa594c9eb3ced58.js:15
+[    2047ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://run.relay.app/api/tunnel/sentry:0
