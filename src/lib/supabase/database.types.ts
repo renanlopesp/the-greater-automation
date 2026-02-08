@@ -28,6 +28,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       teams: {
         Row: {
@@ -54,6 +55,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       team_members: {
         Row: {
@@ -74,6 +76,22 @@ export type Database = {
           role?: TeamRole
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'team_members_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'team_members_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       agents: {
         Row: {
@@ -109,6 +127,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'agents_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agents_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       folders: {
         Row: {
@@ -135,6 +169,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'folders_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'folders_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+        ]
       }
       workflows: {
         Row: {
@@ -179,6 +229,29 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'workflows_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflows_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflows_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       workflow_triggers: {
         Row: {
@@ -205,6 +278,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_triggers_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: true
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
       }
       workflow_steps: {
         Row: {
@@ -237,6 +319,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_steps_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
       }
       agent_skills: {
         Row: {
@@ -269,6 +360,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_skills_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_skills_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
       }
       workflow_runs: {
         Row: {
@@ -304,6 +411,22 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_runs_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflow_runs_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
       }
       app_connections: {
         Row: {
@@ -339,6 +462,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'app_connections_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'app_connections_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
       }
       usage: {
         Row: {
@@ -377,6 +516,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'usage_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: {

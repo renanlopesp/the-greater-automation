@@ -1,0 +1,159 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { FileText, Bot, Play } from 'lucide-react'
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { createBrowserClient } from '@/lib/supabase/client'
+
+interface CommandMenuProps {
+  teamId: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+interface WorkflowResult {
+  id: string
+  name: string
+  emoji: string | null
+}
+
+interface AgentResult {
+  id: string
+  name: string
+}
+
+interface RunResult {
+  id: string
+  status: string
+  workflow_name: string
+}
+
+export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuProps) {
+  const router = useRouter()
+  const [query, setQuery] = useState('')
+  const [workflows, setWorkflows] = useState<WorkflowResult[]>([])
+  const [agents, setAgents] = useState<AgentResult[]>([])
+  const [runs, setRuns] = useState<RunResult[]>([])
+
+  // Global keyboard shortcut
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        onOpenChange(!open)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onOpenChange])
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!query || !teamId) {
+        setWorkflows([])
+        setAgents([])
+        setRuns([])
+        return
+      }
+
+      const supabase = createBrowserClient()
+
+      const [workflowRes, agentRes, runRes] = await Promise.all([
+        supabase
+          .from('workflows')
+          .select('id, name, emoji')
+          .eq('team_id', teamId)
+          .ilike('name', `%${query}%`)
+          .limit(10),
+        supabase
+          .from('agents')
+          .select('id, name')
+          .eq('team_id', teamId)
+          .ilike('name', `%${query}%`)
+          .limit(10),
+        supabase.from('workflow_runs').select('id, status, workflow_id').limit(10),
+      ])
+
+      setWorkflows(workflowRes.data ?? [])
+      setAgents(agentRes.data ?? [])
+
+      // Map runs - just show status and ID for now since join queries have type limitations
+      setRuns(
+        (runRes.data ?? []).map((r) => ({
+          id: r.id,
+          status: r.status,
+          workflow_name: r.workflow_id.slice(0, 8),
+        }))
+      )
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [query, teamId])
+
+  const handleSelect = useCallback(
+    (path: string) => {
+      onOpenChange(false)
+      setQuery('')
+      router.push(path)
+    },
+    [onOpenChange, router]
+  )
+
+  const hasResults = workflows.length > 0 || agents.length > 0 || runs.length > 0
+
+  return (
+    <CommandDialog open={open} onOpenChange={onOpenChange}>
+      <CommandInput
+        placeholder="Search workflows, agents, runs..."
+        value={query}
+        onValueChange={setQuery}
+      />
+      <CommandList>
+        {query && !hasResults && <CommandEmpty>No results found.</CommandEmpty>}
+        {workflows.length > 0 && (
+          <CommandGroup heading="Workflows">
+            {workflows.map((w) => (
+              <CommandItem key={w.id} onSelect={() => handleSelect(`/workflows/${w.id}/edit`)}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span>
+                  {w.emoji ?? ''} {w.name}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {agents.length > 0 && (
+          <CommandGroup heading="Agents">
+            {agents.map((a) => (
+              <CommandItem key={a.id} onSelect={() => handleSelect(`/agents/${a.id}`)}>
+                <Bot className="mr-2 h-4 w-4" />
+                {a.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {runs.length > 0 && (
+          <CommandGroup heading="Runs">
+            {runs.map((r) => (
+              <CommandItem key={r.id} onSelect={() => handleSelect(`/runs`)}>
+                <Play className="mr-2 h-4 w-4" />
+                <span>
+                  {r.workflow_name} — {r.status}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </CommandDialog>
+  )
+}
