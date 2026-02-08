@@ -32,6 +32,7 @@ interface AppSidebarProps {
   user: UserData
   usage: UsageData | null
   onOpenCommandMenu?: () => void
+  onOpenSettings?: () => void
 }
 
 const navItems: NavItem[] = [
@@ -77,7 +78,12 @@ function UsageMeter({ label, used, limit }: { label: string; used: number; limit
   )
 }
 
-export default function AppSidebar({ user, usage, onOpenCommandMenu }: AppSidebarProps) {
+export default function AppSidebar({
+  user,
+  usage,
+  onOpenCommandMenu,
+  onOpenSettings,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -91,9 +97,11 @@ export default function AppSidebar({ user, usage, onOpenCommandMenu }: AppSideba
     if (item.action === 'command-menu') {
       e.preventDefault()
       onOpenCommandMenu?.()
-    } else if (item.action === 'settings' || item.action === 'external') {
+    } else if (item.action === 'settings') {
       e.preventDefault()
-      // Placeholder: will be implemented in future features
+      onOpenSettings?.()
+    } else if (item.action === 'external') {
+      e.preventDefault()
     }
   }
 
@@ -176,7 +184,7 @@ export default function AppSidebar({ user, usage, onOpenCommandMenu }: AppSideba
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onOpenSettings?.()}>
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
