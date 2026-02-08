@@ -44,7 +44,7 @@ export default function WorkspaceFilters({
         value={filters.createdBy}
         onValueChange={(v) => onFiltersChange({ ...filters, createdBy: v })}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px]">
           <SelectValue placeholder="Created by" />
         </SelectTrigger>
         <SelectContent>
@@ -61,7 +61,7 @@ export default function WorkspaceFilters({
         value={filters.status}
         onValueChange={(v) => onFiltersChange({ ...filters, status: v })}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -72,7 +72,7 @@ export default function WorkspaceFilters({
       </Select>
 
       <Select value={filters.type} onValueChange={(v) => onFiltersChange({ ...filters, type: v })}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Type" />
         </SelectTrigger>
         <SelectContent>

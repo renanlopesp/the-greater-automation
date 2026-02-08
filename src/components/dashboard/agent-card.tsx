@@ -22,7 +22,7 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
 
   return (
     <Link href={`/agents/${agent.id}`}>
-      <Card className="hover:border-primary/20 min-h-[180px] shadow-sm transition-all hover:shadow-md">
+      <Card className="hover:border-primary/20 min-h-[180px] shadow-sm transition-shadow hover:shadow-md">
         <CardContent className="flex flex-col gap-3 p-4">
           <AnimatedAgentAvatar />
           <div className="flex flex-col gap-1">

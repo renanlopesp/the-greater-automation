@@ -48,7 +48,7 @@ export default function AIAssistantPanel() {
           <Diamond className="text-primary mt-8 h-12 w-12" />
           <h2 className="mt-4 text-center text-lg font-semibold">What can I help you build?</h2>
 
-          <div className="mt-6 grid w-full grid-cols-2 gap-3">
+          <div className="mt-6 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
             {USE_CASES.map((uc) => (
               <UseCaseCard key={uc.title} {...uc} />
             ))}

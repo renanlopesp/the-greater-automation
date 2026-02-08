@@ -110,7 +110,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Right Panel */}
-      <div className="flex flex-1 flex-col gap-8 overflow-y-auto p-8">
+      <div className="flex flex-1 flex-col gap-8 overflow-y-auto p-6">
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Recent activity</h2>
           <ActivityHeatmap data={heatmapData} />

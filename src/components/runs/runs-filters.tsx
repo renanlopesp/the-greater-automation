@@ -31,14 +31,14 @@ export default function RunsFilters({ filters, onFiltersChange, workflows }: Run
           placeholder="Search runs..."
           value={filters.search}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-          className="w-[200px] pl-9"
+          className="w-full pl-9 sm:w-[200px]"
         />
       </div>
       <Select
         value={filters.status}
         onValueChange={(v) => onFiltersChange({ ...filters, status: v })}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px]">
           <SelectValue placeholder="All statuses" />
         </SelectTrigger>
         <SelectContent>
@@ -54,7 +54,7 @@ export default function RunsFilters({ filters, onFiltersChange, workflows }: Run
         value={filters.workflowId}
         onValueChange={(v) => onFiltersChange({ ...filters, workflowId: v })}
       >
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-full sm:w-[200px]">
           <SelectValue placeholder="All workflows" />
         </SelectTrigger>
         <SelectContent>

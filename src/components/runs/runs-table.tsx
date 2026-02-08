@@ -29,7 +29,7 @@ export default function RunsTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-x-auto">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>

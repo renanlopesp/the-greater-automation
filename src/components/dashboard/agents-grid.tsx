@@ -14,7 +14,7 @@ export default function AgentsGrid({ agents }: AgentsGridProps) {
         <AgentCard key={a.agent.id} agent={a.agent} skills={a.skills} />
       ))}
       <Link href="/agents/new">
-        <Card className="border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 min-h-[180px] border-2 border-dashed transition-all">
+        <Card className="border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 min-h-[180px] border-2 border-dashed transition-colors">
           <CardContent className="flex h-full flex-col items-center justify-center gap-2 p-4">
             <Plus className="text-muted-foreground h-8 w-8" />
             <span className="text-muted-foreground text-sm">Create new agent</span>

@@ -54,9 +54,9 @@ export default function ActivityHeatmap({ data }: ActivityHeatmapProps) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="space-y-1">
+      <div className="space-y-1 overflow-x-auto">
         {/* Month labels */}
-        <div className="flex" style={{ paddingLeft: 20 }}>
+        <div className="flex" style={{ paddingLeft: 20, minWidth: 'max-content' }}>
           {monthLabels.map((m, i) => {
             const nextCol = monthLabels[i + 1]?.colIndex ?? weeks.length
             const span = nextCol - m.colIndex
@@ -73,7 +73,7 @@ export default function ActivityHeatmap({ data }: ActivityHeatmapProps) {
         </div>
 
         {/* Grid with day labels */}
-        <div className="flex gap-1">
+        <div className="flex gap-1" style={{ minWidth: 'max-content' }}>
           {/* Day-of-week labels */}
           <div className="flex flex-col justify-between" style={{ width: 16 }}>
             {DAY_LABELS.map((label, i) => (

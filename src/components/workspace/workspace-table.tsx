@@ -45,7 +45,7 @@ export default function WorkspaceTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div>
       <Table>
         <TableHeader>
           <TableRow>

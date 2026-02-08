@@ -31,7 +31,7 @@ export default function EditorLayout({ assistantPanel, canvas, configPanel }: Ed
   const isMobile = useIsMobile()
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 overflow-hidden" suppressHydrationWarning>
       {/* AI Assistant Panel */}
       <div
         className={cn(

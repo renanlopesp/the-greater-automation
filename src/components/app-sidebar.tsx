@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import {
   Home,
   Search,
@@ -12,6 +13,7 @@ import {
   Plus,
   LogOut,
   Settings,
+  Menu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createBrowserClient } from '@/lib/supabase/client'
@@ -25,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { NavItem, UsageData, UserData } from '@/types/navigation'
@@ -87,6 +90,7 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   async function handleSignOut() {
     const supabase = createBrowserClient()
@@ -94,114 +98,149 @@ export default function AppSidebar({
     router.push('/login')
   }
 
-  function handleNavClick(item: NavItem, e: React.MouseEvent) {
+  function handleNavAction(item: NavItem) {
     if (item.action === 'command-menu') {
-      e.preventDefault()
       onOpenCommandMenu?.()
     } else if (item.action === 'settings') {
-      e.preventDefault()
       onOpenSettings?.()
-    } else if (item.action === 'external') {
-      e.preventDefault()
     }
   }
 
+  function renderNavItem(item: NavItem) {
+    const isActive = !item.action && pathname.startsWith(item.href)
+    const Icon = item.icon
+    const classes = cn(
+      'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+      isActive
+        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+    )
+
+    if (item.action) {
+      return (
+        <button
+          type="button"
+          onClick={() => handleNavAction(item)}
+          aria-label={item.label}
+          className={classes}
+        >
+          <Icon className="h-5 w-5" />
+        </button>
+      )
+    }
+
+    return (
+      <Link
+        href={item.href}
+        aria-label={item.label}
+        aria-current={isActive ? 'page' : undefined}
+        className={classes}
+      >
+        <Icon className="h-5 w-5" />
+      </Link>
+    )
+  }
+
+  const sidebarContent = (
+    <>
+      {/* Logo */}
+      <div className="mb-2 flex flex-col items-center gap-2">
+        <div className="bg-brand-accent flex h-10 w-10 items-center justify-center rounded-lg">
+          <span className="text-sidebar-foreground text-lg font-bold">R</span>
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Create new"
+              className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground h-8 w-8"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Create new</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex flex-1 flex-col items-center gap-1 pt-2">
+        {navItems.map((item) => (
+          <Tooltip key={item.label}>
+            <TooltipTrigger asChild>{renderNavItem(item)}</TooltipTrigger>
+            <TooltipContent side="right">{item.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </nav>
+
+      {/* Usage Meters */}
+      <div className="mb-2 flex w-full flex-col gap-2">
+        <UsageMeter label="Steps" used={usage?.stepsUsed ?? 0} limit={usage?.stepsLimit ?? 1} />
+        <UsageMeter
+          label="AI Credits"
+          used={usage?.aiCreditsUsed ?? 0}
+          limit={usage?.aiCreditsLimit ?? 1}
+        />
+      </div>
+
+      {/* Theme Toggle */}
+      <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-2" />
+
+      {/* Avatar Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:outline-none">
+            <Avatar className="h-8 w-8 cursor-pointer">
+              <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? user.email} />
+              <AvatarFallback className="text-xs">
+                {getInitials(user.fullName, user.email)}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="end" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              {user.fullName && <p className="text-sm leading-none font-medium">{user.fullName}</p>}
+              <p className="text-muted-foreground text-xs leading-none">{user.email}</p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onOpenSettings?.()}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  )
+
   return (
     <TooltipProvider delayDuration={0}>
+      {/* Mobile hamburger trigger */}
+      <div className="border-border bg-background fixed top-0 left-0 z-40 flex h-14 w-full items-center border-b px-4 md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open navigation">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="bg-sidebar text-sidebar-foreground w-16 p-0 py-4">
+            <div className="flex h-full flex-col items-center">{sidebarContent}</div>
+          </SheetContent>
+        </Sheet>
+        <div className="bg-brand-accent ml-2 flex h-8 w-8 items-center justify-center rounded-lg">
+          <span className="text-sidebar-foreground text-sm font-bold">R</span>
+        </div>
+      </div>
+
+      {/* Desktop sidebar */}
       <div className="border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center border-r py-4 md:flex">
-        {/* Logo */}
-        <div className="mb-2 flex flex-col items-center gap-2">
-          <div className="bg-brand-accent flex h-10 w-10 items-center justify-center rounded-lg">
-            <span className="text-sidebar-foreground text-lg font-bold">R</span>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground h-8 w-8"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Create new</TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex flex-1 flex-col items-center gap-1 pt-2">
-          {navItems.map((item) => {
-            const isActive = !item.action && pathname.startsWith(item.href)
-            const Icon = item.icon
-
-            return (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    onClick={(e) => handleNavClick(item, e)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                      isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            )
-          })}
-        </nav>
-
-        {/* Usage Meters */}
-        <div className="mb-2 flex w-full flex-col gap-2">
-          <UsageMeter label="Steps" used={usage?.stepsUsed ?? 0} limit={usage?.stepsLimit ?? 1} />
-          <UsageMeter
-            label="AI Credits"
-            used={usage?.aiCreditsUsed ?? 0}
-            limit={usage?.aiCreditsLimit ?? 1}
-          />
-        </div>
-
-        {/* Theme Toggle */}
-        <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-2" />
-
-        {/* Avatar Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:outline-none">
-              <Avatar className="h-8 w-8 cursor-pointer">
-                <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? user.email} />
-                <AvatarFallback className="text-xs">
-                  {getInitials(user.fullName, user.email)}
-                </AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                {user.fullName && (
-                  <p className="text-sm leading-none font-medium">{user.fullName}</p>
-                )}
-                <p className="text-muted-foreground text-xs leading-none">{user.email}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onOpenSettings?.()}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {sidebarContent}
       </div>
     </TooltipProvider>
   )

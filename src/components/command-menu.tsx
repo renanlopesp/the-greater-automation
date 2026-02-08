@@ -47,6 +47,14 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        const target = e.target as HTMLElement
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable
+        ) {
+          return
+        }
         e.preventDefault()
         onOpenChange(!open)
       }
@@ -80,7 +88,11 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           .eq('team_id', teamId)
           .ilike('name', `%${query}%`)
           .limit(10),
-        supabase.from('workflow_runs').select('id, status, workflow_id').limit(10),
+        supabase
+          .from('workflow_runs')
+          .select('id, status, workflow_id')
+          .eq('team_id', teamId)
+          .limit(10),
       ])
 
       setWorkflows(workflowRes.data ?? [])

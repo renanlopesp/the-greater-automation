@@ -68,12 +68,12 @@ export default function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-5xl overflow-hidden p-0 sm:max-w-5xl">
+      <DialogContent className="max-h-[80dvh] max-w-5xl overflow-hidden p-0 sm:max-w-5xl">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your account and workspace settings
         </DialogDescription>
-        <div className="flex h-[70vh]">
+        <div className="flex h-[70dvh] flex-col sm:flex-row">
           <SettingsSidebar activeSection={activeSection} onSelect={setActiveSection} />
           <div className="flex-1 overflow-auto">{renderSection()}</div>
         </div>

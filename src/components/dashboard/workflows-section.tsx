@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Link2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowListItem from '@/components/dashboard/workflow-list-item'
 import { useWorkflows } from '@/hooks/use-workflows'
@@ -55,20 +56,24 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
             {workflows.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">No workflows found</p>
             ) : (
-              <div className="flex flex-col">
-                {workflows.map((w) => {
-                  const stats = runStats?.[w.id]
-                  return (
-                    <WorkflowListItem
-                      key={w.id}
-                      workflow={w}
-                      totalRuns={stats?.totalRuns}
-                      lastRunAt={stats?.lastRunAt}
-                      sparklineData={stats?.sparklineData}
-                    />
-                  )
-                })}
-              </div>
+              <Card>
+                <CardContent className="p-0">
+                  <div className="flex flex-col">
+                    {workflows.map((w) => {
+                      const stats = runStats?.[w.id]
+                      return (
+                        <WorkflowListItem
+                          key={w.id}
+                          workflow={w}
+                          totalRuns={stats?.totalRuns}
+                          lastRunAt={stats?.lastRunAt}
+                          sparklineData={stats?.sparklineData}
+                        />
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
         ))}

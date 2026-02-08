@@ -34,7 +34,7 @@ export default function StepConfigPanel() {
     : null
 
   return (
-    <div className="flex h-full w-[400px] flex-col border-l">
+    <div className="flex h-full w-full flex-col border-l sm:w-[400px]">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
           {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
