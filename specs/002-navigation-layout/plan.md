@@ -21,16 +21,16 @@ Implement the authenticated shell for Relay: a 64px icon-based sidebar with navi
 
 ## Constitution Check
 
-*GATE: Must pass before implementation. Re-check after design.*
+_GATE: Must pass before implementation. Re-check after design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Next.js App Router First | PASS | Dashboard layout is a Server Component in `src/app/(dashboard)/layout.tsx`. Auth check and data fetching happen server-side. |
-| II. shadcn/ui Component System | PASS | Uses shadcn `sidebar`, `command`, `dropdown-menu`, `avatar`, `tooltip`, `progress`, `dialog`, `separator`. All custom components compose these primitives. |
-| III. Tailwind CSS v4 + OKLCH | PASS | All styling via Tailwind utility classes. Active state uses CSS variable-based blue. No hex/rgb literals. |
-| IV. TypeScript Strict Mode | PASS | All components fully typed. Props interfaces defined. Supabase queries use generated database types. |
-| V. Simplicity and YAGNI | PASS | No state management library needed for sidebar (uses URL for active state). Command menu uses cmdk built-in filtering. No premature abstractions. |
-| VI. Supabase as Backend | PASS | Auth via `@supabase/ssr` server client. Profile/team/usage fetched via Supabase queries in the layout Server Component. No custom API routes. |
+| Principle                      | Status | Notes                                                                                                                                                      |
+| ------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I. Next.js App Router First    | PASS   | Dashboard layout is a Server Component in `src/app/(dashboard)/layout.tsx`. Auth check and data fetching happen server-side.                               |
+| II. shadcn/ui Component System | PASS   | Uses shadcn `sidebar`, `command`, `dropdown-menu`, `avatar`, `tooltip`, `progress`, `dialog`, `separator`. All custom components compose these primitives. |
+| III. Tailwind CSS v4 + OKLCH   | PASS   | All styling via Tailwind utility classes. Active state uses CSS variable-based blue. No hex/rgb literals.                                                  |
+| IV. TypeScript Strict Mode     | PASS   | All components fully typed. Props interfaces defined. Supabase queries use generated database types.                                                       |
+| V. Simplicity and YAGNI        | PASS   | No state management library needed for sidebar (uses URL for active state). Command menu uses cmdk built-in filtering. No premature abstractions.          |
+| VI. Supabase as Backend        | PASS   | Auth via `@supabase/ssr` server client. Profile/team/usage fetched via Supabase queries in the layout Server Component. No custom API routes.              |
 
 ## Project Structure
 
@@ -86,7 +86,7 @@ interface NavItem {
   label: string
   href: string
   icon: LucideIcon
-  action?: "command-menu" | "settings" | "external"  // override default link behavior
+  action?: 'command-menu' | 'settings' | 'external' // override default link behavior
 }
 
 interface UsageData {
@@ -122,7 +122,7 @@ interface AppSidebarProps {
 // "use client" -- keyboard listeners, dialog state, search state
 
 interface CommandMenuProps {
-  teamId: string | null  // for scoping Supabase queries
+  teamId: string | null // for scoping Supabase queries
 }
 
 // Internal state managed via useState:
@@ -137,7 +137,7 @@ interface CommandMenuProps {
 // "use client" -- onClick handler to open command menu
 
 interface SearchTriggerProps {
-  onOpen: () => void  // or handled via shared state/event
+  onOpen: () => void // or handled via shared state/event
 }
 ```
 
@@ -164,12 +164,14 @@ interface DashboardLayoutProps {
 ### Supabase Queries (Server-side, in layout.tsx)
 
 **1. Get authenticated user session**
+
 ```sql
 -- Via @supabase/ssr server client
 supabase.auth.getUser()
 ```
 
 **2. Fetch user profile**
+
 ```sql
 SELECT id, email, full_name, avatar_url
 FROM profiles
@@ -178,6 +180,7 @@ LIMIT 1
 ```
 
 **3. Fetch user's team (first team)**
+
 ```sql
 SELECT t.id, t.name, t.slug, t.avatar_url
 FROM teams t
@@ -187,6 +190,7 @@ LIMIT 1
 ```
 
 **4. Fetch current usage**
+
 ```sql
 SELECT steps_used, steps_limit, ai_credits_used, ai_credits_limit
 FROM usage
@@ -200,6 +204,7 @@ LIMIT 1
 ### Supabase Queries (Client-side, in command-menu.tsx)
 
 **5. Search workflows**
+
 ```sql
 SELECT id, name, emoji
 FROM workflows
@@ -209,6 +214,7 @@ LIMIT 10
 ```
 
 **6. Search agents**
+
 ```sql
 SELECT id, name, avatar_url
 FROM agents
@@ -218,6 +224,7 @@ LIMIT 10
 ```
 
 **7. Search runs**
+
 ```sql
 SELECT wr.id, wr.status, w.name as workflow_name
 FROM workflow_runs wr
@@ -229,18 +236,19 @@ LIMIT 10
 
 ## Navigation Route Map
 
-| Nav Item | Route | Icon (Lucide) | Behavior |
-|----------|-------|---------------|----------|
-| Home | `/dashboard` | `Home` | Standard link |
-| Search | -- | `Search` | Opens command menu (action) |
-| Workspace | `/workspace` | `FolderOpen` | Standard link |
-| Runs | `/runs` | `Play` | Standard link |
-| Apps | -- | `Grid2x2` | Opens settings dialog (action) |
-| Support | -- | `HelpCircle` | External link or modal (action) |
+| Nav Item  | Route        | Icon (Lucide) | Behavior                        |
+| --------- | ------------ | ------------- | ------------------------------- |
+| Home      | `/dashboard` | `Home`        | Standard link                   |
+| Search    | --           | `Search`      | Opens command menu (action)     |
+| Workspace | `/workspace` | `FolderOpen`  | Standard link                   |
+| Runs      | `/runs`      | `Play`        | Standard link                   |
+| Apps      | --           | `Grid2x2`     | Opens settings dialog (action)  |
+| Support   | --           | `HelpCircle`  | External link or modal (action) |
 
 ## Complexity Tracking
 
 No constitution violations. All components use standard patterns:
+
 - Server Component layout with `redirect()` for auth gating
 - Client Components only where interactivity is required (sidebar active state, command menu, dropdown)
 - shadcn/ui primitives composed without custom abstractions

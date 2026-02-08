@@ -6,7 +6,7 @@
 **Input**: Phase 2 of DEVELOPMENT_SPEC.md -- App Sidebar, Command Menu, Dashboard Layout
 **Depends on**: `001-foundation` (Supabase clients, auth middleware, database schema, QueryProvider)
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - App Sidebar Navigation (Priority: P1)
 
@@ -83,7 +83,7 @@ As a user, I need a command menu (Ctrl+K) so that I can quickly search across wo
 - **Avatar fallback**: If user has no avatar_url, display initials derived from full_name or email. If neither exists, display a generic user icon.
 - **Long team names**: Team names longer than sidebar width should truncate with ellipsis in the avatar dropdown.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -119,7 +119,7 @@ As a user, I need a command menu (Ctrl+K) so that I can quickly search across wo
 - **Agent** (for search): Name, avatar_url, id. Source: `agents` table filtered by team_id.
 - **Workflow Run** (for search): Id, status, workflow name. Source: `workflow_runs` table joined with `workflows`.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

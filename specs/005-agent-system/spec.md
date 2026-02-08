@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: Phase 5 of DEVELOPMENT_SPEC.md - Agent detail page with 2-panel layout, activity heatmap, skills management, and chat interface
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Agent Detail Page with Two-Panel Layout (Priority: P1)
 
@@ -83,7 +83,7 @@ As a user interacting with an agent, I need a chat input at the bottom of the le
 - **Skills with null workflow**: If an agent_skill references a deleted workflow (workflow_id with ON DELETE CASCADE should prevent this, but defensively), the skill card MUST either not render or show a "Deleted workflow" indicator rather than crashing.
 - **Concurrent navigation**: If the user navigates between different agent detail pages rapidly, each page MUST fetch and display the correct agent's data without stale data from a previous agent leaking through.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -111,7 +111,7 @@ As a user interacting with an agent, I need a chat input at the bottom of the le
 - **WorkflowRun**: Execution records for the agent. Fields used: `id`, `status`, `steps_used`, `ai_credits_used`, `started_at`, `completed_at`, `workflow_id`. Fetched by `agent_id`, aggregated by day for heatmap, listed chronologically for run history.
 - **Usage**: Team usage data for progress indicators. Fields used: `steps_used`, `steps_limit`, `ai_credits_used`, `ai_credits_limit`. Fetched by `team_id` from the agent's team.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

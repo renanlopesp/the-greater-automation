@@ -29,16 +29,16 @@ Build the agent detail page at `/agents/[id]` with a two-panel layout: a left pa
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. App Router First | PASS | Page at `src/app/(dashboard)/agents/[id]/page.tsx` uses App Router. Server Component for data fetching. `"use client"` only for interactive components (heatmap tooltips, chat input, avatar animation). |
-| II. shadcn/ui Component System | PASS | Uses Card, Badge, Input, Button, Avatar, Tooltip, Progress, DropdownMenu, ScrollArea from shadcn/ui. Custom components compose shadcn primitives. |
-| III. Tailwind CSS v4 + OKLCH Theming | PASS | All colors reference CSS variable-based theme tokens (bg-muted, bg-blue-200/400/600). No direct hex/rgb. Responsive via Tailwind breakpoints. |
-| IV. TypeScript Strict Mode | PASS | All components strictly typed. Props interfaces defined. Supabase types from database.types.ts. |
-| V. Simplicity and YAGNI | PASS | No abstractions beyond what is needed. Heatmap is a single component with inline date logic. No state management library needed (page is server-rendered, interactive bits use local useState). Chat is UI-only (no backend processing in this phase). |
-| VI. Supabase as Backend | PASS | All data fetched via server-side Supabase client. Agent, skills, runs, usage from Supabase tables. RLS enforced. |
+| Principle                            | Status | Notes                                                                                                                                                                                                                                                  |
+| ------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| I. App Router First                  | PASS   | Page at `src/app/(dashboard)/agents/[id]/page.tsx` uses App Router. Server Component for data fetching. `"use client"` only for interactive components (heatmap tooltips, chat input, avatar animation).                                               |
+| II. shadcn/ui Component System       | PASS   | Uses Card, Badge, Input, Button, Avatar, Tooltip, Progress, DropdownMenu, ScrollArea from shadcn/ui. Custom components compose shadcn primitives.                                                                                                      |
+| III. Tailwind CSS v4 + OKLCH Theming | PASS   | All colors reference CSS variable-based theme tokens (bg-muted, bg-blue-200/400/600). No direct hex/rgb. Responsive via Tailwind breakpoints.                                                                                                          |
+| IV. TypeScript Strict Mode           | PASS   | All components strictly typed. Props interfaces defined. Supabase types from database.types.ts.                                                                                                                                                        |
+| V. Simplicity and YAGNI              | PASS   | No abstractions beyond what is needed. Heatmap is a single component with inline date logic. No state management library needed (page is server-rendered, interactive bits use local useState). Chat is UI-only (no backend processing in this phase). |
+| VI. Supabase as Backend              | PASS   | All data fetched via server-side Supabase client. Agent, skills, runs, usage from Supabase tables. RLS enforced.                                                                                                                                       |
 
 ## Project Structure
 
@@ -114,7 +114,8 @@ The animated dots avatar uses CSS keyframes for a staggered pulse effect. Each d
 
 ```css
 @keyframes dot-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.3;
     transform: scale(0.8);
   }
@@ -148,13 +149,20 @@ The avatar is rendered as a flex container with CSS Grid (`grid-template-columns
 
 ```typescript
 import {
-  subMonths, startOfWeek, eachDayOfInterval, format,
-  getDay, startOfMonth, isSameMonth, isAfter, endOfDay
-} from "date-fns"
+  subMonths,
+  startOfWeek,
+  eachDayOfInterval,
+  format,
+  getDay,
+  startOfMonth,
+  isSameMonth,
+  isAfter,
+  endOfDay,
+} from 'date-fns'
 
 const today = new Date()
 const sixMonthsAgo = subMonths(today, 6)
-const gridStart = startOfWeek(sixMonthsAgo)  // Align to Sunday
+const gridStart = startOfWeek(sixMonthsAgo) // Align to Sunday
 const days = eachDayOfInterval({ start: gridStart, end: today })
 ```
 
@@ -169,10 +177,10 @@ const days = eachDayOfInterval({ start: gridStart, end: today })
 
 ```typescript
 function getHeatmapColor(count: number): string {
-  if (count === 0) return "bg-muted"
-  if (count <= 2) return "bg-blue-200"
-  if (count <= 5) return "bg-blue-400"
-  return "bg-blue-600"
+  if (count === 0) return 'bg-muted'
+  if (count <= 2) return 'bg-blue-200'
+  if (count <= 5) return 'bg-blue-400'
+  return 'bg-blue-600'
 }
 ```
 
@@ -185,11 +193,7 @@ Iterate through the days array. When a day is the first day of a new month AND f
 ### 1. Fetch agent by ID (page.tsx)
 
 ```typescript
-const { data: agent } = await supabase
-  .from("agents")
-  .select("*")
-  .eq("id", id)
-  .single()
+const { data: agent } = await supabase.from('agents').select('*').eq('id', id).single()
 ```
 
 If `agent` is null, call `notFound()`.
@@ -198,10 +202,10 @@ If `agent` is null, call `notFound()`.
 
 ```typescript
 const { data: skills } = await supabase
-  .from("agent_skills")
-  .select("*, workflows(name, emoji)")
-  .eq("agent_id", id)
-  .order("created_at", { ascending: true })
+  .from('agent_skills')
+  .select('*, workflows(name, emoji)')
+  .eq('agent_id', id)
+  .order('created_at', { ascending: true })
 ```
 
 ### 3. Fetch runs aggregated by day for heatmap (page.tsx)
@@ -210,11 +214,11 @@ const { data: skills } = await supabase
 const sixMonthsAgo = subMonths(new Date(), 6)
 
 const { data: runs } = await supabase
-  .from("workflow_runs")
-  .select("started_at")
-  .eq("agent_id", id)
-  .gte("started_at", sixMonthsAgo.toISOString())
-  .order("started_at", { ascending: false })
+  .from('workflow_runs')
+  .select('started_at')
+  .eq('agent_id', id)
+  .gte('started_at', sixMonthsAgo.toISOString())
+  .order('started_at', { ascending: false })
 ```
 
 Aggregate in JS: group by `format(new Date(run.started_at), "yyyy-MM-dd")` and count.
@@ -223,10 +227,10 @@ Aggregate in JS: group by `format(new Date(run.started_at), "yyyy-MM-dd")` and c
 
 ```typescript
 const { data: recentRuns } = await supabase
-  .from("workflow_runs")
-  .select("*, workflows(name, emoji)")
-  .eq("agent_id", id)
-  .order("started_at", { ascending: false })
+  .from('workflow_runs')
+  .select('*, workflows(name, emoji)')
+  .eq('agent_id', id)
+  .order('started_at', { ascending: false })
   .limit(20)
 ```
 
@@ -234,10 +238,10 @@ const { data: recentRuns } = await supabase
 
 ```typescript
 const { data: usage } = await supabase
-  .from("usage")
-  .select("steps_used, steps_limit, ai_credits_used, ai_credits_limit")
-  .eq("team_id", agent.team_id)
-  .order("period_start", { ascending: false })
+  .from('usage')
+  .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
+  .eq('team_id', agent.team_id)
+  .order('period_start', { ascending: false })
   .limit(1)
   .single()
 ```
@@ -245,6 +249,7 @@ const { data: usage } = await supabase
 ## Complexity Tracking
 
 No constitution violations to justify. All implementation follows established patterns:
+
 - Server Components for data fetching, client components only for interactivity
 - shadcn/ui primitives composed into custom components
 - Tailwind CSS v4 classes for all styling

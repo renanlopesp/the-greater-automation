@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: Phase 1 of DEVELOPMENT_SPEC.md - Supabase backend, auth middleware, database schema, providers, root layout
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Supabase Setup, Database Schema & Types (Priority: P1)
 
@@ -76,7 +76,7 @@ As a user loading any page in Relay, I need the root layout to provide the Inter
 - **Cascade deletions**: Deleting a team must cascade to team_members, agents, folders, workflows, and usage. Deleting a workflow must cascade to workflow_triggers, workflow_steps, and workflow_runs. These cascades must be tested to ensure no orphaned records remain.
 - **Middleware on API routes**: The middleware must not interfere with Supabase auth callback routes (`/auth/callback`) or Next.js internal routes (`/_next/`).
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -115,7 +115,7 @@ As a user loading any page in Relay, I need the root layout to provide the Inter
 - **AppConnection**: Third-party app integration credentials. Fields: `id` (uuid, PK), `user_id` (uuid, NOT NULL, FK to profiles ON DELETE CASCADE), `team_id` (uuid, NOT NULL, FK to teams ON DELETE CASCADE), `app_name` (text, NOT NULL), `app_logo_url` (text), `status` (text, NOT NULL, DEFAULT 'disconnected', CHECK in connected/disconnected/error), `credentials` (jsonb, NOT NULL, DEFAULT '{}'), `created_at`, `updated_at`. UNIQUE constraint on (user_id, team_id, app_name).
 - **Usage**: Team usage tracking per billing period. Fields: `id` (uuid, PK), `team_id` (uuid, NOT NULL, FK to teams ON DELETE CASCADE), `period_start` (timestamptz, NOT NULL), `period_end` (timestamptz, NOT NULL), `steps_used` (integer, NOT NULL, DEFAULT 0), `steps_limit` (integer, NOT NULL, DEFAULT 1000), `ai_credits_used` (numeric(10,2), NOT NULL, DEFAULT 0), `ai_credits_limit` (numeric(10,2), NOT NULL, DEFAULT 100), `created_at`, `updated_at`. UNIQUE constraint on (team_id, period_start).
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

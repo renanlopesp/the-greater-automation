@@ -6,7 +6,7 @@
 **Input**: Phase 6 of DEVELOPMENT_SPEC.md -- Settings dialog, Auth pages, Landing page
 **Depends on**: `001-foundation` (Supabase clients, auth middleware, profiles/teams/app_connections tables, database.types.ts)
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Auth Pages (Priority: P1)
 
@@ -100,119 +100,119 @@ As an authenticated user, I need form-based settings pages for Account, Notifica
 - **Session expiry during settings edit**: If the session expires while the user is editing settings, the next save attempt should redirect to login rather than silently failing.
 - **Form submission while pending**: All submit buttons must disable while a request is in flight to prevent double submissions.
 
-## App Integrations Data *(reference)*
+## App Integrations Data _(reference)_
 
 The following apps MUST be included in the Manage Apps list. Each entry requires: `id` (string slug), `name` (display name), `logoUrl` (path to logo image or placeholder icon name), `category` (for potential filtering), and `authType` ("oauth" | "api_key" | "google").
 
-| # | App Name | Slug | Category | Auth Type |
-|---|----------|------|----------|-----------|
-| 1 | Gmail | gmail | Email | google |
-| 2 | Slack | slack | Communication | oauth |
-| 3 | Notion | notion | Productivity | oauth |
-| 4 | HubSpot | hubspot | CRM | oauth |
-| 5 | Salesforce | salesforce | CRM | oauth |
-| 6 | Jira | jira | Project Management | oauth |
-| 7 | GitHub | github | Development | oauth |
-| 8 | Linear | linear | Project Management | oauth |
-| 9 | Asana | asana | Project Management | oauth |
-| 10 | Trello | trello | Project Management | oauth |
-| 11 | Airtable | airtable | Productivity | oauth |
-| 12 | Google Sheets | google-sheets | Productivity | google |
-| 13 | Google Drive | google-drive | Storage | google |
-| 14 | Dropbox | dropbox | Storage | oauth |
-| 15 | OneDrive | onedrive | Storage | oauth |
-| 16 | Zoom | zoom | Communication | oauth |
-| 17 | Microsoft Teams | microsoft-teams | Communication | oauth |
-| 18 | Discord | discord | Communication | oauth |
-| 19 | Stripe | stripe | Finance | oauth |
-| 20 | Shopify | shopify | E-commerce | oauth |
-| 21 | Google Calendar | google-calendar | Productivity | google |
-| 22 | Outlook | outlook | Email | oauth |
-| 23 | Mailchimp | mailchimp | Marketing | oauth |
-| 24 | Intercom | intercom | Support | oauth |
-| 25 | Zendesk | zendesk | Support | oauth |
-| 26 | Twilio | twilio | Communication | api_key |
-| 27 | SendGrid | sendgrid | Email | api_key |
-| 28 | Figma | figma | Design | oauth |
-| 29 | Miro | miro | Design | oauth |
-| 30 | Calendly | calendly | Scheduling | oauth |
-| 31 | Typeform | typeform | Forms | oauth |
-| 32 | Webflow | webflow | Website | oauth |
-| 33 | WordPress | wordpress | Website | oauth |
-| 34 | Supabase | supabase | Database | api_key |
-| 35 | PostgreSQL | postgresql | Database | api_key |
-| 36 | MongoDB | mongodb | Database | api_key |
-| 37 | Firebase | firebase | Database | api_key |
-| 38 | AWS S3 | aws-s3 | Storage | api_key |
-| 39 | Cloudflare | cloudflare | Infrastructure | api_key |
-| 40 | Vercel | vercel | Infrastructure | oauth |
-| 41 | Netlify | netlify | Infrastructure | oauth |
-| 42 | Amplitude | amplitude | Analytics | api_key |
-| 43 | Mixpanel | mixpanel | Analytics | api_key |
-| 44 | Segment | segment | Analytics | api_key |
-| 45 | Datadog | datadog | Monitoring | api_key |
-| 46 | PagerDuty | pagerduty | Monitoring | oauth |
-| 47 | Confluence | confluence | Documentation | oauth |
-| 48 | ClickUp | clickup | Project Management | oauth |
-| 49 | Monday.com | monday | Project Management | oauth |
-| 50 | Basecamp | basecamp | Project Management | oauth |
-| 51 | Freshdesk | freshdesk | Support | api_key |
-| 52 | Pipedrive | pipedrive | CRM | oauth |
-| 53 | Copper | copper | CRM | api_key |
-| 54 | QuickBooks | quickbooks | Finance | oauth |
-| 55 | Xero | xero | Finance | oauth |
-| 56 | PayPal | paypal | Finance | oauth |
-| 57 | Square | square | Finance | oauth |
-| 58 | Loom | loom | Communication | oauth |
-| 59 | Notion AI | notion-ai | AI | oauth |
-| 60 | OpenAI | openai | AI | api_key |
-| 61 | Anthropic | anthropic | AI | api_key |
-| 62 | X (Twitter) | twitter | Social Media | oauth |
-| 63 | LinkedIn | linkedin | Social Media | oauth |
-| 64 | Facebook | facebook | Social Media | oauth |
-| 65 | Instagram | instagram | Social Media | oauth |
-| 66 | YouTube | youtube | Social Media | google |
-| 67 | TikTok | tiktok | Social Media | oauth |
-| 68 | Reddit | reddit | Social Media | oauth |
-| 69 | Pinterest | pinterest | Social Media | oauth |
-| 70 | WhatsApp Business | whatsapp | Communication | api_key |
-| 71 | Telegram | telegram | Communication | api_key |
-| 72 | GitLab | gitlab | Development | oauth |
-| 73 | Bitbucket | bitbucket | Development | oauth |
-| 74 | CircleCI | circleci | Development | oauth |
-| 75 | Docker Hub | docker-hub | Development | api_key |
-| 76 | npm | npm | Development | api_key |
-| 77 | Sentry | sentry | Monitoring | oauth |
-| 78 | Grafana | grafana | Monitoring | api_key |
-| 79 | Elasticsearch | elasticsearch | Search | api_key |
-| 80 | Algolia | algolia | Search | api_key |
-| 81 | Brevo (Sendinblue) | brevo | Marketing | api_key |
-| 82 | ActiveCampaign | activecampaign | Marketing | api_key |
-| 83 | ConvertKit | convertkit | Marketing | api_key |
-| 84 | Zapier | zapier | Automation | oauth |
-| 85 | Make (Integromat) | make | Automation | oauth |
-| 86 | Google Ads | google-ads | Advertising | google |
-| 87 | Facebook Ads | facebook-ads | Advertising | oauth |
-| 88 | Snowflake | snowflake | Database | api_key |
-| 89 | BigQuery | bigquery | Database | google |
-| 90 | Redshift | redshift | Database | api_key |
-| 91 | Tableau | tableau | Analytics | oauth |
-| 92 | Power BI | power-bi | Analytics | oauth |
-| 93 | Looker | looker | Analytics | google |
-| 94 | Coda | coda | Productivity | oauth |
-| 95 | SmartSheet | smartsheet | Productivity | oauth |
-| 96 | Box | box | Storage | oauth |
-| 97 | Evernote | evernote | Productivity | oauth |
-| 98 | Todoist | todoist | Productivity | oauth |
-| 99 | 1Password | 1password | Security | api_key |
-| 100 | Okta | okta | Security | oauth |
-| 101 | Auth0 | auth0 | Security | oauth |
-| 102 | Plaid | plaid | Finance | api_key |
-| 103 | WooCommerce | woocommerce | E-commerce | api_key |
-| 104 | Magento | magento | E-commerce | api_key |
-| 105 | Gong | gong | Sales | oauth |
+| #   | App Name           | Slug            | Category           | Auth Type |
+| --- | ------------------ | --------------- | ------------------ | --------- |
+| 1   | Gmail              | gmail           | Email              | google    |
+| 2   | Slack              | slack           | Communication      | oauth     |
+| 3   | Notion             | notion          | Productivity       | oauth     |
+| 4   | HubSpot            | hubspot         | CRM                | oauth     |
+| 5   | Salesforce         | salesforce      | CRM                | oauth     |
+| 6   | Jira               | jira            | Project Management | oauth     |
+| 7   | GitHub             | github          | Development        | oauth     |
+| 8   | Linear             | linear          | Project Management | oauth     |
+| 9   | Asana              | asana           | Project Management | oauth     |
+| 10  | Trello             | trello          | Project Management | oauth     |
+| 11  | Airtable           | airtable        | Productivity       | oauth     |
+| 12  | Google Sheets      | google-sheets   | Productivity       | google    |
+| 13  | Google Drive       | google-drive    | Storage            | google    |
+| 14  | Dropbox            | dropbox         | Storage            | oauth     |
+| 15  | OneDrive           | onedrive        | Storage            | oauth     |
+| 16  | Zoom               | zoom            | Communication      | oauth     |
+| 17  | Microsoft Teams    | microsoft-teams | Communication      | oauth     |
+| 18  | Discord            | discord         | Communication      | oauth     |
+| 19  | Stripe             | stripe          | Finance            | oauth     |
+| 20  | Shopify            | shopify         | E-commerce         | oauth     |
+| 21  | Google Calendar    | google-calendar | Productivity       | google    |
+| 22  | Outlook            | outlook         | Email              | oauth     |
+| 23  | Mailchimp          | mailchimp       | Marketing          | oauth     |
+| 24  | Intercom           | intercom        | Support            | oauth     |
+| 25  | Zendesk            | zendesk         | Support            | oauth     |
+| 26  | Twilio             | twilio          | Communication      | api_key   |
+| 27  | SendGrid           | sendgrid        | Email              | api_key   |
+| 28  | Figma              | figma           | Design             | oauth     |
+| 29  | Miro               | miro            | Design             | oauth     |
+| 30  | Calendly           | calendly        | Scheduling         | oauth     |
+| 31  | Typeform           | typeform        | Forms              | oauth     |
+| 32  | Webflow            | webflow         | Website            | oauth     |
+| 33  | WordPress          | wordpress       | Website            | oauth     |
+| 34  | Supabase           | supabase        | Database           | api_key   |
+| 35  | PostgreSQL         | postgresql      | Database           | api_key   |
+| 36  | MongoDB            | mongodb         | Database           | api_key   |
+| 37  | Firebase           | firebase        | Database           | api_key   |
+| 38  | AWS S3             | aws-s3          | Storage            | api_key   |
+| 39  | Cloudflare         | cloudflare      | Infrastructure     | api_key   |
+| 40  | Vercel             | vercel          | Infrastructure     | oauth     |
+| 41  | Netlify            | netlify         | Infrastructure     | oauth     |
+| 42  | Amplitude          | amplitude       | Analytics          | api_key   |
+| 43  | Mixpanel           | mixpanel        | Analytics          | api_key   |
+| 44  | Segment            | segment         | Analytics          | api_key   |
+| 45  | Datadog            | datadog         | Monitoring         | api_key   |
+| 46  | PagerDuty          | pagerduty       | Monitoring         | oauth     |
+| 47  | Confluence         | confluence      | Documentation      | oauth     |
+| 48  | ClickUp            | clickup         | Project Management | oauth     |
+| 49  | Monday.com         | monday          | Project Management | oauth     |
+| 50  | Basecamp           | basecamp        | Project Management | oauth     |
+| 51  | Freshdesk          | freshdesk       | Support            | api_key   |
+| 52  | Pipedrive          | pipedrive       | CRM                | oauth     |
+| 53  | Copper             | copper          | CRM                | api_key   |
+| 54  | QuickBooks         | quickbooks      | Finance            | oauth     |
+| 55  | Xero               | xero            | Finance            | oauth     |
+| 56  | PayPal             | paypal          | Finance            | oauth     |
+| 57  | Square             | square          | Finance            | oauth     |
+| 58  | Loom               | loom            | Communication      | oauth     |
+| 59  | Notion AI          | notion-ai       | AI                 | oauth     |
+| 60  | OpenAI             | openai          | AI                 | api_key   |
+| 61  | Anthropic          | anthropic       | AI                 | api_key   |
+| 62  | X (Twitter)        | twitter         | Social Media       | oauth     |
+| 63  | LinkedIn           | linkedin        | Social Media       | oauth     |
+| 64  | Facebook           | facebook        | Social Media       | oauth     |
+| 65  | Instagram          | instagram       | Social Media       | oauth     |
+| 66  | YouTube            | youtube         | Social Media       | google    |
+| 67  | TikTok             | tiktok          | Social Media       | oauth     |
+| 68  | Reddit             | reddit          | Social Media       | oauth     |
+| 69  | Pinterest          | pinterest       | Social Media       | oauth     |
+| 70  | WhatsApp Business  | whatsapp        | Communication      | api_key   |
+| 71  | Telegram           | telegram        | Communication      | api_key   |
+| 72  | GitLab             | gitlab          | Development        | oauth     |
+| 73  | Bitbucket          | bitbucket       | Development        | oauth     |
+| 74  | CircleCI           | circleci        | Development        | oauth     |
+| 75  | Docker Hub         | docker-hub      | Development        | api_key   |
+| 76  | npm                | npm             | Development        | api_key   |
+| 77  | Sentry             | sentry          | Monitoring         | oauth     |
+| 78  | Grafana            | grafana         | Monitoring         | api_key   |
+| 79  | Elasticsearch      | elasticsearch   | Search             | api_key   |
+| 80  | Algolia            | algolia         | Search             | api_key   |
+| 81  | Brevo (Sendinblue) | brevo           | Marketing          | api_key   |
+| 82  | ActiveCampaign     | activecampaign  | Marketing          | api_key   |
+| 83  | ConvertKit         | convertkit      | Marketing          | api_key   |
+| 84  | Zapier             | zapier          | Automation         | oauth     |
+| 85  | Make (Integromat)  | make            | Automation         | oauth     |
+| 86  | Google Ads         | google-ads      | Advertising        | google    |
+| 87  | Facebook Ads       | facebook-ads    | Advertising        | oauth     |
+| 88  | Snowflake          | snowflake       | Database           | api_key   |
+| 89  | BigQuery           | bigquery        | Database           | google    |
+| 90  | Redshift           | redshift        | Database           | api_key   |
+| 91  | Tableau            | tableau         | Analytics          | oauth     |
+| 92  | Power BI           | power-bi        | Analytics          | oauth     |
+| 93  | Looker             | looker          | Analytics          | google    |
+| 94  | Coda               | coda            | Productivity       | oauth     |
+| 95  | SmartSheet         | smartsheet      | Productivity       | oauth     |
+| 96  | Box                | box             | Storage            | oauth     |
+| 97  | Evernote           | evernote        | Productivity       | oauth     |
+| 98  | Todoist            | todoist         | Productivity       | oauth     |
+| 99  | 1Password          | 1password       | Security           | api_key   |
+| 100 | Okta               | okta            | Security           | oauth     |
+| 101 | Auth0              | auth0           | Security           | oauth     |
+| 102 | Plaid              | plaid           | Finance            | api_key   |
+| 103 | WooCommerce        | woocommerce     | E-commerce         | api_key   |
+| 104 | Magento            | magento         | E-commerce         | api_key   |
+| 105 | Gong               | gong            | Sales              | oauth     |
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -267,7 +267,7 @@ The following apps MUST be included in the Manage Apps list. Each entry requires
 - **AppConnection**: Third-party app integration state. Fields: `id` (uuid), `user_id` (uuid), `team_id` (uuid), `app_name` (text), `app_logo_url` (text), `status` (text: connected/disconnected/error). Source: `app_connections` table. Used in: manage apps (to show connected state).
 - **AppIntegration** (client-side only): Static app catalog entry. Fields: `id` (string), `name` (string), `logoUrl` (string), `category` (string), `authType` ("oauth" | "api_key" | "google"). Source: constant array in `src/lib/data/app-integrations.ts`. Used in: manage apps list rendering.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

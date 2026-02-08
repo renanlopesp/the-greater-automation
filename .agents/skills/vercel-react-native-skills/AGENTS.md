@@ -60,16 +60,25 @@ Comprehensive performance optimization guide for React Native applications, desi
    - 9.8 [Use Native Modals Over JS-Based Bottom Sheets](#98-use-native-modals-over-js-based-bottom-sheets)
    - 9.9 [Use Pressable Instead of Touchable Components](#99-use-pressable-instead-of-touchable-components)
 10. [Design System](#10-design-system) — **MEDIUM**
-   - 10.1 [Use Compound Components Over Polymorphic Children](#101-use-compound-components-over-polymorphic-children)
+
+- 10.1 [Use Compound Components Over Polymorphic Children](#101-use-compound-components-over-polymorphic-children)
+
 11. [Monorepo](#11-monorepo) — **LOW**
-   - 11.1 [Install Native Dependencies in App Directory](#111-install-native-dependencies-in-app-directory)
-   - 11.2 [Use Single Dependency Versions Across Monorepo](#112-use-single-dependency-versions-across-monorepo)
+
+- 11.1 [Install Native Dependencies in App Directory](#111-install-native-dependencies-in-app-directory)
+- 11.2 [Use Single Dependency Versions Across Monorepo](#112-use-single-dependency-versions-across-monorepo)
+
 12. [Third-Party Dependencies](#12-third-party-dependencies) — **LOW**
-   - 12.1 [Import from Design System Folder](#121-import-from-design-system-folder)
+
+- 12.1 [Import from Design System Folder](#121-import-from-design-system-folder)
+
 13. [JavaScript](#13-javascript) — **LOW**
-   - 13.1 [Hoist Intl Formatter Creation](#131-hoist-intl-formatter-creation)
+
+- 13.1 [Hoist Intl Formatter Creation](#131-hoist-intl-formatter-creation)
+
 14. [Fonts](#14-fonts) — **LOW**
-   - 14.1 [Load fonts natively at build time](#141-load-fonts-natively-at-build-time)
+
+- 14.1 [Load fonts natively at build time](#141-load-fonts-natively-at-build-time)
 
 ---
 
@@ -355,10 +364,7 @@ function ProductRow({ id }: { id: string }) {
   const user = useContext(UserContext)
   const cart = useContext(CartContext)
   // Bad: expensive computation
-  const recommendations = useMemo(
-    () => computeRecommendations(product),
-    [product]
-  )
+  const recommendations = useMemo(() => computeRecommendations(product), [product])
 
   return <View>{/* ... */}</View>
 }
@@ -527,9 +533,9 @@ Virtualization can now skip items that haven't changed when typing. Only visible
 
 items (~20) re-render on keystroke, rather than the parent.
 
-**Deriving state within list items based on parent data (avoids parent
+\*\*Deriving state within list items based on parent data (avoids parent
 
-re-renders):**
+re-renders):\*\*
 
 For components where the data is conditional based on the parent state, this
 
@@ -710,10 +716,7 @@ function ProductItem({ product }: { product: Product }) {
   return (
     <View>
       {/* 4000x3000 image loaded for a 100x100 thumbnail */}
-      <Image
-        source={{ uri: product.imageUrl }}
-        style={{ width: 100, height: 100 }}
-      />
+      <Image source={{ uri: product.imageUrl }} style={{ width: 100, height: 100 }} />
       <Text>{product.name}</Text>
     </View>
   )
@@ -732,7 +735,7 @@ function ProductItem({ product }: { product: Product }) {
       <Image
         source={{ uri: thumbnailUrl }}
         style={{ width: 100, height: 100 }}
-        contentFit='cover'
+        contentFit="cover"
       />
       <Text>{product.name}</Text>
     </View>
@@ -777,11 +780,7 @@ function ListItem({ item }: { item: Item }) {
 
 function Feed({ items }: { items: Item[] }) {
   return (
-    <LegendList
-      data={items}
-      renderItem={({ item }) => <ListItem item={item} />}
-      recycleItems
-    />
+    <LegendList data={items} renderItem={({ item }) => <ListItem item={item} />} recycleItems />
   )
 }
 ```
@@ -889,9 +888,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 
 function CollapsiblePanel({ expanded }: { expanded: boolean }) {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scaleY: withTiming(expanded ? 1 : 0) },
-    ],
+    transform: [{ scaleY: withTiming(expanded ? 1 : 0) }],
     opacity: withTiming(expanded ? 1 : 0),
   }))
 
@@ -910,9 +907,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 
 function SlideIn({ visible }: { visible: boolean }) {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: withTiming(visible ? 0 : 100) },
-    ],
+    transform: [{ translateY: withTiming(visible ? 0 : 100) }],
     opacity: withTiming(visible ? 1 : 0),
   }))
 
@@ -992,11 +987,7 @@ JS thread round-trip for press animations.
 
 ```tsx
 import { Pressable } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'
 
 function AnimatedButton({ onPress }: { onPress: () => void }) {
   const scale = useSharedValue(1)
@@ -1048,9 +1039,7 @@ function AnimatedButton({ onPress }: { onPress: () => void }) {
 
   // Derive visual values from the state
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: interpolate(withTiming(pressed.get()), [0, 1], [1, 0.95]) },
-    ],
+    transform: [{ scale: interpolate(withTiming(pressed.get()), [0, 1], [1, 0.95]) }],
   }))
 
   return (
@@ -1091,11 +1080,7 @@ for animations or a ref for non-reactive tracking.
 
 ```tsx
 import { useState } from 'react'
-import {
-  ScrollView,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native'
+import { ScrollView, NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 
 function Feed() {
   const [scrollY, setScrollY] = useState(0)
@@ -1111,10 +1096,7 @@ function Feed() {
 **Correct: Reanimated for animations**
 
 ```tsx
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-} from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated'
 
 function Feed() {
   const scrollY = useSharedValue(0)
@@ -1140,11 +1122,7 @@ function Feed() {
 
 ```tsx
 import { useRef } from 'react'
-import {
-  ScrollView,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native'
+import { ScrollView, NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
 
 function Feed() {
   const scrollY = useRef(0)
@@ -1202,8 +1180,8 @@ const Stack = createStackNavigator()
 function App() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name='Home' component={HomeScreen} />
-      <Stack.Screen name='Details' component={DetailsScreen} />
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Details" component={DetailsScreen} />
     </Stack.Navigator>
   )
 }
@@ -1219,8 +1197,8 @@ const Stack = createNativeStackNavigator()
 function App() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name='Home' component={HomeScreen} />
-      <Stack.Screen name='Details' component={DetailsScreen} />
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Details" component={DetailsScreen} />
     </Stack.Navigator>
   )
 }
@@ -1247,8 +1225,8 @@ const Tab = createBottomTabNavigator()
 function App() {
   return (
     <Tab.Navigator>
-      <Tab.Screen name='Home' component={HomeScreen} />
-      <Tab.Screen name='Settings' component={SettingsScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   )
 }
@@ -1265,14 +1243,14 @@ function App() {
   return (
     <Tab.Navigator>
       <Tab.Screen
-        name='Home'
+        name="Home"
         component={HomeScreen}
         options={{
           tabBarIcon: () => ({ sfSymbol: 'house' }),
         }}
       />
       <Tab.Screen
-        name='Settings'
+        name="Settings"
         component={SettingsScreen}
         options={{
           tabBarIcon: () => ({ sfSymbol: 'gear' }),
@@ -1292,13 +1270,13 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs'
 export default function TabLayout() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name='index'>
+      <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf='house.fill' md='home' />
+        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name='settings'>
+      <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf='gear' md='settings' />
+        <NativeTabs.Trigger.Icon sf="gear" md="settings" />
       </NativeTabs.Trigger>
     </NativeTabs>
   )
@@ -1317,10 +1295,10 @@ behind the translucent tab bar. If you need to disable this, use
 
 ```tsx
 <Stack.Screen
-  name='Profile'
+  name="Profile"
   component={ProfileScreen}
   options={{
-    header: () => <CustomHeader title='Profile' />,
+    header: () => <CustomHeader title="Profile" />,
   }}
 />
 ```
@@ -1329,7 +1307,7 @@ behind the translucent tab bar. If you need to disable this, use
 
 ```tsx
 <Stack.Screen
-  name='Profile'
+  name="Profile"
   component={ProfileScreen}
   options={{
     title: 'Profile',
@@ -1949,11 +1927,7 @@ scroll area without re-rendering content.
 
 ```tsx
 function Feed({ bottomOffset }: { bottomOffset: number }) {
-  return (
-    <ScrollView contentContainerStyle={{ paddingBottom: bottomOffset }}>
-      {children}
-    </ScrollView>
-  )
+  return <ScrollView contentContainerStyle={{ paddingBottom: bottomOffset }}>{children}</ScrollView>
 }
 // Changing bottomOffset triggers full layout recalculation
 ```
@@ -2028,7 +2002,7 @@ import { ScrollView, View, Text } from 'react-native'
 
 function MyScreen() {
   return (
-    <ScrollView contentInsetAdjustmentBehavior='automatic'>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View>
         <Text>Content</Text>
       </View>
@@ -2080,12 +2054,7 @@ function Avatar({ url }: { url: string }) {
 **With priority and caching:**
 
 ```tsx
-<Image
-  source={{ uri: url }}
-  priority="high"
-  cachePolicy="memory-disk"
-  style={styles.hero}
-/>
+<Image source={{ uri: url }} priority="high" cachePolicy="memory-disk" style={styles.hero} />
 ```
 
 **Key props:**
@@ -2262,15 +2231,11 @@ function MyMenu() {
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Content>
-        <DropdownMenu.Item key='edit' onSelect={() => console.log('edit')}>
+        <DropdownMenu.Item key="edit" onSelect={() => console.log('edit')}>
           <DropdownMenu.ItemTitle>Edit</DropdownMenu.ItemTitle>
         </DropdownMenu.Item>
 
-        <DropdownMenu.Item
-          key='delete'
-          destructive
-          onSelect={() => console.log('delete')}
-        >
+        <DropdownMenu.Item key="delete" destructive onSelect={() => console.log('delete')}>
           <DropdownMenu.ItemTitle>Delete</DropdownMenu.ItemTitle>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
@@ -2294,11 +2259,11 @@ function MyContextMenu() {
       </ContextMenu.Trigger>
 
       <ContextMenu.Content>
-        <ContextMenu.Item key='copy' onSelect={() => console.log('copy')}>
+        <ContextMenu.Item key="copy" onSelect={() => console.log('copy')}>
           <ContextMenu.ItemTitle>Copy</ContextMenu.ItemTitle>
         </ContextMenu.Item>
 
-        <ContextMenu.Item key='paste' onSelect={() => console.log('paste')}>
+        <ContextMenu.Item key="paste" onSelect={() => console.log('paste')}>
           <ContextMenu.ItemTitle>Paste</ContextMenu.ItemTitle>
         </ContextMenu.Item>
       </ContextMenu.Content>
@@ -2325,7 +2290,7 @@ function SettingsMenu() {
 
       <DropdownMenu.Content>
         <DropdownMenu.CheckboxItem
-          key='notifications'
+          key="notifications"
           value={notifications}
           onValueChange={() => setNotifications((prev) => !prev)}
         >
@@ -2353,21 +2318,21 @@ function MenuWithSubmenu() {
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Content>
-        <DropdownMenu.Item key='home' onSelect={() => console.log('home')}>
+        <DropdownMenu.Item key="home" onSelect={() => console.log('home')}>
           <DropdownMenu.ItemTitle>Home</DropdownMenu.ItemTitle>
         </DropdownMenu.Item>
 
         <DropdownMenu.Sub>
-          <DropdownMenu.SubTrigger key='more'>
+          <DropdownMenu.SubTrigger key="more">
             <DropdownMenu.ItemTitle>More Options</DropdownMenu.ItemTitle>
           </DropdownMenu.SubTrigger>
 
           <DropdownMenu.SubContent>
-            <DropdownMenu.Item key='settings'>
+            <DropdownMenu.Item key="settings">
               <DropdownMenu.ItemTitle>Settings</DropdownMenu.ItemTitle>
             </DropdownMenu.Item>
 
-            <DropdownMenu.Item key='help'>
+            <DropdownMenu.Item key="help">
               <DropdownMenu.ItemTitle>Help</DropdownMenu.ItemTitle>
             </DropdownMenu.Item>
           </DropdownMenu.SubContent>
@@ -2402,7 +2367,7 @@ function MyScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Button onPress={() => sheetRef.current?.expand()} title='Open' />
+      <Button onPress={() => sheetRef.current?.expand()} title="Open" />
       <BottomSheet ref={sheetRef} snapPoints={['50%', '90%']}>
         <View>
           <Text>Sheet content</Text>
@@ -2423,11 +2388,11 @@ function MyScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Button onPress={() => setVisible(true)} title='Open' />
+      <Button onPress={() => setVisible(true)} title="Open" />
       <Modal
         visible={visible}
-        presentationStyle='formSheet'
-        animationType='slide'
+        presentationStyle="formSheet"
+        animationType="slide"
         onRequestClose={() => setVisible(false)}
       >
         <View>
@@ -2444,7 +2409,7 @@ function MyScreen() {
 ```tsx
 // In your navigator
 <Stack.Screen
-  name='Details'
+  name="Details"
   component={DetailsScreen}
   options={{
     presentation: 'formSheet',

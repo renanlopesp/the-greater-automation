@@ -21,16 +21,16 @@ Establish the complete backend infrastructure for Relay: Supabase database schem
 
 ## Constitution Check
 
-*GATE: Must pass before implementation. All 6 principles validated.*
+_GATE: Must pass before implementation. All 6 principles validated._
 
-| # | Principle | Status | Evidence |
-|---|-----------|--------|----------|
-| I | Next.js App Router First | PASS | All new files live under `src/`. Middleware uses Next.js middleware API (`src/middleware.ts`). Server client uses Server Component patterns. QueryProvider is a client component only because it must use React context. |
-| II | shadcn/ui Component System | PASS | No custom UI components created in this phase. shadcn components (avatar, badge, separator, tooltip, dropdown-menu, scroll-area, dialog, command, popover, tabs, table, select, checkbox, textarea, sheet, switch, slider, sidebar) are installed via CLI for future use. Toaster uses sonner (not a shadcn component but specified in the development spec). |
-| III | Tailwind CSS v4 + OKLCH Theming | PASS | No styling changes in this phase. Existing globals.css with OKLCH theme tokens is preserved. Inter font is added via next/font/google (no CSS changes needed). |
-| IV | TypeScript Strict Mode | PASS | All new files are TypeScript. database.types.ts provides full type coverage for all tables. Supabase clients are typed with `Database` generic. No `any` types used. |
-| V | Simplicity and YAGNI | PASS | Only files explicitly required by Phase 1 of the development spec are created. No abstractions beyond what is needed. Supabase clients are thin wrappers. Middleware is a simple route check. No feature flags, no premature optimization. |
-| VI | Supabase as Backend | PASS | Supabase is the sole backend. Auth via `@supabase/ssr`. Database access via typed client. RLS enabled on all tables. Server client uses cookie-based sessions. No custom API routes for CRUD. |
+| #   | Principle                       | Status | Evidence                                                                                                                                                                                                                                                                                                                                                      |
+| --- | ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I   | Next.js App Router First        | PASS   | All new files live under `src/`. Middleware uses Next.js middleware API (`src/middleware.ts`). Server client uses Server Component patterns. QueryProvider is a client component only because it must use React context.                                                                                                                                      |
+| II  | shadcn/ui Component System      | PASS   | No custom UI components created in this phase. shadcn components (avatar, badge, separator, tooltip, dropdown-menu, scroll-area, dialog, command, popover, tabs, table, select, checkbox, textarea, sheet, switch, slider, sidebar) are installed via CLI for future use. Toaster uses sonner (not a shadcn component but specified in the development spec). |
+| III | Tailwind CSS v4 + OKLCH Theming | PASS   | No styling changes in this phase. Existing globals.css with OKLCH theme tokens is preserved. Inter font is added via next/font/google (no CSS changes needed).                                                                                                                                                                                                |
+| IV  | TypeScript Strict Mode          | PASS   | All new files are TypeScript. database.types.ts provides full type coverage for all tables. Supabase clients are typed with `Database` generic. No `any` types used.                                                                                                                                                                                          |
+| V   | Simplicity and YAGNI            | PASS   | Only files explicitly required by Phase 1 of the development spec are created. No abstractions beyond what is needed. Supabase clients are thin wrappers. Middleware is a simple route check. No feature flags, no premature optimization.                                                                                                                    |
+| VI  | Supabase as Backend             | PASS   | Supabase is the sole backend. Auth via `@supabase/ssr`. Database access via typed client. RLS enabled on all tables. Server client uses cookie-based sessions. No custom API routes for CRUD.                                                                                                                                                                 |
 
 ## Project Structure
 
@@ -642,55 +642,55 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON usage FOR EACH ROW EXECUTE FUNCTI
 
 ### Indexes Summary
 
-| Table | Index | Columns | Notes |
-|-------|-------|---------|-------|
-| team_members | idx_team_members_team_id | team_id | Lookup members by team |
-| team_members | idx_team_members_user_id | user_id | Lookup teams by user |
-| agents | idx_agents_team_id | team_id | List agents per team |
-| folders | idx_folders_team_id | team_id | List folders per team |
-| folders | idx_folders_parent_id | parent_id | Navigate folder hierarchy |
-| workflows | idx_workflows_team_id | team_id | List workflows per team |
-| workflows | idx_workflows_folder_id | folder_id | List workflows in folder |
-| workflows | idx_workflows_status | status | Filter by draft/published |
-| workflows | idx_workflows_is_starred | team_id, is_starred (partial) | Quick starred lookup |
-| workflow_steps | idx_workflow_steps_workflow_id | workflow_id | List steps per workflow |
-| agent_skills | idx_agent_skills_agent_id | agent_id | List skills per agent |
-| agent_skills | idx_agent_skills_workflow_id | workflow_id | Reverse lookup |
-| workflow_runs | idx_workflow_runs_workflow_id | workflow_id | List runs per workflow |
-| workflow_runs | idx_workflow_runs_status | status | Filter by run status |
-| workflow_runs | idx_workflow_runs_created_at | created_at DESC | Recent runs first |
-| app_connections | idx_app_connections_user_id | user_id | User's connections |
-| app_connections | idx_app_connections_team_id | team_id | Team's connections |
-| usage | idx_usage_team_id | team_id | Team usage lookup |
-| usage | idx_usage_period | team_id, period_start, period_end | Period range queries |
+| Table           | Index                          | Columns                           | Notes                     |
+| --------------- | ------------------------------ | --------------------------------- | ------------------------- |
+| team_members    | idx_team_members_team_id       | team_id                           | Lookup members by team    |
+| team_members    | idx_team_members_user_id       | user_id                           | Lookup teams by user      |
+| agents          | idx_agents_team_id             | team_id                           | List agents per team      |
+| folders         | idx_folders_team_id            | team_id                           | List folders per team     |
+| folders         | idx_folders_parent_id          | parent_id                         | Navigate folder hierarchy |
+| workflows       | idx_workflows_team_id          | team_id                           | List workflows per team   |
+| workflows       | idx_workflows_folder_id        | folder_id                         | List workflows in folder  |
+| workflows       | idx_workflows_status           | status                            | Filter by draft/published |
+| workflows       | idx_workflows_is_starred       | team_id, is_starred (partial)     | Quick starred lookup      |
+| workflow_steps  | idx_workflow_steps_workflow_id | workflow_id                       | List steps per workflow   |
+| agent_skills    | idx_agent_skills_agent_id      | agent_id                          | List skills per agent     |
+| agent_skills    | idx_agent_skills_workflow_id   | workflow_id                       | Reverse lookup            |
+| workflow_runs   | idx_workflow_runs_workflow_id  | workflow_id                       | List runs per workflow    |
+| workflow_runs   | idx_workflow_runs_status       | status                            | Filter by run status      |
+| workflow_runs   | idx_workflow_runs_created_at   | created_at DESC                   | Recent runs first         |
+| app_connections | idx_app_connections_user_id    | user_id                           | User's connections        |
+| app_connections | idx_app_connections_team_id    | team_id                           | Team's connections        |
+| usage           | idx_usage_team_id              | team_id                           | Team usage lookup         |
+| usage           | idx_usage_period               | team_id, period_start, period_end | Period range queries      |
 
 ### RLS Policy Summary
 
-| Table | SELECT | INSERT | UPDATE | DELETE |
-|-------|--------|--------|--------|--------|
-| profiles | Own profile only | Auto via trigger | Own profile only | N/A (cascades from auth.users) |
-| teams | Team members | Any authenticated user | Team owner only | N/A |
-| team_members | Fellow team members | Owner/admin | Owner/admin | Owner/admin |
-| agents | Team members | Team members | Team members | Owner/admin |
-| folders | Team members | Team members | Team members | Team members |
-| workflows | Team members | Team members | Team members | Owner/admin |
-| workflow_triggers | Via workflow team membership | Via workflow team membership | Via workflow team membership | Via workflow team membership |
-| workflow_steps | Via workflow team membership | Via workflow team membership | Via workflow team membership | Via workflow team membership |
-| agent_skills | Via agent team membership | Via agent team membership | Via agent team membership | Via agent team membership |
-| workflow_runs | Via workflow team membership | Via workflow team membership | Via workflow team membership | N/A |
-| app_connections | Own connections only | Own connections only | Own connections only | Own connections only |
-| usage | Team members | Team owner | Team owner | Team owner |
+| Table             | SELECT                       | INSERT                       | UPDATE                       | DELETE                         |
+| ----------------- | ---------------------------- | ---------------------------- | ---------------------------- | ------------------------------ |
+| profiles          | Own profile only             | Auto via trigger             | Own profile only             | N/A (cascades from auth.users) |
+| teams             | Team members                 | Any authenticated user       | Team owner only              | N/A                            |
+| team_members      | Fellow team members          | Owner/admin                  | Owner/admin                  | Owner/admin                    |
+| agents            | Team members                 | Team members                 | Team members                 | Owner/admin                    |
+| folders           | Team members                 | Team members                 | Team members                 | Team members                   |
+| workflows         | Team members                 | Team members                 | Team members                 | Owner/admin                    |
+| workflow_triggers | Via workflow team membership | Via workflow team membership | Via workflow team membership | Via workflow team membership   |
+| workflow_steps    | Via workflow team membership | Via workflow team membership | Via workflow team membership | Via workflow team membership   |
+| agent_skills      | Via agent team membership    | Via agent team membership    | Via agent team membership    | Via agent team membership      |
+| workflow_runs     | Via workflow team membership | Via workflow team membership | Via workflow team membership | N/A                            |
+| app_connections   | Own connections only         | Own connections only         | Own connections only         | Own connections only           |
+| usage             | Team members                 | Team owner                   | Team owner                   | Team owner                     |
 
 ## Developer Tooling & Testing Infrastructure
 
 ### Testing Stack
 
-| Tool | Purpose | Config File |
-|------|---------|-------------|
-| Vitest | Unit tests & component tests | `vitest.config.ts` |
-| @testing-library/react | Component rendering & assertions | — |
-| Playwright | End-to-end browser tests | `playwright.config.ts` |
-| happy-dom | DOM environment for Vitest | — |
+| Tool                   | Purpose                          | Config File            |
+| ---------------------- | -------------------------------- | ---------------------- |
+| Vitest                 | Unit tests & component tests     | `vitest.config.ts`     |
+| @testing-library/react | Component rendering & assertions | —                      |
+| Playwright             | End-to-end browser tests         | `playwright.config.ts` |
+| happy-dom              | DOM environment for Vitest       | —                      |
 
 ### Vitest Configuration
 
@@ -745,9 +745,7 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'bun run dev',
     url: 'http://localhost:3000',
@@ -758,12 +756,12 @@ export default defineConfig({
 
 ### Code Quality Tools
 
-| Tool | Purpose | Config File |
-|------|---------|-------------|
-| ESLint | Linting (already configured via Next.js) | `eslint.config.mjs` |
-| Prettier | Code formatting | `.prettierrc` |
-| Husky | Git hooks | `.husky/` |
-| lint-staged | Run linters on staged files only | `package.json` |
+| Tool        | Purpose                                  | Config File         |
+| ----------- | ---------------------------------------- | ------------------- |
+| ESLint      | Linting (already configured via Next.js) | `eslint.config.mjs` |
+| Prettier    | Code formatting                          | `.prettierrc`       |
+| Husky       | Git hooks                                | `.husky/`           |
+| lint-staged | Run linters on staged files only         | `package.json`      |
 
 ### Prettier Configuration
 
@@ -838,6 +836,7 @@ relay/
 ## Complexity Tracking
 
 No constitution violations. All files follow the simplest possible implementation:
+
 - Supabase clients are thin wrappers around `@supabase/supabase-js` and `@supabase/ssr`
 - Middleware is a single `if/else` route check with no abstraction layers
 - QueryProvider is a minimal client component wrapper

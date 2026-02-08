@@ -10,6 +10,7 @@
 ### Dependencies Required
 
 **Already installed (via 001-foundation)**:
+
 - `@supabase/supabase-js` -- Supabase client SDK
 - `@supabase/ssr` -- Cookie-based session management for Next.js
 - `react-hook-form` -- Form state management
@@ -18,6 +19,7 @@
 - `sonner` -- Toast notifications
 
 **shadcn/ui components required** (install if not already present):
+
 - `dialog` -- Settings modal container
 - `tabs` -- Settings section switching (alternative to custom sidebar)
 - `input` -- Form text fields
@@ -78,17 +80,14 @@ Browser                     Next.js Server                  Supabase
 
 ```typescript
 // src/lib/schemas/auth.ts
-import { z } from "zod"
+import { z } from 'zod'
 
 export const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
   password: z
     .string()
-    .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters"),
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
 })
 
 export type LoginFormValues = z.infer<typeof loginSchema>
@@ -100,16 +99,13 @@ export type LoginFormValues = z.infer<typeof loginSchema>
 export const signupSchema = z.object({
   fullName: z
     .string()
-    .min(1, "Name is required")
+    .min(1, 'Name is required')
     .transform((val) => val.trim()),
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
   password: z
     .string()
-    .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters"),
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
 })
 
 export type SignupFormValues = z.infer<typeof signupSchema>
@@ -119,12 +115,12 @@ export type SignupFormValues = z.infer<typeof signupSchema>
 
 ```typescript
 // src/lib/schemas/settings.ts
-import { z } from "zod"
+import { z } from 'zod'
 
 export const accountSettingsSchema = z.object({
   fullName: z
     .string()
-    .min(1, "Name is required")
+    .min(1, 'Name is required')
     .transform((val) => val.trim()),
 })
 
@@ -137,7 +133,7 @@ export type AccountSettingsValues = z.infer<typeof accountSettingsSchema>
 export const workspaceSettingsSchema = z.object({
   name: z
     .string()
-    .min(1, "Workspace name is required")
+    .min(1, 'Workspace name is required')
     .transform((val) => val.trim()),
 })
 
@@ -180,48 +176,60 @@ export type WorkspaceSettingsValues = z.infer<typeof workspaceSettingsSchema>
 ```typescript
 // src/lib/data/app-integrations.ts
 
-export type AppAuthType = "oauth" | "api_key" | "google"
+export type AppAuthType = 'oauth' | 'api_key' | 'google'
 
 export type AppCategory =
-  | "Email"
-  | "Communication"
-  | "Productivity"
-  | "CRM"
-  | "Project Management"
-  | "Development"
-  | "Storage"
-  | "Finance"
-  | "E-commerce"
-  | "Marketing"
-  | "Support"
-  | "Design"
-  | "Scheduling"
-  | "Forms"
-  | "Website"
-  | "Database"
-  | "Infrastructure"
-  | "Analytics"
-  | "Monitoring"
-  | "Search"
-  | "Advertising"
-  | "Automation"
-  | "AI"
-  | "Social Media"
-  | "Security"
-  | "Sales"
-  | "Documentation"
+  | 'Email'
+  | 'Communication'
+  | 'Productivity'
+  | 'CRM'
+  | 'Project Management'
+  | 'Development'
+  | 'Storage'
+  | 'Finance'
+  | 'E-commerce'
+  | 'Marketing'
+  | 'Support'
+  | 'Design'
+  | 'Scheduling'
+  | 'Forms'
+  | 'Website'
+  | 'Database'
+  | 'Infrastructure'
+  | 'Analytics'
+  | 'Monitoring'
+  | 'Search'
+  | 'Advertising'
+  | 'Automation'
+  | 'AI'
+  | 'Social Media'
+  | 'Security'
+  | 'Sales'
+  | 'Documentation'
 
 export interface AppIntegration {
   id: string
   name: string
-  logoUrl: string          // path to logo or Lucide icon name as fallback
+  logoUrl: string // path to logo or Lucide icon name as fallback
   category: AppCategory
   authType: AppAuthType
 }
 
 export const APP_INTEGRATIONS: AppIntegration[] = [
-  { id: "gmail", name: "Gmail", logoUrl: "/logos/gmail.svg", category: "Email", authType: "google" },
-  { id: "slack", name: "Slack", logoUrl: "/logos/slack.svg", category: "Communication", authType: "oauth" },
+  {
+    id: 'gmail',
+    name: 'Gmail',
+    logoUrl: '/logos/gmail.svg',
+    category: 'Email',
+    authType: 'google',
+  },
+  {
+    id: 'slack',
+    name: 'Slack',
+    logoUrl: '/logos/slack.svg',
+    category: 'Communication',
+    authType: 'oauth',
+  },
   // ... 105 entries total, sorted alphabetically by name
 ].sort((a, b) => a.name.localeCompare(b.name))
 ```
@@ -232,11 +240,11 @@ export const APP_INTEGRATIONS: AppIntegration[] = [
 
 ```typescript
 // src/lib/actions/auth.ts
-"use server"
+'use server'
 
-import { createServerClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { loginSchema, signupSchema } from "@/lib/schemas/auth"
+import { createServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { loginSchema, signupSchema } from '@/lib/schemas/auth'
 
 export type AuthActionResult = {
   error?: string

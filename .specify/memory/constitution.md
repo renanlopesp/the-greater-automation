@@ -36,18 +36,18 @@ Supabase MUST be the sole backend. Authentication via `@supabase/ssr`. Database 
 
 ## Technology Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Framework | Next.js | 16.1.6 |
-| UI Library | React | 19.2.3 |
-| Styling | Tailwind CSS | v4 |
-| Components | shadcn/ui | new-york style |
-| Language | TypeScript | 5 (strict) |
-| Backend | Supabase | Latest |
-| State (client) | Zustand | Latest |
-| Forms | react-hook-form + zod | Latest |
-| Data Fetching | TanStack React Query | Latest |
-| Package Manager | bun | Latest |
+| Layer           | Technology            | Version        |
+| --------------- | --------------------- | -------------- |
+| Framework       | Next.js               | 16.1.6         |
+| UI Library      | React                 | 19.2.3         |
+| Styling         | Tailwind CSS          | v4             |
+| Components      | shadcn/ui             | new-york style |
+| Language        | TypeScript            | 5 (strict)     |
+| Backend         | Supabase              | Latest         |
+| State (client)  | Zustand               | Latest         |
+| Forms           | react-hook-form + zod | Latest         |
+| Data Fetching   | TanStack React Query  | Latest         |
+| Package Manager | bun                   | Latest         |
 
 ## Project Structure
 
@@ -79,6 +79,7 @@ Path alias: `@/` maps to `src/`.
 ## Governance
 
 This constitution supersedes all other development practices for the Relay project. Amendments require:
+
 1. Documentation of the proposed change
 2. Justification explaining why the current principle is insufficient
 3. Impact assessment on existing specs and implementations

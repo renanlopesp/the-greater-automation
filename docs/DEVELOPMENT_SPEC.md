@@ -11,6 +11,7 @@ Create a 1:1 clone of Relay.app's logged-in dashboard product. The goal is to pr
 ## Phase 1: Foundation & Infrastructure
 
 ### 1.1 Install dependencies
+
 ```bash
 bun add @supabase/supabase-js @supabase/ssr @tanstack/react-query zustand react-hook-form zod @hookform/resolvers date-fns sonner recharts cmdk
 bunx shadcn@latest add avatar badge separator tooltip dropdown-menu scroll-area dialog command popover tabs table select checkbox textarea sheet switch slider sidebar
@@ -18,17 +19,18 @@ bunx shadcn@latest add avatar badge separator tooltip dropdown-menu scroll-area 
 
 ### 1.2 Create files
 
-| File | Purpose |
-|------|---------|
-| `.env.local` | Supabase URL + anon key |
-| `src/lib/supabase/client.ts` | Browser Supabase client |
-| `src/lib/supabase/server.ts` | Server Supabase client (cookies-based) |
-| `src/lib/supabase/database.types.ts` | TypeScript types for all tables |
-| `src/middleware.ts` | Auth middleware - protect `/dashboard/*`, `/workspace/*`, `/runs/*`, `/agents/*`, `/workflows/*` |
-| `src/providers/query-provider.tsx` | TanStack Query provider wrapper |
-| `supabase/schema.sql` | Full database schema (see below) |
+| File                                 | Purpose                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `.env.local`                         | Supabase URL + anon key                                                                          |
+| `src/lib/supabase/client.ts`         | Browser Supabase client                                                                          |
+| `src/lib/supabase/server.ts`         | Server Supabase client (cookies-based)                                                           |
+| `src/lib/supabase/database.types.ts` | TypeScript types for all tables                                                                  |
+| `src/middleware.ts`                  | Auth middleware - protect `/dashboard/*`, `/workspace/*`, `/runs/*`, `/agents/*`, `/workflows/*` |
+| `src/providers/query-provider.tsx`   | TanStack Query provider wrapper                                                                  |
+| `supabase/schema.sql`                | Full database schema (see below)                                                                 |
 
 ### 1.3 Database schema (tables)
+
 - `profiles` (extends auth.users): id, email, full_name, avatar_url
 - `teams`: id, name, slug, avatar_url
 - `team_members`: team_id, user_id, role (owner/admin/member)
@@ -45,6 +47,7 @@ bunx shadcn@latest add avatar badge separator tooltip dropdown-menu scroll-area 
 All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workflow_id), workflow_steps(workflow_id), agent_skills(agent_id), team_members(team_id).
 
 ### 1.4 Update root layout
+
 - `src/app/layout.tsx`: Wrap with QueryProvider, add Toaster (sonner), use Inter font
 
 ---
@@ -52,6 +55,7 @@ All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workf
 ## Phase 2: Navigation & Layout
 
 ### 2.1 App Sidebar (`src/components/app-sidebar.tsx`)
+
 - Icon-based left sidebar (w-16), collapsible
 - Top: Logo (blue rounded square with "R"), "Create new" button (+)
 - Nav items: Home, Search, Workspace, Runs, Apps, Support
@@ -60,12 +64,14 @@ All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workf
 - Hover expand to show labels (optional, can be icon-only like Relay)
 
 ### 2.2 Command Menu (`src/components/command-menu.tsx`)
+
 - `Ctrl+K` keyboard shortcut to open
 - Search bar visible at top of dashboard: "Type Ctrl K to search"
 - Uses shadcn `command` component (cmdk)
 - Search across workflows, agents, runs
 
 ### 2.3 Dashboard layout (`src/app/(dashboard)/layout.tsx`)
+
 - Server component, fetches user/team/usage from Supabase
 - Renders AppSidebar + main content area
 - Redirects to `/login` if unauthenticated
@@ -75,12 +81,14 @@ All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workf
 ## Phase 3: Dashboard & Workspace Pages
 
 ### 3.1 Dashboard page (`src/app/(dashboard)/dashboard/page.tsx`)
+
 - **Top**: Search bar (Ctrl+K trigger)
 - **Team section**: Avatar + team name (e.g., "R's team")
 - **Agents grid**: Cards showing agent avatar (animated dots pattern), name, description, skills list with emoji, skill count badge. Last card = "Create new agent" with dashed border and + icon.
 - **Workflows section**: Title with link icon, tabs (Needs attention | Recently edited | Recently run | Starred), filter + add buttons. Workflow list items showing: emoji, status badge (Draft/Published), name, published time, total runs count, activity sparkline, last run time.
 
 ### 3.2 Workspace page (`src/app/(dashboard)/workspace/page.tsx`)
+
 - **Header**: "Workspace" title + "New folder" button + "New workflow" split button (dropdown: from template, blank)
 - **Filters**: Search input, Created by dropdown, Status dropdown, Type dropdown
 - **View toggles**: Folder view, List view, Graph view (3 icon buttons)
@@ -88,6 +96,7 @@ All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workf
 - Rows show agent rows (expandable with arrow) and workflow rows (emoji + name)
 
 ### 3.3 Runs page (`src/app/(dashboard)/runs/page.tsx`)
+
 - **Header**: "Runs" title
 - **Filters**: Search input, Status dropdown, Workflow dropdown
 - **Empty state**: Illustration (3 stacked cards), "No runs yet. View workflows" link
@@ -98,15 +107,18 @@ All tables with RLS enabled. Indexes on: workflows(team_id), workflow_runs(workf
 ## Phase 4: Workflow Editor (CRITICAL)
 
 ### 4.1 Zustand store (`src/stores/workflow-editor-store.ts`)
+
 State: workflowId, workflowName, workflowEmoji, isStarred, trigger, steps[], selectedStepId, isAssistantOpen
 Actions: setTrigger, addStep, updateStep, deleteStep, reorderSteps, selectStep, toggleAssistant
 
 ### 4.2 Editor page (`src/app/(dashboard)/workflows/[id]/edit/page.tsx`)
+
 - **Top bar**: Emoji + editable name input + star toggle + dropdown (rename/change emoji/duplicate) + notifications bell + add person + "Sharing" button + more (...)
 - **Tabs**: Editor | Runs (Editor is default)
 - **Layout**: 3-panel: AI Assistant (left, 320px collapsible) | Step canvas (center) | Step config (right, shown when step selected)
 
 ### 4.3 AI Assistant panel (`src/components/workflow-editor/ai-assistant-panel.tsx`)
+
 - Header: Relay.app logo + "Relay.app Assistant" + dock/collapse button
 - Welcome: Diamond icon, "What can I help you build?"
 - Input: Textarea "Describe a workflow or ask a question" + send button
@@ -114,7 +126,9 @@ Actions: setTrigger, addStep, updateStep, deleteStep, reorderSteps, selectStep, 
 - Collapsible: toggles via store, shows "Open Assistant" button when closed
 
 ### 4.4 Trigger selector (`src/components/workflow-editor/trigger-selector.tsx`)
+
 Dialog/panel with search input + 9 trigger types:
+
 1. **Apps** - Start runs based on actions in other apps (has sub-menu →)
 2. **Manual** - Start runs by clicking a button
 3. **Scheduled** - Start runs on a recurring schedule
@@ -126,7 +140,9 @@ Dialog/panel with search input + 9 trigger types:
 9. **MCP Server** - Create MCP server for Cursor/Claude
 
 ### 4.5 Step selector (`src/components/workflow-editor/step-selector.tsx`)
+
 Dialog/panel with search input + 8 categories:
+
 1. **Apps** - Automate actions in Gmail, Notion, HubSpot etc.
 2. **Flow control** - Paths, waiting, looping
 3. **AI** - Summarizing, extracting
@@ -139,6 +155,7 @@ Dialog/panel with search input + 8 categories:
 Plus "CONNECTED APPS" section: Email, LinkedIn, X (Twitter), YouTube
 
 ### 4.6 Step canvas (center panel)
+
 - **NOT React Flow** - vertical sequential step list
 - Trigger block at top (card with "Trigger" header + "Add trigger" button)
 - When trigger set: shows icon + type name + config summary
@@ -148,6 +165,7 @@ Plus "CONNECTED APPS" section: Email, LinkedIn, X (Twitter), YouTube
 - Step config panel opens on right when step clicked
 
 ### 4.7 Step config panel (right side)
+
 - Header: step icon + step name (editable) + "Run as" avatar + delete/settings buttons
 - Description text about what this step does
 - Config form fields (varies by step type)
@@ -159,18 +177,22 @@ Plus "CONNECTED APPS" section: Email, LinkedIn, X (Twitter), YouTube
 ## Phase 5: Agent System
 
 ### 5.1 Agent detail page (`src/app/(dashboard)/agents/[id]/page.tsx`)
+
 **Left panel (w-96, bg-muted/30):**
+
 - Agent avatar: Animated concentric dots pattern in blue circle (24x24 grid of small circles with staggered pulse animation)
 - Agent name (h1) + description text
 - "Skills" section: Cards with emoji icon + skill name + "Never ran" / last run time. "New skill" button with dropdown.
 - Bottom: Chat input "Chat with [Agent Name]..." + send button
 
 **Right panel:**
+
 - "Recent activity" section: 6-month heatmap calendar (similar to GitHub contribution graph). Months: columns, days: cells. Color intensity = run count. Days of week labels (S M T W T F S).
 - Below calendar: two small progress indicators (steps + AI)
 - Run history: empty state = illustration + "No runs yet." / populated = run list items
 
 ### 5.2 Activity heatmap (`src/components/agent-detail/activity-heatmap.tsx`)
+
 - Uses date-fns for date calculations
 - 6 months of data shown
 - Grid of colored cells (bg-muted = 0, blue-200 = low, blue-400 = medium, blue-600 = high)
@@ -181,6 +203,7 @@ Plus "CONNECTED APPS" section: Email, LinkedIn, X (Twitter), YouTube
 ## Phase 6: Settings & Auth
 
 ### 6.1 Settings dialog (`src/components/settings-dialog.tsx`)
+
 - Opens as modal dialog (max-w-5xl, 80vh)
 - Left sidebar navigation:
   - **PERSONAL**: Account, Notifications, Manage apps
@@ -189,11 +212,13 @@ Plus "CONNECTED APPS" section: Email, LinkedIn, X (Twitter), YouTube
 - Other sections: Form-based settings pages
 
 ### 6.2 Auth pages
+
 - `src/app/(auth)/login/page.tsx`: Email/password form + Google OAuth button
 - `src/app/(auth)/signup/page.tsx`: Similar with name field added
 - `src/app/auth/callback/route.ts`: OAuth callback handler
 
 ### 6.3 Landing page (`src/app/page.tsx`)
+
 - Simple redirect to `/login` or `/dashboard` based on auth state
 
 ---

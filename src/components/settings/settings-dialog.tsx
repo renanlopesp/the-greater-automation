@@ -68,7 +68,7 @@ export default function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-5xl overflow-hidden p-0">
+      <DialogContent className="max-h-[80vh] max-w-5xl overflow-hidden p-0 sm:max-w-5xl">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your account and workspace settings

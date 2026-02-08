@@ -53,7 +53,7 @@ import { ScrollView, View, Text } from 'react-native'
 
 function MyScreen() {
   return (
-    <ScrollView contentInsetAdjustmentBehavior='automatic'>
+    <ScrollView contentInsetAdjustmentBehavior="automatic">
       <View>
         <Text>Content</Text>
       </View>

@@ -127,18 +127,34 @@ CREATE TABLE team_members (
 
 ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Team members can view memberships of their teams"
+CREATE POLICY "Users can view own team memberships"
   ON team_members FOR SELECT
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Team owners/admins can insert members"
+  ON team_members FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM team_members AS tm
+      WHERE tm.team_id = team_members.team_id
+        AND tm.user_id = auth.uid()
+        AND tm.role IN ('owner', 'admin')
+    )
+  );
+
+CREATE POLICY "Team owners/admins can update members"
+  ON team_members FOR UPDATE
   USING (
     EXISTS (
       SELECT 1 FROM team_members AS tm
       WHERE tm.team_id = team_members.team_id
         AND tm.user_id = auth.uid()
+        AND tm.role IN ('owner', 'admin')
     )
   );
 
-CREATE POLICY "Team owners/admins can manage memberships"
-  ON team_members FOR ALL
+CREATE POLICY "Team owners/admins can delete members"
+  ON team_members FOR DELETE
   USING (
     EXISTS (
       SELECT 1 FROM team_members AS tm

@@ -22,7 +22,7 @@ function MyScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Button onPress={() => sheetRef.current?.expand()} title='Open' />
+      <Button onPress={() => sheetRef.current?.expand()} title="Open" />
       <BottomSheet ref={sheetRef} snapPoints={['50%', '90%']}>
         <View>
           <Text>Sheet content</Text>
@@ -43,11 +43,11 @@ function MyScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Button onPress={() => setVisible(true)} title='Open' />
+      <Button onPress={() => setVisible(true)} title="Open" />
       <Modal
         visible={visible}
-        presentationStyle='formSheet'
-        animationType='slide'
+        presentationStyle="formSheet"
+        animationType="slide"
         onRequestClose={() => setVisible(false)}
       >
         <View>
@@ -64,7 +64,7 @@ function MyScreen() {
 ```tsx
 // In your navigator
 <Stack.Screen
-  name='Details'
+  name="Details"
   component={DetailsScreen}
   options={{
     presentation: 'formSheet',

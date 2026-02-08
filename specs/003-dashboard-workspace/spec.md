@@ -5,6 +5,7 @@
 This feature implements the three primary data-viewing pages of the Relay application: the Dashboard (home page), the Workspace (file-manager-style view), and the Runs page (execution history). Together these pages provide the user's primary interface for monitoring agents, browsing workflows, and inspecting run history.
 
 **Depends on:**
+
 - 001-foundation: Database schema (`profiles`, `teams`, `agents`, `workflows`, `workflow_runs`, `agent_skills`, `usage`), TypeScript types (`database.types.ts`), Supabase clients, middleware
 - 002-navigation-layout: `AppSidebar`, `CommandMenu`, `(dashboard)/layout.tsx`, QueryProvider
 
@@ -52,6 +53,7 @@ This feature implements the three primary data-viewing pages of the Relay applic
 9. Maximum of **20 workflow items** per tab; no pagination in v1 (YAGNI).
 
 #### Edge Cases
+
 - Zero agents: show only the "Create new agent" card.
 - Zero workflows in all tabs: show empty state in the default tab.
 - Agent with zero skills: show "No skills yet" in muted text instead of skills list.
@@ -100,6 +102,7 @@ This feature implements the three primary data-viewing pages of the Relay applic
 8. **Loading state**: skeleton rows (8 rows) with shimmer animation matching column widths.
 
 #### Edge Cases
+
 - Zero items: empty state with CTA.
 - Many items (50+): virtual scrolling not required in v1; render all rows.
 - Long workflow names: truncated with ellipsis in the Name column (max-width via `truncate` + `max-w-[300px]`).
@@ -142,6 +145,7 @@ This feature implements the three primary data-viewing pages of the Relay applic
 7. **Auto-refresh**: runs table polls every 10 seconds when there are runs in "Pending" or "Running" status. Uses React Query `refetchInterval`.
 
 #### Edge Cases
+
 - Zero runs: empty state with illustration.
 - Run in progress: duration shows "--" and status badge has pulsing dot animation.
 - Run with zero steps: steps column shows "0".
@@ -154,34 +158,40 @@ This feature implements the three primary data-viewing pages of the Relay applic
 ## Functional Requirements
 
 ### FR1: Card Dimensions & Grid Layout
+
 - Agent cards: min-height 180px, padding 16px (p-4). Card uses shadcn `Card` component.
 - Animated avatar area: 64x64px (h-16 w-16), rounded-full, overflow-hidden.
 - Grid gap: 16px (`gap-4`).
 - Dashboard max-width: 1280px (`max-w-7xl`), centered with `mx-auto`.
 
 ### FR2: Tab Behavior
+
 - Tabs are client-side only (no URL change). State stored in React `useState`.
 - Tab content fetches data via React Query with the tab value as a query key parameter.
 - Stale time: 30 seconds. Background refetch on window focus.
 - Tab switch is instant (cached data shown while refetching).
 
 ### FR3: Table Sort Logic
+
 - Workspace table Name column sort: case-insensitive alphabetical.
 - Sort state managed in local React state.
 - Sort indicator: `ArrowUp` or `ArrowDown` icon from lucide-react next to header text.
 
 ### FR4: Filter Logic
+
 - All filters apply client-side over the fetched dataset.
 - Search is debounced at 300ms using a custom `useDebounce` hook.
 - Filters compose with AND logic.
 - Clearing a filter resets it to its default ("All ...") value.
 
 ### FR5: Empty States
+
 - Each page/section has a unique empty state.
 - Empty states include an illustration or icon, a primary message, and optionally a CTA button or link.
 - Empty state components are reusable: `<EmptyState icon={...} title="..." description="..." action={...} />`.
 
 ### FR6: Loading States
+
 - All server-fetched sections show skeleton placeholders while loading.
 - Dashboard: 4 skeleton agent cards + 5 skeleton workflow list items.
 - Workspace: 8 skeleton table rows.
@@ -189,6 +199,7 @@ This feature implements the three primary data-viewing pages of the Relay applic
 - Skeletons use shadcn's built-in skeleton pattern (bg-muted with pulse animation).
 
 ### FR7: Sparkline Rendering
+
 - Uses recharts `<LineChart>` in a tiny container (80x24px).
 - Data: array of 14 objects `{ day: number, count: number }` representing runs per day for the last 14 days.
 - Line color: `hsl(var(--primary))`.
@@ -199,16 +210,16 @@ This feature implements the three primary data-viewing pages of the Relay applic
 
 ## Key Entities (from 001-foundation schema)
 
-| Entity | Key Fields | Used In |
-|--------|-----------|---------|
-| `teams` | id, name, slug, avatar_url | Dashboard team section |
-| `agents` | id, team_id, name, description, avatar_url, avatar_type | Dashboard agent grid, Workspace table |
-| `agent_skills` | id, agent_id, workflow_id, name, last_run_at, run_count | Dashboard agent cards (skills list) |
-| `workflows` | id, team_id, folder_id, name, emoji, status, is_starred, published_at, created_by | Dashboard workflows list, Workspace table |
-| `workflow_runs` | id, workflow_id, agent_id, status, steps_used, ai_credits_used, started_at, completed_at | Dashboard sparklines, Runs table |
-| `workflow_steps` | id, workflow_id, position, type | Workspace table (Steps column), Runs table (steps used) |
-| `profiles` | id, email, full_name, avatar_url | Workspace table (Created by column) |
-| `usage` | team_id, steps_used, steps_limit, ai_credits_used, ai_credits_limit | Sidebar usage meters (from 002) |
+| Entity           | Key Fields                                                                               | Used In                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `teams`          | id, name, slug, avatar_url                                                               | Dashboard team section                                  |
+| `agents`         | id, team_id, name, description, avatar_url, avatar_type                                  | Dashboard agent grid, Workspace table                   |
+| `agent_skills`   | id, agent_id, workflow_id, name, last_run_at, run_count                                  | Dashboard agent cards (skills list)                     |
+| `workflows`      | id, team_id, folder_id, name, emoji, status, is_starred, published_at, created_by        | Dashboard workflows list, Workspace table               |
+| `workflow_runs`  | id, workflow_id, agent_id, status, steps_used, ai_credits_used, started_at, completed_at | Dashboard sparklines, Runs table                        |
+| `workflow_steps` | id, workflow_id, position, type                                                          | Workspace table (Steps column), Runs table (steps used) |
+| `profiles`       | id, email, full_name, avatar_url                                                         | Workspace table (Created by column)                     |
+| `usage`          | team_id, steps_used, steps_limit, ai_credits_used, ai_credits_limit                      | Sidebar usage meters (from 002)                         |
 
 ---
 

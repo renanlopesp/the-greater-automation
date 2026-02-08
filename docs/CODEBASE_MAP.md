@@ -91,13 +91,14 @@ relay/
 **Purpose**: Next.js App Router entry points and global styles
 **Entry point**: `layout.tsx` (root layout wrapping all pages)
 
-| File | Purpose | Tokens |
-|------|---------|--------|
-| `layout.tsx` | Root layout with Geist fonts and metadata | 176 |
-| `page.tsx` | Home page at `/` (Server Component) | 660 |
-| `globals.css` | Tailwind v4 config, CSS variables, dark mode theme | 1,705 |
+| File          | Purpose                                            | Tokens |
+| ------------- | -------------------------------------------------- | ------ |
+| `layout.tsx`  | Root layout with Geist fonts and metadata          | 176    |
+| `page.tsx`    | Home page at `/` (Server Component)                | 660    |
+| `globals.css` | Tailwind v4 config, CSS variables, dark mode theme | 1,705  |
 
 **Key details**:
+
 - `layout.tsx` loads Geist Sans + Geist Mono via `next/font/google`, exports metadata
 - `page.tsx` is a Server Component using `next/image` for optimized images
 - `globals.css` uses Tailwind v4 CSS-first config with OKLCH color space, `@theme inline` for variable mapping, and class-based dark mode via `@custom-variant dark`
@@ -107,14 +108,15 @@ relay/
 **Purpose**: shadcn/ui components following the "new-york" style variant
 **All components import**: `cn` from `@/lib/utils`
 
-| File | Purpose | Tokens |
-|------|---------|--------|
-| `button.tsx` | Polymorphic button with 6 variants + 8 sizes via CVA | 644 |
-| `card.tsx` | Composable card with 7 sub-components (Header, Title, etc.) | 504 |
-| `input.tsx` | Styled input extending native `<input>` props | 222 |
-| `label.tsx` | Accessible label wrapping Radix UI Label primitive | 139 |
+| File         | Purpose                                                     | Tokens |
+| ------------ | ----------------------------------------------------------- | ------ |
+| `button.tsx` | Polymorphic button with 6 variants + 8 sizes via CVA        | 644    |
+| `card.tsx`   | Composable card with 7 sub-components (Header, Title, etc.) | 504    |
+| `input.tsx`  | Styled input extending native `<input>` props               | 222    |
+| `label.tsx`  | Accessible label wrapping Radix UI Label primitive          | 139    |
 
 **Patterns**:
+
 - CVA (class-variance-authority) for variant management in Button
 - Radix UI primitives for accessible headless behavior (Button Slot, Label)
 - `data-slot` attributes on all components for CSS targeting
@@ -129,22 +131,22 @@ relay/
 **Purpose**: Shared utility functions
 **Entry point**: `utils.ts`
 
-| File | Purpose | Tokens |
-|------|---------|--------|
-| `utils.ts` | `cn()` function combining clsx + tailwind-merge | 45 |
+| File       | Purpose                                         | Tokens |
+| ---------- | ----------------------------------------------- | ------ |
+| `utils.ts` | `cn()` function combining clsx + tailwind-merge | 45     |
 
 **How `cn()` works**: `clsx` combines conditional classes into a string, then `twMerge` resolves Tailwind conflicts (e.g., `px-2 px-4` becomes `px-4`).
 
 ### Configuration
 
-| File | Purpose | Tokens |
-|------|---------|--------|
-| `components.json` | shadcn/ui config: new-york style, RSC, Lucide icons, CSS vars | 149 |
-| `eslint.config.mjs` | ESLint v9 flat config with Next.js Core Web Vitals + TS | 115 |
-| `next.config.ts` | Next.js config (minimal/empty) | 30 |
-| `postcss.config.mjs` | PostCSS with `@tailwindcss/postcss` plugin (Tailwind v4) | 24 |
-| `tsconfig.json` | Strict TS, bundler resolution, `@/*` path alias to `src/*` | 206 |
-| `package.json` | Project deps & scripts (dev, build, start, lint) | 281 |
+| File                 | Purpose                                                       | Tokens |
+| -------------------- | ------------------------------------------------------------- | ------ |
+| `components.json`    | shadcn/ui config: new-york style, RSC, Lucide icons, CSS vars | 149    |
+| `eslint.config.mjs`  | ESLint v9 flat config with Next.js Core Web Vitals + TS       | 115    |
+| `next.config.ts`     | Next.js config (minimal/empty)                                | 30     |
+| `postcss.config.mjs` | PostCSS with `@tailwindcss/postcss` plugin (Tailwind v4)      | 24     |
+| `tsconfig.json`      | Strict TS, bundler resolution, `@/*` path alias to `src/*`    | 206    |
+| `package.json`       | Project deps & scripts (dev, build, start, lint)              | 281    |
 
 ## Data Flow
 
@@ -167,17 +169,17 @@ sequenceDiagram
 
 ## Tech Stack
 
-| Technology | Version | Purpose |
-|-----------|---------|---------|
-| Next.js | 16.1.6 | React framework (App Router, Turbopack) |
-| React | 19.2.3 | UI library |
-| TypeScript | 5.x | Type safety (strict mode) |
-| Tailwind CSS | 4.x | Utility-first CSS (CSS-first config) |
-| shadcn/ui | 3.8.4 | Component library (new-york style) |
-| Radix UI | 1.4.3 | Headless accessible primitives |
-| CVA | 0.7.1 | Component variant management |
-| Lucide React | 0.563.0 | Icon library |
-| ESLint | 9.x | Linting (flat config) |
+| Technology   | Version | Purpose                                 |
+| ------------ | ------- | --------------------------------------- |
+| Next.js      | 16.1.6  | React framework (App Router, Turbopack) |
+| React        | 19.2.3  | UI library                              |
+| TypeScript   | 5.x     | Type safety (strict mode)               |
+| Tailwind CSS | 4.x     | Utility-first CSS (CSS-first config)    |
+| shadcn/ui    | 3.8.4   | Component library (new-york style)      |
+| Radix UI     | 1.4.3   | Headless accessible primitives          |
+| CVA          | 0.7.1   | Component variant management            |
+| Lucide React | 0.563.0 | Icon library                            |
+| ESLint       | 9.x     | Linting (flat config)                   |
 
 ## Conventions
 

@@ -5,6 +5,7 @@
 ### Dependencies (from 001-foundation)
 
 Already installed or expected:
+
 - `@supabase/supabase-js`, `@supabase/ssr` -- data fetching
 - `@tanstack/react-query` -- client-side caching, polling, refetching
 - `recharts` -- sparkline rendering
@@ -15,6 +16,7 @@ Already installed or expected:
 ### shadcn/ui Components Required
 
 Already added or expected from 002-navigation-layout:
+
 - `tabs` -- workflow tabs on dashboard
 - `table` -- workspace table, runs table
 - `badge` -- status badges (Draft/Published, run status)
@@ -31,20 +33,21 @@ Already added or expected from 002-navigation-layout:
 - `input` -- already present
 
 If `skeleton` is not yet added:
+
 ```bash
 bunx shadcn@latest add skeleton
 ```
 
 ### Constitution Check
 
-| Principle | Compliance |
-|-----------|-----------|
-| App Router first | All pages are `page.tsx` inside `src/app/(dashboard)/`. Server Components for data fetching. |
-| shadcn/ui | All UI built from shadcn primitives. No custom UI reinventions. |
-| Tailwind v4 | CSS-first config. All styling via utility classes + `cn()`. |
-| TypeScript strict | All components fully typed. Interfaces for all props. |
-| YAGNI | No pagination on dashboard (max 20 items). No drag-and-drop. No inline editing. No virtual scroll. Folder/Graph views deferred. |
-| Supabase | All data from Supabase tables. Server-side initial fetch, client-side React Query for interactivity. |
+| Principle         | Compliance                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| App Router first  | All pages are `page.tsx` inside `src/app/(dashboard)/`. Server Components for data fetching.                                    |
+| shadcn/ui         | All UI built from shadcn primitives. No custom UI reinventions.                                                                 |
+| Tailwind v4       | CSS-first config. All styling via utility classes + `cn()`.                                                                     |
+| TypeScript strict | All components fully typed. Interfaces for all props.                                                                           |
+| YAGNI             | No pagination on dashboard (max 20 items). No drag-and-drop. No inline editing. No virtual scroll. Folder/Graph views deferred. |
+| Supabase          | All data from Supabase tables. Server-side initial fetch, client-side React Query for interactivity.                            |
 
 ---
 
@@ -99,117 +102,117 @@ src/app/(dashboard)/runs/page.tsx                (Server Component)
 // --- Shared ---
 
 interface EmptyStateProps {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
+  icon: React.ReactNode
+  title: string
+  description?: string
   action?: {
-    label: string;
-    href?: string;
-    onClick?: () => void;
-  };
+    label: string
+    href?: string
+    onClick?: () => void
+  }
 }
 
 interface StatusBadgeProps {
-  status: "draft" | "published";
+  status: 'draft' | 'published'
 }
 
 interface RunStatusBadgeProps {
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 }
 
 interface ActivitySparklineProps {
-  data: { day: number; count: number }[];
+  data: { day: number; count: number }[]
 }
 
 // --- Dashboard ---
 
 interface AgentCardProps {
   agent: {
-    id: string;
-    name: string;
-    description: string | null;
-    avatar_url: string | null;
-    avatar_type: string | null;
-  };
+    id: string
+    name: string
+    description: string | null
+    avatar_url: string | null
+    avatar_type: string | null
+  }
   skills: {
-    id: string;
-    name: string;
-    emoji?: string;
-  }[];
+    id: string
+    name: string
+    emoji?: string
+  }[]
 }
 
 interface SkillChipProps {
-  emoji: string;
-  name: string;
+  emoji: string
+  name: string
 }
 
 interface WorkflowListItemProps {
   workflow: {
-    id: string;
-    name: string;
-    emoji: string;
-    status: "draft" | "published";
-    published_at: string | null;
-    total_runs: number;
-    last_run_at: string | null;
-    sparkline_data: { day: number; count: number }[];
-  };
+    id: string
+    name: string
+    emoji: string
+    status: 'draft' | 'published'
+    published_at: string | null
+    total_runs: number
+    last_run_at: string | null
+    sparkline_data: { day: number; count: number }[]
+  }
 }
 
 interface TeamSectionProps {
   team: {
-    name: string;
-    avatar_url: string | null;
-  };
+    name: string
+    avatar_url: string | null
+  }
 }
 
 // --- Workspace ---
 
 interface WorkspaceTableProps {
-  items: (WorkspaceAgent | WorkspaceWorkflow)[];
-  sortColumn: "name";
-  sortDirection: "asc" | "desc";
-  onSortChange: (direction: "asc" | "desc") => void;
-  selectedIds: Set<string>;
-  onSelectionChange: (ids: Set<string>) => void;
+  items: (WorkspaceAgent | WorkspaceWorkflow)[]
+  sortColumn: 'name'
+  sortDirection: 'asc' | 'desc'
+  onSortChange: (direction: 'asc' | 'desc') => void
+  selectedIds: Set<string>
+  onSelectionChange: (ids: Set<string>) => void
 }
 
 interface WorkspaceAgent {
-  type: "agent";
-  id: string;
-  name: string;
-  avatar_url: string | null;
-  created_by: { id: string; full_name: string; avatar_url: string | null };
-  workflows: WorkspaceWorkflow[];
+  type: 'agent'
+  id: string
+  name: string
+  avatar_url: string | null
+  created_by: { id: string; full_name: string; avatar_url: string | null }
+  workflows: WorkspaceWorkflow[]
 }
 
 interface WorkspaceWorkflow {
-  type: "workflow";
-  id: string;
-  name: string;
-  emoji: string;
-  status: "draft" | "published";
-  last_run_at: string | null;
-  created_by: { id: string; full_name: string; avatar_url: string | null };
-  published_at: string | null;
-  step_count: number;
-  has_ai_steps: boolean;
+  type: 'workflow'
+  id: string
+  name: string
+  emoji: string
+  status: 'draft' | 'published'
+  last_run_at: string | null
+  created_by: { id: string; full_name: string; avatar_url: string | null }
+  published_at: string | null
+  step_count: number
+  has_ai_steps: boolean
 }
 
 // --- Runs ---
 
 interface RunRowProps {
   run: {
-    id: string;
-    workflow_id: string;
-    workflow_name: string;
-    workflow_emoji: string;
-    status: "pending" | "running" | "completed" | "failed" | "cancelled";
-    started_at: string | null;
-    completed_at: string | null;
-    steps_used: number;
-    ai_credits_used: number;
-  };
+    id: string
+    workflow_id: string
+    workflow_name: string
+    workflow_emoji: string
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+    started_at: string | null
+    completed_at: string | null
+    steps_used: number
+    ai_credits_used: number
+  }
 }
 ```
 
@@ -220,6 +223,7 @@ interface RunRowProps {
 ### Server-Side (Initial Load)
 
 Each page's server component fetches initial data from Supabase using the server client (`src/lib/supabase/server.ts`). This ensures:
+
 - Fast initial render (no client-side waterfall).
 - SEO-friendly content (though these are authenticated pages).
 - Reduced client bundle size.
@@ -243,6 +247,7 @@ Runs page.tsx:
 ### Client-Side (Interactivity)
 
 React Query handles:
+
 - **Tab switching** on dashboard: each tab is a separate query key (`["workflows", teamId, tabValue]`). Stale time 30s.
 - **Filtering** on workspace/runs: client-side filtering over the pre-fetched dataset. No additional API calls for simple filters.
 - **Search**: debounced at 300ms, filters in-memory.
@@ -253,15 +258,13 @@ React Query handles:
 
 ```typescript
 // Dashboard
-["team", teamId]
-["agents", teamId]
-["workflows", teamId, tab]  // tab = "needs-attention" | "recently-edited" | "recently-run" | "starred"
-
-// Workspace
-["workspace-items", teamId, { search, createdBy, status, type, sort }]
-
-// Runs
-["runs", teamId, { search, status, workflowId }]
+;['team', teamId][('agents', teamId)][('workflows', teamId, tab)][ // tab = "needs-attention" | "recently-edited" | "recently-run" | "starred"
+  // Workspace
+  ('workspace-items', teamId, { search, createdBy, status, type, sort })
+][
+  // Runs
+  ('runs', teamId, { search, status, workflowId })
+]
 ```
 
 ---
@@ -340,10 +343,10 @@ src/
 
 ## Risk Assessment
 
-| Risk | Mitigation |
-|------|-----------|
-| Recharts bundle size for sparklines | Import only `LineChart` and `Line` (tree-shakeable). Sparkline is a tiny component. |
-| Complex join queries for dashboard | Pre-compute aggregates in Supabase views or use RPC functions if joins are too slow. |
-| Client-side filtering on large datasets | Cap at 50 items for workspace, 50 for runs. "Load more" for pagination. |
-| Animated avatar performance | Use CSS animations only (no JS animation loop). Use `will-change: opacity` hint. |
-| Many re-renders from filter changes | Debounce search input. Memoize filtered results with `useMemo`. |
+| Risk                                    | Mitigation                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------ |
+| Recharts bundle size for sparklines     | Import only `LineChart` and `Line` (tree-shakeable). Sparkline is a tiny component.  |
+| Complex join queries for dashboard      | Pre-compute aggregates in Supabase views or use RPC functions if joins are too slow. |
+| Client-side filtering on large datasets | Cap at 50 items for workspace, 50 for runs. "Load more" for pagination.              |
+| Animated avatar performance             | Use CSS animations only (no JS animation loop). Use `will-change: opacity` hint.     |
+| Many re-renders from filter changes     | Debounce search input. Memoize filtered results with `useMemo`.                      |

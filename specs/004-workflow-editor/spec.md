@@ -29,6 +29,7 @@ A user navigates to `/workflows/:id/edit` and sees the full workflow editor. The
    - No numbered steps (empty workflow)
 
 4. **Given** the Zustand store is initialized, **When** the editor page mounts, **Then** the store state is:
+
    ```
    workflowId: string (from URL param)
    workflowName: "Untitled workflow"
@@ -220,114 +221,114 @@ Each trigger type has a distinct config shape stored as JSONB:
 ```typescript
 // 1. Apps trigger
 type AppsTriggerConfig = {
-  app_id: string;           // Selected app (e.g., "gmail", "slack")
-  event: string;            // App-specific event (e.g., "new_email", "new_message")
-  filters: Record<string, string>; // Optional filters (e.g., { label: "important" })
-};
+  app_id: string // Selected app (e.g., "gmail", "slack")
+  event: string // App-specific event (e.g., "new_email", "new_message")
+  filters: Record<string, string> // Optional filters (e.g., { label: "important" })
+}
 
 // 2. Manual trigger
 type ManualTriggerConfig = {
   run_inputs: Array<{
-    id: string;
-    name: string;
-    type: "text" | "number" | "boolean" | "select" | "date";
-    required: boolean;
-    default_value?: string;
-    options?: string[];      // For "select" type
-    description?: string;
-  }>;
-};
+    id: string
+    name: string
+    type: 'text' | 'number' | 'boolean' | 'select' | 'date'
+    required: boolean
+    default_value?: string
+    options?: string[] // For "select" type
+    description?: string
+  }>
+}
 
 // 3. Scheduled trigger
 type ScheduledTriggerConfig = {
-  schedule_type: "cron" | "interval";
-  cron_expression?: string;  // e.g., "0 9 * * 1-5" (weekdays at 9am)
-  interval_value?: number;   // e.g., 30
-  interval_unit?: "minutes" | "hours" | "days" | "weeks";
-  timezone: string;          // e.g., "America/New_York"
-  starts_at?: string;        // ISO 8601 datetime
-  ends_at?: string;          // ISO 8601 datetime
-};
+  schedule_type: 'cron' | 'interval'
+  cron_expression?: string // e.g., "0 9 * * 1-5" (weekdays at 9am)
+  interval_value?: number // e.g., 30
+  interval_unit?: 'minutes' | 'hours' | 'days' | 'weeks'
+  timezone: string // e.g., "America/New_York"
+  starts_at?: string // ISO 8601 datetime
+  ends_at?: string // ISO 8601 datetime
+}
 
 // 4. Form trigger
 type FormTriggerConfig = {
   fields: Array<{
-    id: string;
-    label: string;
-    type: "text" | "textarea" | "number" | "email" | "select" | "checkbox" | "date" | "file";
-    required: boolean;
-    placeholder?: string;
-    options?: string[];       // For "select" type
+    id: string
+    label: string
+    type: 'text' | 'textarea' | 'number' | 'email' | 'select' | 'checkbox' | 'date' | 'file'
+    required: boolean
+    placeholder?: string
+    options?: string[] // For "select" type
     validation?: {
-      min_length?: number;
-      max_length?: number;
-      pattern?: string;
-    };
-  }>;
-  submit_button_text: string; // Default: "Submit"
-  success_message: string;    // Default: "Form submitted successfully"
-};
+      min_length?: number
+      max_length?: number
+      pattern?: string
+    }
+  }>
+  submit_button_text: string // Default: "Submit"
+  success_message: string // Default: "Form submitted successfully"
+}
 
 // 5. RSS trigger
 type RSSTriggerConfig = {
-  feed_url: string;           // RSS/Atom feed URL
-  check_interval_minutes: number; // Default: 15
-  max_items_per_check: number;    // Default: 10
+  feed_url: string // RSS/Atom feed URL
+  check_interval_minutes: number // Default: 15
+  max_items_per_check: number // Default: 10
   filters?: {
-    title_contains?: string;
-    title_not_contains?: string;
-    category?: string;
-  };
-};
+    title_contains?: string
+    title_not_contains?: string
+    category?: string
+  }
+}
 
 // 6. Mailhook trigger
 type MailhookTriggerConfig = {
-  address: string;            // Auto-generated unique email address
-  allowed_senders?: string[]; // Whitelist of sender emails
-  subject_filter?: string;    // Filter by subject line
-  save_attachments: boolean;  // Default: true
-};
+  address: string // Auto-generated unique email address
+  allowed_senders?: string[] // Whitelist of sender emails
+  subject_filter?: string // Filter by subject line
+  save_attachments: boolean // Default: true
+}
 
 // 7. Webhook trigger
 type WebhookTriggerConfig = {
-  url: string;                // Auto-generated webhook URL
-  method: "GET" | "POST" | "PUT" | "PATCH";
-  secret?: string;            // For HMAC signature verification
-  headers_required?: Record<string, string>;
-  response_status: number;    // Default: 200
-  response_body?: string;     // Optional response body template
-};
+  url: string // Auto-generated webhook URL
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH'
+  secret?: string // For HMAC signature verification
+  headers_required?: Record<string, string>
+  response_status: number // Default: 200
+  response_body?: string // Optional response body template
+}
 
 // 8. Table trigger
 type TableTriggerConfig = {
-  table_id: string;           // Reference to a Relay Table
-  event: "row_created" | "row_updated" | "row_deleted" | "field_changed";
-  watched_fields?: string[];  // For "field_changed" event
-  filters?: Record<string, unknown>;
-};
+  table_id: string // Reference to a Relay Table
+  event: 'row_created' | 'row_updated' | 'row_deleted' | 'field_changed'
+  watched_fields?: string[] // For "field_changed" event
+  filters?: Record<string, unknown>
+}
 
 // 9. MCP Server trigger
 type MCPServerTriggerConfig = {
-  server_name: string;        // Display name for the MCP server
-  description: string;        // What this server does
+  server_name: string // Display name for the MCP server
+  description: string // What this server does
   tools: Array<{
-    name: string;
-    description: string;
-    input_schema: Record<string, unknown>; // JSON Schema
-  }>;
-};
+    name: string
+    description: string
+    input_schema: Record<string, unknown> // JSON Schema
+  }>
+}
 
 // Union type
 type TriggerConfig =
-  | { type: "app"; config: AppsTriggerConfig }
-  | { type: "manual"; config: ManualTriggerConfig }
-  | { type: "scheduled"; config: ScheduledTriggerConfig }
-  | { type: "form"; config: FormTriggerConfig }
-  | { type: "rss"; config: RSSTriggerConfig }
-  | { type: "mailhook"; config: MailhookTriggerConfig }
-  | { type: "webhook"; config: WebhookTriggerConfig }
-  | { type: "table"; config: TableTriggerConfig }
-  | { type: "mcp"; config: MCPServerTriggerConfig };
+  | { type: 'app'; config: AppsTriggerConfig }
+  | { type: 'manual'; config: ManualTriggerConfig }
+  | { type: 'scheduled'; config: ScheduledTriggerConfig }
+  | { type: 'form'; config: FormTriggerConfig }
+  | { type: 'rss'; config: RSSTriggerConfig }
+  | { type: 'mailhook'; config: MailhookTriggerConfig }
+  | { type: 'webhook'; config: WebhookTriggerConfig }
+  | { type: 'table'; config: TableTriggerConfig }
+  | { type: 'mcp'; config: MCPServerTriggerConfig }
 ```
 
 ### Step Config Shapes (JSONB)
@@ -337,148 +338,155 @@ Each step category has a distinct config shape:
 ```typescript
 // 1. Apps step
 type AppsStepConfig = {
-  app_id: string;             // Selected app (e.g., "gmail", "notion")
-  action: string;             // App-specific action (e.g., "send_email", "create_page")
-  inputs: Record<string, unknown>; // Action-specific input mapping
-  connection_id?: string;     // Reference to app_connections
-};
+  app_id: string // Selected app (e.g., "gmail", "notion")
+  action: string // App-specific action (e.g., "send_email", "create_page")
+  inputs: Record<string, unknown> // Action-specific input mapping
+  connection_id?: string // Reference to app_connections
+}
 
 // 2. Flow control step
 type FlowControlStepConfig = {
-  control_type: "path" | "wait" | "loop" | "filter" | "delay";
+  control_type: 'path' | 'wait' | 'loop' | 'filter' | 'delay'
   // Path: conditional branching
   paths?: Array<{
-    id: string;
-    name: string;
+    id: string
+    name: string
     condition: {
-      field: string;
-      operator: "equals" | "not_equals" | "contains" | "greater_than" | "less_than" | "is_empty" | "is_not_empty";
-      value: unknown;
-    };
-    steps: string[];          // Step IDs in this path
-  }>;
+      field: string
+      operator:
+        | 'equals'
+        | 'not_equals'
+        | 'contains'
+        | 'greater_than'
+        | 'less_than'
+        | 'is_empty'
+        | 'is_not_empty'
+      value: unknown
+    }
+    steps: string[] // Step IDs in this path
+  }>
   // Wait: pause until condition
   wait_condition?: {
-    type: "duration" | "condition" | "webhook";
-    duration_seconds?: number;
-    condition_expression?: string;
-  };
+    type: 'duration' | 'condition' | 'webhook'
+    duration_seconds?: number
+    condition_expression?: string
+  }
   // Loop: iterate over array
-  loop_source?: string;       // Reference to array output from previous step
-  loop_variable_name?: string;
-  max_iterations?: number;    // Default: 100
+  loop_source?: string // Reference to array output from previous step
+  loop_variable_name?: string
+  max_iterations?: number // Default: 100
   // Delay
-  delay_seconds?: number;
-};
+  delay_seconds?: number
+}
 
 // 3. AI step
 type AIStepConfig = {
-  ai_action: "summarize" | "extract" | "generate" | "classify" | "translate" | "custom";
-  model?: string;             // e.g., "gpt-4o", "claude-3.5-sonnet"
-  prompt_template: string;    // Template with {{variable}} references
-  input_data?: string;        // Reference to previous step output
-  output_format?: "text" | "json" | "markdown" | "table";
-  temperature?: number;       // 0-2, default 0.7
-  max_tokens?: number;        // Default: 1000
-  system_prompt?: string;
-};
+  ai_action: 'summarize' | 'extract' | 'generate' | 'classify' | 'translate' | 'custom'
+  model?: string // e.g., "gpt-4o", "claude-3.5-sonnet"
+  prompt_template: string // Template with {{variable}} references
+  input_data?: string // Reference to previous step output
+  output_format?: 'text' | 'json' | 'markdown' | 'table'
+  temperature?: number // 0-2, default 0.7
+  max_tokens?: number // Default: 1000
+  system_prompt?: string
+}
 
 // 4. Web scraping step
 type WebScrapingStepConfig = {
-  scrape_type: "url" | "search" | "profile";
-  url?: string;               // For "url" type
-  search_query?: string;      // For "search" type
-  profile_url?: string;       // For "profile" type (LinkedIn, etc.)
+  scrape_type: 'url' | 'search' | 'profile'
+  url?: string // For "url" type
+  search_query?: string // For "search" type
+  profile_url?: string // For "profile" type (LinkedIn, etc.)
   selectors?: {
-    title?: string;           // CSS selector
-    content?: string;
-    links?: string;
-    images?: string;
-    custom?: Record<string, string>;
-  };
-  output_format: "text" | "html" | "markdown" | "json";
-  wait_for_selector?: string; // Wait for element before scraping
-  take_screenshot?: boolean;
-};
+    title?: string // CSS selector
+    content?: string
+    links?: string
+    images?: string
+    custom?: Record<string, string>
+  }
+  output_format: 'text' | 'html' | 'markdown' | 'json'
+  wait_for_selector?: string // Wait for element before scraping
+  take_screenshot?: boolean
+}
 
 // 5. Human in the loop step
 type HumanInTheLoopStepConfig = {
-  action_type: "approval" | "input" | "review" | "decision";
-  assignee_type: "specific_user" | "team_role" | "anyone";
-  assignee_id?: string;       // User ID or role name
-  prompt: string;             // What to show the human
+  action_type: 'approval' | 'input' | 'review' | 'decision'
+  assignee_type: 'specific_user' | 'team_role' | 'anyone'
+  assignee_id?: string // User ID or role name
+  prompt: string // What to show the human
   options?: Array<{
-    label: string;
-    value: string;
-    color?: string;           // Button color
-  }>;
-  timeout_hours?: number;     // Auto-escalate after timeout
-  escalation_user_id?: string;
-  include_context: boolean;   // Show previous step outputs
-};
+    label: string
+    value: string
+    color?: string // Button color
+  }>
+  timeout_hours?: number // Auto-escalate after timeout
+  escalation_user_id?: string
+  include_context: boolean // Show previous step outputs
+}
 
 // 6. Utilities step
 type UtilitiesStepConfig = {
-  utility_type: "format" | "convert" | "transform" | "merge" | "split" | "math" | "date";
+  utility_type: 'format' | 'convert' | 'transform' | 'merge' | 'split' | 'math' | 'date'
   // Format
-  format_template?: string;   // Template string with {{var}} references
+  format_template?: string // Template string with {{var}} references
   // Convert
-  convert_from?: "json" | "csv" | "xml" | "yaml" | "markdown" | "html";
-  convert_to?: "json" | "csv" | "xml" | "yaml" | "markdown" | "html";
+  convert_from?: 'json' | 'csv' | 'xml' | 'yaml' | 'markdown' | 'html'
+  convert_to?: 'json' | 'csv' | 'xml' | 'yaml' | 'markdown' | 'html'
   // Transform
-  transform_expression?: string; // JSONPath or expression
+  transform_expression?: string // JSONPath or expression
   // Merge
-  merge_sources?: string[];    // References to multiple outputs
+  merge_sources?: string[] // References to multiple outputs
   // Math
-  math_expression?: string;
+  math_expression?: string
   // Date
-  date_operation?: "format" | "add" | "subtract" | "diff" | "now";
-  date_format?: string;
-  date_value?: string;
-  input_data?: string;         // Reference to previous step output
-};
+  date_operation?: 'format' | 'add' | 'subtract' | 'diff' | 'now'
+  date_format?: string
+  date_value?: string
+  input_data?: string // Reference to previous step output
+}
 
 // 7. HTTP requests step
 type HTTPRequestStepConfig = {
-  request_type: "custom" | "webhook_wait";
+  request_type: 'custom' | 'webhook_wait'
   // Custom request
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
-  url?: string;
-  headers?: Record<string, string>;
-  body?: string;               // Template with {{var}} references
-  body_type?: "json" | "form" | "raw" | "xml";
-  auth_type?: "none" | "bearer" | "basic" | "api_key";
-  auth_value?: string;
-  timeout_seconds?: number;    // Default: 30
-  retry_count?: number;        // Default: 0
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD'
+  url?: string
+  headers?: Record<string, string>
+  body?: string // Template with {{var}} references
+  body_type?: 'json' | 'form' | 'raw' | 'xml'
+  auth_type?: 'none' | 'bearer' | 'basic' | 'api_key'
+  auth_value?: string
+  timeout_seconds?: number // Default: 30
+  retry_count?: number // Default: 0
   // Webhook wait
-  webhook_url?: string;        // Auto-generated
-  webhook_timeout_hours?: number;
-  expected_schema?: Record<string, unknown>; // JSON Schema for validation
-};
+  webhook_url?: string // Auto-generated
+  webhook_timeout_hours?: number
+  expected_schema?: Record<string, unknown> // JSON Schema for validation
+}
 
 // 8. Sequences step
 type SequencesStepConfig = {
-  sequence_id?: string;        // Reference to a saved sequence
-  sequence_name?: string;
-  inputs?: Record<string, string>; // Mapping of sequence inputs to current context
+  sequence_id?: string // Reference to a saved sequence
+  sequence_name?: string
+  inputs?: Record<string, string> // Mapping of sequence inputs to current context
   inline_steps?: Array<{
-    type: string;
-    name: string;
-    config: Record<string, unknown>;
-  }>;
-};
+    type: string
+    name: string
+    config: Record<string, unknown>
+  }>
+}
 
 // Union type
 type StepConfig =
-  | { type: "app"; config: AppsStepConfig }
-  | { type: "flow_control"; config: FlowControlStepConfig }
-  | { type: "ai"; config: AIStepConfig }
-  | { type: "web_scraping"; config: WebScrapingStepConfig }
-  | { type: "human_in_loop"; config: HumanInTheLoopStepConfig }
-  | { type: "utility"; config: UtilitiesStepConfig }
-  | { type: "http"; config: HTTPRequestStepConfig }
-  | { type: "sequence"; config: SequencesStepConfig };
+  | { type: 'app'; config: AppsStepConfig }
+  | { type: 'flow_control'; config: FlowControlStepConfig }
+  | { type: 'ai'; config: AIStepConfig }
+  | { type: 'web_scraping'; config: WebScrapingStepConfig }
+  | { type: 'human_in_loop'; config: HumanInTheLoopStepConfig }
+  | { type: 'utility'; config: UtilitiesStepConfig }
+  | { type: 'http'; config: HTTPRequestStepConfig }
+  | { type: 'sequence'; config: SequencesStepConfig }
 ```
 
 ### Canvas Rendering Rules

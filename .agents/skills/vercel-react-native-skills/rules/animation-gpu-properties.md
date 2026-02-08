@@ -31,9 +31,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 
 function CollapsiblePanel({ expanded }: { expanded: boolean }) {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scaleY: withTiming(expanded ? 1 : 0) },
-    ],
+    transform: [{ scaleY: withTiming(expanded ? 1 : 0) }],
     opacity: withTiming(expanded ? 1 : 0),
   }))
 
@@ -52,9 +50,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 
 function SlideIn({ visible }: { visible: boolean }) {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: withTiming(visible ? 0 : 100) },
-    ],
+    transform: [{ translateY: withTiming(visible ? 0 : 100) }],
     opacity: withTiming(visible ? 1 : 0),
   }))
 

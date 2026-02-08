@@ -44,12 +44,7 @@ function Avatar({ url }: { url: string }) {
 **With priority and caching:**
 
 ```tsx
-<Image
-  source={{ uri: url }}
-  priority="high"
-  cachePolicy="memory-disk"
-  style={styles.hero}
-/>
+<Image source={{ uri: url }} priority="high" cachePolicy="memory-disk" style={styles.hero} />
 ```
 
 **Key props:**

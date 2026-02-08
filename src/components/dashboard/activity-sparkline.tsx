@@ -1,6 +1,6 @@
 'use client'
 
-import { LineChart, Line, Area } from 'recharts'
+import { cn } from '@/lib/utils'
 
 interface ActivitySparklineProps {
   data: { day: number; count: number }[]
@@ -11,24 +11,19 @@ export default function ActivitySparkline({ data }: ActivitySparklineProps) {
     return <div className="h-6 w-20" />
   }
 
+  const maxCount = Math.max(...data.map((d) => d.count), 1)
+
   return (
-    <div className="h-6 w-20">
-      <LineChart width={80} height={24} data={data}>
-        <Area
-          type="monotone"
-          dataKey="count"
-          fill="var(--color-primary)"
-          fillOpacity={0.1}
-          stroke="none"
+    <div className="flex h-6 w-20 items-end gap-[2px]">
+      {data.map((d, i) => (
+        <div
+          key={i}
+          className={cn('bg-primary flex-1 rounded-sm', d.count === 0 && 'opacity-20')}
+          style={{
+            height: d.count > 0 ? `${Math.max((d.count / maxCount) * 100, 10)}%` : '2px',
+          }}
         />
-        <Line
-          type="monotone"
-          dataKey="count"
-          stroke="var(--color-primary)"
-          strokeWidth={1.5}
-          dot={false}
-        />
-      </LineChart>
+      ))}
     </div>
   )
 }

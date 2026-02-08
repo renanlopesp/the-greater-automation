@@ -85,8 +85,8 @@
 - [ ] T010 [P] [US1] Create `src/components/agent-detail/progress-indicators.tsx` (server component):
   - Props: `stepsUsed: number`, `stepsLimit: number`, `aiCreditsUsed: number`, `aiCreditsLimit: number`
   - Render two rows, each with a label, `Progress` bar (shadcn), and "X / Y" text
-  - Row 1: "Steps" label + Progress value={stepsUsed/stepsLimit * 100} + "stepsUsed / stepsLimit"
-  - Row 2: "AI credits" label + Progress value={aiCreditsUsed/aiCreditsLimit * 100} + "aiCreditsUsed / aiCreditsLimit"
+  - Row 1: "Steps" label + Progress value={stepsUsed/stepsLimit \* 100} + "stepsUsed / stepsLimit"
+  - Row 2: "AI credits" label + Progress value={aiCreditsUsed/aiCreditsLimit \* 100} + "aiCreditsUsed / aiCreditsLimit"
   - Handle edge case: if limits are 0, show 0% progress (avoid division by zero)
 
 - [ ] T011 [P] [US1] Create `src/components/agent-detail/run-history.tsx` (server component):

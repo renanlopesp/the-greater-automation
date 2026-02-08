@@ -21,16 +21,16 @@ Implement the workflow editor -- the most complex feature in Relay. This is a cl
 
 ## Constitution Check
 
-*GATE: Must pass before implementation. Re-check after design.*
+_GATE: Must pass before implementation. Re-check after design._
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. App Router First | PASS | Editor page at `src/app/(dashboard)/workflows/[id]/edit/page.tsx`. This page MUST be `"use client"` due to Zustand, event handlers, and interactive UI. |
-| II. shadcn/ui Component System | PASS | All UI composed from shadcn primitives: Dialog, Command, Tabs, Input, Textarea, Button, DropdownMenu, ScrollArea, Sheet, Separator, Tooltip. Custom components compose these. |
-| III. Tailwind v4 + OKLCH | PASS | All styling via Tailwind utilities. Colors reference CSS variable theme tokens. No raw hex/rgb. |
-| IV. TypeScript Strict | PASS | Full type definitions for store state, trigger configs, step configs, component props. Zod schemas for config validation. No `any` types. |
-| V. YAGNI | PASS | No AI backend integration (assistant is UI shell only). No workflow persistence to Supabase in this phase (store-only). No undo/redo. No real-time collaboration. |
-| VI. Supabase as Backend | PASS | Database schema already defined in Phase 1. This phase is client-side store only; Supabase read/write will be layered on after the UI is complete. |
+| Principle                      | Status | Notes                                                                                                                                                                         |
+| ------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I. App Router First            | PASS   | Editor page at `src/app/(dashboard)/workflows/[id]/edit/page.tsx`. This page MUST be `"use client"` due to Zustand, event handlers, and interactive UI.                       |
+| II. shadcn/ui Component System | PASS   | All UI composed from shadcn primitives: Dialog, Command, Tabs, Input, Textarea, Button, DropdownMenu, ScrollArea, Sheet, Separator, Tooltip. Custom components compose these. |
+| III. Tailwind v4 + OKLCH       | PASS   | All styling via Tailwind utilities. Colors reference CSS variable theme tokens. No raw hex/rgb.                                                                               |
+| IV. TypeScript Strict          | PASS   | Full type definitions for store state, trigger configs, step configs, component props. Zod schemas for config validation. No `any` types.                                     |
+| V. YAGNI                       | PASS   | No AI backend integration (assistant is UI shell only). No workflow persistence to Supabase in this phase (store-only). No undo/redo. No real-time collaboration.             |
+| VI. Supabase as Backend        | PASS   | Database schema already defined in Phase 1. This phase is client-side store only; Supabase read/write will be layered on after the UI is complete.                            |
 
 **Violation justification**: The editor page requires `"use client"` which is an acknowledged exception per Constitution Principle I -- client directives are permitted when client-side interactivity is required.
 
@@ -39,176 +39,193 @@ Implement the workflow editor -- the most complex feature in Relay. This is a cl
 ```typescript
 // src/stores/workflow-editor-store.ts
 
-import { create } from "zustand";
+import { create } from 'zustand'
 
 // ─── Trigger Types ───────────────────────────────────────────────
 
-type TriggerType = "app" | "manual" | "scheduled" | "form" | "rss" | "mailhook" | "webhook" | "table" | "mcp";
+type TriggerType =
+  | 'app'
+  | 'manual'
+  | 'scheduled'
+  | 'form'
+  | 'rss'
+  | 'mailhook'
+  | 'webhook'
+  | 'table'
+  | 'mcp'
 
 interface AppsTriggerConfig {
-  app_id: string;
-  event: string;
-  filters: Record<string, string>;
+  app_id: string
+  event: string
+  filters: Record<string, string>
 }
 
 interface ManualTriggerConfig {
   run_inputs: Array<{
-    id: string;
-    name: string;
-    type: "text" | "number" | "boolean" | "select" | "date";
-    required: boolean;
-    default_value?: string;
-    options?: string[];
-    description?: string;
-  }>;
+    id: string
+    name: string
+    type: 'text' | 'number' | 'boolean' | 'select' | 'date'
+    required: boolean
+    default_value?: string
+    options?: string[]
+    description?: string
+  }>
 }
 
 interface ScheduledTriggerConfig {
-  schedule_type: "cron" | "interval";
-  cron_expression?: string;
-  interval_value?: number;
-  interval_unit?: "minutes" | "hours" | "days" | "weeks";
-  timezone: string;
-  starts_at?: string;
-  ends_at?: string;
+  schedule_type: 'cron' | 'interval'
+  cron_expression?: string
+  interval_value?: number
+  interval_unit?: 'minutes' | 'hours' | 'days' | 'weeks'
+  timezone: string
+  starts_at?: string
+  ends_at?: string
 }
 
 interface FormTriggerConfig {
   fields: Array<{
-    id: string;
-    label: string;
-    type: "text" | "textarea" | "number" | "email" | "select" | "checkbox" | "date" | "file";
-    required: boolean;
-    placeholder?: string;
-    options?: string[];
+    id: string
+    label: string
+    type: 'text' | 'textarea' | 'number' | 'email' | 'select' | 'checkbox' | 'date' | 'file'
+    required: boolean
+    placeholder?: string
+    options?: string[]
     validation?: {
-      min_length?: number;
-      max_length?: number;
-      pattern?: string;
-    };
-  }>;
-  submit_button_text: string;
-  success_message: string;
+      min_length?: number
+      max_length?: number
+      pattern?: string
+    }
+  }>
+  submit_button_text: string
+  success_message: string
 }
 
 interface RSSTriggerConfig {
-  feed_url: string;
-  check_interval_minutes: number;
-  max_items_per_check: number;
+  feed_url: string
+  check_interval_minutes: number
+  max_items_per_check: number
   filters?: {
-    title_contains?: string;
-    title_not_contains?: string;
-    category?: string;
-  };
+    title_contains?: string
+    title_not_contains?: string
+    category?: string
+  }
 }
 
 interface MailhookTriggerConfig {
-  address: string;
-  allowed_senders?: string[];
-  subject_filter?: string;
-  save_attachments: boolean;
+  address: string
+  allowed_senders?: string[]
+  subject_filter?: string
+  save_attachments: boolean
 }
 
 interface WebhookTriggerConfig {
-  url: string;
-  method: "GET" | "POST" | "PUT" | "PATCH";
-  secret?: string;
-  headers_required?: Record<string, string>;
-  response_status: number;
-  response_body?: string;
+  url: string
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH'
+  secret?: string
+  headers_required?: Record<string, string>
+  response_status: number
+  response_body?: string
 }
 
 interface TableTriggerConfig {
-  table_id: string;
-  event: "row_created" | "row_updated" | "row_deleted" | "field_changed";
-  watched_fields?: string[];
-  filters?: Record<string, unknown>;
+  table_id: string
+  event: 'row_created' | 'row_updated' | 'row_deleted' | 'field_changed'
+  watched_fields?: string[]
+  filters?: Record<string, unknown>
 }
 
 interface MCPServerTriggerConfig {
-  server_name: string;
-  description: string;
+  server_name: string
+  description: string
   tools: Array<{
-    name: string;
-    description: string;
-    input_schema: Record<string, unknown>;
-  }>;
+    name: string
+    description: string
+    input_schema: Record<string, unknown>
+  }>
 }
 
 type TriggerConfigMap = {
-  app: AppsTriggerConfig;
-  manual: ManualTriggerConfig;
-  scheduled: ScheduledTriggerConfig;
-  form: FormTriggerConfig;
-  rss: RSSTriggerConfig;
-  mailhook: MailhookTriggerConfig;
-  webhook: WebhookTriggerConfig;
-  table: TableTriggerConfig;
-  mcp: MCPServerTriggerConfig;
-};
+  app: AppsTriggerConfig
+  manual: ManualTriggerConfig
+  scheduled: ScheduledTriggerConfig
+  form: FormTriggerConfig
+  rss: RSSTriggerConfig
+  mailhook: MailhookTriggerConfig
+  webhook: WebhookTriggerConfig
+  table: TableTriggerConfig
+  mcp: MCPServerTriggerConfig
+}
 
 interface WorkflowTrigger<T extends TriggerType = TriggerType> {
-  type: T;
-  config: TriggerConfigMap[T];
+  type: T
+  config: TriggerConfigMap[T]
 }
 
 // ─── Step Types ──────────────────────────────────────────────────
 
-type StepType = "app" | "flow_control" | "ai" | "web_scraping" | "human_in_loop" | "utility" | "http" | "sequence";
+type StepType =
+  | 'app'
+  | 'flow_control'
+  | 'ai'
+  | 'web_scraping'
+  | 'human_in_loop'
+  | 'utility'
+  | 'http'
+  | 'sequence'
 
 interface WorkflowStep {
-  id: string;           // UUID
-  type: StepType;
-  name: string;
-  position: number;     // 0-indexed ordering
-  config: Record<string, unknown>; // Type-specific config (see spec.md for full shapes)
+  id: string // UUID
+  type: StepType
+  name: string
+  position: number // 0-indexed ordering
+  config: Record<string, unknown> // Type-specific config (see spec.md for full shapes)
 }
 
 // ─── Store ───────────────────────────────────────────────────────
 
 interface WorkflowEditorState {
   // Workflow metadata
-  workflowId: string;
-  workflowName: string;
-  workflowEmoji: string;
-  isStarred: boolean;
+  workflowId: string
+  workflowName: string
+  workflowEmoji: string
+  isStarred: boolean
 
   // Trigger
-  trigger: WorkflowTrigger | null;
+  trigger: WorkflowTrigger | null
 
   // Steps
-  steps: WorkflowStep[];
+  steps: WorkflowStep[]
 
   // UI state
-  selectedStepId: string | null;
-  isAssistantOpen: boolean;
+  selectedStepId: string | null
+  isAssistantOpen: boolean
 }
 
 interface WorkflowEditorActions {
   // Metadata
-  setWorkflowName: (name: string) => void;
-  setWorkflowEmoji: (emoji: string) => void;
-  toggleStar: () => void;
+  setWorkflowName: (name: string) => void
+  setWorkflowEmoji: (emoji: string) => void
+  toggleStar: () => void
 
   // Trigger
-  setTrigger: (trigger: WorkflowTrigger | null) => void;
+  setTrigger: (trigger: WorkflowTrigger | null) => void
 
   // Steps
-  addStep: (step: Omit<WorkflowStep, "position">) => void;
-  updateStep: (id: string, updates: Partial<Omit<WorkflowStep, "id">>) => void;
-  deleteStep: (id: string) => void;
-  reorderSteps: (fromIndex: number, toIndex: number) => void;
+  addStep: (step: Omit<WorkflowStep, 'position'>) => void
+  updateStep: (id: string, updates: Partial<Omit<WorkflowStep, 'id'>>) => void
+  deleteStep: (id: string) => void
+  reorderSteps: (fromIndex: number, toIndex: number) => void
 
   // UI
-  selectStep: (id: string | null) => void;
-  toggleAssistant: () => void;
+  selectStep: (id: string | null) => void
+  toggleAssistant: () => void
 
   // Initialization
-  initializeWorkflow: (data: Partial<WorkflowEditorState>) => void;
-  resetStore: () => void;
+  initializeWorkflow: (data: Partial<WorkflowEditorState>) => void
+  resetStore: () => void
 }
 
-type WorkflowEditorStore = WorkflowEditorState & WorkflowEditorActions;
+type WorkflowEditorStore = WorkflowEditorState & WorkflowEditorActions
 ```
 
 ## Component Tree
@@ -274,32 +291,32 @@ EditorPage (page.tsx, "use client")
 
 When a trigger type is selected, initialize with these defaults:
 
-| Type | Default Config |
-|------|---------------|
-| app | `{ app_id: "", event: "", filters: {} }` |
-| manual | `{ run_inputs: [] }` |
+| Type      | Default Config                                                                                                                         |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| app       | `{ app_id: "", event: "", filters: {} }`                                                                                               |
+| manual    | `{ run_inputs: [] }`                                                                                                                   |
 | scheduled | `{ schedule_type: "interval", interval_value: 1, interval_unit: "hours", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }` |
-| form | `{ fields: [], submit_button_text: "Submit", success_message: "Form submitted successfully" }` |
-| rss | `{ feed_url: "", check_interval_minutes: 15, max_items_per_check: 10 }` |
-| mailhook | `{ address: "", save_attachments: true }` |
-| webhook | `{ url: "", method: "POST", response_status: 200 }` |
-| table | `{ table_id: "", event: "row_created" }` |
-| mcp | `{ server_name: "", description: "", tools: [] }` |
+| form      | `{ fields: [], submit_button_text: "Submit", success_message: "Form submitted successfully" }`                                         |
+| rss       | `{ feed_url: "", check_interval_minutes: 15, max_items_per_check: 10 }`                                                                |
+| mailhook  | `{ address: "", save_attachments: true }`                                                                                              |
+| webhook   | `{ url: "", method: "POST", response_status: 200 }`                                                                                    |
+| table     | `{ table_id: "", event: "row_created" }`                                                                                               |
+| mcp       | `{ server_name: "", description: "", tools: [] }`                                                                                      |
 
 ## Step Config Default Values
 
 When a step category is selected, initialize with these defaults:
 
-| Type | Default Config |
-|------|---------------|
-| app | `{ app_id: "", action: "", inputs: {} }` |
-| flow_control | `{ control_type: "path" }` |
-| ai | `{ ai_action: "summarize", prompt_template: "", output_format: "text", temperature: 0.7, max_tokens: 1000 }` |
-| web_scraping | `{ scrape_type: "url", url: "", output_format: "text" }` |
-| human_in_loop | `{ action_type: "approval", assignee_type: "anyone", prompt: "", include_context: true }` |
-| utility | `{ utility_type: "format" }` |
-| http | `{ request_type: "custom", method: "GET", url: "", timeout_seconds: 30, retry_count: 0 }` |
-| sequence | `{ inline_steps: [] }` |
+| Type          | Default Config                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| app           | `{ app_id: "", action: "", inputs: {} }`                                                                     |
+| flow_control  | `{ control_type: "path" }`                                                                                   |
+| ai            | `{ ai_action: "summarize", prompt_template: "", output_format: "text", temperature: 0.7, max_tokens: 1000 }` |
+| web_scraping  | `{ scrape_type: "url", url: "", output_format: "text" }`                                                     |
+| human_in_loop | `{ action_type: "approval", assignee_type: "anyone", prompt: "", include_context: true }`                    |
+| utility       | `{ utility_type: "format" }`                                                                                 |
+| http          | `{ request_type: "custom", method: "GET", url: "", timeout_seconds: 30, retry_count: 0 }`                    |
+| sequence      | `{ inline_steps: [] }`                                                                                       |
 
 ## Source Code Structure
 
