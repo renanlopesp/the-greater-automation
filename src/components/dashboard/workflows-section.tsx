@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowListItem from '@/components/dashboard/workflow-list-item'
 import { useWorkflows } from '@/hooks/use-workflows'
+import { useWorkflowRunStats } from '@/hooks/use-workflow-run-stats'
 import type { DashboardTab, fetchWorkflows } from '@/lib/queries/dashboard'
 
 type Workflow = Awaited<ReturnType<typeof fetchWorkflows>>[number]
@@ -25,6 +26,8 @@ const TABS: { value: DashboardTab; label: string }[] = [
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
   const { data: workflows } = useWorkflows(teamId, activeTab, initialWorkflows)
+  const workflowIds = workflows.map((w) => w.id)
+  const { data: runStats } = useWorkflowRunStats(workflowIds)
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,9 +56,18 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
               <p className="text-muted-foreground py-8 text-center text-sm">No workflows found</p>
             ) : (
               <div className="flex flex-col">
-                {workflows.map((w) => (
-                  <WorkflowListItem key={w.id} workflow={w} />
-                ))}
+                {workflows.map((w) => {
+                  const stats = runStats?.[w.id]
+                  return (
+                    <WorkflowListItem
+                      key={w.id}
+                      workflow={w}
+                      totalRuns={stats?.totalRuns}
+                      lastRunAt={stats?.lastRunAt}
+                      sparklineData={stats?.sparklineData}
+                    />
+                  )
+                })}
               </div>
             )}
           </TabsContent>

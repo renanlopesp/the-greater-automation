@@ -6,14 +6,15 @@ This guide drives Ralph Loop iterations for implementing Relay features. Each it
 
 ## Feature Execution Order
 
-| # | Feature | Spec Dir | Max Iterations |
-|---|---------|----------|----------------|
-| 1 | Foundation & Infrastructure | `specs/001-foundation/` | 30 |
-| 2 | Navigation & Layout | `specs/002-navigation-layout/` | 25 |
-| 3 | Settings & Auth | `specs/006-settings-auth/` | 25 |
-| 4 | Dashboard & Workspace | `specs/003-dashboard-workspace/` | 35 |
-| 5 | Workflow Editor | `specs/004-workflow-editor/` | 35 |
-| 6 | Agent System | `specs/005-agent-system/` | 25 |
+| #   | Feature                     | Spec Dir                         | Max Iterations |
+| --- | --------------------------- | -------------------------------- | -------------- |
+| 1   | Foundation & Infrastructure | `specs/001-foundation/`          | 30             |
+| 2   | Navigation & Layout         | `specs/002-navigation-layout/`   | 25             |
+| 3   | Settings & Auth             | `specs/006-settings-auth/`       | 25             |
+| 4   | Dashboard & Workspace       | `specs/003-dashboard-workspace/` | 35             |
+| 5   | Workflow Editor             | `specs/004-workflow-editor/`     | 35             |
+| 6   | Agent System                | `specs/005-agent-system/`        | 25             |
+| 7   | Visual Review & Polish      | `specs/007-visual-review/`       | 20             |
 
 > **Why 006 before 003?** Auth pages (login/signup) are required to manually test any authenticated page.
 
@@ -54,6 +55,7 @@ For each uncompleted task in the current phase:
 5. **Move to next task** in the phase
 
 **Execution rules**:
+
 - Tasks marked `[P]` within the same phase can be implemented in parallel (different files, no dependencies)
 - Tasks WITHOUT `[P]` must be done sequentially
 - If a task modifies a file that a previous `[P]` task also modifies, do them sequentially
@@ -66,27 +68,33 @@ For each uncompleted task in the current phase:
 After completing each phase, launch validation subagents:
 
 #### A. Build Validation (ALWAYS after every phase)
+
 ```
 Launch Bash subagent: "Run bun run build and report any errors"
 ```
 
 #### B. Lint Validation (ALWAYS after code changes)
+
 ```
 Launch Bash subagent: "Run bun run lint and report any warnings or errors"
 ```
 
 #### C. Test Validation (after 001-foundation Phase 6 is complete)
+
 ```
 Launch Bash subagent: "Run bun run test and report results"
 ```
 
 #### D. E2E Validation (after creating pages/routes)
+
 ```
 Launch Bash subagent: "Run bun run test:e2e and report results"
 ```
 
 #### E. Visual Layout Check (after implementing UI components)
+
 Use Playwright MCP tools to verify pages render correctly:
+
 ```
 1. browser_navigate to the page URL (e.g., http://localhost:3000/dashboard)
 2. browser_snapshot to capture accessibility tree
@@ -95,13 +103,16 @@ Use Playwright MCP tools to verify pages render correctly:
 ```
 
 **Visual checks to perform per feature:**
+
 - 002: `/dashboard` — sidebar renders, nav icons visible, usage meters
 - 006: `/login`, `/signup` — auth forms render, OAuth button
 - 003: `/dashboard` — agent cards, workflow tabs; `/workspace` — table; `/runs` — table or empty state
 - 004: `/workflows/test-id/edit` — 3-panel layout, top bar, canvas
 - 005: `/agents/test-id` — two-panel layout, avatar, heatmap
+- 007: All pages in BOTH light and dark mode — sidebar indigo, dashboard run data, editor full-width, agent detail blue panel, app icons, theme toggle
 
 #### F. Code Review (after each feature completes)
+
 ```
 Launch Explore subagent: "Review all files created in this feature for:
 - TypeScript strict compliance (no `any` types)
@@ -115,6 +126,7 @@ Launch Explore subagent: "Review all files created in this feature for:
 ### Step 4: Fix Issues
 
 If any validation fails:
+
 1. Read the error output carefully
 2. Fix the issue in the relevant file
 3. Re-run the failed validation
@@ -123,6 +135,7 @@ If any validation fails:
 ### Step 5: Phase Completion
 
 After all tasks in a phase are done AND validations pass:
+
 1. Verify all tasks in the phase are marked `[x]` in tasks.md
 2. Move to next phase in Step 2
 
@@ -139,6 +152,7 @@ When ALL tasks in ALL phases of a feature are `[x]`:
 2. Visual check key pages with Playwright MCP
 
 3. Create git commit:
+
    ```
    git add -A
    git commit -m "feat: implement XXX-feature-name
@@ -154,6 +168,7 @@ When ALL tasks in ALL phases of a feature are `[x]`:
 ## Completion Promise
 
 Output this ONLY when ALL of the following are true:
+
 - Current feature's tasks.md has 0 remaining `- [ ]` items
 - `bun run build` passes with zero errors
 - `bun run lint` passes with zero warnings
@@ -177,6 +192,7 @@ The completion promise for each feature is: `"XXX-feature-name complete"`
 ## Reference Screenshots
 
 The following screenshots in the project root show the target UI:
+
 - `relay-dashboard.png` — Dashboard page layout
 - `relay-workspace.png` — Workspace page layout
 - `relay-runs.png` — Runs page layout

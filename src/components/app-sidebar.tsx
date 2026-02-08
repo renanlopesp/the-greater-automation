@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ThemeToggle } from '@/components/theme-toggle'
 import type { NavItem, UsageData, UserData } from '@/types/navigation'
 
 interface AppSidebarProps {
@@ -63,13 +64,13 @@ function UsageMeter({ label, used, limit }: { label: string; used: number; limit
   return (
     <div className="w-full px-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-muted-foreground text-[10px]">{label}</span>
+        <span className="text-sidebar-foreground/60 text-[10px]">{label}</span>
       </div>
-      <div className="bg-muted h-1 w-full rounded-full">
+      <div className="bg-sidebar-accent h-1 w-full rounded-full">
         <div
           className={cn(
             'h-1 rounded-full transition-all',
-            isOver ? 'bg-destructive' : 'bg-primary'
+            isOver ? 'bg-destructive' : 'bg-sidebar-primary'
           )}
           style={{ width: `${percentage}%` }}
         />
@@ -107,15 +108,19 @@ export default function AppSidebar({
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="border-border bg-background fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center border-r py-4 md:flex">
+      <div className="border-sidebar-border bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-30 hidden w-16 flex-col items-center border-r py-4 md:flex">
         {/* Logo */}
         <div className="mb-2 flex flex-col items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
-            <span className="text-lg font-bold text-white">R</span>
+          <div className="bg-brand-accent flex h-10 w-10 items-center justify-center rounded-lg">
+            <span className="text-sidebar-foreground text-lg font-bold">R</span>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground h-8 w-8"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -139,8 +144,8 @@ export default function AppSidebar({
                     className={cn(
                       'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
                       isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -161,6 +166,9 @@ export default function AppSidebar({
             limit={usage?.aiCreditsLimit ?? 1}
           />
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-2" />
 
         {/* Avatar Dropdown */}
         <DropdownMenu>

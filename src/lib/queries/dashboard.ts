@@ -61,6 +61,76 @@ export async function fetchWorkflows(supabase: Client, teamId: string, tab: Dash
   return data ?? []
 }
 
+export interface WorkflowRunStats {
+  totalRuns: number
+  lastRunAt: string | null
+  sparklineData: { day: number; count: number }[]
+}
+
+export async function fetchWorkflowRunStats(
+  supabase: Client,
+  workflowIds: string[]
+): Promise<Map<string, WorkflowRunStats>> {
+  const stats = new Map<string, WorkflowRunStats>()
+  if (workflowIds.length === 0) return stats
+
+  // Initialize all workflows with empty stats
+  for (const id of workflowIds) {
+    stats.set(id, { totalRuns: 0, lastRunAt: null, sparklineData: [] })
+  }
+
+  // Fetch all runs for these workflows
+  const { data: runs } = await supabase
+    .from('workflow_runs')
+    .select('workflow_id, started_at')
+    .in('workflow_id', workflowIds)
+
+  if (!runs || runs.length === 0) return stats
+
+  // Build sparkline date range (last 14 days)
+  const now = new Date()
+  const sparklineDays = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - (13 - i))
+    return d.getDate()
+  })
+
+  // Aggregate per workflow
+  const perWorkflow = new Map<
+    string,
+    { count: number; lastRun: string | null; dailyCounts: Record<number, number> }
+  >()
+
+  for (const run of runs) {
+    const wId = run.workflow_id
+    if (!perWorkflow.has(wId)) {
+      perWorkflow.set(wId, { count: 0, lastRun: null, dailyCounts: {} })
+    }
+    const entry = perWorkflow.get(wId)!
+    entry.count++
+    if (run.started_at && (!entry.lastRun || run.started_at > entry.lastRun)) {
+      entry.lastRun = run.started_at
+    }
+    if (run.started_at) {
+      const day = new Date(run.started_at).getDate()
+      entry.dailyCounts[day] = (entry.dailyCounts[day] ?? 0) + 1
+    }
+  }
+
+  for (const [wId, entry] of perWorkflow) {
+    stats.set(wId, {
+      totalRuns: entry.count,
+      lastRunAt: entry.lastRun,
+      sparklineData: sparklineDays.map((day) => ({
+        day,
+        count: entry.dailyCounts[day] ?? 0,
+      })),
+    })
+  }
+
+  return stats
+}
+
 export async function fetchWorkflowSparklineData(supabase: Client, workflowId: string) {
   const fourteenDaysAgo = new Date()
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)

@@ -98,7 +98,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="flex h-full flex-col md:flex-row">
       {/* Left Panel */}
-      <div className="bg-muted/30 flex w-full flex-col border-b md:w-96 md:border-r md:border-b-0">
+      <div className="bg-agent-panel flex w-full flex-col border-b md:w-96 md:border-r md:border-b-0">
         <div className="flex flex-col items-center gap-4 p-6">
           <AgentAvatar />
           <AgentInfo name={agent.name} description={agent.description} />
