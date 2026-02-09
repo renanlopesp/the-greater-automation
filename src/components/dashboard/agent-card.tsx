@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { DottedGlowBackground } from '@/components/ui/dotted-glow-background'
 
 export interface AgentCardProps {
   agent: {
@@ -30,8 +31,20 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
   return (
     <Link href={`/agents/${agent.id}`}>
       <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
-        <Card className="flex h-[220px] flex-col transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-1 flex-col items-center gap-3 pb-0">
+        <Card className="relative flex h-[220px] flex-col overflow-hidden transition-shadow hover:shadow-md">
+          <DottedGlowBackground
+            gap={16}
+            radius={1}
+            color="rgba(0,0,0,0.2)"
+            darkColor="rgba(255,255,255,0.2)"
+            glowColor="rgba(200,120,50,0.7)"
+            darkGlowColor="rgba(200,120,50,0.5)"
+            opacity={0.4}
+            speedMin={0.3}
+            speedMax={0.8}
+            className="pointer-events-none"
+          />
+          <CardHeader className="relative flex flex-1 flex-col items-center gap-3 pb-0">
             <Avatar size="lg" className="h-14 w-14">
               {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
               <AvatarFallback className="bg-primary/10 text-primary text-lg">
@@ -47,7 +60,7 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-center gap-1 pt-0">
+          <CardContent className="relative flex flex-wrap items-center justify-center gap-1 pt-0">
             {skills.length === 0 ? (
               <span className="text-muted-foreground text-xs">0 skills</span>
             ) : skills.length <= 3 ? (
