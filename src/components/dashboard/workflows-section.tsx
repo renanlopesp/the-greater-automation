@@ -27,7 +27,7 @@ const TABS: { value: DashboardTab; label: string }[] = [
 
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
-  const { data: workflows } = useWorkflows(teamId, activeTab, initialWorkflows)
+  const { data: workflows = [] } = useWorkflows(teamId, activeTab, initialWorkflows)
   const workflowIds = workflows.map((w) => w.id)
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 

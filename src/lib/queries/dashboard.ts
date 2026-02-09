@@ -44,7 +44,7 @@ export async function fetchWorkflows(supabase: Client, teamId: string, tab: Dash
 
   switch (tab) {
     case 'needs-attention':
-      query = query.order('updated_at', { ascending: false })
+      query = query.eq('status', 'draft').order('updated_at', { ascending: false })
       break
     case 'recently-edited':
       query = query.order('updated_at', { ascending: false })

@@ -33,9 +33,9 @@ export function LetterGlitch({
   const lastGlitchTime = useRef(Date.now())
 
   const lettersAndSymbols = Array.from(characters)
-  const fontSize = 16
-  const charWidth = 10
-  const charHeight = 20
+  const fontSize = 9
+  const charWidth = 6
+  const charHeight = 11
 
   const getRandomChar = () => {
     return lettersAndSymbols[Math.floor(Math.random() * lettersAndSymbols.length)]
