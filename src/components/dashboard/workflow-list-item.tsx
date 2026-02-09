@@ -29,15 +29,7 @@ export default function WorkflowListItem({
   const lastRun = lastRunAt ? formatRelativeTime(lastRunAt) : 'No runs completed yet'
 
   return (
-    <Link
-      href={`/workflows/${workflow.id}/edit`}
-      className="hover:bg-muted/50 flex items-center gap-3 px-4 transition-colors"
-    >
-      {/* Emoji in circle */}
-      <span className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base">
-        {workflow.emoji ?? '📋'}
-      </span>
-
+    <Link href={`/workflows/${workflow.id}/edit`} className="group flex items-center gap-3">
       {/* Text columns area */}
       <span className="flex min-w-0 flex-1 items-center gap-6 py-4">
         {/* Name/status/edited column */}
@@ -50,7 +42,9 @@ export default function WorkflowListItem({
                 Draft
               </Badge>
             )}
-            <span className="truncate text-sm font-medium">{workflow.name}</span>
+            <span className="truncate text-sm font-medium group-hover:underline">
+              {workflow.name}
+            </span>
           </span>
           <span className="text-muted-foreground text-xs">Edited {edited}</span>
         </span>

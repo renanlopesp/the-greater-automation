@@ -30,8 +30,8 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
   return (
     <Link href={`/agents/${agent.id}`}>
       <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
-        <Card className="h-full transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-col items-center gap-3 pb-0">
+        <Card className="flex h-[220px] flex-col transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-1 flex-col items-center gap-3 pb-0">
             <Avatar size="lg" className="h-14 w-14">
               {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
               <AvatarFallback className="bg-primary/10 text-primary text-lg">

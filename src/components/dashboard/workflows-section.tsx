@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Link2, Plus, SlidersHorizontal } from 'lucide-react'
+import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowListItem from '@/components/dashboard/workflow-list-item'
 import { useWorkflows } from '@/hooks/use-workflows'
@@ -32,21 +32,12 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-6">
       <h3 className="text-lg font-semibold">Workflows</h3>
-      <Card className="overflow-hidden border py-0 shadow-none">
-        <CardContent className="flex flex-col gap-0 p-2">
+      <div>
+        <div className="flex flex-col">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DashboardTab)}>
-            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-              <Link
-                href="/workspace"
-                className="flex items-center gap-3 transition-opacity hover:opacity-80"
-              >
-                <div className="bg-muted/50 flex h-10 w-10 items-center justify-center rounded-lg">
-                  <Link2 className="text-foreground h-5 w-5" />
-                </div>
-              </Link>
-              <div className="flex-1" />
+            <div className="flex items-center gap-3 pb-4">
               <TabsList>
                 {TABS.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value}>
@@ -54,6 +45,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                   </TabsTrigger>
                 ))}
               </TabsList>
+              <div className="flex-1" />
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                 <SlidersHorizontal className="h-4 w-4" />
               </Button>
@@ -84,7 +76,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                     })}
                   </div>
                 )}
-                <div className="flex justify-center pb-4">
+                <div className="flex justify-center pt-6 pb-4">
                   <Button variant="outline" size="sm" asChild>
                     <Link href="/workspace">View all</Link>
                   </Button>
@@ -92,8 +84,8 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
               </TabsContent>
             ))}
           </Tabs>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </section>
   )
 }

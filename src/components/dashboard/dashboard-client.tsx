@@ -2,11 +2,8 @@
 
 import { Bot, GitBranch, Play, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import SearchTrigger from '@/components/search-trigger'
-import TeamSection from '@/components/dashboard/team-section'
 import AgentsGrid from '@/components/dashboard/agents-grid'
 import WorkflowsSection from '@/components/dashboard/workflows-section'
-import { useCommandMenu } from '@/lib/command-menu-context'
 import type { AgentCardProps } from '@/components/dashboard/agent-card'
 import type { fetchWorkflows } from '@/lib/queries/dashboard'
 
@@ -27,13 +24,10 @@ const stats = [
 ]
 
 export default function DashboardClient({
-  team,
   initialAgents,
   initialWorkflows,
   teamId,
 }: DashboardClientProps) {
-  const openCommandMenu = useCommandMenu()
-
   const computedStats = [
     { ...stats[0], value: initialAgents.length },
     { ...stats[1], value: initialWorkflows.length },
@@ -42,7 +36,7 @@ export default function DashboardClient({
   ]
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-2 pb-12">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-12 pb-12">
       {/* Page header */}
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
@@ -50,14 +44,6 @@ export default function DashboardClient({
           Overview of your team&apos;s agents and workflows.
         </p>
       </div>
-
-      {/* Search */}
-      <div className="mx-auto w-full max-w-md">
-        <SearchTrigger onOpen={openCommandMenu} />
-      </div>
-
-      {/* Team */}
-      <TeamSection team={team} />
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
