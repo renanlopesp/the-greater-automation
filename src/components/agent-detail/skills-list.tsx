@@ -2,15 +2,6 @@
 
 import { formatDistanceToNow } from 'date-fns'
 import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 
 interface Skill {
   id: string
@@ -27,39 +18,40 @@ interface SkillsListProps {
 export default function SkillsList({ skills }: SkillsListProps) {
   return (
     <div className="space-y-3">
-      <h2 className="text-muted-foreground text-sm font-semibold">Skills</h2>
-      <div className="space-y-2">
-        {skills.map((skill) => (
-          <Card
-            key={skill.id}
-            className={cn('hover:bg-muted/50 flex items-center gap-3 p-3 transition-colors')}
-          >
-            <span className="text-lg">{skill.workflow?.emoji ?? '⚡'}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{skill.name}</p>
-              <p className="text-muted-foreground text-xs">
-                {skill.last_run_at
-                  ? formatDistanceToNow(new Date(skill.last_run_at), {
-                      addSuffix: true,
-                    })
-                  : 'Never ran'}
-              </p>
+      <h2 className="text-foreground text-[15px] font-semibold">Skills</h2>
+
+      <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
+        <div className="divide-y">
+          {skills.map((skill) => (
+            <div
+              key={skill.id}
+              className="hover:bg-muted/40 flex items-center gap-3 px-4 py-3 transition-colors"
+            >
+              <div className="bg-background relative flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm">
+                <span className="text-xl">{skill.workflow?.emoji ?? '⚡'}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{skill.name}</p>
+                <p className="text-muted-foreground text-xs">
+                  {skill.last_run_at
+                    ? formatDistanceToNow(new Date(skill.last_run_at), { addSuffix: true })
+                    : 'Never ran'}
+                </p>
+              </div>
             </div>
-          </Card>
-        ))}
+          ))}
+
+          <button
+            type="button"
+            className="hover:bg-muted/40 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+          >
+            <div className="bg-background flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm">
+              <Plus className="h-6 w-6" />
+            </div>
+            <span className="text-sm font-semibold">New skill</span>
+          </button>
+        </div>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-full border-dashed">
-            <Plus className="mr-2 h-4 w-4" />
-            New skill
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuItem>Link existing workflow</DropdownMenuItem>
-          <DropdownMenuItem>Create new workflow</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   )
 }

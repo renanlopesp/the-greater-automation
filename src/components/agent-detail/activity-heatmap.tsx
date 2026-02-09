@@ -1,124 +1,103 @@
 'use client'
 
-import { subMonths, startOfWeek, eachDayOfInterval, format, isAfter } from 'date-fns'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  format,
+  isToday,
+  isWeekend,
+} from 'date-fns'
 import { cn } from '@/lib/utils'
 
 interface ActivityHeatmapProps {
   data: Map<string, number>
 }
 
-function getHeatmapColor(count: number): string {
-  if (count === 0) return 'bg-muted'
-  if (count <= 2) return 'bg-blue-200'
-  if (count <= 5) return 'bg-blue-400'
-  return 'bg-blue-600'
-}
-
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-export default function ActivityHeatmap({ data }: ActivityHeatmapProps) {
-  const today = new Date()
-  const sixMonthsAgo = subMonths(today, 6)
-  const gridStart = startOfWeek(sixMonthsAgo)
-  const allDays = eachDayOfInterval({ start: gridStart, end: today }).filter(
-    (d) => !isAfter(d, today)
-  )
+function MonthCalendar({ month, data }: { month: Date; data: Map<string, number> }) {
+  const start = startOfMonth(month)
+  const end = endOfMonth(month)
+  const days = eachDayOfInterval({ start, end })
+  const startDayOfWeek = getDay(start)
 
-  // Group days into weeks (columns)
-  const weeks: Date[][] = []
-  let currentWeek: Date[] = []
-  for (const day of allDays) {
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek)
-      currentWeek = []
-    }
-    currentWeek.push(day)
+  // Build 6-row grid (max possible weeks in a month)
+  const cells: (Date | null)[] = []
+  for (let i = 0; i < startDayOfWeek; i++) {
+    cells.push(null)
   }
-  if (currentWeek.length > 0) weeks.push(currentWeek)
-
-  // Determine month labels
-  const monthLabels: { label: string; colIndex: number }[] = []
-  let lastMonth = -1
-  for (let w = 0; w < weeks.length; w++) {
-    const firstDayOfWeek = weeks[w][0]
-    const month = firstDayOfWeek.getMonth()
-    if (month !== lastMonth) {
-      monthLabels.push({
-        label: format(firstDayOfWeek, 'MMM'),
-        colIndex: w,
-      })
-      lastMonth = month
-    }
+  for (const day of days) {
+    cells.push(day)
+  }
+  // Fill remaining cells to complete the grid
+  while (cells.length % 7 !== 0) {
+    cells.push(null)
   }
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className="space-y-1 overflow-x-auto">
-        {/* Month labels */}
-        <div className="flex" style={{ paddingLeft: 20, minWidth: 'max-content' }}>
-          {monthLabels.map((m, i) => {
-            const nextCol = monthLabels[i + 1]?.colIndex ?? weeks.length
-            const span = nextCol - m.colIndex
-            return (
-              <div
-                key={`${m.label}-${m.colIndex}`}
-                className="text-muted-foreground text-xs"
-                style={{ width: span * 14 }}
-              >
-                {m.label}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Grid with day labels */}
-        <div className="flex gap-1" style={{ minWidth: 'max-content' }}>
-          {/* Day-of-week labels */}
-          <div className="flex flex-col justify-between" style={{ width: 16 }}>
-            {DAY_LABELS.map((label, i) => (
-              <div
-                key={i}
-                className="text-muted-foreground flex h-3 items-center text-[10px] leading-none"
-              >
-                {i % 2 === 1 ? label : ''}
-              </div>
-            ))}
+    <div className="flex-1">
+      <h4 className="mb-2 text-center text-sm font-semibold">{format(month, 'MMMM')}</h4>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {/* Day of week headers */}
+        {DAY_LABELS.map((label, i) => (
+          <div key={i} className="text-muted-foreground pb-1 text-[10px] font-semibold">
+            {label}
           </div>
+        ))}
 
-          {/* Heatmap cells */}
-          <div
-            className="grid gap-[2px]"
-            style={{
-              gridTemplateRows: 'repeat(7, 1fr)',
-              gridAutoFlow: 'column',
-            }}
-          >
-            {allDays.map((day) => {
-              const key = format(day, 'yyyy-MM-dd')
-              const count = data.get(key) ?? 0
-              return (
-                <Tooltip key={key}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        'hover:ring-foreground/20 h-3 w-3 rounded-sm transition-all hover:ring-1',
-                        getHeatmapColor(count)
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      {format(day, 'MMM d, yyyy')} -{' '}
-                      {count === 0 ? 'No runs' : `${count} run${count > 1 ? 's' : ''}`}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              )
-            })}
-          </div>
-        </div>
+        {/* Day cells */}
+        {cells.map((day, i) => {
+          if (!day) {
+            return <div key={`empty-${i}`} />
+          }
+
+          const key = format(day, 'yyyy-MM-dd')
+          const count = data.get(key) ?? 0
+          const today = isToday(day)
+          const weekend = isWeekend(day)
+
+          return (
+            <div
+              key={key}
+              data-day-cell
+              data-date={key}
+              className={cn(
+                'mx-auto flex h-5 w-5 items-center justify-center rounded-md text-[10px]',
+                count > 0 && 'bg-primary/15 text-primary font-semibold',
+                today && 'ring-foreground/60 ring-1 ring-inset',
+                weekend && count === 0 && 'text-muted-foreground/60',
+                !weekend && count === 0 && 'text-muted-foreground/70'
+              )}
+            >
+              {format(day, 'd')}
+            </div>
+          )
+        })}
       </div>
-    </TooltipProvider>
+    </div>
+  )
+}
+
+export default function ActivityHeatmap({ data }: ActivityHeatmapProps) {
+  const today = new Date()
+  const months = [
+    subMonths(today, 4),
+    subMonths(today, 3),
+    subMonths(today, 2),
+    subMonths(today, 1),
+    today,
+  ]
+
+  return (
+    <div className="bg-background overflow-x-auto rounded-2xl border p-4 shadow-sm">
+      <div className="grid min-w-[760px] grid-cols-5 gap-8">
+        {months.map((month) => (
+          <MonthCalendar key={format(month, 'yyyy-MM')} month={month} data={data} />
+        ))}
+      </div>
+    </div>
   )
 }

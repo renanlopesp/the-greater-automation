@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { TableRow, TableCell } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import RunStatusBadge from '@/components/runs/run-status-badge'
 import { formatDuration } from '@/lib/utils/format-duration'
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
@@ -14,8 +13,15 @@ interface RunRowProps {
 }
 
 export default function RunRow({ run }: RunRowProps) {
+  const exactTimestamp = run.started_at ? new Date(run.started_at).toLocaleString() : undefined
+
   return (
-    <TableRow className={cn(run.status === 'failed' && 'border-destructive/50 border-l-2')}>
+    <TableRow
+      className={cn(
+        run.status === 'failed' &&
+          'border-destructive/30 bg-destructive/5 border-l-destructive border-y border-l-2'
+      )}
+    >
       <TableCell className="max-w-[120px] truncate font-mono text-sm">
         {run.id.slice(0, 8)}
       </TableCell>
@@ -38,15 +44,8 @@ export default function RunRow({ run }: RunRowProps) {
       <TableCell className="text-muted-foreground text-sm">
         {run.ai_credits_used.toFixed(1)}
       </TableCell>
-      <TableCell className="text-muted-foreground text-sm">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>{formatRelativeTime(run.started_at)}</span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {run.started_at ? new Date(run.started_at).toLocaleString() : 'Not started'}
-          </TooltipContent>
-        </Tooltip>
+      <TableCell className="text-muted-foreground text-sm" title={exactTimestamp}>
+        {formatRelativeTime(run.started_at)}
       </TableCell>
     </TableRow>
   )

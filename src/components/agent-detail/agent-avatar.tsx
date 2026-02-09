@@ -1,47 +1,24 @@
-'use client'
-
-import { cn } from '@/lib/utils'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 interface AgentAvatarProps {
-  size?: number
+  name?: string
 }
 
-export default function AgentAvatar({ size = 120 }: AgentAvatarProps) {
-  const gridSize = 24
-  const center = (gridSize - 1) / 2
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
 
+export default function AgentAvatar({ name = 'Agent' }: AgentAvatarProps) {
   return (
-    <div
-      className={cn('flex items-center justify-center rounded-full bg-blue-500')}
-      style={{ width: size, height: size }}
-    >
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-          gap: '1px',
-          width: size * 0.75,
-          height: size * 0.75,
-        }}
-      >
-        {Array.from({ length: gridSize * gridSize }, (_, i) => {
-          const row = Math.floor(i / gridSize)
-          const col = i % gridSize
-          const distance = Math.sqrt(Math.pow(row - center, 2) + Math.pow(col - center, 2))
-          const delay = distance * 0.05
-
-          return (
-            <div
-              key={i}
-              className="rounded-full bg-white"
-              style={{
-                aspectRatio: '1',
-                animation: `agent-dot-pulse 3s ease-in-out ${delay}s infinite`,
-              }}
-            />
-          )
-        })}
-      </div>
-    </div>
+    <Avatar className="h-20 w-20">
+      <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+        {getInitials(name)}
+      </AvatarFallback>
+    </Avatar>
   )
 }

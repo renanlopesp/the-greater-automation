@@ -6,7 +6,9 @@ import SearchTrigger from '@/components/search-trigger'
 describe('SearchTrigger', () => {
   it('renders with search text', () => {
     render(<SearchTrigger onOpen={vi.fn()} />)
-    expect(screen.getByText('Type Ctrl K to search')).toBeInTheDocument()
+    // Text is now split across multiple elements: "Type" + <kbd> + "to search"
+    expect(screen.getByText('Type')).toBeInTheDocument()
+    expect(screen.getByText('to search')).toBeInTheDocument()
   })
 
   it('calls onOpen when clicked', async () => {
@@ -14,7 +16,7 @@ describe('SearchTrigger', () => {
     const onOpen = vi.fn()
     render(<SearchTrigger onOpen={onOpen} />)
 
-    await user.click(screen.getByText('Type Ctrl K to search'))
+    await user.click(screen.getByRole('button'))
     expect(onOpen).toHaveBeenCalledOnce()
   })
 })

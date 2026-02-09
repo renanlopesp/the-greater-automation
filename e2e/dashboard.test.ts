@@ -6,9 +6,18 @@ test.describe('Dashboard page', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test('page loads without errors', async ({ page }) => {
+  test('login page preserves redirect target', async ({ page }) => {
     await page.goto('/dashboard')
-    // Should redirect to login since no auth
+    await expect(page).toHaveURL(/\/login\?redirectTo=%2Fdashboard/)
+  })
+
+  test('login page renders without console errors', async ({ page }) => {
+    const errors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
+    await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/login/)
+    expect(errors).toHaveLength(0)
   })
 })

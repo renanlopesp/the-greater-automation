@@ -8,13 +8,13 @@ describe('workflow-editor-store', () => {
 
   it('has correct initial state', () => {
     const state = useWorkflowEditorStore.getState()
-    expect(state.workflowName).toBe('Untitled workflow')
+    expect(state.workflowName).toBe('Untitled')
     expect(state.workflowEmoji).toBe('')
     expect(state.isStarred).toBe(false)
-    expect(state.trigger).toBeNull()
+    expect(state.trigger).toEqual({ type: 'manual', config: { run_inputs: [] } })
     expect(state.steps).toEqual([])
     expect(state.selectedStepId).toBeNull()
-    expect(state.isAssistantOpen).toBe(true)
+    expect(state.isAssistantOpen).toBe(false)
   })
 
   it('setWorkflowName updates name', () => {
@@ -113,7 +113,7 @@ describe('workflow-editor-store', () => {
     store.toggleStar()
     store.resetStore()
     const state = useWorkflowEditorStore.getState()
-    expect(state.workflowName).toBe('Untitled workflow')
+    expect(state.workflowName).toBe('Untitled')
     expect(state.isStarred).toBe(false)
   })
 
@@ -127,6 +127,56 @@ describe('workflow-editor-store', () => {
     expect(state.workflowId).toBe('w1')
     expect(state.workflowName).toBe('Test')
     expect(state.isStarred).toBe(true)
+    expect(state.isDirty).toBe(false)
+  })
+
+  it('initializeWorkflow sets trigger and steps from DB data', () => {
+    useWorkflowEditorStore.getState().initializeWorkflow({
+      workflowId: 'w2',
+      workflowName: 'DB Workflow',
+      workflowEmoji: '🔧',
+      isStarred: false,
+      trigger: {
+        type: 'webhook',
+        config: { url: 'https://example.com', method: 'POST', response_status: 200 },
+      },
+      steps: [
+        {
+          id: 's1',
+          type: 'ai',
+          name: 'Summarize',
+          position: 0,
+          config: {
+            ai_action: 'summarize',
+            prompt_template: 'test',
+            output_format: 'text',
+            temperature: 0.7,
+            max_tokens: 1000,
+          },
+        },
+        {
+          id: 's2',
+          type: 'http',
+          name: 'Call API',
+          position: 1,
+          config: {
+            request_type: 'custom',
+            method: 'GET',
+            url: 'https://api.example.com',
+            timeout_seconds: 30,
+            retry_count: 0,
+          },
+        },
+      ],
+    })
+    const state = useWorkflowEditorStore.getState()
+    expect(state.workflowId).toBe('w2')
+    expect(state.workflowName).toBe('DB Workflow')
+    expect(state.workflowEmoji).toBe('🔧')
+    expect(state.trigger?.type).toBe('webhook')
+    expect(state.steps).toHaveLength(2)
+    expect(state.steps[0].name).toBe('Summarize')
+    expect(state.steps[1].name).toBe('Call API')
     expect(state.isDirty).toBe(false)
   })
 })

@@ -31,5 +31,12 @@ export default async function WorkspacePage() {
     fetchTeamMembers(supabase, teamId),
   ])
 
-  return <WorkspaceClient initialItems={items} teamId={teamId} teamMembers={teamMembers} />
+  return (
+    <WorkspaceClient
+      initialItems={items}
+      teamId={teamId}
+      teamMembers={teamMembers}
+      userId={user.id}
+    />
+  )
 }

@@ -2,7 +2,7 @@
 
 import { FolderOpen, List, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface ViewToggleProps {
   activeView: 'folder' | 'list' | 'graph'
@@ -10,40 +10,32 @@ interface ViewToggleProps {
 }
 
 export default function ViewToggle({ activeView, onViewChange }: ViewToggleProps) {
-  function handleClick(view: 'folder' | 'list' | 'graph') {
-    if (view === 'folder' || view === 'graph') {
+  function handleValueChange(value: string) {
+    if (!value) return
+    if (value === 'graph') {
       toast('Coming soon')
       return
     }
-    onViewChange(view)
+    onViewChange(value as 'folder' | 'list' | 'graph')
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        variant={activeView === 'folder' ? 'default' : 'outline'}
-        size="icon"
-        className="h-8 w-8"
-        onClick={() => handleClick('folder')}
-      >
+    <ToggleGroup
+      type="single"
+      value={activeView}
+      onValueChange={handleValueChange}
+      variant="outline"
+      size="sm"
+    >
+      <ToggleGroupItem value="folder" aria-label="Folder view">
         <FolderOpen className="h-4 w-4" />
-      </Button>
-      <Button
-        variant={activeView === 'list' ? 'default' : 'outline'}
-        size="icon"
-        className="h-8 w-8"
-        onClick={() => handleClick('list')}
-      >
+      </ToggleGroupItem>
+      <ToggleGroupItem value="list" aria-label="List view">
         <List className="h-4 w-4" />
-      </Button>
-      <Button
-        variant={activeView === 'graph' ? 'default' : 'outline'}
-        size="icon"
-        className="h-8 w-8"
-        onClick={() => handleClick('graph')}
-      >
+      </ToggleGroupItem>
+      <ToggleGroupItem value="graph" aria-label="Graph view">
         <GitBranch className="h-4 w-4" />
-      </Button>
-    </div>
+      </ToggleGroupItem>
+    </ToggleGroup>
   )
 }

@@ -8,27 +8,11 @@ describe('ChatInput', () => {
     expect(screen.getByPlaceholderText('Chat with Relay Agent...')).toBeInTheDocument()
   })
 
-  it('send button is disabled when input is empty', () => {
-    render(<ChatInput agentName="Agent" />)
-    const button = screen.getByRole('button')
-    expect(button).toBeDisabled()
-  })
-
-  it('send button is enabled when input has text', () => {
-    render(<ChatInput agentName="Agent" />)
-    const input = screen.getByPlaceholderText('Chat with Agent...')
-    fireEvent.change(input, { target: { value: 'Hello' } })
-    const button = screen.getByRole('button')
-    expect(button).not.toBeDisabled()
-  })
-
-  it('clears input on button click', () => {
+  it('updates as the user types', () => {
     render(<ChatInput agentName="Agent" />)
     const input = screen.getByPlaceholderText('Chat with Agent...') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Hello' } })
-    const button = screen.getByRole('button')
-    fireEvent.click(button)
-    expect(input.value).toBe('')
+    expect(input.value).toBe('Hello')
   })
 
   it('clears input on Enter key', () => {

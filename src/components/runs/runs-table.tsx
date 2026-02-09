@@ -24,7 +24,11 @@ export default function RunsTable({
   isFetchingNextPage,
 }: RunsTableProps) {
   if (!isLoading && runs.length === 0) {
-    return <RunsEmptyState />
+    return (
+      <div className="flex flex-1 items-center justify-center py-24">
+        <RunsEmptyState />
+      </div>
+    )
   }
 
   return (
@@ -33,13 +37,15 @@ export default function RunsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Run ID</TableHead>
-              <TableHead>Workflow</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Steps</TableHead>
-              <TableHead>AI Credits</TableHead>
-              <TableHead>Timestamp</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Run ID</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Workflow</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Status</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Duration</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Steps</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">
+                AI Credits
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Timestamp</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

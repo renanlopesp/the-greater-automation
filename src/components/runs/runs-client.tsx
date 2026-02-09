@@ -48,7 +48,7 @@ export default function RunsClient({ initialRuns, teamId, workflows }: RunsClien
   }, [allRuns, debouncedSearch])
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-7xl flex-1 flex-col gap-4 p-6">
       <RunsHeader />
       <RunsFilters filters={filters} onFiltersChange={setFilters} workflows={workflows} />
       <RunsTable

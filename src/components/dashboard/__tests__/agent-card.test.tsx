@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import AgentCard from '@/components/dashboard/agent-card'
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
+      const { whileHover, transition, ...rest } = props
+      return <div {...rest}>{children}</div>
+    },
+  },
+}))
 
 describe('AgentCard', () => {
   const mockAgent = {
@@ -16,24 +25,24 @@ describe('AgentCard', () => {
     expect(screen.getByText('A test agent description')).toBeInTheDocument()
   })
 
-  it('renders "No skills yet" when no skills', () => {
+  it('renders "0 skills" when no skills', () => {
     render(<AgentCard agent={mockAgent} skills={[]} />)
-    expect(screen.getByText('No skills yet')).toBeInTheDocument()
+    expect(screen.getByText('0 skills')).toBeInTheDocument()
   })
 
-  it('renders skill chips up to 3', () => {
+  it('renders skill badges for up to 3 skills', () => {
     const skills = [
       { id: '1', name: 'Skill A' },
       { id: '2', name: 'Skill B' },
       { id: '3', name: 'Skill C' },
     ]
     render(<AgentCard agent={mockAgent} skills={skills} />)
-    expect(screen.getByText(/Skill A/)).toBeInTheDocument()
-    expect(screen.getByText(/Skill B/)).toBeInTheDocument()
-    expect(screen.getByText(/Skill C/)).toBeInTheDocument()
+    expect(screen.getByText('Skill A')).toBeInTheDocument()
+    expect(screen.getByText('Skill B')).toBeInTheDocument()
+    expect(screen.getByText('Skill C')).toBeInTheDocument()
   })
 
-  it('renders +N badge when more than 3 skills', () => {
+  it('renders overflow badge when more than 3 skills', () => {
     const skills = [
       { id: '1', name: 'Skill A' },
       { id: '2', name: 'Skill B' },
@@ -42,6 +51,13 @@ describe('AgentCard', () => {
       { id: '5', name: 'Skill E' },
     ]
     render(<AgentCard agent={mockAgent} skills={skills} />)
-    expect(screen.getByText('+2')).toBeInTheDocument()
+    expect(screen.getByText('Skill A')).toBeInTheDocument()
+    expect(screen.getByText('Skill B')).toBeInTheDocument()
+    expect(screen.getByText('+3')).toBeInTheDocument()
+  })
+
+  it('renders initials in avatar fallback', () => {
+    render(<AgentCard agent={mockAgent} skills={[]} />)
+    expect(screen.getByText('TA')).toBeInTheDocument()
   })
 })
