@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import DashboardShell from '@/components/dashboard-shell'
@@ -79,8 +80,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: null,
       }
 
+  const cookieStore = await cookies()
+  const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
+
   return (
-    <DashboardShell user={userData} team={team} usage={usage}>
+    <DashboardShell user={userData} team={team} usage={usage} defaultSidebarOpen={sidebarOpen}>
       {children}
     </DashboardShell>
   )

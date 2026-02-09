@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -207,7 +206,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail data-sidebar="rail" className="after:content-none" />
+      <SidebarRail data-sidebar="rail" className="after:content-none!" />
     </Sidebar>
   )
 }
