@@ -62,13 +62,15 @@ export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) 
             />
           </div>
           <CardHeader className="relative flex flex-1 flex-col items-center gap-3 pb-0">
-            <Avatar size="lg" className="h-14 w-14">
-              {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
-              <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {getInitials(agent.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col items-center gap-1 text-center">
+            <div className="bg-background/60 rounded-full p-1 backdrop-blur-md">
+              <Avatar size="lg" className="h-14 w-14">
+                {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
+                <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                  {getInitials(agent.name)}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="bg-background/60 flex flex-col items-center gap-1 rounded-md px-3 py-1 text-center backdrop-blur-md">
               <span className="truncate text-sm font-medium">{agent.name}</span>
               {agent.description && (
                 <span className="text-muted-foreground line-clamp-2 text-xs">
