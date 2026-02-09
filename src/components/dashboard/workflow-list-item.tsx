@@ -46,24 +46,21 @@ export default function WorkflowListItem({
               {workflow.name}
             </span>
           </span>
-          <span className="text-muted-foreground text-xs">Edited {edited}</span>
+          <span className="text-muted-foreground pt-1 text-xs">Edited {edited}</span>
         </span>
 
         {/* Total runs */}
-        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
-          <span className="text-muted-foreground text-xs">Total runs</span>
+        <span className="hidden shrink-0 md:flex" style={{ width: 100 }}>
           <span className="text-muted-foreground text-sm">{totalRuns}</span>
         </span>
 
         {/* Activity sparkline */}
-        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
-          <span className="text-muted-foreground text-xs">Activity</span>
+        <span className="hidden shrink-0 md:flex" style={{ width: 100 }}>
           <ActivitySparkline data={sparklineData} />
         </span>
 
         {/* Last run */}
-        <span className="flex min-w-0 flex-1 flex-row items-center justify-between gap-2">
-          <span className="text-muted-foreground shrink-0 text-xs">Last run</span>
+        <span className="flex min-w-0 flex-1 justify-end">
           <span className="text-muted-foreground truncate text-sm">{lastRun}</span>
         </span>
       </span>

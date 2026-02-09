@@ -37,7 +37,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
       <div>
         <div className="flex flex-col">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DashboardTab)}>
-            <div className="flex items-center gap-3 pb-4">
+            <div className="flex items-center gap-3 pb-6">
               <TabsList>
                 {TABS.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value}>
@@ -68,6 +68,28 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                   </p>
                 ) : (
                   <div className="flex flex-col divide-y">
+                    <div className="flex items-center gap-3 pb-2">
+                      <span className="flex min-w-0 flex-1 items-center gap-6">
+                        <span className="text-muted-foreground min-w-0 flex-1 text-xs">
+                          Runners
+                        </span>
+                        <span
+                          className="text-muted-foreground hidden shrink-0 text-xs md:block"
+                          style={{ width: 100 }}
+                        >
+                          Total runs
+                        </span>
+                        <span
+                          className="text-muted-foreground hidden shrink-0 text-xs md:block"
+                          style={{ width: 100 }}
+                        >
+                          Activity
+                        </span>
+                        <span className="text-muted-foreground flex min-w-0 flex-1 justify-end text-xs">
+                          Last run
+                        </span>
+                      </span>
+                    </div>
                     {workflows.map((w) => {
                       const stats = runStats?.[w.id]
                       return (
