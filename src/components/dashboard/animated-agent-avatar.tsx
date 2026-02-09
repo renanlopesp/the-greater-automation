@@ -1,46 +1,45 @@
 'use client'
 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
 interface AnimatedAgentAvatarProps {
-  color?: string
+  name?: string
   className?: string
+  size?: number
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(/[\s]+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+/**
+ * @deprecated Use Avatar + AvatarFallback directly instead.
+ * This component is kept for backward compatibility with agent-detail.
+ */
+export function getAgentPalette(_name: string) {
+  return { dot: '', bg: '', text: '' }
 }
 
 export default function AnimatedAgentAvatar({
-  color = 'bg-blue-500',
+  name = 'Agent',
   className,
+  size = 100,
 }: AnimatedAgentAvatarProps) {
-  const gridSize = 6
-  const centerOffset = (gridSize - 1) / 2
+  const sizeClass =
+    size >= 80 ? 'h-20 w-20 text-2xl' : size >= 40 ? 'h-10 w-10 text-base' : 'h-8 w-8 text-sm'
 
   return (
-    <div
-      className={cn(
-        'flex h-16 w-16 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950',
-        className
-      )}
-    >
-      <div className="grid grid-cols-6 gap-[3px]">
-        {Array.from({ length: gridSize * gridSize }, (_, i) => {
-          const row = Math.floor(i / gridSize)
-          const col = i % gridSize
-          const distance = Math.sqrt(
-            Math.pow(row - centerOffset, 2) + Math.pow(col - centerOffset, 2)
-          )
-          const delay = distance * 0.15
-
-          return (
-            <div
-              key={i}
-              className={cn('h-[3px] w-[3px] rounded-full', color)}
-              style={{
-                animation: `agent-dot-pulse 2s ease-in-out ${delay}s infinite`,
-              }}
-            />
-          )
-        })}
-      </div>
+    <div className={cn('flex items-center justify-center', className)}>
+      <Avatar className={sizeClass}>
+        <AvatarFallback className="bg-primary/10 text-primary">{getInitials(name)}</AvatarFallback>
+      </Avatar>
     </div>
   )
 }

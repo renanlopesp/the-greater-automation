@@ -2,11 +2,17 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import AppSidebar from '@/components/app-sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
   useRouter: () => ({ push: vi.fn() }),
+}))
+
+// Mock next-themes
+vi.mock('next-themes', () => ({
+  useTheme: () => ({ theme: 'light', setTheme: vi.fn() }),
 }))
 
 // Mock supabase client
@@ -23,44 +29,47 @@ const mockUser = {
   avatarUrl: null,
 }
 
-const mockUsage = {
-  stepsUsed: 50,
-  stepsLimit: 100,
-  aiCreditsUsed: 25,
-  aiCreditsLimit: 100,
+function renderSidebar(props = {}) {
+  return render(
+    <SidebarProvider>
+      <AppSidebar user={mockUser} usage={null} {...props} />
+    </SidebarProvider>
+  )
 }
 
 describe('AppSidebar', () => {
-  it('renders all navigation icons', () => {
-    render(<AppSidebar user={mockUser} usage={mockUsage} />)
-    // 6 nav items rendered as links
-    const links = screen.getAllByRole('link')
-    expect(links.length).toBeGreaterThanOrEqual(6)
+  it('renders platform navigation links', () => {
+    renderSidebar()
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Workspace')).toBeInTheDocument()
+    expect(screen.getByText('Runs')).toBeInTheDocument()
   })
 
-  it('highlights the active route', () => {
-    render(<AppSidebar user={mockUser} usage={mockUsage} />)
-    const activeLink = screen.getByRole('link', { current: 'page' })
-    expect(activeLink).toBeInTheDocument()
+  it('renders tool menu items', () => {
+    renderSidebar()
+    expect(screen.getByText('Search')).toBeInTheDocument()
+    expect(screen.getByText('Integrations')).toBeInTheDocument()
   })
 
-  it('renders usage meters', () => {
-    render(<AppSidebar user={mockUser} usage={mockUsage} />)
-    expect(screen.getByText('Steps')).toBeInTheDocument()
-    expect(screen.getByText('AI Credits')).toBeInTheDocument()
+  it('renders theme toggle', () => {
+    renderSidebar()
+    expect(screen.getByText('Toggle theme')).toBeInTheDocument()
   })
 
-  it('renders avatar with initials fallback', () => {
-    render(<AppSidebar user={mockUser} usage={mockUsage} />)
-    expect(screen.getByText('TU')).toBeInTheDocument()
+  it('renders user info in footer', () => {
+    renderSidebar()
+    expect(screen.getByText('Test User')).toBeInTheDocument()
+    expect(screen.getByText('test@example.com')).toBeInTheDocument()
   })
 
-  it('opens dropdown menu on avatar click', async () => {
+  it('opens dropdown menu on user button click', async () => {
     const user = userEvent.setup()
-    render(<AppSidebar user={mockUser} usage={mockUsage} />)
+    renderSidebar()
 
-    const avatarButton = screen.getByRole('button', { name: 'TU' })
-    await user.click(avatarButton)
+    // The user menu button contains the user's name
+    const userButtons = screen.getAllByText('Test User')
+    // Click the one that is inside the trigger (first occurrence)
+    await user.click(userButtons[0])
 
     expect(screen.getByText('Settings')).toBeInTheDocument()
     expect(screen.getByText('Log out')).toBeInTheDocument()
@@ -69,14 +78,9 @@ describe('AppSidebar', () => {
   it('calls onOpenCommandMenu when Search is clicked', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()
-    render(<AppSidebar user={mockUser} usage={mockUsage} onOpenCommandMenu={onOpen} />)
+    renderSidebar({ onOpenCommandMenu: onOpen })
 
-    // Find the search link by its tooltip
-    const searchLinks = screen.getAllByRole('link')
-    const searchLink = searchLinks.find((link) => link.getAttribute('href') === '#')
-    if (searchLink) {
-      await user.click(searchLink)
-      expect(onOpen).toHaveBeenCalled()
-    }
+    await user.click(screen.getByText('Search'))
+    expect(onOpen).toHaveBeenCalled()
   })
 })

@@ -9,18 +9,21 @@ interface AgentsGridProps {
 
 export default function AgentsGrid({ agents }: AgentsGridProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {agents.map((a) => (
-        <AgentCard key={a.agent.id} agent={a.agent} skills={a.skills} />
-      ))}
-      <Link href="/agents/new">
-        <Card className="border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 min-h-[180px] border-2 border-dashed transition-colors">
-          <CardContent className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <Plus className="text-muted-foreground h-8 w-8" />
-            <span className="text-muted-foreground text-sm">Create new agent</span>
-          </CardContent>
-        </Card>
-      </Link>
-    </div>
+    <section className="flex flex-col gap-6">
+      <h3 className="text-lg font-semibold">Agents</h3>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {agents.map((a) => (
+          <AgentCard key={a.agent.id} agent={a.agent} skills={a.skills} />
+        ))}
+        <Link href="/agents/new">
+          <Card className="border-border hover:border-muted-foreground/50 h-[220px] border-2 border-dashed bg-transparent shadow-none transition-colors">
+            <CardContent className="flex h-full flex-col items-center justify-center gap-3">
+              <Plus className="text-muted-foreground h-10 w-10" strokeWidth={1.5} />
+              <span className="text-muted-foreground text-sm font-medium">Create new agent</span>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </section>
   )
 }

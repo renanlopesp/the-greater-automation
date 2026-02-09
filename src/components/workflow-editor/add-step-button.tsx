@@ -1,6 +1,7 @@
 'use client'
 
 import { Plus } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 
 interface AddStepButtonProps {
   onClick: () => void
@@ -8,13 +9,15 @@ interface AddStepButtonProps {
 
 export default function AddStepButton({ onClick }: AddStepButtonProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="border-muted-foreground/25 hover:border-primary hover:text-primary text-muted-foreground mx-auto flex max-w-[400px] items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-3 text-sm transition-colors"
-    >
-      <Plus className="h-4 w-4" />
-      Add step
-    </button>
+    <Card className="w-full max-w-[520px] gap-0 rounded-lg py-0 shadow-sm">
+      <button
+        type="button"
+        onClick={onClick}
+        className="text-primary hover:bg-muted/20 flex w-full items-center justify-center gap-2 px-6 py-4 text-sm font-medium"
+      >
+        <Plus className="h-4 w-4" />
+        Add step
+      </button>
+    </Card>
   )
 }

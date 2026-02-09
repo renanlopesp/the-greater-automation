@@ -26,23 +26,23 @@ export default function RunsFilters({ filters, onFiltersChange, workflows }: Run
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative">
-        <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <Input
-          placeholder="Search runs..."
+          placeholder="Search runs"
           value={filters.search}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-          className="w-full pl-9 sm:w-[200px]"
+          className="bg-background w-full pl-9 sm:w-[320px]"
         />
       </div>
       <Select
         value={filters.status}
         onValueChange={(v) => onFiltersChange({ ...filters, status: v })}
       >
-        <SelectTrigger className="w-full sm:w-[160px]">
-          <SelectValue placeholder="All statuses" />
+        <SelectTrigger className="bg-background w-full sm:w-[140px]">
+          <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
+          <SelectItem value="all">Status</SelectItem>
           <SelectItem value="pending">Pending</SelectItem>
           <SelectItem value="running">Running</SelectItem>
           <SelectItem value="completed">Completed</SelectItem>
@@ -54,11 +54,11 @@ export default function RunsFilters({ filters, onFiltersChange, workflows }: Run
         value={filters.workflowId}
         onValueChange={(v) => onFiltersChange({ ...filters, workflowId: v })}
       >
-        <SelectTrigger className="w-full sm:w-[200px]">
-          <SelectValue placeholder="All workflows" />
+        <SelectTrigger className="bg-background w-full sm:w-[160px]">
+          <SelectValue placeholder="Workflow" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All workflows</SelectItem>
+          <SelectItem value="all">Workflow</SelectItem>
           {workflows.map((w) => (
             <SelectItem key={w.id} value={w.id}>
               {w.name}

@@ -1,85 +1,53 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  type SortingState,
+  type ColumnFiltersState,
+  type VisibilityState,
+  type RowSelectionState,
+} from '@tanstack/react-table'
+import { useQueryStates, parseAsString } from 'nuqs'
 import WorkspaceHeader from '@/components/workspace/workspace-header'
-import WorkspaceFilters, {
-  type WorkspaceFiltersState,
-} from '@/components/workspace/workspace-filters'
+import WorkspaceFilters from '@/components/workspace/workspace-filters'
 import ViewToggle from '@/components/workspace/view-toggle'
 import WorkspaceTable from '@/components/workspace/workspace-table'
-import { useDebounce } from '@/hooks/use-debounce'
-import type { WorkspaceItem } from '@/lib/queries/workspace'
+import { createColumns } from '@/components/workspace/columns'
+import type { WorkspaceItem, WorkspaceAgent, WorkspaceWorkflow } from '@/lib/queries/workspace'
 
 interface WorkspaceClientProps {
   initialItems: WorkspaceItem[]
   teamId: string
   teamMembers: { id: string; full_name: string | null }[]
+  userId: string
 }
 
-export default function WorkspaceClient({ initialItems, teamMembers }: WorkspaceClientProps) {
-  const [filters, setFilters] = useState<WorkspaceFiltersState>({
-    search: '',
-    createdBy: 'all',
-    status: 'all',
-    type: 'all',
+export default function WorkspaceClient({
+  initialItems,
+  teamMembers,
+  userId,
+}: WorkspaceClientProps) {
+  const [filters, setFilters] = useQueryStates({
+    search: parseAsString.withDefault(''),
+    status: parseAsString.withDefault(''),
+    type: parseAsString.withDefault(''),
+    createdBy: parseAsString.withDefault(''),
   })
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expandedAgentIds, setExpandedAgentIds] = useState<Set<string>>(new Set())
-  const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('list')
+  const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('folder')
 
-  const debouncedSearch = useDebounce(filters.search)
-
-  const filteredItems = useMemo(() => {
-    let items = [...initialItems]
-
-    // Type filter
-    if (filters.type !== 'all') {
-      items = items.filter((item) => item.type === filters.type)
-    }
-
-    // Status filter (only applies to workflows)
-    if (filters.status !== 'all') {
-      items = items.filter((item) => {
-        if (item.type === 'workflow') return item.status === filters.status
-        if (item.type === 'agent') {
-          return item.workflows.some((w) => w.status === filters.status)
-        }
-        return true
-      })
-    }
-
-    // Search filter
-    if (debouncedSearch) {
-      const lower = debouncedSearch.toLowerCase()
-      items = items.filter((item) => item.name.toLowerCase().includes(lower))
-    }
-
-    // Sort
-    items.sort((a, b) => {
-      const cmp = a.name.localeCompare(b.name)
-      return sortDirection === 'asc' ? cmp : -cmp
-    })
-
-    return items
-  }, [initialItems, filters.type, filters.status, debouncedSearch, sortDirection])
-
-  function handleSelectionChange(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function handleSelectAll() {
-    if (selectedIds.size === filteredItems.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(filteredItems.map((item) => item.id)))
-    }
-  }
+  const memberNameById = useMemo(() => {
+    return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
+  }, [teamMembers])
 
   function handleToggleExpand(id: string) {
     setExpandedAgentIds((prev) => {
@@ -90,8 +58,81 @@ export default function WorkspaceClient({ initialItems, teamMembers }: Workspace
     })
   }
 
+  const columns = useMemo(
+    () =>
+      createColumns({
+        userId,
+        memberNameById,
+        expandedAgentIds,
+        onToggleExpand: handleToggleExpand,
+      }),
+    [userId, memberNameById, expandedAgentIds]
+  )
+
+  // Flatten agent nested workflows into table data when expanded
+  const flatData = useMemo(() => {
+    // First apply URL-based filters
+    let items = [...initialItems]
+
+    if (filters.type) {
+      items = items.filter((item) => item.type === filters.type)
+    }
+
+    if (filters.createdBy) {
+      items = items.filter((item) => item.created_by === filters.createdBy)
+    }
+
+    if (filters.status) {
+      items = items.filter((item) => {
+        if (item.type === 'workflow') return (item as WorkspaceWorkflow).status === filters.status
+        if (item.type === 'agent') {
+          return (item as WorkspaceAgent).workflows.some((w) => w.status === filters.status)
+        }
+        return true
+      })
+    }
+
+    if (filters.search) {
+      const lower = filters.search.toLowerCase()
+      items = items.filter((item) => item.name.toLowerCase().includes(lower))
+    }
+
+    // Flatten: for expanded agents, insert their child workflows after the agent row
+    const result: WorkspaceItem[] = []
+    for (const item of items) {
+      result.push(item)
+      if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
+        const agent = item as WorkspaceAgent
+        for (const w of agent.workflows) {
+          result.push(w)
+        }
+      }
+    }
+
+    return result
+  }, [initialItems, filters, expandedAgentIds])
+
+  const table = useReactTable({
+    data: flatData,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getRowId: (row) => row.id,
+  })
+
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
       <WorkspaceHeader />
       <div className="flex items-center justify-between gap-4">
         <WorkspaceFilters
@@ -101,16 +142,7 @@ export default function WorkspaceClient({ initialItems, teamMembers }: Workspace
         />
         <ViewToggle activeView={activeView} onViewChange={setActiveView} />
       </div>
-      <WorkspaceTable
-        items={filteredItems}
-        sortDirection={sortDirection}
-        onSortChange={() => setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))}
-        selectedIds={selectedIds}
-        onSelectionChange={handleSelectionChange}
-        onSelectAll={handleSelectAll}
-        expandedAgentIds={expandedAgentIds}
-        onToggleExpand={handleToggleExpand}
-      />
+      <WorkspaceTable table={table} />
     </div>
   )
 }

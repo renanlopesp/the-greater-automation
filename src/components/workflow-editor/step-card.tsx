@@ -41,17 +41,15 @@ export default function StepCard({
   return (
     <Card
       className={cn(
-        'group mx-auto max-w-[400px] cursor-pointer transition-all hover:shadow-sm',
+        'group hover:bg-muted/20 w-full max-w-[520px] cursor-pointer gap-0 rounded-lg py-0 shadow-sm transition-colors',
         isSelected && 'ring-primary ring-2'
       )}
       onClick={onClick}
     >
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold">
-          {stepNumber}
-        </div>
-        <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-          {IconComponent && <IconComponent className="text-primary h-5 w-5" />}
+      <CardContent className="flex items-center gap-3 px-5 py-4">
+        <div className="text-muted-foreground w-6 shrink-0 text-center text-sm">{stepNumber}</div>
+        <div className="border-primary/25 bg-background flex h-9 w-9 items-center justify-center rounded-lg border">
+          {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">

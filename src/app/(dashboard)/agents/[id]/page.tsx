@@ -1,13 +1,15 @@
 import { notFound, redirect } from 'next/navigation'
 import { subMonths, format } from 'date-fns'
+import { MessageSquare, TrendingUp } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
 import AgentInfo from '@/components/agent-detail/agent-info'
 import SkillsList from '@/components/agent-detail/skills-list'
 import ChatInput from '@/components/agent-detail/chat-input'
 import ActivityHeatmap from '@/components/agent-detail/activity-heatmap'
-import ProgressIndicators from '@/components/agent-detail/progress-indicators'
+import ConnectionIndicators from '@/components/agent-detail/connection-indicators'
 import RunHistory from '@/components/agent-detail/run-history'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,7 +29,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   // Parallel data fetching
   const sixMonthsAgo = subMonths(new Date(), 6)
 
-  const [skillsResult, runsResult, recentRunsResult, usageResult] = await Promise.all([
+  const [skillsResult, runsResult, recentRunsResult] = await Promise.all([
     // Skills with workflow info
     supabase
       .from('agent_skills')
@@ -52,15 +54,6 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       .eq('agent_id', id)
       .order('started_at', { ascending: false })
       .limit(20),
-
-    // Usage for progress indicators
-    supabase
-      .from('usage')
-      .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-      .eq('team_id', agent.team_id)
-      .order('period_start', { ascending: false })
-      .limit(1)
-      .single(),
   ])
 
   // Build heatmap data
@@ -93,43 +86,54 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     workflow: r.workflows as { name: string; emoji: string } | null,
   }))
 
-  const usage = usageResult.data
+  const hasRuns = recentRuns.length > 0
 
   return (
-    <div className="flex h-full flex-col md:flex-row">
-      {/* Left Panel */}
-      <div className="bg-agent-panel flex w-full flex-col border-b md:w-96 md:border-r md:border-b-0">
-        <div className="flex flex-col items-center gap-4 p-6">
-          <AgentAvatar />
-          <AgentInfo name={agent.name} description={agent.description} />
-        </div>
-        <ScrollArea className="flex-1 px-6">
-          <SkillsList skills={skills} agentId={id} />
-        </ScrollArea>
-        <ChatInput agentName={agent.name} />
-      </div>
+    <div className="mx-auto flex max-w-7xl flex-1 flex-col gap-6 p-6 md:flex-row md:items-stretch">
+      {/* Left Card */}
+      <aside className="w-full md:w-[360px]">
+        <div className="bg-card relative flex h-full min-h-[720px] flex-col overflow-hidden rounded-3xl border shadow-sm">
+          <div className="relative flex flex-col items-center gap-4 px-6 pt-10 pb-6">
+            <AgentAvatar name={agent.name} />
+            <AgentInfo name={agent.name} description={agent.description} />
+          </div>
 
-      {/* Right Panel */}
-      <div className="flex flex-1 flex-col gap-8 overflow-y-auto p-6">
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Recent activity</h2>
+          <ScrollArea className="flex-1 px-6 pb-6">
+            <SkillsList skills={skills} agentId={id} />
+          </ScrollArea>
+
+          <ChatInput agentName={agent.name} />
+        </div>
+      </aside>
+
+      {/* Right Content */}
+      <div className="flex min-w-0 flex-1 flex-col gap-6">
+        <section className="space-y-3">
+          <h2 className="text-foreground flex items-center gap-2 text-base font-semibold">
+            <TrendingUp className="text-muted-foreground h-4 w-4" />
+            Recent activity
+          </h2>
           <ActivityHeatmap data={heatmapData} />
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Usage</h2>
-          <ProgressIndicators
-            stepsUsed={usage?.steps_used ?? 0}
-            stepsLimit={usage?.steps_limit ?? 1000}
-            aiCreditsUsed={Number(usage?.ai_credits_used ?? 0)}
-            aiCreditsLimit={Number(usage?.ai_credits_limit ?? 100)}
-          />
-        </section>
+        {hasRuns ? (
+          <>
+            <ConnectionIndicators />
+            <RunHistory runs={recentRuns} />
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <RunHistory runs={recentRuns} />
+          </div>
+        )}
+      </div>
 
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Run history</h2>
-          <RunHistory runs={recentRuns} />
-        </section>
+      {/* Share feedback */}
+      <div className="pointer-events-none fixed right-6 bottom-6 z-50">
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 pointer-events-auto h-9 rounded-full px-4 text-xs font-medium shadow-sm">
+          <MessageSquare className="mr-2 h-4 w-4" />
+          Share agent feedback
+        </Button>
       </div>
     </div>
   )

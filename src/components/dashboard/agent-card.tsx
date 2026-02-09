@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import AnimatedAgentAvatar from '@/components/dashboard/animated-agent-avatar'
-import SkillChip from '@/components/dashboard/skill-chip'
 
 export interface AgentCardProps {
   agent: {
@@ -16,35 +16,61 @@ export interface AgentCardProps {
   skills: { id: string; name: string }[]
 }
 
-export default function AgentCard({ agent, skills }: AgentCardProps) {
-  const visibleSkills = skills.slice(0, 3)
-  const remaining = skills.length - 3
+function getInitials(name: string): string {
+  return name
+    .split(/[\s]+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
 
+export default function AgentCard({ agent, skills }: AgentCardProps) {
   return (
     <Link href={`/agents/${agent.id}`}>
-      <Card className="hover:border-primary/20 min-h-[180px] shadow-sm transition-shadow hover:shadow-md">
-        <CardContent className="flex flex-col gap-3 p-4">
-          <AnimatedAgentAvatar />
-          <div className="flex flex-col gap-1">
-            <span className="truncate text-sm font-medium">{agent.name}</span>
-            {agent.description && (
-              <p className="text-muted-foreground line-clamp-2 text-xs">{agent.description}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {visibleSkills.length === 0 ? (
-              <span className="text-muted-foreground text-xs">No skills yet</span>
+      <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+        <Card className="flex h-[220px] flex-col transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-1 flex-col items-center gap-3 pb-0">
+            <Avatar size="lg" className="h-14 w-14">
+              {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                {getInitials(agent.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col items-center gap-1 text-center">
+              <span className="truncate text-sm font-medium">{agent.name}</span>
+              {agent.description && (
+                <span className="text-muted-foreground line-clamp-2 text-xs">
+                  {agent.description}
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-center gap-1 pt-0">
+            {skills.length === 0 ? (
+              <span className="text-muted-foreground text-xs">0 skills</span>
+            ) : skills.length <= 3 ? (
+              skills.map((skill) => (
+                <Badge key={skill.id} variant="secondary" className="text-[10px]">
+                  {skill.name}
+                </Badge>
+              ))
             ) : (
               <>
-                {visibleSkills.map((s) => (
-                  <SkillChip key={s.id} emoji="⚡" name={s.name} />
+                {skills.slice(0, 2).map((skill) => (
+                  <Badge key={skill.id} variant="secondary" className="text-[10px]">
+                    {skill.name}
+                  </Badge>
                 ))}
-                {remaining > 0 && <Badge variant="secondary">+{remaining}</Badge>}
+                <Badge variant="secondary" className="text-[10px]">
+                  +{skills.length - 2}
+                </Badge>
               </>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
     </Link>
   )
 }

@@ -18,18 +18,8 @@ describe('WorkflowListItem', () => {
     expect(screen.getByText('Test Workflow')).toBeInTheDocument()
   })
 
-  it('renders emoji', () => {
-    render(<WorkflowListItem workflow={mockWorkflow} />)
-    expect(screen.getByText('🚀')).toBeInTheDocument()
-  })
-
   it('renders status badge', () => {
     render(<WorkflowListItem workflow={mockWorkflow} />)
     expect(screen.getByText('Published')).toBeInTheDocument()
-  })
-
-  it('renders default emoji when null', () => {
-    render(<WorkflowListItem workflow={{ ...mockWorkflow, emoji: null }} />)
-    expect(screen.getByText('📋')).toBeInTheDocument()
   })
 })

@@ -44,12 +44,16 @@ export default function RunHistory({ runs }: RunHistoryProps) {
   if (runs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="relative mb-4 h-16 w-24">
-          <div className="bg-muted/50 absolute inset-x-2 top-0 h-12 rounded-lg border" />
-          <div className="bg-muted/70 absolute inset-x-1 top-1 h-12 rounded-lg border" />
-          <div className="bg-muted absolute inset-x-0 top-2 h-12 rounded-lg border" />
+        <div className="relative mb-4 h-20 w-28">
+          <div className="border-primary/15 bg-background/40 absolute inset-x-2 top-0 h-14 rounded-xl border-2" />
+          <div className="border-primary/20 bg-background/60 absolute inset-x-1 top-2 h-14 rounded-xl border-2" />
+          <div className="border-primary/25 bg-background absolute inset-x-0 top-4 h-14 rounded-xl border-2 shadow-sm" />
+
+          <div className="bg-primary/30 absolute top-9 left-4 h-2 w-14 rounded-full" />
+          <div className="bg-primary/35 absolute top-9 right-4 h-2 w-2 rounded-full" />
+          <div className="bg-muted-foreground/20 absolute top-13 left-4 h-2 w-10 rounded-full" />
         </div>
-        <p className="text-muted-foreground text-sm">No runs yet.</p>
+        <p className="text-foreground text-sm font-medium">No runs yet.</p>
       </div>
     )
   }
@@ -71,14 +75,14 @@ export default function RunHistory({ runs }: RunHistoryProps) {
               {run.workflow?.emoji ?? '⚡'} {run.workflow?.name ?? 'Unknown workflow'}
             </p>
           </div>
-          {run.completed_at && (
-            <span className="text-muted-foreground shrink-0 text-xs">
-              {formatDuration(run.started_at, run.completed_at)}
+          <div className="text-muted-foreground ml-auto flex shrink-0 items-center gap-6 text-xs">
+            <span className={cn('w-12 text-right', !run.completed_at && 'opacity-0')}>
+              {run.completed_at ? formatDuration(run.started_at, run.completed_at) : '0s'}
             </span>
-          )}
-          <span className="text-muted-foreground shrink-0 text-xs">
-            {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
-          </span>
+            <span className="w-28 text-right">
+              {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
+            </span>
+          </div>
         </div>
       ))}
     </div>

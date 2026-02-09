@@ -9,8 +9,11 @@ export interface WorkspaceWorkflow {
   name: string
   emoji: string | null
   status: string
+  created_by: string
   updated_at: string | null
   created_at: string
+  published_at: string | null
+  last_run_at: string | null
   created_by_name: string | null
   step_count: number
   has_ai_steps: boolean
@@ -22,6 +25,7 @@ export interface WorkspaceAgent {
   id: string
   name: string
   avatar_url: string | null
+  created_by: string
   workflows: WorkspaceWorkflow[]
 }
 
@@ -31,14 +35,14 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
   // Fetch workflows
   const { data: workflows } = await supabase
     .from('workflows')
-    .select('id, name, emoji, status, updated_at, created_at, created_by')
+    .select('id, name, emoji, status, updated_at, created_at, published_at, created_by')
     .eq('team_id', teamId)
     .order('name', { ascending: true })
 
   // Fetch agents
   const { data: agents } = await supabase
     .from('agents')
-    .select('id, name, avatar_url')
+    .select('id, name, avatar_url, created_by')
     .eq('team_id', teamId)
     .order('name', { ascending: true })
 
@@ -81,6 +85,24 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     }
   }
 
+  // Fetch last run timestamps per workflow
+  const lastRunByWorkflow: Record<string, string | null> = {}
+  if (workflowIds.length > 0) {
+    const { data: runs } = await supabase
+      .from('workflow_runs')
+      .select('workflow_id, started_at, created_at')
+      .in('workflow_id', workflowIds)
+
+    if (runs) {
+      for (const r of runs) {
+        const ts = r.started_at ?? r.created_at ?? null
+        if (!ts) continue
+        const prev = lastRunByWorkflow[r.workflow_id]
+        if (!prev || ts > prev) lastRunByWorkflow[r.workflow_id] = ts
+      }
+    }
+  }
+
   // Map workflows
   const mappedWorkflows: WorkspaceWorkflow[] = (workflows ?? []).map((w) => ({
     type: 'workflow' as const,
@@ -88,8 +110,11 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     name: w.name,
     emoji: w.emoji,
     status: w.status,
+    created_by: w.created_by,
     updated_at: w.updated_at,
     created_at: w.created_at,
+    published_at: w.published_at,
+    last_run_at: lastRunByWorkflow[w.id] ?? null,
     created_by_name: null,
     step_count: stepsByWorkflow[w.id]?.count ?? 0,
     has_ai_steps: stepsByWorkflow[w.id]?.hasAi ?? false,
@@ -108,6 +133,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       id: agent.id,
       name: agent.name,
       avatar_url: agent.avatar_url,
+      created_by: agent.created_by,
       workflows: childWorkflows,
     })
   }

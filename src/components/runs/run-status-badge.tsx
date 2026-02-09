@@ -17,11 +17,7 @@ export default function RunStatusBadge({ status }: RunStatusBadgeProps) {
         </Badge>
       )
     case 'completed':
-      return (
-        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-          Completed
-        </Badge>
-      )
+      return <Badge className="bg-chart-2/15 text-chart-2">Completed</Badge>
     case 'failed':
       return <Badge variant="destructive">Failed</Badge>
     case 'cancelled':

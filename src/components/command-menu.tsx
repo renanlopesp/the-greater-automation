@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, Bot, Play } from 'lucide-react'
+import { FileText, Bot, Play, LayoutDashboard, FolderKanban, Plug } from 'lucide-react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -10,6 +10,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from '@/components/ui/command'
 import { createBrowserClient } from '@/lib/supabase/client'
 
@@ -131,6 +132,31 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
       />
       <CommandList>
         {query && !hasResults && <CommandEmpty>No results found.</CommandEmpty>}
+        {!query && (
+          <>
+            <CommandGroup heading="Navigation">
+              <CommandItem onSelect={() => handleSelect('/dashboard')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Dashboard
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/workspace')}>
+                <FolderKanban className="mr-2 h-4 w-4" />
+                Workspace
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/runs')}>
+                <Play className="mr-2 h-4 w-4" />
+                Runs
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup heading="Quick Actions">
+              <CommandItem onSelect={() => handleSelect('/workspace')}>
+                <Plug className="mr-2 h-4 w-4" />
+                Integrations
+              </CommandItem>
+            </CommandGroup>
+          </>
+        )}
         {workflows.length > 0 && (
           <CommandGroup heading="Workflows">
             {workflows.map((w) => (

@@ -22,6 +22,8 @@ interface AgentRowProps {
   onSelect: (id: string) => void
   selectedWorkflowIds: Set<string>
   onSelectWorkflow: (id: string) => void
+  userId: string
+  memberNameById: Map<string, string | null>
 }
 
 export default function AgentRow({
@@ -32,10 +34,15 @@ export default function AgentRow({
   onSelect,
   selectedWorkflowIds,
   onSelectWorkflow,
+  userId,
+  memberNameById,
 }: AgentRowProps) {
+  const createdByLabel =
+    agent.created_by === userId ? 'You' : (memberNameById.get(agent.created_by) ?? '--')
+
   return (
     <>
-      <TableRow className="bg-muted/30">
+      <TableRow>
         <TableCell>
           <Checkbox checked={isSelected} onCheckedChange={() => onSelect(agent.id)} />
         </TableCell>
@@ -48,23 +55,25 @@ export default function AgentRow({
                 <ChevronRight className="h-4 w-4" />
               )}
             </button>
-            <Avatar className="h-6 w-6">
+            <Avatar className="bg-background h-6 w-6 rounded-md border">
               <AvatarImage src={agent.avatar_url ?? undefined} />
-              <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary rounded-md text-xs">
+                {agent.name[0]}
+              </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-bold">{agent.name}</span>
+            <span className="text-sm font-semibold">{agent.name}</span>
           </div>
         </TableCell>
         <TableCell className="text-muted-foreground text-sm">--</TableCell>
+        <TableCell className="text-muted-foreground text-sm">{createdByLabel}</TableCell>
         <TableCell className="text-muted-foreground text-sm">--</TableCell>
         <TableCell className="text-muted-foreground text-sm">--</TableCell>
-        <TableCell>--</TableCell>
-        <TableCell>--</TableCell>
-        <TableCell>--</TableCell>
+        <TableCell className="text-muted-foreground text-sm">--</TableCell>
+        <TableCell className="text-muted-foreground text-sm">--</TableCell>
         <TableCell>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon-sm">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -90,6 +99,8 @@ export default function AgentRow({
               isSelected={selectedWorkflowIds.has(w.id)}
               onSelect={onSelectWorkflow}
               isNested
+              userId={userId}
+              memberNameById={memberNameById}
             />
           ))
         ))}

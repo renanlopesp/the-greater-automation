@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { getTriggerDefaultConfig } from '@/lib/workflow-editor/trigger-defaults'
 import type { WorkflowTrigger } from '@/lib/workflow-editor/trigger-defaults'
 import type { WorkflowStep } from '@/lib/workflow-editor/step-defaults'
 
@@ -33,13 +34,13 @@ export type WorkflowEditorStore = WorkflowEditorState & WorkflowEditorActions
 
 const initialState: WorkflowEditorState = {
   workflowId: '',
-  workflowName: 'Untitled workflow',
+  workflowName: 'Untitled',
   workflowEmoji: '',
   isStarred: false,
-  trigger: null,
+  trigger: { type: 'manual', config: getTriggerDefaultConfig('manual') },
   steps: [],
   selectedStepId: null,
-  isAssistantOpen: true,
+  isAssistantOpen: false,
   isDirty: false,
 }
 

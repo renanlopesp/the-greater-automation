@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,12 +17,13 @@ interface SplitButtonProps {
 export default function SplitButton({ onNewBlank, onNewFromTemplate }: SplitButtonProps) {
   return (
     <div className="flex">
-      <Button className="rounded-r-none" onClick={onNewBlank}>
+      <Button size="sm" className="rounded-r-none" onClick={onNewBlank}>
+        <Plus className="h-4 w-4" />
         New workflow
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button className="rounded-l-none border-l px-2">
+          <Button size="sm" className="border-primary-foreground/20 rounded-l-none border-l px-2">
             <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

@@ -20,6 +20,8 @@ interface WorkflowRowProps {
   isSelected: boolean
   onSelect: (id: string) => void
   isNested?: boolean
+  userId: string
+  memberNameById: Map<string, string | null>
 }
 
 export default function WorkflowRow({
@@ -27,7 +29,12 @@ export default function WorkflowRow({
   isSelected,
   onSelect,
   isNested = false,
+  userId,
+  memberNameById,
 }: WorkflowRowProps) {
+  const createdByLabel =
+    workflow.created_by === userId ? 'You' : (memberNameById.get(workflow.created_by) ?? '--')
+
   return (
     <TableRow>
       <TableCell>
@@ -38,18 +45,18 @@ export default function WorkflowRow({
           href={`/workflows/${workflow.id}/edit`}
           className="flex max-w-[300px] items-center gap-2 truncate"
         >
-          <span>{workflow.emoji ?? '📋'}</span>
+          <span className="bg-muted flex h-6 w-6 items-center justify-center rounded-md border text-sm">
+            {workflow.emoji ?? '📋'}
+          </span>
           <span className="truncate text-sm font-medium">{workflow.name}</span>
         </Link>
       </TableCell>
       <TableCell className="text-muted-foreground text-sm">
-        {formatRelativeTime(workflow.updated_at)}
+        {formatRelativeTime(workflow.last_run_at)}
       </TableCell>
+      <TableCell className="text-muted-foreground text-sm">{createdByLabel}</TableCell>
       <TableCell className="text-muted-foreground text-sm">
-        {workflow.created_by_name ?? '--'}
-      </TableCell>
-      <TableCell className="text-muted-foreground text-sm">
-        {formatRelativeTime(workflow.created_at)}
+        {workflow.published_at ? formatRelativeTime(workflow.published_at) : '--'}
       </TableCell>
       <TableCell>
         <StatusBadge status={workflow.status === 'published' ? 'published' : 'draft'} />
@@ -61,7 +68,7 @@ export default function WorkflowRow({
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon-sm">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
