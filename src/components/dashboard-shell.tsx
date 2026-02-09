@@ -67,9 +67,9 @@ export default function DashboardShell({ user, team, usage, children }: Dashboar
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <SidebarInset>
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
+          <header className="flex h-10 shrink-0 items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
@@ -88,6 +88,7 @@ export default function DashboardShell({ user, team, usage, children }: Dashboar
               )}
             </div>
           </header>
+          <Separator />
           <div className="flex-1 overflow-auto">{children}</div>
         </SidebarInset>
         <CommandMenu
