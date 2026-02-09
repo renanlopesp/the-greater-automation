@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { LetterGlitch } from '@/components/ui/letter-glitch'
 
 export interface AgentCardProps {
   agent: {
@@ -14,7 +16,15 @@ export interface AgentCardProps {
     avatar_url: string | null
   }
   skills: { id: string; name: string }[]
+  index?: number
 }
+
+const GLITCH_PALETTES = [
+  ['#1a3a5c', '#648EE9', '#a3c4f3'], // blue
+  ['#4e1a05', '#D7733E', '#f0a875'], // orange
+  ['#0a3d1f', '#5BA87B', '#8fd4a8'], // green
+  ['#2d1150', '#9B6BC4', '#c9a7e4'], // purple
+]
 
 function getInitials(name: string): string {
   return name
@@ -26,12 +36,32 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-export default function AgentCard({ agent, skills }: AgentCardProps) {
+export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) {
+  const [hovered, setHovered] = useState(false)
+  const palette = GLITCH_PALETTES[index % GLITCH_PALETTES.length]
+
   return (
     <Link href={`/agents/${agent.id}`}>
-      <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
-        <Card className="flex h-[220px] flex-col transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-1 flex-col items-center gap-3 pb-0">
+      <motion.div
+        whileHover={{ y: -2 }}
+        transition={{ duration: 0.2 }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <Card className="relative flex h-[220px] flex-col overflow-hidden transition-shadow hover:shadow-md">
+          <div
+            className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+            style={{ opacity: hovered ? 0.2 : 0 }}
+          >
+            <LetterGlitch
+              glitchColors={palette}
+              glitchSpeed={70}
+              outerVignette={true}
+              smooth={true}
+              active={hovered}
+            />
+          </div>
+          <CardHeader className="relative flex flex-1 flex-col items-center gap-3 pb-0">
             <Avatar size="lg" className="h-14 w-14">
               {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
               <AvatarFallback className="bg-primary/10 text-primary text-lg">
@@ -47,7 +77,7 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-center gap-1 pt-0">
+          <CardContent className="relative flex flex-wrap items-center justify-center gap-1 pt-0">
             {skills.length === 0 ? (
               <span className="text-muted-foreground text-xs">0 skills</span>
             ) : skills.length <= 3 ? (
