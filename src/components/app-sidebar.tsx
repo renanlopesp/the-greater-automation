@@ -211,7 +211,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail />
+      <SidebarRail className="after:content-none" />
     </Sidebar>
   )
 }
