@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowListItem from '@/components/dashboard/workflow-list-item'
 import { useWorkflows } from '@/hooks/use-workflows'
@@ -27,7 +27,7 @@ const TABS: { value: DashboardTab; label: string }[] = [
 
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
-  const { data: workflows = [] } = useWorkflows(teamId, activeTab, initialWorkflows)
+  const { data: workflows = [], isPending } = useWorkflows(teamId, activeTab, initialWorkflows)
   const workflowIds = workflows.map((w) => w.id)
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 
@@ -56,7 +56,13 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
 
             {TABS.map((tab) => (
               <TabsContent key={tab.value} value={tab.value}>
-                {workflows.length === 0 ? (
+                {isPending ? (
+                  <div className="flex flex-col divide-y">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <WorkflowItemSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : workflows.length === 0 ? (
                   <p className="text-muted-foreground py-8 text-center text-sm">
                     No workflows found
                   </p>
@@ -87,5 +93,33 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
         </div>
       </div>
     </section>
+  )
+}
+
+function WorkflowItemSkeleton() {
+  return (
+    <span className="flex items-center gap-3 py-4">
+      <span className="flex min-w-0 flex-1 items-center gap-6">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-4 w-40" />
+          </span>
+          <Skeleton className="h-3 w-24" />
+        </span>
+        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-4 w-12" />
+        </span>
+        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-4 w-24" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-row items-center justify-between gap-2">
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-4 w-28" />
+        </span>
+      </span>
+    </span>
   )
 }

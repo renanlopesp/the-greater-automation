@@ -48,7 +48,7 @@ export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) 
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <Card className="relative flex h-[220px] flex-col overflow-hidden transition-shadow hover:shadow-md">
+        <Card className="relative flex h-[250px] flex-col overflow-hidden transition-shadow hover:shadow-md">
           <div
             className="pointer-events-none absolute inset-0 transition-opacity duration-300"
             style={{ opacity: hovered ? 0.4 : 0 }}

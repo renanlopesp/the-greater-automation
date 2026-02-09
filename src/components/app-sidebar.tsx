@@ -162,7 +162,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip={user.fullName ?? user.email}>
                   <Avatar className="size-8 rounded-lg">
@@ -177,11 +177,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
                   <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                align="end"
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-              >
+              <DropdownMenuContent side="right" align="end" className="min-w-56 rounded-lg">
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="size-8 rounded-lg">
@@ -211,7 +207,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
         </SidebarMenu>
       </SidebarFooter>
 
-      <SidebarRail className="after:content-none" />
+      <SidebarRail data-sidebar="rail" className="after:content-none" />
     </Sidebar>
   )
 }
