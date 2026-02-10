@@ -39,9 +39,9 @@ describe('AgentsGrid', () => {
     expect(screen.getByText('Create new agent')).toBeInTheDocument()
   })
 
-  it('renders skill badges for agents with skills', () => {
+  it('renders skill counts for agents', () => {
     render(<AgentsGrid agents={mockAgents} />)
-    expect(screen.getByText('Email Triage')).toBeInTheDocument()
+    expect(screen.getByText('1 skill')).toBeInTheDocument()
     expect(screen.getByText('0 skills')).toBeInTheDocument()
   })
 
