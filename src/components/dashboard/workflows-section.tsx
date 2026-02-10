@@ -90,7 +90,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                         </span>
                       </span>
                     </div>
-                    {workflows.map((w) => {
+                    {workflows.slice(0, 5).map((w) => {
                       const stats = runStats?.[w.id]
                       return (
                         <WorkflowListItem

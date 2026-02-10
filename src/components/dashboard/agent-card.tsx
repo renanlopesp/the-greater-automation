@@ -69,25 +69,16 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
             </div>
           </CardHeader>
           <CardContent className="relative flex flex-wrap items-center justify-center gap-1 pt-0">
-            {skills.length === 0 ? (
-              <span className="text-muted-foreground text-xs">0 skills</span>
-            ) : skills.length <= 3 ? (
+            {!hovered || skills.length === 0 ? (
+              <span className="text-muted-foreground text-xs">
+                {skills.length} {skills.length === 1 ? 'skill' : 'skills'}
+              </span>
+            ) : (
               skills.map((skill) => (
                 <Badge key={skill.id} variant="secondary" className="text-[10px]">
                   {skill.name}
                 </Badge>
               ))
-            ) : (
-              <>
-                {skills.slice(0, 2).map((skill) => (
-                  <Badge key={skill.id} variant="secondary" className="text-[10px]">
-                    {skill.name}
-                  </Badge>
-                ))}
-                <Badge variant="secondary" className="text-[10px]">
-                  +{skills.length - 2}
-                </Badge>
-              </>
             )}
           </CardContent>
         </Card>
