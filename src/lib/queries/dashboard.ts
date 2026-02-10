@@ -15,7 +15,7 @@ export async function fetchTeam(supabase: Client, teamId: string) {
 export async function fetchAgentsWithSkills(supabase: Client, teamId: string) {
   const { data: agents } = await supabase
     .from('agents')
-    .select('id, name, description, avatar_url')
+    .select('id, name, description, avatar_url, palette')
     .eq('team_id', teamId)
     .limit(20)
 
@@ -50,7 +50,7 @@ export async function fetchWorkflows(supabase: Client, teamId: string, tab: Dash
       query = query.order('updated_at', { ascending: false })
       break
     case 'recently-run':
-      query = query.order('updated_at', { ascending: false })
+      query = query.neq('status', 'draft').order('updated_at', { ascending: false })
       break
     case 'starred':
       query = query.eq('is_starred', true).order('updated_at', { ascending: false })

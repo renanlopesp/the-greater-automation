@@ -42,6 +42,7 @@ export default async function DashboardPage() {
           name: a.name,
           description: a.description,
           avatar_url: a.avatar_url,
+          palette: a.palette,
         },
         skills: a.skills.map((s) => ({
           id: s.id,

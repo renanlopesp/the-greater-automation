@@ -25,6 +25,7 @@ export interface WorkspaceAgent {
   id: string
   name: string
   avatar_url: string | null
+  palette: string | null
   created_by: string
   workflows: WorkspaceWorkflow[]
 }
@@ -42,7 +43,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
   // Fetch agents
   const { data: agents } = await supabase
     .from('agents')
-    .select('id, name, avatar_url, created_by')
+    .select('id, name, avatar_url, palette, created_by')
     .eq('team_id', teamId)
     .order('name', { ascending: true })
 
@@ -133,6 +134,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       id: agent.id,
       name: agent.name,
       avatar_url: agent.avatar_url,
+      palette: agent.palette ?? null,
       created_by: agent.created_by,
       workflows: childWorkflows,
     })

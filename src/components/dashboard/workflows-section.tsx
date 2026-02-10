@@ -19,9 +19,9 @@ interface WorkflowsSectionProps {
 }
 
 const TABS: { value: DashboardTab; label: string }[] = [
-  { value: 'needs-attention', label: 'Needs attention' },
-  { value: 'recently-edited', label: 'Recently edited' },
   { value: 'recently-run', label: 'Recently run' },
+  { value: 'recently-edited', label: 'Recently edited' },
+  { value: 'needs-attention', label: 'Needs attention' },
   { value: 'starred', label: 'Starred' },
 ]
 
@@ -127,14 +127,11 @@ function WorkflowItemSkeleton() {
             <Skeleton className="h-5 w-16 rounded-full" />
             <Skeleton className="h-4 w-40" />
           </span>
-          <Skeleton className="h-3 w-24" />
         </span>
         <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
-          <Skeleton className="h-3 w-16" />
           <Skeleton className="h-4 w-12" />
         </span>
         <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
-          <Skeleton className="h-3 w-14" />
           <Skeleton className="h-4 w-24" />
         </span>
         <span className="flex min-w-0 flex-1 flex-row items-center justify-between gap-2">

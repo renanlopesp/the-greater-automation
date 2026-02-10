@@ -25,7 +25,7 @@ export default function WorkflowListItem({
   lastRunAt = null,
   sparklineData = [],
 }: WorkflowListItemProps) {
-  const edited = formatRelativeTime(workflow.updated_at ?? workflow.created_at)
+  // const edited = formatRelativeTime(workflow.updated_at ?? workflow.created_at)
   const lastRun = lastRunAt ? formatRelativeTime(lastRunAt) : 'No runs completed yet'
 
   return (
@@ -46,7 +46,7 @@ export default function WorkflowListItem({
               {workflow.name}
             </span>
           </span>
-          <span className="text-muted-foreground pt-1 text-xs">Edited {edited}</span>
+          {/* <span className="text-muted-foreground pt-1 text-xs">Edited {edited}</span> */}
         </span>
 
         {/* Total runs */}

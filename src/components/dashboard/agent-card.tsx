@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { LetterGlitch } from '@/components/ui/letter-glitch'
+import { getAgentPalette, getGlitchPalette } from '@/lib/agent-palettes'
 
 export interface AgentCardProps {
   agent: {
@@ -14,31 +15,14 @@ export interface AgentCardProps {
     name: string
     description: string | null
     avatar_url: string | null
+    palette?: string | null
   }
   skills: { id: string; name: string }[]
-  index?: number
 }
 
-const GLITCH_PALETTES = [
-  ['#1a3a5c', '#648EE9', '#a3c4f3'], // blue
-  ['#4e1a05', '#D7733E', '#f0a875'], // orange
-  ['#0a3d1f', '#5BA87B', '#8fd4a8'], // green
-  ['#2d1150', '#9B6BC4', '#c9a7e4'], // purple
-]
-
-function getInitials(name: string): string {
-  return name
-    .split(/[\s]+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) {
+export default function AgentCard({ agent, skills }: AgentCardProps) {
   const [hovered, setHovered] = useState(false)
-  const palette = GLITCH_PALETTES[index % GLITCH_PALETTES.length]
+  const palette = getGlitchPalette(agent.palette)
 
   return (
     <Link href={`/agents/${agent.id}`}>
@@ -48,7 +32,7 @@ export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) 
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <Card className="relative flex h-[250px] flex-col overflow-hidden transition-shadow hover:shadow-md">
+        <Card className="relative flex h-[280px] flex-col overflow-hidden transition-shadow hover:shadow-md">
           <div
             className="pointer-events-none absolute inset-0 transition-opacity duration-300"
             style={{ opacity: hovered ? 0.4 : 0 }}
@@ -63,12 +47,12 @@ export default function AgentCard({ agent, skills, index = 0 }: AgentCardProps) 
           </div>
           <CardHeader className="relative flex flex-1 flex-col items-center gap-3 pb-0">
             <div className="rounded-full p-1 backdrop-blur-[5px]">
-              <Avatar size="lg" className="h-14 w-14">
-                {agent.avatar_url && <AvatarImage src={agent.avatar_url} alt={agent.name} />}
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {getInitials(agent.name)}
-                </AvatarFallback>
-              </Avatar>
+              <BoringAvatar
+                name={agent.avatar_url ?? agent.name}
+                variant="bauhaus"
+                size={56}
+                colors={getAgentPalette(agent.palette)}
+              />
             </div>
             <div className="flex flex-col items-center gap-1 rounded-md px-3 pt-1 pb-2 text-center backdrop-blur-[5px]">
               <span className="truncate text-sm font-medium">{agent.name}</span>
