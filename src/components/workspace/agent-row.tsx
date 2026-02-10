@@ -4,7 +4,8 @@ import { ChevronRight, ChevronDown, MoreHorizontal } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import BoringAvatar from 'boring-avatars'
+import { getAgentPalette } from '@/lib/agent-palettes'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,12 +56,14 @@ export default function AgentRow({
                 <ChevronRight className="h-4 w-4" />
               )}
             </button>
-            <Avatar className="bg-background h-6 w-6 rounded-md border">
-              <AvatarImage src={agent.avatar_url ?? undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary rounded-md text-xs">
-                {agent.name[0]}
-              </AvatarFallback>
-            </Avatar>
+            <div className="overflow-hidden rounded-md">
+              <BoringAvatar
+                name={agent.name}
+                variant="bauhaus"
+                size={24}
+                colors={getAgentPalette(agent.palette)}
+              />
+            </div>
             <span className="text-sm font-semibold">{agent.name}</span>
           </div>
         </TableCell>

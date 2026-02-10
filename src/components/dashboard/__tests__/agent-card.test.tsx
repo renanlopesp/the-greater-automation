@@ -11,6 +11,12 @@ vi.mock('framer-motion', () => ({
   },
 }))
 
+vi.mock('boring-avatars', () => ({
+  default: ({ name, size }: { name: string; size: number }) => (
+    <svg data-testid="boring-avatar" aria-label={name} width={size} height={size} />
+  ),
+}))
+
 describe('AgentCard', () => {
   const mockAgent = {
     id: 'agent-1',
@@ -30,34 +36,26 @@ describe('AgentCard', () => {
     expect(screen.getByText('0 skills')).toBeInTheDocument()
   })
 
-  it('renders skill badges for up to 3 skills', () => {
+  it('renders skill count for multiple skills', () => {
     const skills = [
       { id: '1', name: 'Skill A' },
       { id: '2', name: 'Skill B' },
       { id: '3', name: 'Skill C' },
     ]
     render(<AgentCard agent={mockAgent} skills={skills} />)
-    expect(screen.getByText('Skill A')).toBeInTheDocument()
-    expect(screen.getByText('Skill B')).toBeInTheDocument()
-    expect(screen.getByText('Skill C')).toBeInTheDocument()
+    expect(screen.getByText('3 skills')).toBeInTheDocument()
   })
 
-  it('renders overflow badge when more than 3 skills', () => {
-    const skills = [
-      { id: '1', name: 'Skill A' },
-      { id: '2', name: 'Skill B' },
-      { id: '3', name: 'Skill C' },
-      { id: '4', name: 'Skill D' },
-      { id: '5', name: 'Skill E' },
-    ]
+  it('renders singular skill label for 1 skill', () => {
+    const skills = [{ id: '1', name: 'Skill A' }]
     render(<AgentCard agent={mockAgent} skills={skills} />)
-    expect(screen.getByText('Skill A')).toBeInTheDocument()
-    expect(screen.getByText('Skill B')).toBeInTheDocument()
-    expect(screen.getByText('+3')).toBeInTheDocument()
+    expect(screen.getByText('1 skill')).toBeInTheDocument()
   })
 
-  it('renders initials in avatar fallback', () => {
+  it('renders avatar with agent name', () => {
     render(<AgentCard agent={mockAgent} skills={[]} />)
-    expect(screen.getByText('TA')).toBeInTheDocument()
+    const avatar = screen.getByTestId('boring-avatar')
+    expect(avatar).toBeInTheDocument()
+    expect(avatar).toHaveAttribute('aria-label', 'Test Agent')
   })
 })

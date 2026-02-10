@@ -13,7 +13,7 @@ export function useWorkflows(teamId: string, tab: DashboardTab, initialData: Wor
       const supabase = createBrowserClient()
       return fetchWorkflows(supabase, teamId, tab)
     },
-    initialData,
+    initialData: tab === 'recently-edited' ? initialData : undefined,
     staleTime: 30_000,
   })
 }

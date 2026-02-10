@@ -1,0 +1,38 @@
+{
+  "a1bdd70a-26ab-4bb0-a54d-566a34807a36": {
+    "name": "Customer Support",
+    "seed": "customer-support-a1bdd70a"
+  },
+  "e6058494-9699-4290-965f-4027dd3bb5f2": {
+    "name": "Data Pipeline",
+    "seed": "data-pipeline-e6058494"
+  },
+  "c9b766d7-7a27-4403-9407-8b64bfd125fa": {
+    "name": "Competitor Research",
+    "seed": "competitor-research-c9b766d7"
+  },
+  "9ee89a5d-be2d-4bf0-9827-d4b7fcb712cd": {
+    "name": "Personal Assistant",
+    "seed": "personal-assistant-9ee89a5d"
+  },
+  "886818c8-e57b-477b-b6f9-5ba2d5570e38": {
+    "name": "Social Pulse",
+    "seed": "social-pulse-886818c8"
+  },
+  "91cd1e2f-db9b-4e8e-9489-255551b2dc1c": {
+    "name": "Doc Digester",
+    "seed": "doc-digester-91cd1e2f"
+  },
+  "caf13ddf-65c6-4cf8-9c3c-3cd5ec2302c3": {
+    "name": "Stock Keeper",
+    "seed": "stock-keeper-caf13ddf"
+  },
+  "39595133-f986-4f5b-8744-bb66df75c628": {
+    "name": "Price Watcher",
+    "seed": "price-watcher-39595133"
+  },
+  "b9c77345-6cf7-4273-bf03-ed4e7d28b617": {
+    "name": "Review Manager",
+    "seed": "review-manager-b9c77345"
+  }
+}

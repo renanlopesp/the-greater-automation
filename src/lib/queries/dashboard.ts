@@ -15,7 +15,7 @@ export async function fetchTeam(supabase: Client, teamId: string) {
 export async function fetchAgentsWithSkills(supabase: Client, teamId: string) {
   const { data: agents } = await supabase
     .from('agents')
-    .select('id, name, description, avatar_url')
+    .select('id, name, description, avatar_url, palette')
     .eq('team_id', teamId)
     .limit(20)
 
@@ -27,9 +27,20 @@ export async function fetchAgentsWithSkills(supabase: Client, teamId: string) {
     .select('id, agent_id, name')
     .in('agent_id', agentIds)
 
+  // Build Map for O(1) lookup instead of O(n) filter per agent
+  const skillsByAgent = new Map<string, { id: string; agent_id: string; name: string }[]>()
+  for (const skill of skills ?? []) {
+    const list = skillsByAgent.get(skill.agent_id)
+    if (list) {
+      list.push(skill)
+    } else {
+      skillsByAgent.set(skill.agent_id, [skill])
+    }
+  }
+
   return agents.map((agent) => ({
     ...agent,
-    skills: (skills ?? []).filter((s) => s.agent_id === agent.id),
+    skills: skillsByAgent.get(agent.id) ?? [],
   }))
 }
 
@@ -44,13 +55,13 @@ export async function fetchWorkflows(supabase: Client, teamId: string, tab: Dash
 
   switch (tab) {
     case 'needs-attention':
-      query = query.order('updated_at', { ascending: false })
+      query = query.eq('status', 'draft').order('updated_at', { ascending: false })
       break
     case 'recently-edited':
       query = query.order('updated_at', { ascending: false })
       break
     case 'recently-run':
-      query = query.order('updated_at', { ascending: false })
+      query = query.neq('status', 'draft').order('updated_at', { ascending: false })
       break
     case 'starred':
       query = query.eq('is_starred', true).order('updated_at', { ascending: false })

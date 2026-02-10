@@ -168,6 +168,16 @@
   --shadow-2xl: 0px 1px 4px 0px hsl(0 0% 0% / 0.13);
 }
 
+button:not([data-sidebar='rail']),
+[type='button'],
+[type='submit'],
+[type='reset'],
+a,
+select,
+summary {
+  cursor: pointer;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowListItem from '@/components/dashboard/workflow-list-item'
 import { useWorkflows } from '@/hooks/use-workflows'
@@ -19,16 +19,16 @@ interface WorkflowsSectionProps {
 }
 
 const TABS: { value: DashboardTab; label: string }[] = [
-  { value: 'needs-attention', label: 'Needs attention' },
-  { value: 'recently-edited', label: 'Recently edited' },
   { value: 'recently-run', label: 'Recently run' },
+  { value: 'recently-edited', label: 'Recently edited' },
+  { value: 'needs-attention', label: 'Needs attention' },
   { value: 'starred', label: 'Starred' },
 ]
 
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
-  const { data: workflows } = useWorkflows(teamId, activeTab, initialWorkflows)
-  const workflowIds = workflows.map((w) => w.id)
+  const { data: workflows = [], isPending } = useWorkflows(teamId, activeTab, initialWorkflows)
+  const workflowIds = useMemo(() => workflows.map((w) => w.id), [workflows])
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 
   return (
@@ -37,7 +37,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
       <div>
         <div className="flex flex-col">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DashboardTab)}>
-            <div className="flex items-center gap-3 pb-4">
+            <div className="flex items-center gap-3 pb-6">
               <TabsList>
                 {TABS.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value}>
@@ -56,13 +56,41 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
 
             {TABS.map((tab) => (
               <TabsContent key={tab.value} value={tab.value}>
-                {workflows.length === 0 ? (
+                {isPending ? (
+                  <div className="flex flex-col divide-y">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <WorkflowItemSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : workflows.length === 0 ? (
                   <p className="text-muted-foreground py-8 text-center text-sm">
                     No workflows found
                   </p>
                 ) : (
                   <div className="flex flex-col divide-y">
-                    {workflows.map((w) => {
+                    <div className="flex items-center gap-3 pb-2">
+                      <span className="flex min-w-0 flex-1 items-center gap-6">
+                        <span className="text-muted-foreground min-w-0 flex-1 text-xs">
+                          Runners
+                        </span>
+                        <span
+                          className="text-muted-foreground hidden shrink-0 text-xs md:block"
+                          style={{ width: 100 }}
+                        >
+                          Total runs
+                        </span>
+                        <span
+                          className="text-muted-foreground hidden shrink-0 text-xs md:block"
+                          style={{ width: 100 }}
+                        >
+                          Activity
+                        </span>
+                        <span className="text-muted-foreground flex min-w-0 flex-1 justify-end text-xs">
+                          Last run
+                        </span>
+                      </span>
+                    </div>
+                    {workflows.slice(0, 5).map((w) => {
                       const stats = runStats?.[w.id]
                       return (
                         <WorkflowListItem
@@ -87,5 +115,30 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
         </div>
       </div>
     </section>
+  )
+}
+
+function WorkflowItemSkeleton() {
+  return (
+    <span className="flex items-center gap-3 py-4">
+      <span className="flex min-w-0 flex-1 items-center gap-6">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-4 w-40" />
+          </span>
+        </span>
+        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
+          <Skeleton className="h-4 w-12" />
+        </span>
+        <span className="hidden shrink-0 flex-col gap-1 md:flex" style={{ width: 100 }}>
+          <Skeleton className="h-4 w-24" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-row items-center justify-between gap-2">
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-4 w-28" />
+        </span>
+      </span>
+    </span>
   )
 }

@@ -22,6 +22,7 @@ interface DashboardShellProps {
   user: UserData
   team: TeamData | null
   usage: UsageData | null
+  defaultSidebarOpen?: boolean
   children: ReactNode
 }
 
@@ -51,7 +52,13 @@ function getPageTitle(pathname: string): string {
   return 'Dashboard'
 }
 
-export default function DashboardShell({ user, team, usage, children }: DashboardShellProps) {
+export default function DashboardShell({
+  user,
+  team,
+  usage,
+  defaultSidebarOpen = false,
+  children,
+}: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const currentTime = useCurrentTime()
@@ -59,7 +66,7 @@ export default function DashboardShell({ user, team, usage, children }: Dashboar
 
   return (
     <CommandMenuContext value={() => setCommandMenuOpen(true)}>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={defaultSidebarOpen}>
         <AppSidebar
           user={user}
           usage={usage}
@@ -67,7 +74,7 @@ export default function DashboardShell({ user, team, usage, children }: Dashboar
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <SidebarInset>
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
+          <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-30 flex h-10 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
             <Breadcrumb>
