@@ -2,12 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { LetterGlitch } from '@/components/ui/letter-glitch'
 import { getAgentPalette, getGlitchPalette } from '@/lib/agent-palettes'
+
+// Lazy-load heavy canvas animation - only rendered on hover
+const LetterGlitch = dynamic(
+  () => import('@/components/ui/letter-glitch').then((m) => ({ default: m.LetterGlitch })),
+  { ssr: false }
+)
 
 export interface AgentCardProps {
   agent: {

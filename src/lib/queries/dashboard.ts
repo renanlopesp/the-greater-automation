@@ -27,9 +27,20 @@ export async function fetchAgentsWithSkills(supabase: Client, teamId: string) {
     .select('id, agent_id, name')
     .in('agent_id', agentIds)
 
+  // Build Map for O(1) lookup instead of O(n) filter per agent
+  const skillsByAgent = new Map<string, { id: string; agent_id: string; name: string }[]>()
+  for (const skill of skills ?? []) {
+    const list = skillsByAgent.get(skill.agent_id)
+    if (list) {
+      list.push(skill)
+    } else {
+      skillsByAgent.set(skill.agent_id, [skill])
+    }
+  }
+
   return agents.map((agent) => ({
     ...agent,
-    skills: (skills ?? []).filter((s) => s.agent_id === agent.id),
+    skills: skillsByAgent.get(agent.id) ?? [],
   }))
 }
 

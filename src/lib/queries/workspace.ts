@@ -33,74 +33,68 @@ export interface WorkspaceAgent {
 export type WorkspaceItem = WorkspaceAgent | WorkspaceWorkflow
 
 export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
-  // Fetch workflows
-  const { data: workflows } = await supabase
-    .from('workflows')
-    .select('id, name, emoji, status, updated_at, created_at, published_at, created_by')
-    .eq('team_id', teamId)
-    .order('name', { ascending: true })
+  // Fetch workflows and agents in parallel (independent queries)
+  const [{ data: workflows }, { data: agents }] = await Promise.all([
+    supabase
+      .from('workflows')
+      .select('id, name, emoji, status, updated_at, created_at, published_at, created_by')
+      .eq('team_id', teamId)
+      .order('name', { ascending: true }),
+    supabase
+      .from('agents')
+      .select('id, name, avatar_url, palette, created_by')
+      .eq('team_id', teamId)
+      .order('name', { ascending: true }),
+  ])
 
-  // Fetch agents
-  const { data: agents } = await supabase
-    .from('agents')
-    .select('id, name, avatar_url, palette, created_by')
-    .eq('team_id', teamId)
-    .order('name', { ascending: true })
-
-  // Fetch agent_skills to map workflows to agents
   const agentIds = (agents ?? []).map((a) => a.id)
-  const workflowToAgent: Record<string, string> = {}
-
-  if (agentIds.length > 0) {
-    const { data: skills } = await supabase
-      .from('agent_skills')
-      .select('agent_id, workflow_id')
-      .in('agent_id', agentIds)
-
-    if (skills) {
-      for (const s of skills) {
-        workflowToAgent[s.workflow_id] = s.agent_id
-      }
-    }
-  }
-
-  // Fetch step counts per workflow
   const workflowIds = (workflows ?? []).map((w) => w.id)
-  const stepsByWorkflow: Record<string, { count: number; hasAi: boolean }> = {}
 
-  if (workflowIds.length > 0) {
-    const { data: steps } = await supabase
-      .from('workflow_steps')
-      .select('workflow_id, type')
-      .in('workflow_id', workflowIds)
+  // Fetch skills, step counts, and last runs in parallel (all depend on IDs from above)
+  const [skillsResult, stepsResult, runsResult] = await Promise.all([
+    agentIds.length > 0
+      ? supabase.from('agent_skills').select('agent_id, workflow_id').in('agent_id', agentIds)
+      : Promise.resolve({ data: null }),
+    workflowIds.length > 0
+      ? supabase.from('workflow_steps').select('workflow_id, type').in('workflow_id', workflowIds)
+      : Promise.resolve({ data: null }),
+    workflowIds.length > 0
+      ? supabase
+          .from('workflow_runs')
+          .select('workflow_id, started_at, created_at')
+          .in('workflow_id', workflowIds)
+      : Promise.resolve({ data: null }),
+  ])
 
-    if (steps) {
-      for (const step of steps) {
-        const entry = stepsByWorkflow[step.workflow_id] ?? { count: 0, hasAi: false }
-        entry.count++
-        if (step.type === 'ai' || step.type === 'utility') {
-          entry.hasAi = true
-        }
-        stepsByWorkflow[step.workflow_id] = entry
-      }
+  // Build workflow-to-agent map
+  const workflowToAgent: Record<string, string> = {}
+  if (skillsResult.data) {
+    for (const s of skillsResult.data) {
+      workflowToAgent[s.workflow_id] = s.agent_id
     }
   }
 
-  // Fetch last run timestamps per workflow
-  const lastRunByWorkflow: Record<string, string | null> = {}
-  if (workflowIds.length > 0) {
-    const { data: runs } = await supabase
-      .from('workflow_runs')
-      .select('workflow_id, started_at, created_at')
-      .in('workflow_id', workflowIds)
-
-    if (runs) {
-      for (const r of runs) {
-        const ts = r.started_at ?? r.created_at ?? null
-        if (!ts) continue
-        const prev = lastRunByWorkflow[r.workflow_id]
-        if (!prev || ts > prev) lastRunByWorkflow[r.workflow_id] = ts
+  // Build step counts map
+  const stepsByWorkflow: Record<string, { count: number; hasAi: boolean }> = {}
+  if (stepsResult.data) {
+    for (const step of stepsResult.data) {
+      const entry = stepsByWorkflow[step.workflow_id] ?? { count: 0, hasAi: false }
+      entry.count++
+      if (step.type === 'ai' || step.type === 'utility') {
+        entry.hasAi = true
       }
+      stepsByWorkflow[step.workflow_id] = entry
+    }
+  }
+
+  // Build last run map
+  const lastRunByWorkflow: Record<string, string | null> = {}
+  if (runsResult.data) {
+    for (const r of runsResult.data) {
+      const ts = r.started_at ?? r.created_at ?? null
+      if (!ts) continue
+      const prev = lastRunByWorkflow[r.workflow_id]
+      if (!prev || ts > prev) lastRunByWorkflow[r.workflow_id] = ts
     }
   }
 
@@ -158,14 +152,13 @@ export async function fetchTeamMembers(supabase: Client, teamId: string) {
 
   if (!members || members.length === 0) return []
 
-  const userIds = members.map((m) => m.user_id)
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, full_name')
-    .in('id', userIds)
+    .in(
+      'id',
+      members.map((m) => m.user_id)
+    )
 
-  return (profiles ?? []).map((p) => ({
-    id: p.id,
-    full_name: p.full_name,
-  }))
+  return (profiles ?? []).map((p) => ({ id: p.id, full_name: p.full_name }))
 }

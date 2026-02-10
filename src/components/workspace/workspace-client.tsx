@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -49,14 +49,14 @@ export default function WorkspaceClient({
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
   }, [teamMembers])
 
-  function handleToggleExpand(id: string) {
+  const handleToggleExpand = useCallback((id: string) => {
     setExpandedAgentIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   const columns = useMemo(
     () =>
@@ -71,39 +71,30 @@ export default function WorkspaceClient({
 
   // Flatten agent nested workflows into table data when expanded
   const flatData = useMemo(() => {
-    // First apply URL-based filters
-    let items = [...initialItems]
+    const hasTypeFilter = !!filters.type
+    const hasCreatedByFilter = !!filters.createdBy
+    const hasStatusFilter = !!filters.status
+    const searchLower = filters.search ? filters.search.toLowerCase() : ''
 
-    if (filters.type) {
-      items = items.filter((item) => item.type === filters.type)
-    }
-
-    if (filters.createdBy) {
-      items = items.filter((item) => item.created_by === filters.createdBy)
-    }
-
-    if (filters.status) {
-      items = items.filter((item) => {
-        if (item.type === 'workflow') return (item as WorkspaceWorkflow).status === filters.status
-        if (item.type === 'agent') {
-          return (item as WorkspaceAgent).workflows.some((w) => w.status === filters.status)
-        }
-        return true
-      })
-    }
-
-    if (filters.search) {
-      const lower = filters.search.toLowerCase()
-      items = items.filter((item) => item.name.toLowerCase().includes(lower))
-    }
-
-    // Flatten: for expanded agents, insert their child workflows after the agent row
+    // Single-pass filter + flatten
     const result: WorkspaceItem[] = []
-    for (const item of items) {
+    for (const item of initialItems) {
+      if (hasTypeFilter && item.type !== filters.type) continue
+      if (hasCreatedByFilter && item.created_by !== filters.createdBy) continue
+      if (hasStatusFilter) {
+        if (item.type === 'workflow' && (item as WorkspaceWorkflow).status !== filters.status)
+          continue
+        if (
+          item.type === 'agent' &&
+          !(item as WorkspaceAgent).workflows.some((w) => w.status === filters.status)
+        )
+          continue
+      }
+      if (searchLower && !item.name.toLowerCase().includes(searchLower)) continue
+
       result.push(item)
       if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
-        const agent = item as WorkspaceAgent
-        for (const w of agent.workflows) {
+        for (const w of (item as WorkspaceAgent).workflows) {
           result.push(w)
         }
       }

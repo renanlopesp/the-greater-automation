@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ const TABS: { value: DashboardTab; label: string }[] = [
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
   const { data: workflows = [], isPending } = useWorkflows(teamId, activeTab, initialWorkflows)
-  const workflowIds = workflows.map((w) => w.id)
+  const workflowIds = useMemo(() => workflows.map((w) => w.id), [workflows])
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 
   return (

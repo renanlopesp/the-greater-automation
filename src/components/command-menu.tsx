@@ -37,6 +37,8 @@ interface RunResult {
   workflow_name: string
 }
 
+const supabase = createBrowserClient()
+
 export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
@@ -73,8 +75,6 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
         setRuns([])
         return
       }
-
-      const supabase = createBrowserClient()
 
       const [workflowRes, agentRes, runRes] = await Promise.all([
         supabase
