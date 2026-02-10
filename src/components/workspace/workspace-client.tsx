@@ -22,6 +22,8 @@ import { createColumns } from '@/components/workspace/columns'
 import { DeleteDialog } from '@/components/workspace/delete-dialog'
 import { BulkActionBar } from '@/components/workspace/bulk-action-bar'
 import { FolderBreadcrumb } from '@/components/workspace/folder-breadcrumb'
+import { FolderSidebar } from '@/components/workspace/folder-sidebar'
+import { CreateFolderDialog } from '@/components/workspace/create-folder-dialog'
 import { DeleteFolderDialog } from '@/components/workspace/delete-folder-dialog'
 import { MoveToFolderDialog } from '@/components/workspace/move-to-folder-dialog'
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation'
@@ -100,6 +102,8 @@ export default function WorkspaceClient({
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<DeleteFolderTarget | null>(null)
   // Move to folder dialog
   const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
+  // Sidebar folder creation dialog
+  const [sidebarFolderDialogOpen, setSidebarFolderDialogOpen] = useState(false)
 
   const memberNameById = useMemo(() => {
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
@@ -508,14 +512,6 @@ export default function WorkspaceClient({
     <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
       <WorkspaceHeader teamId={teamId} userId={userId} currentFolderId={currentFolderId} />
 
-      {currentFolderId && (
-        <FolderBreadcrumb
-          currentFolderId={currentFolderId}
-          folders={folders}
-          onNavigate={handleNavigateFolder}
-        />
-      )}
-
       <div className="flex items-center justify-between gap-4">
         <WorkspaceFilters
           filters={filters}
@@ -535,9 +531,42 @@ export default function WorkspaceClient({
         >
           <GraphView items={initialItems} />
         </Suspense>
+      ) : activeView === 'folder' ? (
+        <div className="flex gap-4">
+          <FolderSidebar
+            folders={folders}
+            folderTree={folderTree}
+            currentFolderId={currentFolderId}
+            onNavigate={handleNavigateFolder}
+            onCreateFolder={() => setSidebarFolderDialogOpen(true)}
+          />
+          <div className="min-w-0 flex-1">
+            {currentFolderId && (
+              <div className="mb-3">
+                <FolderBreadcrumb
+                  currentFolderId={currentFolderId}
+                  folders={folders}
+                  onNavigate={handleNavigateFolder}
+                />
+              </div>
+            )}
+            <WorkspaceTable
+              table={table}
+              focusedIndex={focusedIndex}
+              onKeyDown={handleTableKeyDown}
+            />
+          </div>
+        </div>
       ) : (
         <WorkspaceTable table={table} focusedIndex={focusedIndex} onKeyDown={handleTableKeyDown} />
       )}
+
+      <CreateFolderDialog
+        open={sidebarFolderDialogOpen}
+        onOpenChange={setSidebarFolderDialogOpen}
+        teamId={teamId}
+        parentId={currentFolderId}
+      />
 
       <BulkActionBar
         selectedCount={selectedCount}
