@@ -1,35 +1,81 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FolderPlus, Network } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import SplitButton from '@/components/workspace/split-button'
+import { TemplateDialog } from '@/components/workspace/template-dialog'
+import { CreateFolderDialog } from '@/components/workspace/create-folder-dialog'
+import { createWorkflow } from '@/lib/actions/workspace'
 
-export default function WorkspaceHeader() {
+interface WorkspaceHeaderProps {
+  teamId: string
+  userId: string
+  currentFolderId?: string | null
+}
+
+export default function WorkspaceHeader({ teamId, userId, currentFolderId }: WorkspaceHeaderProps) {
   const router = useRouter()
+  const [isCreating, setIsCreating] = useState(false)
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false)
+
+  async function handleNewBlank() {
+    if (isCreating) return
+    setIsCreating(true)
+    try {
+      const result = await createWorkflow(teamId, userId)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      if (result.id) {
+        router.push(`/workflows/${result.id}/edit`)
+      }
+    } catch {
+      toast.error('Failed to create workflow')
+    } finally {
+      setIsCreating(false)
+    }
+  }
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Network className="text-muted-foreground h-4 w-4" />
-        <span>Workspace</span>
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Network className="text-muted-foreground h-4 w-4" />
+          <span>Workspace</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-background"
+            onClick={() => setFolderDialogOpen(true)}
+          >
+            <FolderPlus className="h-4 w-4" />
+            New folder
+          </Button>
+          <SplitButton
+            onNewBlank={handleNewBlank}
+            onNewFromTemplate={() => setTemplateOpen(true)}
+          />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="bg-background"
-          onClick={() => toast('Coming soon')}
-        >
-          <FolderPlus className="h-4 w-4" />
-          New folder
-        </Button>
-        <SplitButton
-          onNewBlank={() => router.push('/workflows/new/edit')}
-          onNewFromTemplate={() => toast('Coming soon')}
-        />
-      </div>
-    </div>
+      <TemplateDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        teamId={teamId}
+        userId={userId}
+      />
+      <CreateFolderDialog
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        teamId={teamId}
+        parentId={currentFolderId}
+      />
+    </>
   )
 }

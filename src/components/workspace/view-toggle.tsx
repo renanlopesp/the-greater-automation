@@ -1,7 +1,6 @@
 'use client'
 
 import { FolderOpen, List, GitBranch } from 'lucide-react'
-import { toast } from 'sonner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface ViewToggleProps {
@@ -12,10 +11,6 @@ interface ViewToggleProps {
 export default function ViewToggle({ activeView, onViewChange }: ViewToggleProps) {
   function handleValueChange(value: string) {
     if (!value) return
-    if (value === 'graph') {
-      toast('Coming soon')
-      return
-    }
     onViewChange(value as 'folder' | 'list' | 'graph')
   }
 
