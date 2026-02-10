@@ -2,7 +2,8 @@
 
 import { useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ReactFlow, Controls, MiniMap, type NodeMouseHandler } from '@xyflow/react'
+import { useTheme } from 'next-themes'
+import { ReactFlow, Controls, MiniMap, type NodeMouseHandler, type ColorMode } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import GraphNodeAgent from '@/components/workspace/graph-node-agent'
 import GraphNodeWorkflow from '@/components/workspace/graph-node-workflow'
@@ -22,6 +23,8 @@ interface GraphViewProps {
 
 export default function GraphView({ items }: GraphViewProps) {
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
+  const colorMode: ColorMode = resolvedTheme === 'dark' ? 'dark' : 'light'
 
   const { nodes, edges } = useMemo(() => {
     const { nodes: rawNodes, edges } = transformToGraphData(items)
@@ -57,6 +60,7 @@ export default function GraphView({ items }: GraphViewProps) {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
+        colorMode={colorMode}
         fitView
         proOptions={{ hideAttribution: true }}
       >
