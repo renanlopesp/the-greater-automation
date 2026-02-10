@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
-import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import AppSidebar from '@/components/app-sidebar'
+import CommandMenu from '@/components/command-menu'
+import { SettingsDialog } from '@/components/settings'
 import { CommandMenuContext } from '@/lib/command-menu-context'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -16,12 +17,6 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Bell } from 'lucide-react'
 import type { UsageData, UserData, TeamData } from '@/types/navigation'
-
-// Lazy-load heavy dialogs that are rarely opened
-const CommandMenu = dynamic(() => import('@/components/command-menu'))
-const SettingsDialog = dynamic(() =>
-  import('@/components/settings').then((m) => ({ default: m.SettingsDialog }))
-)
 
 interface DashboardShellProps {
   user: UserData

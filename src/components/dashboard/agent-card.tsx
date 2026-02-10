@@ -1,18 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { getAgentPalette, getGlitchPalette } from '@/lib/agent-palettes'
 
-// Lazy-load heavy canvas animation - only rendered on hover
-const LetterGlitch = dynamic(
-  () => import('@/components/ui/letter-glitch').then((m) => ({ default: m.LetterGlitch })),
-  { ssr: false }
+// Code-split heavy canvas animation — only loaded on first hover
+const LetterGlitch = lazy(() =>
+  import('@/components/ui/letter-glitch').then((m) => ({ default: m.LetterGlitch }))
 )
 
 export interface AgentCardProps {
@@ -39,18 +37,19 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
         onMouseLeave={() => setHovered(false)}
       >
         <Card className="relative flex h-[280px] flex-col overflow-hidden transition-shadow hover:shadow-md">
-          <div
-            className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-            style={{ opacity: hovered ? 0.4 : 0 }}
-          >
-            <LetterGlitch
-              glitchColors={palette}
-              glitchSpeed={70}
-              outerVignette={true}
-              smooth={true}
-              active={hovered}
-            />
-          </div>
+          {hovered && (
+            <div className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300">
+              <Suspense fallback={null}>
+                <LetterGlitch
+                  glitchColors={palette}
+                  glitchSpeed={70}
+                  outerVignette={true}
+                  smooth={true}
+                  active={true}
+                />
+              </Suspense>
+            </div>
+          )}
           <CardHeader className="relative flex flex-1 flex-col items-center gap-3 pb-0">
             <div className="rounded-full p-1 backdrop-blur-[5px]">
               <BoringAvatar

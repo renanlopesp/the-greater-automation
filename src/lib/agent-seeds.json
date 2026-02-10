@@ -7,10 +7,6 @@
     "name": "Data Pipeline",
     "seed": "data-pipeline-e6058494"
   },
-  "6f6f8c1e-0665-4df1-bfaa-05dff0954f6b": {
-    "name": "Server Manager",
-    "seed": "server-manager-6f6f8c1e"
-  },
   "c9b766d7-7a27-4403-9407-8b64bfd125fa": {
     "name": "Competitor Research",
     "seed": "competitor-research-c9b766d7"
@@ -19,7 +15,6 @@
     "name": "Personal Assistant",
     "seed": "personal-assistant-9ee89a5d"
   },
-  "eb165a0e-367b-4023-a13f-6461360669ab": { "name": "OpenClaw", "seed": "openclaw-eb165a0e" },
   "41ef649b-57f4-4ab6-9a3f-4dc300bd257f": {
     "name": "Campaign Launcher",
     "seed": "campaign-launcher-41ef649b"
