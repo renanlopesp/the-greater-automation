@@ -1,5 +1,6 @@
 'use client'
 
+import { type KeyboardEvent } from 'react'
 import { type Table as TanstackTable, flexRender } from '@tanstack/react-table'
 import {
   Table,
@@ -11,13 +12,20 @@ import {
 } from '@/components/ui/table'
 import EmptyState from '@/components/shared/empty-state'
 import { FolderOpen } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { WorkspaceItem } from '@/lib/queries/workspace'
 
 interface WorkspaceTableProps {
   table: TanstackTable<WorkspaceItem>
+  focusedIndex?: number
+  onKeyDown?: (e: KeyboardEvent) => void
 }
 
-export default function WorkspaceTable({ table }: WorkspaceTableProps) {
+export default function WorkspaceTable({
+  table,
+  focusedIndex = -1,
+  onKeyDown,
+}: WorkspaceTableProps) {
   if (table.getRowModel().rows.length === 0) {
     return (
       <EmptyState
@@ -30,7 +38,13 @@ export default function WorkspaceTable({ table }: WorkspaceTableProps) {
   }
 
   return (
-    <div className="bg-background min-h-[calc(100dvh-260px)] overflow-hidden rounded-xl border shadow-xs">
+    <div
+      className="bg-background min-h-[calc(100dvh-260px)] overflow-hidden rounded-xl border shadow-xs"
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      role="grid"
+      aria-label="Workspace items"
+    >
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -54,8 +68,13 @@ export default function WorkspaceTable({ table }: WorkspaceTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+          {table.getRowModel().rows.map((row, index) => (
+            <TableRow
+              key={row.id}
+              data-state={row.getIsSelected() && 'selected'}
+              className={cn(focusedIndex === index && 'ring-ring ring-2 ring-inset')}
+              aria-selected={row.getIsSelected() || focusedIndex === index}
+            >
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

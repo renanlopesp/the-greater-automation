@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   useReactTable,
@@ -24,6 +24,9 @@ import { BulkActionBar } from '@/components/workspace/bulk-action-bar'
 import { FolderBreadcrumb } from '@/components/workspace/folder-breadcrumb'
 import { DeleteFolderDialog } from '@/components/workspace/delete-folder-dialog'
 import { MoveToFolderDialog } from '@/components/workspace/move-to-folder-dialog'
+import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation'
+
+const GraphView = lazy(() => import('@/components/workspace/graph-view'))
 import {
   deleteWorkflow,
   deleteAgent,
@@ -160,6 +163,7 @@ export default function WorkspaceClient({
         toast.error(result.error)
       } else {
         setRowSelection({})
+        router.refresh()
       }
     } catch {
       toast.error(`Failed to delete ${deleteTarget.type}`)
@@ -167,7 +171,7 @@ export default function WorkspaceClient({
       setIsDeleting(false)
       setDeleteTarget(null)
     }
-  }, [deleteTarget])
+  }, [deleteTarget, router])
 
   const handleDuplicateWorkflow = useCallback(
     async (id: string) => {
@@ -395,6 +399,7 @@ export default function WorkspaceClient({
         toast.error(result.error)
       } else {
         setRowSelection({})
+        router.refresh()
       }
     } catch {
       toast.error('Failed to delete selected items')
@@ -402,7 +407,7 @@ export default function WorkspaceClient({
       setIsBulkLoading(false)
       setBulkDeleteOpen(false)
     }
-  }, [selectedItems])
+  }, [selectedItems, router])
 
   const handleBulkChangeStatus = useCallback(
     async (status: 'draft' | 'published') => {
@@ -422,6 +427,7 @@ export default function WorkspaceClient({
           toast.error(result.error)
         } else {
           setRowSelection({})
+          router.refresh()
         }
       } catch {
         toast.error('Failed to change status')
@@ -429,12 +435,67 @@ export default function WorkspaceClient({
         setIsBulkLoading(false)
       }
     },
-    [selectedItems]
+    [selectedItems, router]
   )
 
   const handleBulkMoveToFolder = useCallback(() => {
     setMoveToFolderOpen(true)
   }, [])
+
+  // Keyboard navigation
+  const handleKeyboardOpen = useCallback(
+    (index: number) => {
+      const item = flatData[index]
+      if (!item) return
+      if (item.type === 'workflow') {
+        router.push(`/workflows/${item.id}/edit`)
+      } else if (item.type === 'agent') {
+        router.push(`/agents/${item.id}`)
+      } else if (item.type === 'folder') {
+        setCurrentFolderId(item.id)
+      }
+    },
+    [flatData, router]
+  )
+
+  const handleKeyboardDelete = useCallback(
+    (index: number) => {
+      const item = flatData[index]
+      if (!item) return
+      if (item.type === 'workflow') {
+        handleDeleteWorkflow(item.id, item.name)
+      } else if (item.type === 'agent') {
+        handleDeleteAgent(item.id, item.name)
+      } else if (item.type === 'folder') {
+        handleDeleteFolder(item.id)
+      }
+    },
+    [flatData, handleDeleteWorkflow, handleDeleteAgent, handleDeleteFolder]
+  )
+
+  const handleKeyboardSelect = useCallback(
+    (index: number) => {
+      const item = flatData[index]
+      if (!item) return
+      setRowSelection((prev) => {
+        const next = { ...prev }
+        if (next[item.id]) {
+          delete next[item.id]
+        } else {
+          next[item.id] = true
+        }
+        return next
+      })
+    },
+    [flatData]
+  )
+
+  const { focusedIndex, onKeyDown: handleTableKeyDown } = useKeyboardNavigation({
+    itemCount: flatData.length,
+    onOpen: handleKeyboardOpen,
+    onDelete: handleKeyboardDelete,
+    onSelect: handleKeyboardSelect,
+  })
 
   // Delete dialog description
   const deleteDescription = deleteTarget
@@ -463,7 +524,20 @@ export default function WorkspaceClient({
         />
         <ViewToggle activeView={activeView} onViewChange={setActiveView} />
       </div>
-      <WorkspaceTable table={table} />
+
+      {activeView === 'graph' ? (
+        <Suspense
+          fallback={
+            <div className="flex h-[500px] w-full items-center justify-center rounded-lg border">
+              <p className="text-muted-foreground text-sm">Loading graph...</p>
+            </div>
+          }
+        >
+          <GraphView items={initialItems} />
+        </Suspense>
+      ) : (
+        <WorkspaceTable table={table} focusedIndex={focusedIndex} onKeyDown={handleTableKeyDown} />
+      )}
 
       <BulkActionBar
         selectedCount={selectedCount}
