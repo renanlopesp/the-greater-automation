@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,11 +13,22 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table'
 import { useQueryStates, parseAsString } from 'nuqs'
+import { toast } from 'sonner'
 import WorkspaceHeader from '@/components/workspace/workspace-header'
 import WorkspaceFilters from '@/components/workspace/workspace-filters'
 import ViewToggle from '@/components/workspace/view-toggle'
 import WorkspaceTable from '@/components/workspace/workspace-table'
 import { createColumns } from '@/components/workspace/columns'
+import { DeleteDialog } from '@/components/workspace/delete-dialog'
+import { BulkActionBar } from '@/components/workspace/bulk-action-bar'
+import {
+  deleteWorkflow,
+  deleteAgent,
+  duplicateWorkflow,
+  renameWorkflow,
+  bulkDeleteItems,
+  bulkToggleStatus,
+} from '@/lib/actions/workspace'
 import type { WorkspaceItem, WorkspaceAgent, WorkspaceWorkflow } from '@/lib/queries/workspace'
 
 interface WorkspaceClientProps {
@@ -26,11 +38,19 @@ interface WorkspaceClientProps {
   userId: string
 }
 
+interface DeleteTarget {
+  id: string
+  name: string
+  type: 'workflow' | 'agent'
+}
+
 export default function WorkspaceClient({
   initialItems,
+  teamId,
   teamMembers,
   userId,
 }: WorkspaceClientProps) {
+  const router = useRouter()
   const [filters, setFilters] = useQueryStates({
     search: parseAsString.withDefault(''),
     status: parseAsString.withDefault(''),
@@ -45,6 +65,13 @@ export default function WorkspaceClient({
   const [expandedAgentIds, setExpandedAgentIds] = useState<Set<string>>(new Set())
   const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('folder')
 
+  // Delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  // Bulk delete dialog
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [isBulkLoading, setIsBulkLoading] = useState(false)
+
   const memberNameById = useMemo(() => {
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
   }, [teamMembers])
@@ -58,6 +85,65 @@ export default function WorkspaceClient({
     })
   }, [])
 
+  const handleDeleteWorkflow = useCallback((id: string, name: string) => {
+    setDeleteTarget({ id, name, type: 'workflow' })
+  }, [])
+
+  const handleDeleteAgent = useCallback((id: string, name: string) => {
+    setDeleteTarget({ id, name, type: 'agent' })
+  }, [])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      const result =
+        deleteTarget.type === 'workflow'
+          ? await deleteWorkflow(deleteTarget.id)
+          : await deleteAgent(deleteTarget.id)
+
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        setRowSelection({})
+      }
+    } catch {
+      toast.error(`Failed to delete ${deleteTarget.type}`)
+    } finally {
+      setIsDeleting(false)
+      setDeleteTarget(null)
+    }
+  }, [deleteTarget])
+
+  const handleDuplicateWorkflow = useCallback(
+    async (id: string) => {
+      try {
+        const result = await duplicateWorkflow(id, teamId, userId)
+        if (result.error) {
+          toast.error(result.error)
+          return
+        }
+        if (result.id) {
+          router.push(`/workflows/${result.id}/edit`)
+        }
+      } catch {
+        toast.error('Failed to duplicate workflow')
+      }
+    },
+    [teamId, userId, router]
+  )
+
+  const handleRenameWorkflow = useCallback(async (id: string, newName: string) => {
+    try {
+      const result = await renameWorkflow(id, newName)
+      if (result.error) {
+        toast.error(result.error)
+      }
+    } catch {
+      toast.error('Failed to rename workflow')
+    }
+  }, [])
+
   const columns = useMemo(
     () =>
       createColumns({
@@ -65,8 +151,21 @@ export default function WorkspaceClient({
         memberNameById,
         expandedAgentIds,
         onToggleExpand: handleToggleExpand,
+        onDeleteWorkflow: handleDeleteWorkflow,
+        onDeleteAgent: handleDeleteAgent,
+        onDuplicateWorkflow: handleDuplicateWorkflow,
+        onRenameWorkflow: handleRenameWorkflow,
       }),
-    [userId, memberNameById, expandedAgentIds]
+    [
+      userId,
+      memberNameById,
+      expandedAgentIds,
+      handleToggleExpand,
+      handleDeleteWorkflow,
+      handleDeleteAgent,
+      handleDuplicateWorkflow,
+      handleRenameWorkflow,
+    ]
   )
 
   // Flatten agent nested workflows into table data when expanded
@@ -122,9 +221,75 @@ export default function WorkspaceClient({
     getRowId: (row) => row.id,
   })
 
+  // Bulk actions
+  const selectedIds = Object.keys(rowSelection)
+  const selectedCount = selectedIds.length
+  const selectedItems = useMemo(() => {
+    return selectedIds
+      .map((id) => flatData.find((item) => item.id === id))
+      .filter(Boolean) as WorkspaceItem[]
+  }, [selectedIds, flatData])
+
+  const handleBulkDelete = useCallback(() => {
+    setBulkDeleteOpen(true)
+  }, [])
+
+  const handleConfirmBulkDelete = useCallback(async () => {
+    setIsBulkLoading(true)
+    try {
+      const items = selectedItems.map((item) => ({ id: item.id, type: item.type }))
+      const result = await bulkDeleteItems(items)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        setRowSelection({})
+      }
+    } catch {
+      toast.error('Failed to delete selected items')
+    } finally {
+      setIsBulkLoading(false)
+      setBulkDeleteOpen(false)
+    }
+  }, [selectedItems])
+
+  const handleBulkChangeStatus = useCallback(
+    async (status: 'draft' | 'published') => {
+      setIsBulkLoading(true)
+      try {
+        const workflowIds = selectedItems
+          .filter((item) => item.type === 'workflow')
+          .map((item) => item.id)
+
+        if (workflowIds.length === 0) {
+          toast.error('No workflows selected')
+          return
+        }
+
+        const result = await bulkToggleStatus(workflowIds, status)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          setRowSelection({})
+        }
+      } catch {
+        toast.error('Failed to change status')
+      } finally {
+        setIsBulkLoading(false)
+      }
+    },
+    [selectedItems]
+  )
+
+  // Delete dialog description
+  const deleteDescription = deleteTarget
+    ? deleteTarget.type === 'workflow'
+      ? `Are you sure you want to delete "${deleteTarget.name}"? This will also delete all steps, triggers, and runs associated with this workflow.`
+      : `Are you sure you want to delete "${deleteTarget.name}"? Workflows assigned to this agent will become standalone.`
+    : ''
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
-      <WorkspaceHeader />
+      <WorkspaceHeader teamId={teamId} userId={userId} />
       <div className="flex items-center justify-between gap-4">
         <WorkspaceFilters
           filters={filters}
@@ -134,6 +299,35 @@ export default function WorkspaceClient({
         <ViewToggle activeView={activeView} onViewChange={setActiveView} />
       </div>
       <WorkspaceTable table={table} />
+
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onDelete={handleBulkDelete}
+        onChangeStatus={handleBulkChangeStatus}
+        isLoading={isBulkLoading}
+      />
+
+      {/* Single delete dialog */}
+      <DeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+        title={`Delete ${deleteTarget?.type ?? 'item'}`}
+        description={deleteDescription}
+        onConfirm={handleConfirmDelete}
+        loading={isDeleting}
+      />
+
+      {/* Bulk delete dialog */}
+      <DeleteDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title="Delete selected items"
+        description={`Are you sure you want to delete ${selectedCount} selected item${selectedCount !== 1 ? 's' : ''}? This action cannot be undone.`}
+        onConfirm={handleConfirmBulkDelete}
+        loading={isBulkLoading}
+      />
     </div>
   )
 }
