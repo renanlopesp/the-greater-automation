@@ -11,6 +11,12 @@ vi.mock('framer-motion', () => ({
   },
 }))
 
+vi.mock('boring-avatars', () => ({
+  default: ({ name, size }: { name: string; size: number }) => (
+    <svg data-testid="boring-avatar" aria-label={name} width={size} height={size} />
+  ),
+}))
+
 describe('AgentCard', () => {
   const mockAgent = {
     id: 'agent-1',
@@ -56,8 +62,10 @@ describe('AgentCard', () => {
     expect(screen.getByText('+3')).toBeInTheDocument()
   })
 
-  it('renders initials in avatar fallback', () => {
+  it('renders avatar with agent name', () => {
     render(<AgentCard agent={mockAgent} skills={[]} />)
-    expect(screen.getByText('TA')).toBeInTheDocument()
+    const avatar = screen.getByTestId('boring-avatar')
+    expect(avatar).toBeInTheDocument()
+    expect(avatar).toHaveAttribute('aria-label', 'Test Agent')
   })
 })
