@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { fetchWorkspaceItems, fetchTeamMembers } from '@/lib/queries/workspace'
+import {
+  fetchWorkspaceItems,
+  fetchTeamMembers,
+  fetchFolders,
+  buildFolderTree,
+} from '@/lib/queries/workspace'
 import WorkspaceClient from '@/components/workspace/workspace-client'
 
 export default async function WorkspacePage() {
@@ -26,10 +31,13 @@ export default async function WorkspacePage() {
     )
   }
 
-  const [items, teamMembers] = await Promise.all([
+  const [items, teamMembers, folders] = await Promise.all([
     fetchWorkspaceItems(supabase, teamId),
     fetchTeamMembers(supabase, teamId),
+    fetchFolders(supabase, teamId),
   ])
+
+  const folderTree = buildFolderTree(folders)
 
   return (
     <WorkspaceClient
@@ -37,6 +45,8 @@ export default async function WorkspacePage() {
       teamId={teamId}
       teamMembers={teamMembers}
       userId={user.id}
+      folders={folders}
+      folderTree={folderTree}
     />
   )
 }

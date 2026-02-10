@@ -7,17 +7,20 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import SplitButton from '@/components/workspace/split-button'
 import { TemplateDialog } from '@/components/workspace/template-dialog'
+import { CreateFolderDialog } from '@/components/workspace/create-folder-dialog'
 import { createWorkflow } from '@/lib/actions/workspace'
 
 interface WorkspaceHeaderProps {
   teamId: string
   userId: string
+  currentFolderId?: string | null
 }
 
-export default function WorkspaceHeader({ teamId, userId }: WorkspaceHeaderProps) {
+export default function WorkspaceHeader({ teamId, userId, currentFolderId }: WorkspaceHeaderProps) {
   const router = useRouter()
   const [isCreating, setIsCreating] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false)
 
   async function handleNewBlank() {
     if (isCreating) return
@@ -50,8 +53,7 @@ export default function WorkspaceHeader({ teamId, userId }: WorkspaceHeaderProps
             variant="outline"
             size="sm"
             className="bg-background"
-            disabled
-            title="Coming in next update"
+            onClick={() => setFolderDialogOpen(true)}
           >
             <FolderPlus className="h-4 w-4" />
             New folder
@@ -67,6 +69,12 @@ export default function WorkspaceHeader({ teamId, userId }: WorkspaceHeaderProps
         onOpenChange={setTemplateOpen}
         teamId={teamId}
         userId={userId}
+      />
+      <CreateFolderDialog
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        teamId={teamId}
+        parentId={currentFolderId}
       />
     </>
   )

@@ -392,3 +392,197 @@ export async function bulkToggleStatus(
   revalidatePath('/workspace')
   return {}
 }
+
+// ---------------------------------------------------------------------------
+// 9. createFolder
+// ---------------------------------------------------------------------------
+
+export async function createFolder(
+  teamId: string,
+  name: string,
+  parentId?: string | null
+): Promise<ActionResult<{ id: string }>> {
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    return { error: 'Folder name is required', id: '' }
+  }
+  if (trimmedName.length > 100) {
+    return { error: 'Folder name must be 100 characters or less', id: '' }
+  }
+
+  const supabase = await createServerClient()
+
+  // Validate depth if parentId is provided (max 3 levels)
+  if (parentId) {
+    // Fetch all team folders and walk up in memory
+    const { data: allFolders } = await supabase
+      .from('folders')
+      .select('id, parent_id')
+      .eq('team_id', teamId)
+    const folderMap = new Map((allFolders ?? []).map((f) => [f.id, f.parent_id]))
+    let depth = 0
+    let cur: string | null = parentId
+    while (cur) {
+      depth++
+      if (depth >= 3) {
+        return { error: 'Maximum folder depth reached (3 levels)', id: '' }
+      }
+      cur = folderMap.get(cur) ?? null
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('folders')
+    .insert({
+      team_id: teamId,
+      name: trimmedName,
+      parent_id: parentId ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) {
+    return { error: error?.message ?? 'Failed to create folder', id: '' }
+  }
+
+  revalidatePath('/workspace')
+  return { id: data.id }
+}
+
+// ---------------------------------------------------------------------------
+// 10. renameFolder
+// ---------------------------------------------------------------------------
+
+export async function renameFolder(folderId: string, name: string): Promise<ActionResult> {
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    return { error: 'Folder name is required' }
+  }
+
+  const supabase = await createServerClient()
+
+  const { error } = await supabase.from('folders').update({ name: trimmedName }).eq('id', folderId)
+
+  if (error) {
+    return { error: error.message ?? 'Failed to rename folder' }
+  }
+
+  revalidatePath('/workspace')
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// 11. deleteFolder
+// ---------------------------------------------------------------------------
+
+export async function deleteFolder(
+  folderId: string,
+  mode: 'move-to-root' | 'delete-all'
+): Promise<ActionResult> {
+  const supabase = await createServerClient()
+
+  if (mode === 'move-to-root') {
+    // Move workflows to root
+    const { error: moveWorkflowsError } = await supabase
+      .from('workflows')
+      .update({ folder_id: null })
+      .eq('folder_id', folderId)
+
+    if (moveWorkflowsError) {
+      return { error: 'Failed to move workflows to root' }
+    }
+
+    // Move subfolders to root
+    const { error: moveSubfoldersError } = await supabase
+      .from('folders')
+      .update({ parent_id: null })
+      .eq('parent_id', folderId)
+
+    if (moveSubfoldersError) {
+      return { error: 'Failed to move subfolders to root' }
+    }
+  } else {
+    // delete-all mode: recursively delete all descendants
+    // First collect all descendant folder IDs
+    const descendantIds: string[] = []
+    const queue = [folderId]
+    while (queue.length > 0) {
+      const currentId = queue.shift()!
+      const { data: children } = await supabase
+        .from('folders')
+        .select('id')
+        .eq('parent_id', currentId)
+
+      if (children) {
+        for (const child of children) {
+          descendantIds.push(child.id)
+          queue.push(child.id)
+        }
+      }
+    }
+
+    // Delete workflows in all descendant folders
+    const allFolderIds = [folderId, ...descendantIds]
+    if (allFolderIds.length > 0) {
+      const { error: deleteWorkflowsError } = await supabase
+        .from('workflows')
+        .delete()
+        .in('folder_id', allFolderIds)
+
+      if (deleteWorkflowsError) {
+        return { error: 'Failed to delete workflows in folder' }
+      }
+    }
+
+    // Delete descendant folders (deepest first)
+    for (const id of descendantIds.reverse()) {
+      await supabase.from('folders').delete().eq('id', id)
+    }
+  }
+
+  // Delete the folder itself
+  const { error } = await supabase.from('folders').delete().eq('id', folderId)
+
+  if (error) {
+    return { error: error.message ?? 'Failed to delete folder' }
+  }
+
+  revalidatePath('/workspace')
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// 12. moveToFolder
+// ---------------------------------------------------------------------------
+
+export async function moveToFolder(
+  itemIds: string[],
+  folderId: string | null
+): Promise<ActionResult> {
+  if (itemIds.length === 0) {
+    return { error: 'At least one item must be selected' }
+  }
+
+  const supabase = await createServerClient()
+
+  // Validate target folder exists (if not moving to root)
+  if (folderId) {
+    const { data: folder } = await supabase.from('folders').select('id').eq('id', folderId).single()
+
+    if (!folder) {
+      return { error: 'Target folder not found' }
+    }
+  }
+
+  const { error } = await supabase
+    .from('workflows')
+    .update({ folder_id: folderId })
+    .in('id', itemIds)
+
+  if (error) {
+    return { error: error.message ?? 'Failed to move items' }
+  }
+
+  revalidatePath('/workspace')
+  return {}
+}

@@ -21,6 +21,9 @@ import WorkspaceTable from '@/components/workspace/workspace-table'
 import { createColumns } from '@/components/workspace/columns'
 import { DeleteDialog } from '@/components/workspace/delete-dialog'
 import { BulkActionBar } from '@/components/workspace/bulk-action-bar'
+import { FolderBreadcrumb } from '@/components/workspace/folder-breadcrumb'
+import { DeleteFolderDialog } from '@/components/workspace/delete-folder-dialog'
+import { MoveToFolderDialog } from '@/components/workspace/move-to-folder-dialog'
 import {
   deleteWorkflow,
   deleteAgent,
@@ -29,13 +32,21 @@ import {
   bulkDeleteItems,
   bulkToggleStatus,
 } from '@/lib/actions/workspace'
-import type { WorkspaceItem, WorkspaceAgent, WorkspaceWorkflow } from '@/lib/queries/workspace'
+import type {
+  WorkspaceItem,
+  WorkspaceAgent,
+  WorkspaceWorkflow,
+  WorkspaceFolder,
+  FolderTreeNode,
+} from '@/lib/queries/workspace'
 
 interface WorkspaceClientProps {
   initialItems: WorkspaceItem[]
   teamId: string
   teamMembers: { id: string; full_name: string | null }[]
   userId: string
+  folders: WorkspaceFolder[]
+  folderTree: FolderTreeNode[]
 }
 
 interface DeleteTarget {
@@ -44,11 +55,20 @@ interface DeleteTarget {
   type: 'workflow' | 'agent'
 }
 
+interface DeleteFolderTarget {
+  id: string
+  name: string
+  workflowCount: number
+  subfolderCount: number
+}
+
 export default function WorkspaceClient({
   initialItems,
   teamId,
   teamMembers,
   userId,
+  folders,
+  folderTree,
 }: WorkspaceClientProps) {
   const router = useRouter()
   const [filters, setFilters] = useQueryStates({
@@ -63,7 +83,9 @@ export default function WorkspaceClient({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expandedAgentIds, setExpandedAgentIds] = useState<Set<string>>(new Set())
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
   const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('folder')
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
 
   // Delete dialog state
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
@@ -71,6 +93,10 @@ export default function WorkspaceClient({
   // Bulk delete dialog
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [isBulkLoading, setIsBulkLoading] = useState(false)
+  // Folder delete dialog
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState<DeleteFolderTarget | null>(null)
+  // Move to folder dialog
+  const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
 
   const memberNameById = useMemo(() => {
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
@@ -85,6 +111,20 @@ export default function WorkspaceClient({
     })
   }, [])
 
+  const handleToggleFolderExpand = useCallback((id: string) => {
+    setExpandedFolderIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleNavigateFolder = useCallback((folderId: string | null) => {
+    setCurrentFolderId(folderId)
+    setRowSelection({})
+  }, [])
+
   const handleDeleteWorkflow = useCallback((id: string, name: string) => {
     setDeleteTarget({ id, name, type: 'workflow' })
   }, [])
@@ -92,6 +132,20 @@ export default function WorkspaceClient({
   const handleDeleteAgent = useCallback((id: string, name: string) => {
     setDeleteTarget({ id, name, type: 'agent' })
   }, [])
+
+  const handleDeleteFolder = useCallback(
+    (id: string) => {
+      const folder = folders.find((f) => f.id === id)
+      if (!folder) return
+      setDeleteFolderTarget({
+        id: folder.id,
+        name: folder.name,
+        workflowCount: folder.workflow_count,
+        subfolderCount: folder.subfolder_count,
+      })
+    },
+    [folders]
+  )
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -144,53 +198,141 @@ export default function WorkspaceClient({
     }
   }, [])
 
+  const handleMoveToFolder = useCallback(() => {
+    setMoveToFolderOpen(true)
+  }, [])
+
   const columns = useMemo(
     () =>
       createColumns({
         userId,
         memberNameById,
         expandedAgentIds,
+        expandedFolderIds,
         onToggleExpand: handleToggleExpand,
+        onToggleFolderExpand: handleToggleFolderExpand,
         onDeleteWorkflow: handleDeleteWorkflow,
         onDeleteAgent: handleDeleteAgent,
+        onDeleteFolder: handleDeleteFolder,
         onDuplicateWorkflow: handleDuplicateWorkflow,
         onRenameWorkflow: handleRenameWorkflow,
+        onMoveToFolder: handleMoveToFolder,
+        onNavigateFolder: handleNavigateFolder,
       }),
     [
       userId,
       memberNameById,
       expandedAgentIds,
+      expandedFolderIds,
       handleToggleExpand,
+      handleToggleFolderExpand,
       handleDeleteWorkflow,
       handleDeleteAgent,
+      handleDeleteFolder,
       handleDuplicateWorkflow,
       handleRenameWorkflow,
+      handleMoveToFolder,
+      handleNavigateFolder,
     ]
   )
 
-  // Flatten agent nested workflows into table data when expanded
+  // Build a map of folder_id -> workflows for folder view
+  const workflowsByFolder = useMemo(() => {
+    const map: Record<string, WorkspaceWorkflow[]> = {}
+    for (const item of initialItems) {
+      if (item.type === 'workflow') {
+        const w = item as WorkspaceWorkflow
+        const fid = w.folder_id ?? '__root__'
+        if (!map[fid]) map[fid] = []
+        map[fid].push(w)
+      }
+    }
+    return map
+  }, [initialItems])
+
+  // Flatten items based on active view and current folder
   const flatData = useMemo(() => {
     const hasTypeFilter = !!filters.type
     const hasCreatedByFilter = !!filters.createdBy
     const hasStatusFilter = !!filters.status
     const searchLower = filters.search ? filters.search.toLowerCase() : ''
 
-    // Single-pass filter + flatten
-    const result: WorkspaceItem[] = []
-    for (const item of initialItems) {
-      if (hasTypeFilter && item.type !== filters.type) continue
-      if (hasCreatedByFilter && item.created_by !== filters.createdBy) continue
+    function matchesFilters(item: WorkspaceItem): boolean {
+      if (hasTypeFilter && item.type !== filters.type) return false
+      if (hasCreatedByFilter && item.created_by !== filters.createdBy) return false
       if (hasStatusFilter) {
         if (item.type === 'workflow' && (item as WorkspaceWorkflow).status !== filters.status)
-          continue
+          return false
         if (
           item.type === 'agent' &&
           !(item as WorkspaceAgent).workflows.some((w) => w.status === filters.status)
         )
-          continue
+          return false
+        if (item.type === 'folder') return false // folders don't have status
       }
-      if (searchLower && !item.name.toLowerCase().includes(searchLower)) continue
+      if (searchLower && !item.name.toLowerCase().includes(searchLower)) return false
+      return true
+    }
 
+    // In folder view, show folder contents when navigating
+    if (activeView === 'folder' && currentFolderId) {
+      const result: WorkspaceItem[] = []
+      // Show subfolders of current folder
+      for (const folder of folders) {
+        if (folder.parent_id !== currentFolderId) continue
+        if (!matchesFilters(folder)) continue
+        result.push(folder)
+      }
+      // Show workflows in current folder
+      for (const item of initialItems) {
+        if (item.type !== 'workflow') continue
+        if (item.folder_id !== currentFolderId) continue
+        if (!matchesFilters(item)) continue
+        result.push(item)
+      }
+      return result
+    }
+
+    // In folder view at root, show root-level folders + items without folders
+    if (activeView === 'folder') {
+      const result: WorkspaceItem[] = []
+      // Root folders first
+      for (const folder of folders) {
+        if (folder.parent_id !== null) continue
+        if (!matchesFilters(folder)) continue
+        result.push(folder)
+        // Show folder contents if expanded
+        if (expandedFolderIds.has(folder.id)) {
+          const folderWorkflows = workflowsByFolder[folder.id] ?? []
+          for (const w of folderWorkflows) {
+            if (!matchesFilters(w)) continue
+            result.push(w)
+          }
+        }
+      }
+      // Then items without folders (standalone workflows + agents)
+      for (const item of initialItems) {
+        if (item.type === 'folder') continue
+        if (item.type === 'workflow') {
+          const w = item as WorkspaceWorkflow & { folder_id?: string | null }
+          if (w.folder_id) continue // skip workflows in folders
+        }
+        if (!matchesFilters(item)) continue
+        result.push(item)
+        if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
+          for (const w of (item as WorkspaceAgent).workflows) {
+            result.push(w)
+          }
+        }
+      }
+      return result
+    }
+
+    // List view: flat list without folders
+    const result: WorkspaceItem[] = []
+    for (const item of initialItems) {
+      if (item.type === 'folder') continue
+      if (!matchesFilters(item)) continue
       result.push(item)
       if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
         for (const w of (item as WorkspaceAgent).workflows) {
@@ -198,9 +340,17 @@ export default function WorkspaceClient({
         }
       }
     }
-
     return result
-  }, [initialItems, filters, expandedAgentIds])
+  }, [
+    initialItems,
+    filters,
+    expandedAgentIds,
+    expandedFolderIds,
+    activeView,
+    currentFolderId,
+    folders,
+    workflowsByFolder,
+  ])
 
   const table = useReactTable({
     data: flatData,
@@ -237,7 +387,9 @@ export default function WorkspaceClient({
   const handleConfirmBulkDelete = useCallback(async () => {
     setIsBulkLoading(true)
     try {
-      const items = selectedItems.map((item) => ({ id: item.id, type: item.type }))
+      const items = selectedItems
+        .filter((item): item is WorkspaceAgent | WorkspaceWorkflow => item.type !== 'folder')
+        .map((item) => ({ id: item.id, type: item.type }))
       const result = await bulkDeleteItems(items)
       if (result.error) {
         toast.error(result.error)
@@ -280,6 +432,10 @@ export default function WorkspaceClient({
     [selectedItems]
   )
 
+  const handleBulkMoveToFolder = useCallback(() => {
+    setMoveToFolderOpen(true)
+  }, [])
+
   // Delete dialog description
   const deleteDescription = deleteTarget
     ? deleteTarget.type === 'workflow'
@@ -289,7 +445,16 @@ export default function WorkspaceClient({
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
-      <WorkspaceHeader teamId={teamId} userId={userId} />
+      <WorkspaceHeader teamId={teamId} userId={userId} currentFolderId={currentFolderId} />
+
+      {currentFolderId && (
+        <FolderBreadcrumb
+          currentFolderId={currentFolderId}
+          folders={folders}
+          onNavigate={handleNavigateFolder}
+        />
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <WorkspaceFilters
           filters={filters}
@@ -304,6 +469,7 @@ export default function WorkspaceClient({
         selectedCount={selectedCount}
         onDelete={handleBulkDelete}
         onChangeStatus={handleBulkChangeStatus}
+        onMoveToFolder={handleBulkMoveToFolder}
         isLoading={isBulkLoading}
       />
 
@@ -327,6 +493,28 @@ export default function WorkspaceClient({
         description={`Are you sure you want to delete ${selectedCount} selected item${selectedCount !== 1 ? 's' : ''}? This action cannot be undone.`}
         onConfirm={handleConfirmBulkDelete}
         loading={isBulkLoading}
+      />
+
+      {/* Folder delete dialog */}
+      {deleteFolderTarget && (
+        <DeleteFolderDialog
+          open={!!deleteFolderTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeleteFolderTarget(null)
+          }}
+          folderId={deleteFolderTarget.id}
+          folderName={deleteFolderTarget.name}
+          workflowCount={deleteFolderTarget.workflowCount}
+          subfolderCount={deleteFolderTarget.subfolderCount}
+        />
+      )}
+
+      {/* Move to folder dialog */}
+      <MoveToFolderDialog
+        open={moveToFolderOpen}
+        onOpenChange={setMoveToFolderOpen}
+        itemIds={selectedIds}
+        folderTree={folderTree}
       />
     </div>
   )

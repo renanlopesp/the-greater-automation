@@ -2,7 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowUpDown, ChevronRight, ChevronDown, MoreHorizontal, Sparkles } from 'lucide-react'
+import {
+  ArrowUpDown,
+  ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
+  Sparkles,
+  FolderOpen,
+} from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -16,17 +23,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
-import type { WorkspaceItem, WorkspaceAgent, WorkspaceWorkflow } from '@/lib/queries/workspace'
+import { InlineFolderName } from '@/components/workspace/inline-folder-name'
+import type {
+  WorkspaceItem,
+  WorkspaceAgent,
+  WorkspaceWorkflow,
+  WorkspaceFolder,
+} from '@/lib/queries/workspace'
 
 export interface ColumnMeta {
   userId: string
   memberNameById: Map<string, string | null>
   expandedAgentIds: Set<string>
+  expandedFolderIds: Set<string>
   onToggleExpand: (id: string) => void
+  onToggleFolderExpand: (id: string) => void
   onDeleteWorkflow?: (id: string, name: string) => void
   onDeleteAgent?: (id: string, name: string) => void
+  onDeleteFolder?: (id: string) => void
   onDuplicateWorkflow?: (id: string) => void
   onRenameWorkflow?: (id: string, newName: string) => void
+  onMoveToFolder?: (ids: string[]) => void
+  onNavigateFolder?: (folderId: string | null) => void
 }
 
 function getCreatedByLabel(
@@ -155,6 +173,37 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
       ),
       cell: ({ row }) => {
         const item = row.original
+
+        if (item.type === 'folder') {
+          const folder = item as WorkspaceFolder
+          const isExpanded = meta.expandedFolderIds.has(folder.id)
+          return (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => meta.onToggleFolderExpand(folder.id)}
+                className="p-0.5"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => meta.onNavigateFolder?.(folder.id)}
+                className="flex items-center gap-2"
+              >
+                <FolderOpen className="text-muted-foreground h-5 w-5 shrink-0" />
+                <InlineFolderName folderId={folder.id} name={folder.name} />
+              </button>
+              <span className="text-muted-foreground text-xs">
+                {folder.workflow_count} workflow{folder.workflow_count !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )
+        }
 
         if (item.type === 'agent') {
           const agent = item as WorkspaceAgent
@@ -318,6 +367,31 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
       cell: ({ row }) => {
         const item = row.original
 
+        if (item.type === 'folder') {
+          const folder = item as WorkspaceFolder
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => meta.onNavigateFolder?.(folder.id)}>
+                  Open
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => meta.onDeleteFolder?.(folder.id)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -335,7 +409,9 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                   <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
                     Duplicate
                   </DropdownMenuItem>
-                  <DropdownMenuItem>Move to folder</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
+                    Move to folder
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}

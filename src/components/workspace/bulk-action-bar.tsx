@@ -1,6 +1,6 @@
 'use client'
 
-import { Trash2, ChevronDown } from 'lucide-react'
+import { Trash2, ChevronDown, FolderInput } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ interface BulkActionBarProps {
   selectedCount: number
   onDelete: () => void
   onChangeStatus: (status: 'draft' | 'published') => void
+  onMoveToFolder?: () => void
   isLoading: boolean
 }
 
@@ -20,6 +21,7 @@ export function BulkActionBar({
   selectedCount,
   onDelete,
   onChangeStatus,
+  onMoveToFolder,
   isLoading,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null
@@ -49,6 +51,13 @@ export function BulkActionBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {onMoveToFolder && (
+        <Button variant="outline" size="sm" onClick={onMoveToFolder} disabled={isLoading}>
+          <FolderInput className="h-4 w-4" />
+          Move to folder
+        </Button>
+      )}
     </div>
   )
 }
