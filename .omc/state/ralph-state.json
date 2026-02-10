@@ -1,0 +1,13 @@
+{
+  "active": true,
+  "iteration": 1,
+  "max_iterations": 10,
+  "current_phase": "research",
+  "task_description": "Create complete specification for /workflow page integration using Vercel Workflow (useworkflow.dev). Create spec and ralph loop file in /docs. DO NOT implement - specs only.",
+  "_meta": {
+    "mode": "ralph",
+    "sessionId": null,
+    "updatedAt": "2026-02-10T20:53:30.990Z",
+    "updatedBy": "state_write_tool"
+  }
+}

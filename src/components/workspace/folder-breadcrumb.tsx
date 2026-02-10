@@ -1,5 +1,6 @@
 'use client'
 
+import { Fragment } from 'react'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -36,16 +37,18 @@ export function FolderBreadcrumb({ currentFolderId, folders, onNavigate }: Folde
         {path.map((folder, i) => {
           const isLast = i === path.length - 1
           return (
-            <BreadcrumbItem key={folder.id}>
+            <Fragment key={folder.id}>
               <BreadcrumbSeparator />
-              {isLast ? (
-                <BreadcrumbPage>{folder.name}</BreadcrumbPage>
-              ) : (
-                <BreadcrumbLink className="cursor-pointer" onClick={() => onNavigate(folder.id)}>
-                  {folder.name}
-                </BreadcrumbLink>
-              )}
-            </BreadcrumbItem>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage>{folder.name}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink className="cursor-pointer" onClick={() => onNavigate(folder.id)}>
+                    {folder.name}
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
           )
         })}
       </BreadcrumbList>

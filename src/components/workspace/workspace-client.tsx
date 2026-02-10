@@ -539,6 +539,7 @@ export default function WorkspaceClient({
             currentFolderId={currentFolderId}
             onNavigate={handleNavigateFolder}
             onCreateFolder={() => setSidebarFolderDialogOpen(true)}
+            onDeleteFolder={handleDeleteFolder}
           />
           <div className="min-w-0 flex-1">
             {currentFolderId && (
