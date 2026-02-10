@@ -1,29 +1,13 @@
-/**
- * Auth setup for E2E tests.
- *
- * To enable authenticated E2E tests:
- * 1. Create a test user in Supabase dashboard
- * 2. Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD environment variables
- * 3. Uncomment the setup below and add `storageState` to playwright.config.ts projects
- *
- * Example playwright.config.ts change:
- *   projects: [
- *     { name: 'setup', testMatch: /auth\.setup\.ts/ },
- *     { name: 'chromium', use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' }, dependencies: ['setup'] },
- *   ]
- */
+import { test as setup, expect } from '@playwright/test'
 
-// import { test as setup, expect } from '@playwright/test'
-//
-// const authFile = '.auth/user.json'
-//
-// setup('authenticate', async ({ page }) => {
-//   await page.goto('/login')
-//   await page.getByLabel('Email').fill(process.env.E2E_TEST_EMAIL!)
-//   await page.getByLabel('Password').fill(process.env.E2E_TEST_PASSWORD!)
-//   await page.getByRole('button', { name: 'Sign in' }).click()
-//   await page.waitForURL('/dashboard')
-//   await page.context().storageState({ path: authFile })
-// })
+const authFile = '.auth/user.json'
 
-export {}
+setup('authenticate', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('Email').fill('e2e-relay-test@gmail.com')
+  await page.getByLabel('Password').fill('E2eTestPass123!')
+  await page.getByRole('button', { name: 'Log in' }).click()
+  await page.waitForURL('/dashboard', { timeout: 15000 })
+  await expect(page).toHaveURL(/\/dashboard/)
+  await page.context().storageState({ path: authFile })
+})

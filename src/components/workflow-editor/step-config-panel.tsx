@@ -8,17 +8,26 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
-import type { AIStepConfig, HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
+import type {
+  AIStepConfig,
+  HTTPStepConfig,
+  AppStepConfig,
+  FlowControlStepConfig,
+  WebScrapingStepConfig,
+  HumanInLoopStepConfig,
+  UtilityStepConfig,
+  SequenceStepConfig,
+} from '@/lib/workflow-editor/step-defaults'
+import AIStepConfigForm from './step-config/ai-step-config'
+import HTTPStepConfigForm from './step-config/http-step-config'
+import AppStepConfigForm from './step-config/app-step-config'
+import FlowControlStepConfigForm from './step-config/flow-control-step-config'
+import WebScrapingStepConfigForm from './step-config/web-scraping-step-config'
+import HumanInLoopStepConfigForm from './step-config/human-in-loop-step-config'
+import UtilityStepConfigForm from './step-config/utility-step-config'
+import SequenceStepConfigForm from './step-config/sequence-step-config'
 
 export default function StepConfigPanel() {
   const { steps, selectedStepId, updateStep, deleteStep, selectStep } = useWorkflowEditorStore()
@@ -82,10 +91,46 @@ export default function StepConfigPanel() {
             />
           )}
 
-          {selectedStep.type !== 'ai' && selectedStep.type !== 'http' && (
-            <p className="text-muted-foreground text-sm">
-              Configuration for {meta?.name ?? selectedStep.type} coming soon
-            </p>
+          {selectedStep.type === 'app' && (
+            <AppStepConfigForm
+              config={selectedStep.config as AppStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
+          )}
+
+          {selectedStep.type === 'flow_control' && (
+            <FlowControlStepConfigForm
+              config={selectedStep.config as FlowControlStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
+          )}
+
+          {selectedStep.type === 'web_scraping' && (
+            <WebScrapingStepConfigForm
+              config={selectedStep.config as WebScrapingStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
+          )}
+
+          {selectedStep.type === 'human_in_loop' && (
+            <HumanInLoopStepConfigForm
+              config={selectedStep.config as HumanInLoopStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
+          )}
+
+          {selectedStep.type === 'utility' && (
+            <UtilityStepConfigForm
+              config={selectedStep.config as UtilityStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
+          )}
+
+          {selectedStep.type === 'sequence' && (
+            <SequenceStepConfigForm
+              config={selectedStep.config as SequenceStepConfig}
+              onUpdate={(config) => updateStep(selectedStep.id, { config })}
+            />
           )}
         </div>
       </ScrollArea>
@@ -95,87 +140,6 @@ export default function StepConfigPanel() {
         <Button size="sm" onClick={() => selectStep(null)}>
           Done
         </Button>
-      </div>
-    </div>
-  )
-}
-
-function AIStepConfigForm({
-  config,
-  onUpdate,
-}: {
-  config: AIStepConfig
-  onUpdate: (config: AIStepConfig) => void
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <label className="text-sm font-medium">Prompt template</label>
-        <Textarea
-          value={config.prompt_template}
-          onChange={(e) => onUpdate({ ...config, prompt_template: e.target.value })}
-          placeholder="Enter your prompt..."
-          rows={4}
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Output format</label>
-        <Select
-          value={config.output_format}
-          onValueChange={(v) =>
-            onUpdate({ ...config, output_format: v as AIStepConfig['output_format'] })
-          }
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="text">Text</SelectItem>
-            <SelectItem value="json">JSON</SelectItem>
-            <SelectItem value="markdown">Markdown</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  )
-}
-
-function HTTPStepConfigForm({
-  config,
-  onUpdate,
-}: {
-  config: HTTPStepConfig
-  onUpdate: (config: HTTPStepConfig) => void
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <label className="text-sm font-medium">Method</label>
-        <Select
-          value={config.method}
-          onValueChange={(v) => onUpdate({ ...config, method: v as HTTPStepConfig['method'] })}
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="GET">GET</SelectItem>
-            <SelectItem value="POST">POST</SelectItem>
-            <SelectItem value="PUT">PUT</SelectItem>
-            <SelectItem value="PATCH">PATCH</SelectItem>
-            <SelectItem value="DELETE">DELETE</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-sm font-medium">URL</label>
-        <Input
-          value={config.url}
-          onChange={(e) => onUpdate({ ...config, url: e.target.value })}
-          placeholder="https://api.example.com/endpoint"
-          className="mt-1"
-        />
       </div>
     </div>
   )

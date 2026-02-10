@@ -1,0 +1,109 @@
+'use client'
+
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { UtilityStepConfig } from '@/lib/workflow-editor/step-defaults'
+
+export default function UtilityStepConfigForm({
+  config,
+  onUpdate,
+}: {
+  config: UtilityStepConfig
+  onUpdate: (config: UtilityStepConfig) => void
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <Label htmlFor="utility-type" className="text-sm font-medium">
+          Utility Type
+        </Label>
+        <Select
+          value={config.utility_type}
+          onValueChange={(v) =>
+            onUpdate({ ...config, utility_type: v as UtilityStepConfig['utility_type'] })
+          }
+        >
+          <SelectTrigger id="utility-type" className="mt-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="format">Format data</SelectItem>
+            <SelectItem value="parse_json">Parse JSON</SelectItem>
+            <SelectItem value="parse_csv">Parse CSV</SelectItem>
+            <SelectItem value="merge">Merge data</SelectItem>
+            <SelectItem value="filter">Filter array</SelectItem>
+            <SelectItem value="map">Map array</SelectItem>
+            <SelectItem value="math">Math operation</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="input-source" className="text-sm font-medium">
+          Input Source
+        </Label>
+        <Input
+          id="input-source"
+          value={config.input_source ?? ''}
+          onChange={(e) => onUpdate({ ...config, input_source: e.target.value })}
+          placeholder="e.g., {{step_1.output}}"
+          className="mt-1"
+        />
+      </div>
+
+      {config.utility_type === 'format' && (
+        <div>
+          <Label htmlFor="format-template" className="text-sm font-medium">
+            Format Template
+          </Label>
+          <Textarea
+            id="format-template"
+            value={config.format_template ?? ''}
+            onChange={(e) => onUpdate({ ...config, format_template: e.target.value })}
+            placeholder="e.g., Hello {{name}}, your score is {{score}}"
+            rows={4}
+            className="mt-1"
+          />
+        </div>
+      )}
+
+      {config.utility_type === 'filter' && (
+        <div>
+          <Label htmlFor="filter-condition" className="text-sm font-medium">
+            Filter Condition
+          </Label>
+          <Input
+            id="filter-condition"
+            value={config.filter_condition ?? ''}
+            onChange={(e) => onUpdate({ ...config, filter_condition: e.target.value })}
+            placeholder="e.g., item.status === 'active'"
+            className="mt-1"
+          />
+        </div>
+      )}
+
+      {config.utility_type === 'math' && (
+        <div>
+          <Label htmlFor="math-expression" className="text-sm font-medium">
+            Math Expression
+          </Label>
+          <Input
+            id="math-expression"
+            value={config.math_expression ?? ''}
+            onChange={(e) => onUpdate({ ...config, math_expression: e.target.value })}
+            placeholder="e.g., (value * 1.1) + 5"
+            className="mt-1"
+          />
+        </div>
+      )}
+    </div>
+  )
+}

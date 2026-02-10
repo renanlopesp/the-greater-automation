@@ -14,6 +14,7 @@ import TriggerPanel from '@/components/editor/trigger-panel'
 import StepsPanel from '@/components/editor/steps-panel'
 import ConfigPanel from '@/components/editor/config-panel'
 import ConnectorLine from '@/components/workflow-editor/connector-line'
+import RunsTab from '@/components/workflow-editor/runs-tab'
 import { cn } from '@/lib/utils'
 
 // Lazy-load assistant panel - only shown when toggled open
@@ -32,7 +33,7 @@ function useIsMobile() {
 }
 
 export default function EditorShell() {
-  const { isAssistantOpen, toggleAssistant } = useWorkflowEditorStore()
+  const { workflowId, isAssistantOpen, toggleAssistant } = useWorkflowEditorStore()
   const isMobile = useIsMobile()
 
   return (
@@ -103,8 +104,8 @@ export default function EditorShell() {
           </div>
         </TabsContent>
 
-        <TabsContent value="runs" className="mt-0 flex-1">
-          <div className="text-muted-foreground p-8">Runs tab coming soon</div>
+        <TabsContent value="runs" className="mt-0 flex-1 overflow-hidden">
+          <RunsTab workflowId={workflowId} />
         </TabsContent>
       </Tabs>
     </div>

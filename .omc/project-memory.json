@@ -196,15 +196,225 @@
   },
   "hotPaths": [
     {
+      "path": "src/components/editor/editor-header.tsx",
+      "accessCount": 27,
+      "lastAccessed": 1770767126522,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/queries/workflow-editor.ts",
+      "accessCount": 23,
+      "lastAccessed": 1770766330914,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 19,
+      "lastAccessed": 1770760378632,
+      "type": "directory"
+    },
+    {
       "path": "src/stores/workflow-editor-store.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756829915,
+      "accessCount": 17,
+      "lastAccessed": 1770766300860,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks/use-workflow-data.ts",
+      "accessCount": 17,
+      "lastAccessed": 1770766313861,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/ai-assistant-panel.tsx",
+      "accessCount": 17,
+      "lastAccessed": 1770767043909,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/workflow-editor/step-defaults.ts",
+      "accessCount": 15,
+      "lastAccessed": 1770759648004,
+      "type": "file"
+    },
+    {
+      "path": "docs/013-workflow-integration-ralph.md",
+      "accessCount": 14,
+      "lastAccessed": 1770759143517,
+      "type": "file"
+    },
+    {
+      "path": "src/components/editor/editor-shell.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770760643499,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/step-config-panel.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770760652170,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/supabase/database.types.ts",
+      "accessCount": 12,
+      "lastAccessed": 1770763275297,
+      "type": "directory"
+    },
+    {
+      "path": "src/app/(editor)/workflows/[id]/edit/page.tsx",
+      "accessCount": 12,
+      "lastAccessed": 1770767036189,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/save/route.ts",
+      "accessCount": 11,
+      "lastAccessed": 1770763216025,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 8,
+      "lastAccessed": 1770766225324,
+      "type": "directory"
+    },
+    {
+      "path": "src/lib/workflow-editor/trigger-defaults.ts",
+      "accessCount": 6,
+      "lastAccessed": 1770764169857,
+      "type": "file"
+    },
+    {
+      "path": "next.config.ts",
+      "accessCount": 5,
+      "lastAccessed": 1770759602334,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/workflow-editor/trigger-metadata.ts",
+      "accessCount": 5,
+      "lastAccessed": 1770760656185,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/workflow-editor/step-metadata.ts",
+      "accessCount": 5,
+      "lastAccessed": 1770760656697,
+      "type": "file"
+    },
+    {
+      "path": "src/components/editor/trigger-panel.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1770764548349,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/trigger-config/scheduled-trigger-config.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1770767128162,
+      "type": "file"
+    },
+    {
+      "path": "specs/013-workflow-integration/spec.md",
+      "accessCount": 4,
+      "lastAccessed": 1770757755015,
+      "type": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 4,
+      "lastAccessed": 1770759654710,
+      "type": "file"
+    },
+    {
+      "path": "src/components/editor/config-panel.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1770760648221,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/publish/route.ts",
+      "accessCount": 4,
+      "lastAccessed": 1770763656759,
+      "type": "file"
+    },
+    {
+      "path": "src/components/editor/steps-panel.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1770764548795,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/workflows/[id]/duplicate/route.ts",
+      "accessCount": 3,
+      "lastAccessed": 1770759622296,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260210_workflow_run_columns.sql",
+      "accessCount": 3,
+      "lastAccessed": 1770760117667,
+      "type": "file"
+    },
+    {
+      "path": "supabase/migrations/20260210_workflow_run_steps.sql",
+      "accessCount": 3,
+      "lastAccessed": 1770760118283,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/step-selector.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1770760647237,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/step-card.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1770760647771,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/add-step-button.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1770760651638,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/trigger-selector.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1770760652675,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/supabase/server.ts",
+      "accessCount": 3,
+      "lastAccessed": 1770762124169,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/trigger-config/manual-trigger-config.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1770767112661,
       "type": "file"
     },
     {
       "path": "src/components/workflow-editor/editor-layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756830171,
+      "accessCount": 2,
+      "lastAccessed": 1770759631692,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 2,
+      "lastAccessed": 1770759655595,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/supabase/client.ts",
+      "accessCount": 2,
+      "lastAccessed": 1770762356396,
       "type": "file"
     },
     {
@@ -220,51 +430,9 @@
       "type": "file"
     },
     {
-      "path": "src/components/workflow-editor/step-card.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756837322,
-      "type": "file"
-    },
-    {
       "path": "src/components/workflow-editor/step-canvas.tsx",
       "accessCount": 1,
       "lastAccessed": 1770756837324,
-      "type": "file"
-    },
-    {
-      "path": "src/components/workflow-editor/trigger-selector.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756839508,
-      "type": "file"
-    },
-    {
-      "path": "src/components/workflow-editor/step-selector.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756839725,
-      "type": "file"
-    },
-    {
-      "path": "src/components/workflow-editor/step-config-panel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756839958,
-      "type": "file"
-    },
-    {
-      "path": "src/components/workflow-editor/add-step-button.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756840216,
-      "type": "file"
-    },
-    {
-      "path": "src/app/(editor)/workflows/[id]/edit/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756842152,
-      "type": "file"
-    },
-    {
-      "path": "src/components/workflow-editor/ai-assistant-panel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756842522,
       "type": "file"
     },
     {
@@ -280,69 +448,51 @@
       "type": "file"
     },
     {
-      "path": "src/components/editor/editor-shell.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756845195,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/workflow-editor/trigger-metadata.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756848616,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/workflow-editor/trigger-defaults.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756849036,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/workflow-editor/step-metadata.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756849092,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/workflow-editor/step-defaults.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756849335,
-      "type": "file"
-    },
-    {
-      "path": "src/components/editor/editor-header.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756851681,
-      "type": "file"
-    },
-    {
-      "path": "src/components/editor/trigger-panel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756851981,
-      "type": "file"
-    },
-    {
-      "path": "src/components/editor/steps-panel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756852100,
-      "type": "file"
-    },
-    {
-      "path": "src/components/editor/config-panel.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1770756852342,
-      "type": "file"
-    },
-    {
-      "path": "src/hooks/use-workflow-data.ts",
-      "accessCount": 1,
-      "lastAccessed": 1770756854287,
-      "type": "file"
-    },
-    {
       "path": "src/lib/data/workflow-templates.ts",
       "accessCount": 1,
       "lastAccessed": 1770756854491,
+      "type": "file"
+    },
+    {
+      "path": "specs/004-workflow-editor/spec.md",
+      "accessCount": 1,
+      "lastAccessed": 1770757072165,
+      "type": "file"
+    },
+    {
+      "path": "specs/004-workflow-editor/tasks.md",
+      "accessCount": 1,
+      "lastAccessed": 1770757072826,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks/use-workflow-run-stats.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770757515581,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/queries/runs.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770757532384,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/queries/dashboard.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770757532804,
+      "type": "file"
+    },
+    {
+      "path": "supabase/schema.sql",
+      "accessCount": 1,
+      "lastAccessed": 1770758194277,
+      "type": "file"
+    },
+    {
+      "path": "src/components/workflow-editor/trigger-config/webhook-trigger-config.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1770758278918,
       "type": "file"
     }
   ],

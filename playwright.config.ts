@@ -11,7 +11,22 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
+      dependencies: ['setup'],
+      testIgnore:
+        /\/(smoke|auth|agent-detail|dashboard|workspace|navigation|command-menu|settings)\.test\.ts$/,
+    },
+    {
+      name: 'chromium-noauth',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch:
+        /\/(smoke|auth|agent-detail|dashboard|workspace|navigation|command-menu|settings)\.test\.ts$/,
+    },
+  ],
   webServer: {
     command: 'bun run dev',
     url: 'http://localhost:3000',

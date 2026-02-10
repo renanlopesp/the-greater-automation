@@ -7,7 +7,13 @@ export interface AppStepConfig {
 }
 
 export interface FlowControlStepConfig {
-  control_type: 'path'
+  control_type: 'path' | 'loop' | 'wait'
+  conditions?: Array<{ field: string; operator: string; value: string }>
+  default_path?: string
+  loop_source?: string
+  loop_count?: number
+  wait_duration?: number
+  wait_unit?: 'seconds' | 'minutes' | 'hours'
 }
 
 export interface AIStepConfig {
@@ -19,32 +25,43 @@ export interface AIStepConfig {
 }
 
 export interface WebScrapingStepConfig {
-  scrape_type: 'url'
+  scrape_type: 'url' | 'css_selector' | 'xpath'
   url: string
+  selector?: string
+  wait_for_selector?: boolean
   output_format: 'text' | 'html' | 'json'
 }
 
 export interface HumanInLoopStepConfig {
   action_type: 'approval' | 'input' | 'review'
   assignee_type: 'anyone' | 'specific'
+  assignee?: string
   prompt: string
   include_context: boolean
+  timeout_minutes?: number
 }
 
 export interface UtilityStepConfig {
-  utility_type: 'format'
+  utility_type: 'format' | 'parse_json' | 'parse_csv' | 'merge' | 'filter' | 'map' | 'math'
+  input_source?: string
+  format_template?: string
+  filter_condition?: string
+  math_expression?: string
 }
 
 export interface HTTPStepConfig {
   request_type: 'custom'
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   url: string
+  headers?: Record<string, string>
+  body?: string
+  auth?: { type: 'none' | 'bearer' | 'basic' | 'api_key'; value: string }
   timeout_seconds: number
   retry_count: number
 }
 
 export interface SequenceStepConfig {
-  inline_steps: unknown[]
+  inline_steps: Array<{ id: string; type: StepType; name: string; config: Record<string, unknown> }>
 }
 
 export type StepConfigMap = {
@@ -71,7 +88,7 @@ export interface WorkflowStep {
 export function getStepDefaultConfig(type: StepType): StepConfig {
   const defaults: Record<StepType, StepConfig> = {
     app: { app_id: '', action: '', inputs: {} },
-    flow_control: { control_type: 'path' },
+    flow_control: { control_type: 'path', conditions: [], default_path: '' },
     ai: {
       ai_action: 'summarize',
       prompt_template: '',
@@ -86,7 +103,7 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
       prompt: '',
       include_context: true,
     },
-    utility: { utility_type: 'format' },
+    utility: { utility_type: 'format', input_source: '' },
     http: { request_type: 'custom', method: 'GET', url: '', timeout_seconds: 30, retry_count: 0 },
     sequence: { inline_steps: [] },
   }

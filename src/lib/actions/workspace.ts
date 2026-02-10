@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
-import type { WorkflowStatus } from '@/lib/supabase/database.types'
+import type { WorkflowStatus, TriggerType, StepType, Database } from '@/lib/supabase/database.types'
 import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
@@ -32,6 +32,13 @@ export async function createWorkflow(
   if (error || !data) {
     return { error: error?.message ?? 'Failed to create workflow', id: '' }
   }
+
+  // Insert default manual trigger so publish works immediately
+  await supabase.from('workflow_triggers').insert({
+    workflow_id: data.id,
+    type: 'manual',
+    config: { run_inputs: [] },
+  })
 
   revalidatePath('/workspace')
   return { id: data.id }
@@ -585,4 +592,305 @@ export async function moveToFolder(
 
   revalidatePath('/workspace')
   return {}
+}
+
+// ---------------------------------------------------------------------------
+// 13. saveWorkflow
+// ---------------------------------------------------------------------------
+
+export async function saveWorkflow(
+  workflowId: string,
+  data: {
+    name: string
+    emoji: string
+    isStarred: boolean
+    trigger: {
+      type: TriggerType
+      config: Record<string, unknown>
+    } | null
+    steps: Array<{
+      type: StepType
+      name: string
+      position: number
+      config: Record<string, unknown>
+    }>
+  }
+): Promise<ActionResult<{ savedAt: string }>> {
+  const supabase = await createServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'Unauthorized', savedAt: '' }
+  }
+
+  // Update workflow metadata
+  const { error: workflowError } = await supabase
+    .from('workflows')
+    .update({
+      name: data.name,
+      emoji: data.emoji,
+      is_starred: data.isStarred,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workflowId)
+
+  if (workflowError) {
+    return { error: workflowError.message, savedAt: '' }
+  }
+
+  // Handle trigger (delete existing + insert new if provided)
+  const { error: triggerDeleteError } = await supabase
+    .from('workflow_triggers')
+    .delete()
+    .eq('workflow_id', workflowId)
+
+  if (triggerDeleteError) {
+    return { error: triggerDeleteError.message, savedAt: '' }
+  }
+
+  if (data.trigger) {
+    const { error: triggerError } = await supabase.from('workflow_triggers').insert({
+      workflow_id: workflowId,
+      type: data.trigger.type,
+      config: data.trigger
+        .config as unknown as Database['public']['Tables']['workflow_triggers']['Insert']['config'],
+    })
+
+    if (triggerError) {
+      return { error: triggerError.message, savedAt: '' }
+    }
+  }
+
+  // Handle steps (delete all + insert new)
+  const { error: stepsDeleteError } = await supabase
+    .from('workflow_steps')
+    .delete()
+    .eq('workflow_id', workflowId)
+
+  if (stepsDeleteError) {
+    return { error: stepsDeleteError.message, savedAt: '' }
+  }
+
+  if (data.steps.length > 0) {
+    const { error: stepsError } = await supabase.from('workflow_steps').insert(
+      data.steps.map((step) => ({
+        workflow_id: workflowId,
+        position: step.position,
+        type: step.type,
+        name: step.name,
+        config:
+          step.config as unknown as Database['public']['Tables']['workflow_steps']['Insert']['config'],
+      }))
+    )
+
+    if (stepsError) {
+      return { error: stepsError.message, savedAt: '' }
+    }
+  }
+
+  return { savedAt: new Date().toISOString() }
+}
+
+// ---------------------------------------------------------------------------
+// 14. publishWorkflow
+// ---------------------------------------------------------------------------
+
+export async function publishWorkflow(
+  workflowId: string,
+  status: WorkflowStatus
+): Promise<ActionResult> {
+  const supabase = await createServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'Unauthorized' }
+  }
+
+  // If publishing, verify workflow has trigger and at least 1 step
+  if (status === 'published') {
+    const { data: trigger } = await supabase
+      .from('workflow_triggers')
+      .select('id')
+      .eq('workflow_id', workflowId)
+      .single()
+
+    const { data: steps } = await supabase
+      .from('workflow_steps')
+      .select('id')
+      .eq('workflow_id', workflowId)
+
+    if (!trigger) {
+      return { error: 'Cannot publish workflow without a trigger' }
+    }
+
+    if (!steps || steps.length === 0) {
+      return { error: 'Cannot publish workflow without at least one step' }
+    }
+  }
+
+  const updateData: {
+    status: WorkflowStatus
+    updated_at: string
+    published_at?: string | null
+  } = {
+    status,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (status === 'published') {
+    updateData.published_at = new Date().toISOString()
+  } else {
+    updateData.published_at = null
+  }
+
+  const { error: updateError } = await supabase
+    .from('workflows')
+    .update(updateData)
+    .eq('id', workflowId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  revalidatePath('/workspace')
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// 15. startWorkflowRun
+// ---------------------------------------------------------------------------
+
+export async function startWorkflowRun(
+  workflowId: string
+): Promise<ActionResult<{ runId: string }>> {
+  const supabase = await createServerClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { error: 'Unauthorized', runId: '' }
+  }
+
+  // Load workflow
+  const { data: workflow, error: workflowError } = await supabase
+    .from('workflows')
+    .select('id, team_id, name, status')
+    .eq('id', workflowId)
+    .single()
+
+  if (workflowError || !workflow) {
+    return { error: 'Workflow not found', runId: '' }
+  }
+
+  if (workflow.status !== 'published') {
+    return { error: 'Workflow must be published to run', runId: '' }
+  }
+
+  // Load trigger
+  const { data: trigger, error: triggerError } = await supabase
+    .from('workflow_triggers')
+    .select('type, config')
+    .eq('workflow_id', workflowId)
+    .single()
+
+  if (triggerError || !trigger) {
+    return { error: 'Workflow trigger not configured', runId: '' }
+  }
+
+  // Load steps
+  const { data: steps, error: stepsError } = await supabase
+    .from('workflow_steps')
+    .select('id, position, type, name, config')
+    .eq('workflow_id', workflowId)
+    .order('position', { ascending: true })
+
+  if (stepsError || !steps || steps.length === 0) {
+    return { error: 'Workflow has no steps configured', runId: '' }
+  }
+
+  // Create workflow run record
+  const { data: run, error: runError } = await supabase
+    .from('workflow_runs')
+    .insert({
+      workflow_id: workflowId,
+      status: 'pending',
+      trigger_type: trigger.type,
+      trigger_data: {},
+      steps_used: 0,
+      ai_credits_used: 0,
+    })
+    .select()
+    .single()
+
+  if (runError || !run) {
+    return { error: 'Failed to create workflow run', runId: '' }
+  }
+
+  // Create workflow_run_steps records
+  const runSteps = steps.map((step) => ({
+    run_id: run.id,
+    step_id: step.id,
+    step_position: step.position,
+    step_type: step.type,
+    status: 'pending' as const,
+    input: {},
+    output: {},
+  }))
+
+  const { error: runStepsError } = await supabase.from('workflow_run_steps').insert(runSteps)
+
+  if (runStepsError) {
+    return { error: 'Failed to initialize run steps', runId: '' }
+  }
+
+  // Execute the run: transition through running → completed
+  // In production this would be a background job / queue worker.
+  // For now we simulate synchronous step execution.
+  await supabase
+    .from('workflow_runs')
+    .update({ status: 'running', started_at: new Date().toISOString() })
+    .eq('id', run.id)
+
+  for (const step of steps) {
+    // Mark step running
+    await supabase
+      .from('workflow_run_steps')
+      .update({ status: 'running', started_at: new Date().toISOString() })
+      .eq('run_id', run.id)
+      .eq('step_id', step.id)
+
+    // Simulate step execution with a placeholder output
+    await supabase
+      .from('workflow_run_steps')
+      .update({
+        status: 'completed',
+        output: { result: `Step "${step.name}" executed successfully` },
+        completed_at: new Date().toISOString(),
+      })
+      .eq('run_id', run.id)
+      .eq('step_id', step.id)
+  }
+
+  // Mark run completed
+  await supabase
+    .from('workflow_runs')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      steps_used: steps.length,
+    })
+    .eq('id', run.id)
+
+  return { runId: run.id }
 }

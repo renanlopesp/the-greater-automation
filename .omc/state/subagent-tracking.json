@@ -1,17 +1,15 @@
 {
   "agents": [
     {
-      "agent_id": "a357c05",
-      "agent_type": "Explore",
-      "started_at": "2026-02-10T20:53:38.479Z",
+      "agent_id": "a69aba5",
+      "agent_type": "oh-my-claudecode:git-master",
+      "started_at": "2026-02-10T23:43:07.864Z",
       "parent_mode": "ralph",
-      "status": "completed",
-      "completed_at": "2026-02-10T20:56:24.621Z",
-      "duration_ms": 166142
+      "status": "running"
     }
   ],
   "total_spawned": 1,
-  "total_completed": 1,
+  "total_completed": 0,
   "total_failed": 0,
-  "last_updated": "2026-02-10T20:56:24.721Z"
+  "last_updated": "2026-02-10T23:43:07.964Z"
 }

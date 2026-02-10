@@ -388,6 +388,9 @@ export type Database = {
           status: RunStatus
           steps_used: number
           ai_credits_used: number
+          trigger_type: TriggerType | null
+          trigger_data: Json
+          error: string | null
           started_at: string | null
           completed_at: string | null
           created_at: string
@@ -399,6 +402,9 @@ export type Database = {
           status?: RunStatus
           steps_used?: number
           ai_credits_used?: number
+          trigger_type?: TriggerType | null
+          trigger_data?: Json
+          error?: string | null
           started_at?: string | null
           completed_at?: string | null
           created_at?: string
@@ -410,6 +416,9 @@ export type Database = {
           status?: RunStatus
           steps_used?: number
           ai_credits_used?: number
+          trigger_type?: TriggerType | null
+          trigger_data?: Json
+          error?: string | null
           started_at?: string | null
           completed_at?: string | null
           created_at?: string
@@ -427,6 +436,59 @@ export type Database = {
             columns: ['agent_id']
             isOneToOne: false
             referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflow_run_steps: {
+        Row: {
+          id: string
+          run_id: string
+          step_id: string | null
+          step_position: number
+          step_type: StepType
+          status: RunStatus
+          input: Json
+          output: Json
+          error: string | null
+          started_at: string | null
+          completed_at: string | null
+          duration_ms: number | null
+        }
+        Insert: {
+          id?: string
+          run_id: string
+          step_id?: string | null
+          step_position: number
+          step_type: StepType
+          status?: RunStatus
+          input?: Json
+          output?: Json
+          error?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          duration_ms?: number | null
+        }
+        Update: {
+          id?: string
+          run_id?: string
+          step_id?: string | null
+          step_position?: number
+          step_type?: StepType
+          status?: RunStatus
+          input?: Json
+          output?: Json
+          error?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          duration_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_run_steps_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'workflow_runs'
             referencedColumns: ['id']
           },
         ]
