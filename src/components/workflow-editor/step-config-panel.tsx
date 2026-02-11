@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Settings, Play, Loader2, X, CheckCircle2, XCircle } from 'lucide-react'
+import { Trash2, Settings, Play, Loader2, CheckCircle2, FlaskConical } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -34,14 +34,10 @@ import UtilityStepConfigForm from './step-config/utility-step-config'
 import SequenceStepConfigForm from './step-config/sequence-step-config'
 
 export default function StepConfigPanel() {
-  const { steps, selectedStepId, updateStep, deleteStep, selectStep } = useWorkflowEditorStore()
-  const testStep = useTestStep()
-  const [testResult, setTestResult] = useState<{
-    success: boolean
-    output: unknown
-    error?: string
-    duration_ms: number
-  } | null>(null)
+  const { steps, selectedStepId, updateStep, deleteStep, selectStep, workflowId } =
+    useWorkflowEditorStore()
+  const testStep = useTestStep(workflowId)
+  const [testStarted, setTestStarted] = useState(false)
 
   const selectedStep = steps.find((s) => s.id === selectedStepId)
   if (!selectedStep) return null
@@ -57,28 +53,24 @@ export default function StepConfigPanel() {
   const canTest = isStepConfigComplete(selectedStep) && !testStep.isPending
 
   function handleTest() {
-    setTestResult(null)
+    setTestStarted(false)
     testStep.mutate(
       {
         type: selectedStep!.type,
         config: selectedStep!.config as unknown as Record<string, unknown>,
+        workflowId,
+        stepId: selectedStep!.id,
+        stepName: selectedStep!.name,
+        stepPosition: selectedStep!.position,
       },
       {
-        onSuccess: setTestResult,
-        onError: (err) =>
-          setTestResult({ success: false, output: null, error: err.message, duration_ms: 0 }),
+        onSuccess: () => setTestStarted(true),
       }
     )
   }
 
-  function formatOutput(output: unknown): string {
-    if (output === null || output === undefined) return ''
-    if (typeof output === 'string') return output
-    return JSON.stringify(output, null, 2)
-  }
-
   return (
-    <div className="flex h-full w-full flex-col border-l sm:w-[400px]">
+    <div className="flex h-full w-full flex-col border-l">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
           {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
@@ -170,47 +162,21 @@ export default function StepConfigPanel() {
         </div>
       </ScrollArea>
 
-      {testResult && (
-        <div
-          className={cn(
-            'border-t px-4 py-3',
-            testResult.success ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'
-          )}
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {testResult.success ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-              ) : (
-                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              )}
-              <span className="text-xs font-medium">
-                {testResult.success ? 'Success' : 'Failed'}
-              </span>
-              <Badge variant="outline" className="text-[10px]">
-                {(testResult.duration_ms / 1000).toFixed(1)}s
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setTestResult(null)}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          {testResult.error && (
-            <p className="mb-1 text-xs text-red-600 dark:text-red-400">{testResult.error}</p>
-          )}
-          {testResult.output != null && (
-            <pre className="max-h-40 overflow-auto rounded bg-black/5 p-2 text-[11px] leading-relaxed dark:bg-white/5">
-              {(() => {
-                const text = formatOutput(testResult.output)
-                return text.length > 500 ? text.slice(0, 500) + '...' : text
-              })()}
-            </pre>
-          )}
+      {testStarted && (
+        <div className="flex items-center gap-2 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950/20">
+          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <span className="text-xs font-medium">Test started</span>
+          <button
+            type="button"
+            className="text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
+            onClick={() => {
+              setTestStarted(false)
+              useWorkflowEditorStore.getState().setActiveTab('tests')
+            }}
+          >
+            <FlaskConical className="mr-1 inline h-3 w-3" />
+            View in Tests tab
+          </button>
         </div>
       )}
 

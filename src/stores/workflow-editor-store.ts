@@ -14,7 +14,7 @@ interface WorkflowEditorState {
   isAssistantOpen: boolean
   isDirty: boolean
   workflowStatus: 'draft' | 'published'
-  activeTab: 'editor' | 'runs'
+  activeTab: 'editor' | 'runs' | 'tests'
   pendingRunId: string | null
   undoStack: WorkflowEditorState[]
   redoStack: WorkflowEditorState[]
@@ -36,7 +36,7 @@ interface WorkflowEditorActions {
   undo: () => void
   redo: () => void
   setWorkflowStatus: (status: 'draft' | 'published') => void
-  setActiveTab: (tab: 'editor' | 'runs') => void
+  setActiveTab: (tab: 'editor' | 'runs' | 'tests') => void
   setPendingRunId: (runId: string | null) => void
   clearDirty: () => void
 }

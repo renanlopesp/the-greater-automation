@@ -18,7 +18,7 @@ describe('executeAIStep', () => {
 
   it('should successfully execute AI step with valid response', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [
         {
           message: {
@@ -52,7 +52,7 @@ describe('executeAIStep', () => {
 
     expect(result.success).toBe(true)
     expect(result.content).toBe('This is a summary of the text.')
-    expect(result.model).toBe('gpt-4o-mini')
+    expect(result.model).toBe('kiro')
     expect(result.usage).toEqual({
       prompt_tokens: 50,
       completion_tokens: 20,
@@ -175,7 +175,7 @@ describe('executeAIStep', () => {
 
   it('should interpolate context variables in prompt template', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Processed content' } }],
     }
 
@@ -208,7 +208,7 @@ describe('executeAIStep', () => {
 
   it('should use correct system prompt for summarize action', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Summary' } }],
     }
 
@@ -238,7 +238,7 @@ describe('executeAIStep', () => {
 
   it('should use correct system prompt for classify action', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Classification' } }],
     }
 
@@ -268,7 +268,7 @@ describe('executeAIStep', () => {
 
   it('should use correct system prompt for extract action', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Extracted data' } }],
     }
 
@@ -298,7 +298,7 @@ describe('executeAIStep', () => {
 
   it('should use correct system prompt for generate action', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Generated content' } }],
     }
 
@@ -328,7 +328,7 @@ describe('executeAIStep', () => {
 
   it('should use correct system prompt for transform action', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Transformed text' } }],
     }
 
@@ -358,7 +358,7 @@ describe('executeAIStep', () => {
 
   it('should append text format instruction to prompt', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: 'Response' } }],
     }
 
@@ -386,7 +386,7 @@ describe('executeAIStep', () => {
 
   it('should append json format instruction to prompt', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: '{}' } }],
     }
 
@@ -416,7 +416,7 @@ describe('executeAIStep', () => {
 
   it('should append markdown format instruction to prompt', async () => {
     const mockResponse = {
-      model: 'gpt-4o-mini',
+      model: 'kiro',
       choices: [{ message: { content: '# Header' } }],
     }
 

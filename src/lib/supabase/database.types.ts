@@ -544,6 +544,65 @@ export type Database = {
           },
         ]
       }
+      step_test_results: {
+        Row: {
+          id: string
+          workflow_id: string
+          step_id: string | null
+          step_position: number
+          step_type: StepType
+          step_name: string
+          step_config: Json
+          status: 'running' | 'success' | 'failed'
+          output: Json
+          error: string | null
+          duration_ms: number
+          tested_by: string
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          workflow_id: string
+          step_id?: string | null
+          step_position: number
+          step_type: StepType
+          step_name: string
+          step_config?: Json
+          status: 'running' | 'success' | 'failed'
+          output?: Json
+          error?: string | null
+          duration_ms: number
+          tested_by: string
+          created_at?: string
+          expires_at?: string
+        }
+        Update: {
+          id?: string
+          workflow_id?: string
+          step_id?: string | null
+          step_position?: number
+          step_type?: StepType
+          step_name?: string
+          step_config?: Json
+          status?: 'success' | 'failed'
+          output?: Json
+          error?: string | null
+          duration_ms?: number
+          tested_by?: string
+          created_at?: string
+          expires_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'step_test_results_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       usage: {
         Row: {
           id: string

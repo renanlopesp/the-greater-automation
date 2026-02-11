@@ -73,7 +73,7 @@ export async function executeAIStep(
         Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using a reasonable default model
+        model: 'kiro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: fullUserPrompt },

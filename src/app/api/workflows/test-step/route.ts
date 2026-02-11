@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { executeAIStep } from '@/lib/ai/chat'
-import { executeHTTPStep } from '@/lib/ai/http-executor'
-import type { AIStepConfig, HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { StepType, Json } from '@/lib/supabase/database.types'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -18,60 +15,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { type: StepType; config: Record<string, unknown> }
+  let body: {
+    type: StepType
+    config: Record<string, unknown>
+    workflowId: string
+    stepId?: string
+    stepName: string
+    stepPosition: number
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { type, config } = body
-  if (!type || !config) {
-    return NextResponse.json({ error: 'Missing type or config' }, { status: 400 })
+  const { type, config, workflowId, stepId, stepName, stepPosition } = body
+  if (!type || !config || !workflowId) {
+    return NextResponse.json({ error: 'Missing type, config, or workflowId' }, { status: 400 })
   }
 
-  const startTime = Date.now()
-
-  try {
-    if (type === 'ai') {
-      const result = await executeAIStep(config as unknown as AIStepConfig)
-      const duration_ms = Date.now() - startTime
-      return NextResponse.json({
-        success: result.success,
-        output: result.success ? result.content : null,
-        error: result.error,
-        duration_ms,
-      })
-    }
-
-    if (type === 'http') {
-      const result = await executeHTTPStep(config as unknown as HTTPStepConfig)
-      const duration_ms = Date.now() - startTime
-      return NextResponse.json({
-        success: result.success,
-        output: result.success
-          ? { status: result.status, body: result.body, headers: result.headers }
-          : null,
-        error: result.error,
-        duration_ms,
-      })
-    }
-
-    // Simulated result for other step types
-    const duration_ms = Date.now() - startTime
-    return NextResponse.json({
-      success: true,
-      output: { message: `Simulated ${type} step execution`, type },
-      error: undefined,
-      duration_ms,
-    })
-  } catch (error) {
-    const duration_ms = Date.now() - startTime
-    return NextResponse.json({
-      success: false,
+  // Create test result record with 'running' status (fast)
+  const { data: inserted, error: insertError } = await supabase
+    .from('step_test_results')
+    .insert({
+      workflow_id: workflowId,
+      step_id: stepId || null,
+      step_position: stepPosition ?? 0,
+      step_type: type,
+      step_name: stepName || 'Unnamed step',
+      step_config: config as unknown as Json,
+      status: 'running' as const,
       output: null,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      duration_ms,
+      error: null,
+      duration_ms: 0,
+      tested_by: user.id,
     })
+    .select('id')
+    .single()
+
+  if (insertError || !inserted) {
+    return NextResponse.json({ error: 'Failed to create test record' }, { status: 500 })
   }
+
+  return NextResponse.json({
+    test_result_id: inserted.id,
+  })
 }

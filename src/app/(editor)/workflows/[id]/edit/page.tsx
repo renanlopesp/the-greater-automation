@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { useWorkflowData, useSaveWorkflow } from '@/hooks/use-workflow-data'
@@ -9,161 +9,149 @@ import KeyboardShortcutsDialog from '@/components/workflow-editor/keyboard-short
 
 export default function WorkflowEditorPage() {
   const params = useParams<{ id: string }>()
-  const {
-    initializeWorkflow,
-    resetStore,
-    isDirty,
-    selectStep,
-    selectedStepId,
-    deleteStep,
-    undo,
-    redo,
-    workflowName,
-    workflowEmoji,
-    isStarred,
-    trigger,
-    steps,
-    clearDirty,
-  } = useWorkflowEditorStore()
   const { data, isLoading } = useWorkflowData(params.id)
   const saveWorkflow = useSaveWorkflow(params.id)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const initializedRef = useRef(false)
+  const isDirtyRef = useRef(false)
 
+  // Initialize store once when data first arrives
+  if (data && !initializedRef.current) {
+    useWorkflowEditorStore.getState().initializeWorkflow(data)
+    initializedRef.current = true
+  } else if (!data && !isLoading && !initializedRef.current) {
+    useWorkflowEditorStore.getState().initializeWorkflow({ workflowId: params.id })
+    initializedRef.current = true
+  }
+
+  // Reset store on unmount
   useEffect(() => {
-    if (data) {
-      initializeWorkflow(data)
-    } else if (!isLoading) {
-      // No data found or still loading — initialize with just the ID
-      initializeWorkflow({ workflowId: params.id })
+    return () => {
+      useWorkflowEditorStore.getState().resetStore()
+      initializedRef.current = false
     }
-    return () => resetStore()
-  }, [data, isLoading, params.id, initializeWorkflow, resetStore])
+  }, [params.id])
 
-  // Beforeunload warning for unsaved changes
+  // Keep isDirtyRef in sync via Zustand subscribe
   useEffect(() => {
-    if (!isDirty) return
+    return useWorkflowEditorStore.subscribe((state) => {
+      isDirtyRef.current = state.isDirty
+    })
+  }, [])
+
+  // Beforeunload — stable handler using ref
+  useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
+      if (isDirtyRef.current) e.preventDefault()
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [isDirty])
+  }, [])
 
-  // Auto-save debounced
+  // Auto-save via Zustand subscribe + debounce
   useEffect(() => {
-    if (!isDirty || !params.id) return
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    const timeoutId = setTimeout(async () => {
-      try {
-        await saveWorkflow.mutateAsync({
-          name: workflowName,
-          emoji: workflowEmoji,
-          isStarred,
-          trigger,
-          steps,
-        })
-        clearDirty()
-      } catch (error) {
-        console.error('Auto-save failed:', error)
-      }
-    }, 3000)
+    const unsubscribe = useWorkflowEditorStore.subscribe((state, prevState) => {
+      // Only trigger on dirty state transitions
+      if (!state.isDirty || state.isDirty === prevState.isDirty) return
+      if (!params.id) return
 
-    return () => clearTimeout(timeoutId)
-  }, [
-    isDirty,
-    params.id,
-    workflowName,
-    workflowEmoji,
-    isStarred,
-    trigger,
-    steps,
-    saveWorkflow,
-    clearDirty,
-  ])
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(async () => {
+        const s = useWorkflowEditorStore.getState()
+        if (!s.isDirty) return
+        try {
+          await saveWorkflow.mutateAsync({
+            name: s.workflowName,
+            emoji: s.workflowEmoji,
+            isStarred: s.isStarred,
+            trigger: s.trigger,
+            steps: s.steps,
+          })
+          useWorkflowEditorStore.getState().clearDirty()
+        } catch (error) {
+          console.error('Auto-save failed:', error)
+        }
+      }, 3000)
+    })
 
-  // Keyboard shortcuts
+    return () => {
+      unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [params.id, saveWorkflow])
+
+  // Save function for keyboard shortcut
+  const handleSave = useCallback(async () => {
+    const s = useWorkflowEditorStore.getState()
+    if (!s.isDirty || !params.id) return
+    try {
+      await saveWorkflow.mutateAsync({
+        name: s.workflowName,
+        emoji: s.workflowEmoji,
+        isStarred: s.isStarred,
+        trigger: s.trigger,
+        steps: s.steps,
+      })
+      useWorkflowEditorStore.getState().clearDirty()
+    } catch (error) {
+      console.error('Save failed:', error)
+    }
+  }, [params.id, saveWorkflow])
+
+  // Keyboard shortcuts — stable handler, reads state at call time via getState()
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       const isInput =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
-      // Question mark for shortcuts help
       if (e.key === '?' && !isInput) {
         e.preventDefault()
         setShortcutsOpen(true)
         return
       }
 
-      // Escape to deselect
       if (e.key === 'Escape') {
-        selectStep(null)
+        useWorkflowEditorStore.getState().selectStep(null)
         return
       }
 
-      // Don't handle other shortcuts in input fields
       if (isInput) return
 
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
 
-      // Ctrl/Cmd + Z for undo
       if (cmdOrCtrl && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
-        undo()
+        useWorkflowEditorStore.getState().undo()
         return
       }
 
-      // Ctrl/Cmd + Shift + Z for redo
       if (cmdOrCtrl && e.key === 'z' && e.shiftKey) {
         e.preventDefault()
-        redo()
+        useWorkflowEditorStore.getState().redo()
         return
       }
 
-      // Ctrl/Cmd + S for save
       if (cmdOrCtrl && e.key === 's') {
         e.preventDefault()
-        if (isDirty && params.id) {
-          saveWorkflow
-            .mutateAsync({
-              name: workflowName,
-              emoji: workflowEmoji,
-              isStarred,
-              trigger,
-              steps,
-            })
-            .then(() => clearDirty())
-            .catch(console.error)
-        }
+        handleSave()
         return
       }
 
-      // Delete or Backspace to delete selected step
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedStepId) {
-        e.preventDefault()
-        deleteStep(selectedStepId)
-        return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const { selectedStepId, deleteStep } = useWorkflowEditorStore.getState()
+        if (selectedStepId) {
+          e.preventDefault()
+          deleteStep(selectedStepId)
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [
-    selectStep,
-    selectedStepId,
-    deleteStep,
-    undo,
-    redo,
-    isDirty,
-    params.id,
-    workflowName,
-    workflowEmoji,
-    isStarred,
-    trigger,
-    steps,
-    saveWorkflow,
-    clearDirty,
-  ])
+  }, [handleSave])
 
   if (isLoading) {
     return (

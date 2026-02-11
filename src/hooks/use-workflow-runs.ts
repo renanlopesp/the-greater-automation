@@ -210,19 +210,81 @@ export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
   })
 }
 
-interface TestStepResult {
-  success: boolean
+interface TestStepCreateResult {
+  test_result_id: string
+}
+
+export interface TestResultSummary {
+  id: string
+  workflow_id: string
+  step_id: string | null
+  step_position: number
+  step_type: string
+  step_name: string
+  step_config: Record<string, unknown>
+  status: 'running' | 'success' | 'failed'
   output: unknown
-  error?: string
+  error: string | null
   duration_ms: number
+  tested_by: string
+  created_at: string
+  expires_at: string
+}
+
+interface TestResultsResponse {
+  results: TestResultSummary[]
+  pagination: {
+    limit: number
+    offset: number
+    total: number
+    hasMore: boolean
+  }
 }
 
 /**
- * Hook to test a single step without creating a workflow run.
+ * Hook to fetch persisted test results for a workflow.
+ * Auto-polls every 2s while any result is in 'running' status.
  */
-export function useTestStep() {
-  return useMutation<TestStepResult, Error, { type: string; config: Record<string, unknown> }>({
+export function useTestResults(workflowId: string) {
+  return useQuery<TestResultSummary[]>({
+    queryKey: ['test-results', workflowId],
+    queryFn: async () => {
+      const response = await fetch(`/api/workflows/${workflowId}/test-results?limit=50&offset=0`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch test results')
+      }
+      const data: TestResultsResponse = await response.json()
+      return data.results
+    },
+    enabled: !!workflowId,
+    refetchInterval: (query) => {
+      const results = query.state.data
+      if (!results) return false
+      const hasRunning = results.some((r) => r.status === 'running')
+      return hasRunning ? 2000 : false
+    },
+  })
+}
+
+interface TestStepParams {
+  type: string
+  config: Record<string, unknown>
+  workflowId: string
+  stepId?: string
+  stepName: string
+  stepPosition: number
+}
+
+/**
+ * Hook to test a single step with non-blocking execution.
+ * Creates a DB record (fast), then fires off background execution.
+ */
+export function useTestStep(workflowId?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<TestStepCreateResult, Error, TestStepParams>({
     mutationFn: async (params) => {
+      // Step 1: Create the test result record (fast — returns immediately)
       const res = await fetch('/api/workflows/test-step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +294,19 @@ export function useTestStep() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || `Test failed with status ${res.status}`)
       }
-      return res.json()
+      const result: TestStepCreateResult = await res.json()
+
+      // Step 2: Fire-and-forget — trigger background execution
+      fetch(`/api/workflows/test-step/${result.test_result_id}/execute`, {
+        method: 'POST',
+      }).catch(console.error)
+
+      return result
+    },
+    onSuccess: () => {
+      if (workflowId) {
+        queryClient.invalidateQueries({ queryKey: ['test-results', workflowId] })
+      }
     },
   })
 }

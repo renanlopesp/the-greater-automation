@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 import dynamic from 'next/dynamic'
-import { PencilLine, Layers, Sparkles } from 'lucide-react'
+import { PencilLine, Layers, FlaskConical, Sparkles } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResizablePanelGroup, ResizablePanel } from '@/components/ui/resizable'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -15,6 +15,7 @@ import StepsPanel from '@/components/editor/steps-panel'
 import ConfigPanel from '@/components/editor/config-panel'
 import ConnectorLine from '@/components/workflow-editor/connector-line'
 import RunsTab from '@/components/workflow-editor/runs-tab'
+import TestsTab from '@/components/workflow-editor/tests-tab'
 import { cn } from '@/lib/utils'
 
 // Lazy-load assistant panel - only shown when toggled open
@@ -43,7 +44,7 @@ export default function EditorShell() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as 'editor' | 'runs')}
+        onValueChange={(v) => setActiveTab(v as 'editor' | 'runs' | 'tests')}
         className="flex flex-1 flex-col overflow-hidden"
       >
         {/* Centered segmented control (prod style) */}
@@ -56,6 +57,10 @@ export default function EditorShell() {
             <TabsTrigger value="runs" className="gap-2">
               <Layers className="h-4 w-4" />
               Runs
+            </TabsTrigger>
+            <TabsTrigger value="tests" className="gap-2">
+              <FlaskConical className="h-4 w-4" />
+              Tests
             </TabsTrigger>
           </TabsList>
         </div>
@@ -111,6 +116,10 @@ export default function EditorShell() {
 
         <TabsContent value="runs" className="mt-0 flex-1 overflow-hidden">
           <RunsTab workflowId={workflowId} />
+        </TabsContent>
+
+        <TabsContent value="tests" className="mt-0 flex-1 overflow-hidden">
+          <TestsTab workflowId={workflowId} />
         </TabsContent>
       </Tabs>
     </div>
