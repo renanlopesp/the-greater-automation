@@ -22,7 +22,7 @@ export async function webScrapingStep(
     // Fetch the page
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Relay-Workflow/1.0',
+        'User-Agent': 'Snew-Workflow/1.0',
       },
       signal: AbortSignal.timeout(30000), // 30 second timeout
     })

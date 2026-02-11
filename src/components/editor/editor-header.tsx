@@ -181,7 +181,7 @@ export default function EditorHeader() {
           variant="ghost"
           size="icon-sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground h-8 w-8 rounded-md"
-          aria-label="Relay"
+          aria-label="Snew"
         >
           <span className="text-sm leading-none font-semibold select-none">t</span>
         </Button>

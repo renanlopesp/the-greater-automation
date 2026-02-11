@@ -4,8 +4,8 @@ import ChatInput from '../chat-input'
 
 describe('ChatInput', () => {
   it('renders with agent name in placeholder', () => {
-    render(<ChatInput agentName="Relay Agent" />)
-    expect(screen.getByPlaceholderText('Chat with Relay Agent...')).toBeInTheDocument()
+    render(<ChatInput agentName="Snew Agent" />)
+    expect(screen.getByPlaceholderText('Chat with Snew Agent...')).toBeInTheDocument()
   })
 
   it('updates as the user types', () => {

@@ -20,7 +20,7 @@ export function WebhookTriggerConfigForm({
   config: WebhookTriggerConfig
   onUpdate: (config: WebhookTriggerConfig) => void
 }) {
-  const placeholderUrl = 'https://relay.example.com/webhook/wh_abc123xyz'
+  const placeholderUrl = 'https://snew.example.com/webhook/wh_abc123xyz'
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(placeholderUrl)
