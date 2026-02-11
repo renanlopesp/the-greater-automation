@@ -13,7 +13,6 @@ import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
 import { isStepConfigComplete, TESTABLE_STEP_TYPES } from '@/lib/workflow-editor/step-defaults'
 import { useTestStep } from '@/hooks/use-workflow-runs'
-import { cn } from '@/lib/utils'
 import type {
   AIStepConfig,
   HTTPStepConfig,

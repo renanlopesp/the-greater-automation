@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { renameFolder } from '@/lib/actions/workspace'
 
@@ -12,14 +12,13 @@ interface InlineFolderNameProps {
 export function InlineFolderName({ folderId, name }: InlineFolderNameProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(name)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+  const inputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) {
+      node.focus()
+      node.select()
     }
-  }, [isEditing])
+  }, [])
 
   async function handleSave() {
     const trimmed = editValue.trim()

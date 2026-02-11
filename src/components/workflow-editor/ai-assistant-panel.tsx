@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Diamond, PanelLeftClose, SendHorizontal, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -57,12 +57,11 @@ export default function AIAssistantPanel() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
+  const scrollToBottom = () => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }
 
   const handleSend = async (promptText?: string) => {
     const prompt = promptText || input.trim()
@@ -77,6 +76,7 @@ export default function AIAssistantPanel() {
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
+    scrollToBottom()
 
     try {
       const response = await fetch(`/api/workflows/${workflowId}/assistant`, {
@@ -106,6 +106,7 @@ export default function AIAssistantPanel() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+      scrollToBottom()
     } catch (error) {
       console.error('Error sending message:', error)
       const errorMessage: Message = {
@@ -114,6 +115,7 @@ export default function AIAssistantPanel() {
         content: 'Sorry, I encountered an error. Please try again.',
       }
       setMessages((prev) => [...prev, errorMessage])
+      scrollToBottom()
     } finally {
       setIsLoading(false)
     }
@@ -147,6 +149,7 @@ export default function AIAssistantPanel() {
       content: 'Applied the suggested workflow to your editor! You can now customize it further.',
     }
     setMessages((prev) => [...prev, confirmMessage])
+    scrollToBottom()
   }
 
   const handleUseCaseClick = (title: string) => {

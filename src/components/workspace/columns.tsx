@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowUpDown,
@@ -67,14 +67,13 @@ function InlineRenameCell({
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(workflow.name)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+  const inputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) {
+      node.focus()
+      node.select()
     }
-  }, [isEditing])
+  }, [])
 
   function handleSave() {
     const trimmed = editValue.trim()

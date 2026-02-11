@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { FileText, Bot, Play, LayoutDashboard, FolderKanban, Plug } from 'lucide-react'
 import {
   CommandDialog,
@@ -13,6 +14,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 interface CommandMenuProps {
   teamId: string | null
@@ -42,9 +44,7 @@ const supabase = createBrowserClient()
 export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuProps) {
   const router = useRouter()
   const [query, setQuery] = useState('')
-  const [workflows, setWorkflows] = useState<WorkflowResult[]>([])
-  const [agents, setAgents] = useState<AgentResult[]>([])
-  const [runs, setRuns] = useState<RunResult[]>([])
+  const debouncedQuery = useDebounce(query, 300)
 
   // Global keyboard shortcut
   useEffect(() => {
@@ -66,14 +66,16 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open, onOpenChange])
 
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (!query || !teamId) {
-        setWorkflows([])
-        setAgents([])
-        setRuns([])
-        return
+  // Search via React Query — handles race conditions, caching, deduplication
+  const { data: searchResults } = useQuery({
+    queryKey: ['command-search', teamId, debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery || !teamId) {
+        return {
+          workflows: [] as WorkflowResult[],
+          agents: [] as AgentResult[],
+          runs: [] as RunResult[],
+        }
       }
 
       const [workflowRes, agentRes, runRes] = await Promise.all([
@@ -81,13 +83,13 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           .from('workflows')
           .select('id, name, emoji')
           .eq('team_id', teamId)
-          .ilike('name', `%${query}%`)
+          .ilike('name', `%${debouncedQuery}%`)
           .limit(10),
         supabase
           .from('agents')
           .select('id, name')
           .eq('team_id', teamId)
-          .ilike('name', `%${query}%`)
+          .ilike('name', `%${debouncedQuery}%`)
           .limit(10),
         supabase
           .from('workflow_runs')
@@ -96,21 +98,23 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           .limit(10),
       ])
 
-      setWorkflows(workflowRes.data ?? [])
-      setAgents(agentRes.data ?? [])
-
-      // Map runs - just show status and ID for now since join queries have type limitations
-      setRuns(
-        (runRes.data ?? []).map((r) => ({
+      return {
+        workflows: workflowRes.data ?? [],
+        agents: agentRes.data ?? [],
+        runs: (runRes.data ?? []).map((r) => ({
           id: r.id,
           status: r.status,
           workflow_name: r.workflow_id.slice(0, 8),
-        }))
-      )
-    }, 300)
+        })),
+      }
+    },
+    enabled: !!teamId && !!debouncedQuery,
+    staleTime: 30_000,
+  })
 
-    return () => clearTimeout(timer)
-  }, [query, teamId])
+  const workflows = searchResults?.workflows ?? []
+  const agents = searchResults?.agents ?? []
+  const runs = searchResults?.runs ?? []
 
   const handleSelect = useCallback(
     (path: string) => {
