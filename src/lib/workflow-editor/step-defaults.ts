@@ -110,7 +110,7 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
   return defaults[type]
 }
 
-export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http']
+export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http', 'flow_control']
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
   switch (step.type) {
@@ -124,6 +124,13 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       return !!(step.config as AppStepConfig).app_id
     case 'human_in_loop':
       return !!(step.config as HumanInLoopStepConfig).prompt
+    case 'flow_control': {
+      const fc = step.config as FlowControlStepConfig
+      if (fc.control_type === 'path') return (fc.conditions?.length ?? 0) > 0
+      if (fc.control_type === 'loop') return fc.loop_count != null || !!fc.loop_source
+      if (fc.control_type === 'wait') return fc.wait_duration != null && !!fc.wait_unit
+      return false
+    }
     default:
       return true
   }

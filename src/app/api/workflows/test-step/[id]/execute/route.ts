@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
-import type { AIStepConfig, HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
+import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
+import type {
+  AIStepConfig,
+  HTTPStepConfig,
+  FlowControlStepConfig,
+} from '@/lib/workflow-editor/step-defaults'
 import type { Json } from '@/lib/supabase/database.types'
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +59,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         ? { status: result.status, body: result.body, headers: result.headers }
         : null
       error = result.error
+    } else if (testResult.step_type === 'flow_control') {
+      try {
+        const result = await executeFlowControlStep(
+          config as unknown as FlowControlStepConfig,
+          {} // Empty context for isolated test
+        )
+        success = true
+        output = result
+        error = undefined
+      } catch (err) {
+        success = false
+        output = null
+        error = err instanceof Error ? err.message : 'Flow control execution failed'
+      }
     } else {
       // Simulated result for other step types
       success = true

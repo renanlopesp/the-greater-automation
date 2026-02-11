@@ -3,7 +3,12 @@ import { createServerClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
 import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
-import type { AIStepConfig, HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
+import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
+import type {
+  AIStepConfig,
+  HTTPStepConfig,
+  FlowControlStepConfig,
+} from '@/lib/workflow-editor/step-defaults'
 
 export async function POST(
   _request: Request,
@@ -67,6 +72,9 @@ export async function POST(
     // Execute steps sequentially
     let totalAICreditsUsed = 0
 
+    // Context accumulation: store step outputs for flow control conditions
+    const stepOutputs: Record<string, unknown> = {}
+
     for (const step of steps) {
       const startTime = Date.now()
 
@@ -116,6 +124,14 @@ export async function POST(
             }
             break
           }
+          case 'flow_control': {
+            const result = await executeFlowControlStep(
+              step.config as unknown as FlowControlStepConfig,
+              stepOutputs
+            )
+            stepOutput = result as unknown as typeof stepOutput
+            break
+          }
           default:
             stepOutput = { result: `Step "${step.name}" executed (type: ${step.type})` }
         }
@@ -137,6 +153,11 @@ export async function POST(
         })
         .eq('run_id', runId)
         .eq('step_id', step.id)
+
+      // Accumulate step output for context
+      if (stepOutput) {
+        stepOutputs[`step_${step.position + 1}`] = { output: stepOutput }
+      }
 
       // If step failed, mark the entire run as failed
       if (stepStatus === 'failed') {

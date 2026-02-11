@@ -57,12 +57,18 @@ export async function flowControlStep(
         }
 
         if (loop_source) {
-          // Parse loop source to determine iteration count
-          // This would be resolved from context
-          return {
-            control_type: 'loop',
-            loop_iterations: 0, // Placeholder
+          // Resolve template variable from context
+          const templateMatch = loop_source.match(/\{\{(.+?)\}\}/)
+          const path = templateMatch ? templateMatch[1].trim() : loop_source
+          const resolved = getNestedValue(context, path)
+
+          if (Array.isArray(resolved)) {
+            return { control_type: 'loop', loop_iterations: resolved.length }
           }
+          if (typeof resolved === 'number') {
+            return { control_type: 'loop', loop_iterations: resolved }
+          }
+          return { control_type: 'loop', loop_iterations: 1 }
         }
 
         throw new FatalError('Loop step requires loop_count or loop_source')
@@ -141,10 +147,12 @@ function evaluateCondition(
     case 'not_contains':
       return !String(fieldValue).includes(value)
 
+    case 'gt':
     case 'greater_than':
     case '>':
       return Number(fieldValue) > Number(value)
 
+    case 'lt':
     case 'less_than':
     case '<':
       return Number(fieldValue) < Number(value)
@@ -157,11 +165,13 @@ function evaluateCondition(
     case '<=':
       return Number(fieldValue) <= Number(value)
 
-    case 'is_empty':
-      return !fieldValue || String(fieldValue).trim() === ''
-
+    case 'exists':
     case 'is_not_empty':
       return !!fieldValue && String(fieldValue).trim() !== ''
+
+    case 'not_exists':
+    case 'is_empty':
+      return !fieldValue || String(fieldValue).trim() === ''
 
     default:
       return false

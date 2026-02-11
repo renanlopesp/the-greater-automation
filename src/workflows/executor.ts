@@ -78,7 +78,7 @@ export async function executeWorkflow(config: WorkflowConfig): Promise<WorkflowE
           .eq('step_position', step.position)
 
         // Execute the step based on type
-        const output = await executeStep(step.type, resolvedConfig, runId, step.position)
+        const output = await executeStep(step.type, resolvedConfig, runId, step.position, context)
 
         // Store the output
         outputStore.setOutput(step.position, output)
@@ -169,7 +169,8 @@ async function executeStep(
   stepType: StepType,
   config: Record<string, unknown>,
   runId: string,
-  stepPosition: number
+  stepPosition: number,
+  context: Record<string, unknown>
 ): Promise<unknown> {
   switch (stepType) {
     case 'http':
@@ -192,13 +193,12 @@ async function executeStep(
 
     case 'flow_control':
       // Flow control needs context for condition evaluation
-      // Context is already resolved in the config
-      return flowControlStep(config as never, {})
+      return flowControlStep(config as never, context)
 
     case 'sequence':
       // Sequence needs a function to execute inline steps
       return sequenceStep(config as never, async (type, stepConfig) => {
-        return executeStep(type as StepType, stepConfig, runId, stepPosition)
+        return executeStep(type as StepType, stepConfig, runId, stepPosition, context)
       })
 
     default:
