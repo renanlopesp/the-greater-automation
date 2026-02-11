@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
+  ArrowLeft,
   FileText,
   Star,
   ChevronDown,
@@ -40,9 +42,37 @@ import {
   useDuplicateWorkflow,
 } from '@/hooks/use-workflow-data'
 import { useStartWorkflowRun } from '@/hooks/use-workflow-runs'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import SharingDialog from '@/components/workflow-editor/sharing-dialog'
 import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
 import { cn } from '@/lib/utils'
+
+const WORKFLOW_EMOJIS = [
+  '📄',
+  '⚡',
+  '🔄',
+  '📧',
+  '📊',
+  '🤖',
+  '🔔',
+  '📅',
+  '🎯',
+  '🚀',
+  '💬',
+  '📝',
+  '🔗',
+  '⭐',
+  '🛠️',
+  '📦',
+  '🔍',
+  '💡',
+  '🎨',
+  '📱',
+  '🌐',
+  '💰',
+  '🔒',
+  '📈',
+]
 
 export default function EditorHeader() {
   const router = useRouter()
@@ -56,6 +86,7 @@ export default function EditorHeader() {
     workflowStatus,
     isDirty,
     setWorkflowName,
+    setWorkflowEmoji,
     toggleStar,
     setWorkflowStatus,
     setActiveTab,
@@ -176,24 +207,47 @@ export default function EditorHeader() {
   return (
     <>
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        {/* App mark (prod has a fixed icon here, not the workflow emoji) */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground h-8 w-8 rounded-md"
-          aria-label="Snew"
+        <Link
+          href="/dashboard"
+          className="text-muted-foreground hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+          title="Back to dashboard"
         >
-          <span className="text-sm leading-none font-semibold select-none">t</span>
-        </Button>
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
 
-        <Button
-          variant="outline"
-          size="icon-sm"
-          className="border-primary/25 text-primary h-8 w-8 rounded-md"
-          aria-label="Workflow"
-        >
-          <FileText className="h-4 w-4" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="border-primary/50 text-primary h-8 w-8 rounded-md"
+              aria-label="Change workflow icon"
+            >
+              {workflowEmoji ? (
+                <span className="text-sm leading-none">{workflowEmoji}</span>
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[232px] p-2" align="start">
+            <div className="grid grid-cols-8 gap-1">
+              {WORKFLOW_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className={cn(
+                    'hover:bg-muted flex h-7 w-7 items-center justify-center rounded text-sm transition-colors',
+                    workflowEmoji === emoji && 'bg-primary/10 ring-primary ring-1'
+                  )}
+                  onClick={() => setWorkflowEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Input
           value={workflowName}
