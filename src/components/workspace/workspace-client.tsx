@@ -89,7 +89,7 @@ export default function WorkspaceClient({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [expandedAgentIds, setExpandedAgentIds] = useState<Set<string>>(new Set())
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set())
-  const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('folder')
+  const [activeView, setActiveView] = useState<'folder' | 'list' | 'graph'>('list')
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
 
   // Delete dialog state
