@@ -4,11 +4,13 @@ import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
+import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
+  UtilityStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 import type { Json } from '@/lib/supabase/database.types'
 
@@ -96,6 +98,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         ? { content: result.content, metadata: result.metadata, links: result.links }
         : null
       error = result.error
+    } else if (testResult.step_type === 'utility') {
+      try {
+        const result = executeUtilityStep(
+          config as unknown as UtilityStepConfig,
+          {} // Empty context for isolated test
+        )
+        success = true
+        output = result
+        error = undefined
+      } catch (err) {
+        success = false
+        output = null
+        error = err instanceof Error ? err.message : 'Utility step execution failed'
+      }
     } else {
       // Simulated result for other step types
       success = true

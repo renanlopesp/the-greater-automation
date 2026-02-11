@@ -75,13 +75,24 @@ describe('isStepConfigComplete', () => {
     expect(isStepConfigComplete(step)).toBe(true)
   })
 
-  it('utility step is always complete', () => {
+  it('utility step is incomplete without required fields', () => {
     const step: WorkflowStep = {
       id: '1',
       type: 'utility',
       name: 'Utility',
       position: 0,
       config: { utility_type: 'format' },
+    }
+    expect(isStepConfigComplete(step)).toBe(false)
+  })
+
+  it('utility step is complete with required fields', () => {
+    const step: WorkflowStep = {
+      id: '1',
+      type: 'utility',
+      name: 'Utility',
+      position: 0,
+      config: { utility_type: 'format', format_template: 'Hello {{name}}' },
     }
     expect(isStepConfigComplete(step)).toBe(true)
   })

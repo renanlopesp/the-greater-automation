@@ -9,12 +9,14 @@ import {
   createHumanApproval,
   getApprovalForStep,
 } from '@/lib/workflow-editor/human-in-loop-executor'
+import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
   HumanInLoopStepConfig,
+  UtilityStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 
 export async function POST(
@@ -239,6 +241,19 @@ export async function POST(
               step_name: step.name,
               prompt: config.prompt,
             })
+          }
+          case 'utility': {
+            try {
+              const result = executeUtilityStep(
+                step.config as unknown as UtilityStepConfig,
+                stepOutputs as Record<string, unknown>
+              )
+              stepOutput = result as unknown as typeof stepOutput
+            } catch (err) {
+              stepStatus = 'failed'
+              stepError = err instanceof Error ? err.message : 'Utility step failed'
+            }
+            break
           }
           default:
             stepOutput = { result: `Step "${step.name}" executed (type: ${step.type})` }

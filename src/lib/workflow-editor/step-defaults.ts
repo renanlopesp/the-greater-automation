@@ -120,6 +120,7 @@ export const TESTABLE_STEP_TYPES: StepType[] = [
   'flow_control',
   'web_scraping',
   'human_in_loop',
+  'utility',
 ]
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
@@ -143,6 +144,14 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       if (fc.control_type === 'loop') return fc.loop_count != null || !!fc.loop_source
       if (fc.control_type === 'wait') return fc.wait_duration != null && !!fc.wait_unit
       return false
+    }
+    case 'utility': {
+      const uc = step.config as UtilityStepConfig
+      if (uc.utility_type === 'format') return !!uc.format_template
+      if (uc.utility_type === 'math') return !!uc.math_expression
+      if (uc.utility_type === 'filter') return !!uc.input_source && !!uc.filter_condition
+      if (uc.utility_type === 'map') return !!uc.input_source && !!uc.format_template
+      return !!uc.input_source // parse_json, parse_csv, merge
     }
     default:
       return true
