@@ -51,23 +51,12 @@ export async function createWorkflow(
 export async function deleteWorkflow(workflowId: string): Promise<ActionResult> {
   const supabase = await createServerClient()
 
-  // Check for active runs before deleting
-  const { data: activeRuns, error: runsError } = await supabase
+  // Cancel any active runs before deleting
+  await supabase
     .from('workflow_runs')
-    .select('id')
+    .update({ status: 'cancelled' as const })
     .eq('workflow_id', workflowId)
     .in('status', ['pending', 'running'])
-    .limit(1)
-
-  if (runsError) {
-    return { error: 'Failed to check workflow runs' }
-  }
-
-  if (activeRuns && activeRuns.length > 0) {
-    return {
-      error: 'Cannot delete workflow with active runs. Cancel or wait for runs to complete.',
-    }
-  }
 
   const { error } = await supabase.from('workflows').delete().eq('id', workflowId)
 
@@ -323,24 +312,13 @@ export async function bulkDeleteItems(
 
   const supabase = await createServerClient()
 
-  // Check for active runs on all workflows being deleted
+  // Cancel any active runs on workflows being deleted
   if (workflowIds.length > 0) {
-    const { data: activeRuns, error: runsError } = await supabase
+    await supabase
       .from('workflow_runs')
-      .select('id')
+      .update({ status: 'cancelled' as const })
       .in('workflow_id', workflowIds)
       .in('status', ['pending', 'running'])
-      .limit(1)
-
-    if (runsError) {
-      return { error: 'Failed to check workflow runs' }
-    }
-
-    if (activeRuns && activeRuns.length > 0) {
-      return {
-        error: 'Cannot delete workflows with active runs. Cancel or wait for runs to complete.',
-      }
-    }
   }
 
   const errors: string[] = []
