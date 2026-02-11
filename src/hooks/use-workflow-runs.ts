@@ -210,6 +210,33 @@ export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
   })
 }
 
+interface TestStepResult {
+  success: boolean
+  output: unknown
+  error?: string
+  duration_ms: number
+}
+
+/**
+ * Hook to test a single step without creating a workflow run.
+ */
+export function useTestStep() {
+  return useMutation<TestStepResult, Error, { type: string; config: Record<string, unknown> }>({
+    mutationFn: async (params) => {
+      const res = await fetch('/api/workflows/test-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `Test failed with status ${res.status}`)
+      }
+      return res.json()
+    },
+  })
+}
+
 /**
  * Hook to start a workflow run.
  * Creates DB records via server action (fast), then fires off background execution.

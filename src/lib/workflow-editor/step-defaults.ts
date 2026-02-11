@@ -110,6 +110,8 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
   return defaults[type]
 }
 
+export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http']
+
 export function isStepConfigComplete(step: WorkflowStep): boolean {
   switch (step.type) {
     case 'ai':

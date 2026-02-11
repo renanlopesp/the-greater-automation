@@ -1,6 +1,7 @@
 'use client'
 
-import { Trash2, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { Trash2, Settings, Play, Loader2, X, CheckCircle2, XCircle } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
+import { isStepConfigComplete, TESTABLE_STEP_TYPES } from '@/lib/workflow-editor/step-defaults'
+import { useTestStep } from '@/hooks/use-workflow-runs'
+import { cn } from '@/lib/utils'
 import type {
   AIStepConfig,
   HTTPStepConfig,
@@ -31,6 +35,13 @@ import SequenceStepConfigForm from './step-config/sequence-step-config'
 
 export default function StepConfigPanel() {
   const { steps, selectedStepId, updateStep, deleteStep, selectStep } = useWorkflowEditorStore()
+  const testStep = useTestStep()
+  const [testResult, setTestResult] = useState<{
+    success: boolean
+    output: unknown
+    error?: string
+    duration_ms: number
+  } | null>(null)
 
   const selectedStep = steps.find((s) => s.id === selectedStepId)
   if (!selectedStep) return null
@@ -41,6 +52,30 @@ export default function StepConfigPanel() {
         className?: string
       }>)
     : null
+
+  const isTestable = TESTABLE_STEP_TYPES.includes(selectedStep.type)
+  const canTest = isStepConfigComplete(selectedStep) && !testStep.isPending
+
+  function handleTest() {
+    setTestResult(null)
+    testStep.mutate(
+      {
+        type: selectedStep!.type,
+        config: selectedStep!.config as unknown as Record<string, unknown>,
+      },
+      {
+        onSuccess: setTestResult,
+        onError: (err) =>
+          setTestResult({ success: false, output: null, error: err.message, duration_ms: 0 }),
+      }
+    )
+  }
+
+  function formatOutput(output: unknown): string {
+    if (output === null || output === undefined) return ''
+    if (typeof output === 'string') return output
+    return JSON.stringify(output, null, 2)
+  }
 
   return (
     <div className="flex h-full w-full flex-col border-l sm:w-[400px]">
@@ -135,11 +170,65 @@ export default function StepConfigPanel() {
         </div>
       </ScrollArea>
 
+      {testResult && (
+        <div
+          className={cn(
+            'border-t px-4 py-3',
+            testResult.success ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'
+          )}
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {testResult.success ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              )}
+              <span className="text-xs font-medium">
+                {testResult.success ? 'Success' : 'Failed'}
+              </span>
+              <Badge variant="outline" className="text-[10px]">
+                {(testResult.duration_ms / 1000).toFixed(1)}s
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setTestResult(null)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          {testResult.error && (
+            <p className="mb-1 text-xs text-red-600 dark:text-red-400">{testResult.error}</p>
+          )}
+          {testResult.output != null && (
+            <pre className="max-h-40 overflow-auto rounded bg-black/5 p-2 text-[11px] leading-relaxed dark:bg-white/5">
+              {(() => {
+                const text = formatOutput(testResult.output)
+                return text.length > 500 ? text.slice(0, 500) + '...' : text
+              })()}
+            </pre>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-t px-4 py-3">
         <Badge variant="secondary">step_{selectedStep.position + 1}.output</Badge>
-        <Button size="sm" onClick={() => selectStep(null)}>
-          Done
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={!canTest} onClick={handleTest}>
+            {testStep.isPending ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <Play className="mr-1 h-3 w-3" />
+            )}
+            {isTestable ? 'Test' : 'Test (simulated)'}
+          </Button>
+          <Button size="sm" onClick={() => selectStep(null)}>
+            Done
+          </Button>
+        </div>
       </div>
     </div>
   )
