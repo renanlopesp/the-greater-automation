@@ -24,7 +24,7 @@ function createMockSupabase(overrides: {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
+              maybeSingle: vi.fn().mockResolvedValue({
                 data: overrides.trigger ?? null,
                 error: null,
               }),
@@ -105,7 +105,7 @@ describe('fetchWorkflowForEditor', () => {
 
     const result = await fetchWorkflowForEditor(supabase, 'w2')
     expect(result).not.toBeNull()
-    expect(result!.trigger).toBeNull()
+    expect(result!.trigger).toEqual({ type: 'manual', config: expect.any(Object) })
     expect(result!.workflowEmoji).toBe('')
   })
 })

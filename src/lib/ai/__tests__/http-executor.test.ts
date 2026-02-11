@@ -274,7 +274,7 @@ describe('executeHTTPStep', () => {
     const resultPromise = executeHTTPStep(config)
 
     // Advance through all retry backoff timers
-    vi.runAllTimers()
+    await vi.runAllTimersAsync()
 
     const result = await resultPromise
 
@@ -302,7 +302,7 @@ describe('executeHTTPStep', () => {
     const resultPromise = executeHTTPStep(config)
 
     // Advance through all retry backoff timers
-    vi.runAllTimers()
+    await vi.runAllTimersAsync()
 
     const result = await resultPromise
 
