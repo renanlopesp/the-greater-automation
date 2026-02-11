@@ -1,18 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Settings, Play, Loader2, CheckCircle2, FlaskConical } from 'lucide-react'
+import { Trash2, Play, Loader2, CheckCircle2, FlaskConical } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
 import { isStepConfigComplete, TESTABLE_STEP_TYPES } from '@/lib/workflow-editor/step-defaults'
 import { useTestStep } from '@/hooks/use-workflow-runs'
+import { useCurrentUser, getInitials } from '@/hooks/use-current-user'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type {
   AIStepConfig,
   HTTPStepConfig,
@@ -36,6 +37,7 @@ export default function StepConfigPanel() {
   const { steps, selectedStepId, updateStep, deleteStep, selectStep, workflowId } =
     useWorkflowEditorStore()
   const testStep = useTestStep(workflowId)
+  const { data: currentUser } = useCurrentUser()
   const [testStarted, setTestStarted] = useState(false)
 
   const selectedStep = steps.find((s) => s.id === selectedStepId)
@@ -79,9 +81,14 @@ export default function StepConfigPanel() {
           onChange={(e) => updateStep(selectedStep.id, { name: e.target.value })}
           className="h-8 flex-1 border-none bg-transparent text-sm font-medium shadow-none focus-visible:ring-0"
         />
-        <Avatar className="h-7 w-7">
-          <AvatarFallback className="text-xs">U</AvatarFallback>
-        </Avatar>
+        {currentUser && (
+          <Avatar className="h-7 w-7">
+            {currentUser.avatarUrl && <AvatarImage src={currentUser.avatarUrl} />}
+            <AvatarFallback className="text-xs">
+              {getInitials(currentUser.fullName, currentUser.email)}
+            </AvatarFallback>
+          </Avatar>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -92,9 +99,6 @@ export default function StepConfigPanel() {
           }}
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Settings className="h-4 w-4" />
         </Button>
       </div>
 

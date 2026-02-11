@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react'
 import { ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import StepConfigPanel from '@/components/workflow-editor/step-config-panel'
+import TriggerConfigPanel from '@/components/workflow-editor/trigger-config-panel'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 
 function useIsMobile() {
@@ -19,28 +20,40 @@ function useIsMobile() {
 }
 
 export default function ConfigPanel() {
-  const { selectedStepId, selectStep } = useWorkflowEditorStore()
+  const { selectedStepId, selectStep, isTriggerConfigOpen, closeTriggerConfig } =
+    useWorkflowEditorStore()
   const isMobile = useIsMobile()
 
-  if (!selectedStepId && !isMobile) return null
+  const isOpen = !!selectedStepId || isTriggerConfigOpen
+
+  if (!isOpen && !isMobile) return null
+
+  const panelContent = selectedStepId ? <StepConfigPanel /> : <TriggerConfigPanel />
+
+  const handleClose = () => {
+    if (selectedStepId) selectStep(null)
+    if (isTriggerConfigOpen) closeTriggerConfig()
+  }
 
   return (
     <>
-      {selectedStepId && !isMobile && (
+      {isOpen && !isMobile && (
         <>
           <ResizableHandle />
           <ResizablePanel defaultSize={25} minSize={20}>
-            <div className="h-full overflow-hidden">
-              <StepConfigPanel />
-            </div>
+            <div className="h-full overflow-hidden">{panelContent}</div>
           </ResizablePanel>
         </>
       )}
 
       {isMobile && (
-        <Sheet open={!!selectedStepId} onOpenChange={(open) => !open && selectStep(null)}>
-          <SheetContent side="right" className="w-full p-0 sm:max-w-[400px]">
-            <StepConfigPanel />
+        <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+          <SheetContent
+            side="right"
+            className="w-full p-0 sm:max-w-[400px]"
+            showCloseButton={false}
+          >
+            {panelContent}
           </SheetContent>
         </Sheet>
       )}

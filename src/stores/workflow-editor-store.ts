@@ -11,6 +11,7 @@ interface WorkflowEditorState {
   trigger: WorkflowTrigger | null
   steps: WorkflowStep[]
   selectedStepId: string | null
+  isTriggerConfigOpen: boolean
   isAssistantOpen: boolean
   isDirty: boolean
   workflowStatus: 'draft' | 'published'
@@ -30,6 +31,8 @@ interface WorkflowEditorActions {
   deleteStep: (id: string) => void
   reorderSteps: (fromIndex: number, toIndex: number) => void
   selectStep: (id: string | null) => void
+  openTriggerConfig: () => void
+  closeTriggerConfig: () => void
   toggleAssistant: () => void
   initializeWorkflow: (data: Partial<WorkflowEditorState>) => void
   resetStore: () => void
@@ -51,6 +54,7 @@ const initialState: WorkflowEditorState = {
   trigger: { type: 'manual', config: getTriggerDefaultConfig('manual') },
   steps: [],
   selectedStepId: null,
+  isTriggerConfigOpen: false,
   isAssistantOpen: false,
   isDirty: false,
   workflowStatus: 'draft',
@@ -71,6 +75,7 @@ function captureState(state: WorkflowEditorState): WorkflowEditorState {
     trigger: state.trigger,
     steps: state.steps,
     selectedStepId: state.selectedStepId,
+    isTriggerConfigOpen: state.isTriggerConfigOpen,
     isAssistantOpen: state.isAssistantOpen,
     isDirty: state.isDirty,
     workflowStatus: state.workflowStatus,
@@ -161,7 +166,12 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
       }
     }),
 
-  selectStep: (id) => set({ selectedStepId: id }),
+  selectStep: (id) =>
+    set(id ? { selectedStepId: id, isTriggerConfigOpen: false } : { selectedStepId: null }),
+
+  openTriggerConfig: () => set({ isTriggerConfigOpen: true, selectedStepId: null }),
+
+  closeTriggerConfig: () => set({ isTriggerConfigOpen: false }),
 
   toggleAssistant: () => set((state) => ({ isAssistantOpen: !state.isAssistantOpen })),
 
