@@ -25,11 +25,15 @@ export interface AIStepConfig {
 }
 
 export interface WebScrapingStepConfig {
-  scrape_type: 'url' | 'css_selector' | 'xpath'
+  action: 'scrape' | 'map' | 'search'
   url: string
-  selector?: string
-  wait_for_selector?: boolean
-  output_format: 'text' | 'html' | 'json'
+  query?: string
+  output_format: 'markdown' | 'html' | 'rawHtml' | 'links'
+  only_main_content?: boolean
+  limit?: number
+  wait_for?: number
+  include_tags?: string
+  exclude_tags?: string
 }
 
 export interface HumanInLoopStepConfig {
@@ -96,7 +100,7 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
       temperature: 0.7,
       max_tokens: 1000,
     },
-    web_scraping: { scrape_type: 'url', url: '', output_format: 'text' },
+    web_scraping: { action: 'scrape', url: '', output_format: 'markdown', only_main_content: true },
     human_in_loop: {
       action_type: 'approval',
       assignee_type: 'anyone',
@@ -110,7 +114,7 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
   return defaults[type]
 }
 
-export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http', 'flow_control']
+export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http', 'flow_control', 'web_scraping']
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
   switch (step.type) {
@@ -118,8 +122,11 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       return !!(step.config as AIStepConfig).prompt_template
     case 'http':
       return !!(step.config as HTTPStepConfig).url
-    case 'web_scraping':
-      return !!(step.config as WebScrapingStepConfig).url
+    case 'web_scraping': {
+      const ws = step.config as WebScrapingStepConfig
+      if (ws.action === 'search') return !!ws.query
+      return !!ws.url
+    }
     case 'app':
       return !!(step.config as AppStepConfig).app_id
     case 'human_in_loop':

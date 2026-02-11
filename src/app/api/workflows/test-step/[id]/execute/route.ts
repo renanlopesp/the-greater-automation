@@ -3,10 +3,12 @@ import { createServerClient } from '@/lib/supabase/server'
 import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
+import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
+  WebScrapingStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 import type { Json } from '@/lib/supabase/database.types'
 
@@ -73,6 +75,13 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         output = null
         error = err instanceof Error ? err.message : 'Flow control execution failed'
       }
+    } else if (testResult.step_type === 'web_scraping') {
+      const result = await executeWebScrapingStep(config as unknown as WebScrapingStepConfig)
+      success = result.success
+      output = result.success
+        ? { content: result.content, metadata: result.metadata, links: result.links }
+        : null
+      error = result.error
     } else {
       // Simulated result for other step types
       success = true

@@ -16,7 +16,6 @@ import {
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useWorkflowRunDetail, useStartWorkflowRun } from '@/hooks/use-workflow-runs'
 import { cn } from '@/lib/utils'
@@ -74,7 +73,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
     : currentTime - new Date(run.started_at).getTime()
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <div className="border-b px-6 py-4">
         <div className="mb-4">
@@ -124,7 +123,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
       </div>
 
       {/* Steps timeline */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-4">
           <h3 className="mb-4 text-sm font-semibold">Step timeline</h3>
           <div className="space-y-2">
@@ -173,7 +172,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Input
                           </div>
-                          <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
+                          <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                             {JSON.stringify(step.input, null, 2)}
                           </pre>
                         </div>
@@ -183,7 +182,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Output
                           </div>
-                          <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
+                          <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                             {JSON.stringify(step.output, null, 2)}
                           </pre>
                         </div>
@@ -200,7 +199,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
             ))}
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

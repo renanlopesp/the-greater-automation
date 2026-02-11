@@ -114,11 +114,11 @@ export default function EditorShell() {
           </div>
         </TabsContent>
 
-        <TabsContent value="runs" className="mt-0 flex-1 overflow-hidden">
+        <TabsContent value="runs" className="mt-0 flex flex-1 flex-col overflow-hidden">
           <RunsTab workflowId={workflowId} />
         </TabsContent>
 
-        <TabsContent value="tests" className="mt-0 flex-1 overflow-hidden">
+        <TabsContent value="tests" className="mt-0 flex flex-1 flex-col overflow-hidden">
           <TestsTab workflowId={workflowId} />
         </TabsContent>
       </Tabs>

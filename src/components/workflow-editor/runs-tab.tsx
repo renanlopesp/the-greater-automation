@@ -5,7 +5,6 @@ import { formatDistanceToNow } from 'date-fns'
 import { Play, Clock, CheckCircle2, XCircle, Circle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkflowRuns, useStartWorkflowRun } from '@/hooks/use-workflow-runs'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import RunDetail from '@/components/workflow-editor/run-detail'
@@ -86,7 +85,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -106,7 +105,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="divide-y">
           {runs.map((run) => (
             <button
@@ -142,7 +141,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
             </button>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

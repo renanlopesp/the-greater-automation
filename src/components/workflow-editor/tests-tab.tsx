@@ -12,7 +12,6 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useTestResults } from '@/hooks/use-workflow-runs'
 import { cn } from '@/lib/utils'
@@ -62,7 +61,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -75,7 +74,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="space-y-2 px-6 py-4">
           {results.map((result) => (
             <Collapsible
@@ -140,7 +139,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
                             Step config
                           </div>
-                          <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
+                          <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                             {JSON.stringify(result.step_config, null, 2)}
                           </pre>
                         </div>
@@ -148,7 +147,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                     {result.output != null && (
                       <div>
                         <div className="text-muted-foreground mb-1 text-xs font-medium">Output</div>
-                        <pre className="bg-muted overflow-x-auto rounded-md p-3 text-xs">
+                        <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                           {typeof result.output === 'string'
                             ? result.output
                             : JSON.stringify(result.output, null, 2)}
@@ -166,7 +165,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
             </Collapsible>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

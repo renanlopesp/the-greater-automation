@@ -4,10 +4,12 @@ import type { Database } from '@/lib/supabase/database.types'
 import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
+import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
+  WebScrapingStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 
 export async function POST(
@@ -130,6 +132,23 @@ export async function POST(
               stepOutputs
             )
             stepOutput = result as unknown as typeof stepOutput
+            break
+          }
+          case 'web_scraping': {
+            const result = await executeWebScrapingStep(
+              step.config as unknown as WebScrapingStepConfig
+            )
+            if (result.success) {
+              stepOutput = {
+                content: result.content,
+                metadata: (result.metadata ?? null) as Record<string, unknown> | null,
+                links: (result.links ?? null) as Array<{ url: string; title?: string }> | null,
+                url: result.url,
+              } as unknown as typeof stepOutput
+            } else {
+              stepStatus = 'failed'
+              stepError = result.error || 'Web scraping failed'
+            }
             break
           }
           default:
