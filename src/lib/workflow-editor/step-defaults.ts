@@ -114,7 +114,13 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
   return defaults[type]
 }
 
-export const TESTABLE_STEP_TYPES: StepType[] = ['ai', 'http', 'flow_control', 'web_scraping']
+export const TESTABLE_STEP_TYPES: StepType[] = [
+  'ai',
+  'http',
+  'flow_control',
+  'web_scraping',
+  'human_in_loop',
+]
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
   switch (step.type) {

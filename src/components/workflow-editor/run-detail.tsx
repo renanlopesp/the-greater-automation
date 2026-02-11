@@ -12,12 +12,20 @@ import {
   Play,
   Clock,
   AlertCircle,
+  UserCheck,
+  Send,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { useWorkflowRunDetail, useStartWorkflowRun } from '@/hooks/use-workflow-runs'
+import {
+  useWorkflowRunDetail,
+  useStartWorkflowRun,
+  useApproval,
+  useApprovalAction,
+} from '@/hooks/use-workflow-runs'
+import type { RunStepDetail } from '@/hooks/use-workflow-runs'
 import { cn } from '@/lib/utils'
 
 interface RunDetailProps {
@@ -33,11 +41,11 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
   const [currentTime, setCurrentTime] = useState(() => Date.now())
 
   useEffect(() => {
-    if (!run?.completed_at) {
+    if (!run?.completed_at && run?.status !== 'waiting') {
       const interval = setInterval(() => setCurrentTime(Date.now()), 1000)
       return () => clearInterval(interval)
     }
-  }, [run?.completed_at])
+  }, [run?.completed_at, run?.status])
 
   const toggleStep = (stepId: string) => {
     setExpandedSteps((prev) => {
@@ -120,6 +128,17 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
             </div>
           </div>
         )}
+        {run.status === 'waiting' && (
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <UserCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <div>
+              <div className="font-medium">Waiting for human input</div>
+              <div className="mt-1 text-amber-700">
+                This run is paused and waiting for a response before continuing.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Steps timeline */}
@@ -128,78 +147,239 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
           <h3 className="mb-4 text-sm font-semibold">Step timeline</h3>
           <div className="space-y-2">
             {run.steps.map((step, index) => (
-              <Collapsible
-                key={step.id}
-                open={expandedSteps.has(step.id)}
-                onOpenChange={() => toggleStep(step.id)}
-              >
-                <div
-                  className={cn(
-                    'bg-card rounded-lg border',
-                    step.status === 'failed' && 'border-red-300 bg-red-50'
-                  )}
-                >
-                  <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center gap-3 p-4 text-left transition-colors">
-                    <StepStatusIcon status={step.status} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {index + 1}. {step.step_name}
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {step.step_type}
-                        </Badge>
-                      </div>
-                      {step.duration_ms && (
-                        <div className="text-muted-foreground mt-1 text-xs">
-                          {formatDuration(step.duration_ms)}
-                        </div>
+              <div key={step.id}>
+                {step.status === 'waiting_for_input' ? (
+                  <ApprovalCard step={step} index={index} workflowId={workflowId} runId={runId} />
+                ) : (
+                  <Collapsible
+                    open={expandedSteps.has(step.id)}
+                    onOpenChange={() => toggleStep(step.id)}
+                  >
+                    <div
+                      className={cn(
+                        'bg-card rounded-lg border',
+                        step.status === 'failed' && 'border-red-300 bg-red-50'
                       )}
-                      {step.error && (
-                        <div className="mt-2 text-sm font-medium text-red-700">{step.error}</div>
-                      )}
-                    </div>
-                    {expandedSteps.has(step.id) ? (
-                      <ChevronUp className="text-muted-foreground h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="text-muted-foreground h-4 w-4" />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="space-y-3 border-t px-4 py-3">
-                      {step.input && (
-                        <div>
-                          <div className="text-muted-foreground mb-1 text-xs font-medium">
-                            Input
+                    >
+                      <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center gap-3 p-4 text-left transition-colors">
+                        <StepStatusIcon status={step.status} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {index + 1}. {step.step_name}
+                            </span>
+                            <Badge variant="secondary" className="text-xs">
+                              {step.step_type}
+                            </Badge>
                           </div>
-                          <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
-                            {JSON.stringify(step.input, null, 2)}
-                          </pre>
+                          {step.duration_ms && (
+                            <div className="text-muted-foreground mt-1 text-xs">
+                              {formatDuration(step.duration_ms)}
+                            </div>
+                          )}
+                          {step.error && (
+                            <div className="mt-2 text-sm font-medium text-red-700">
+                              {step.error}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {step.output && (
-                        <div>
-                          <div className="text-muted-foreground mb-1 text-xs font-medium">
-                            Output
-                          </div>
-                          <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
-                            {JSON.stringify(step.output, null, 2)}
-                          </pre>
+                        {expandedSteps.has(step.id) ? (
+                          <ChevronUp className="text-muted-foreground h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="text-muted-foreground h-4 w-4" />
+                        )}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="space-y-3 border-t px-4 py-3">
+                          {step.input && (
+                            <div>
+                              <div className="text-muted-foreground mb-1 text-xs font-medium">
+                                Input
+                              </div>
+                              <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
+                                {JSON.stringify(step.input, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {step.output && (
+                            <div>
+                              <div className="text-muted-foreground mb-1 text-xs font-medium">
+                                Output
+                              </div>
+                              <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
+                                {JSON.stringify(step.output, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {!step.input && !step.output && (
+                            <div className="text-muted-foreground text-xs italic">
+                              No input/output data available
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {!step.input && !step.output && (
-                        <div className="text-muted-foreground text-xs italic">
-                          No input/output data available
-                        </div>
-                      )}
+                      </CollapsibleContent>
                     </div>
-                  </CollapsibleContent>
-                </div>
-              </Collapsible>
+                  </Collapsible>
+                )}
+              </div>
             ))}
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ApprovalCard({
+  step,
+  index,
+  workflowId,
+  runId,
+}: {
+  step: RunStepDetail
+  index: number
+  workflowId: string
+  runId: string
+}) {
+  const { data: approval } = useApproval(workflowId, runId)
+  const approvalAction = useApprovalAction(workflowId, runId)
+  const [comment, setComment] = useState('')
+  const [inputData, setInputData] = useState('')
+
+  const output = step.output as {
+    prompt?: string
+    action_type?: string
+    approval_id?: string
+  } | null
+  const actionType = output?.action_type || 'approval'
+  const prompt = output?.prompt || 'Awaiting response...'
+  const approvalId = approval?.id || output?.approval_id
+
+  const handleApprove = async () => {
+    if (!approvalId) return
+    try {
+      await approvalAction.mutateAsync({
+        approval_id: approvalId,
+        decision: actionType === 'input' ? 'input_provided' : 'approved',
+        comment: comment || undefined,
+        input_data: actionType === 'input' ? inputData : undefined,
+      })
+    } catch (error) {
+      console.error('Failed to approve:', error)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!approvalId) return
+    try {
+      await approvalAction.mutateAsync({
+        approval_id: approvalId,
+        decision: 'rejected',
+        comment: comment || 'Rejected',
+      })
+    } catch (error) {
+      console.error('Failed to reject:', error)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+      <div className="flex items-center gap-3">
+        <UserCheck className="h-5 w-5 flex-shrink-0 text-amber-600" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">
+              {index + 1}. {step.step_name}
+            </span>
+            <Badge className="border-amber-200 bg-amber-100 text-xs text-amber-800">
+              {actionType}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-md border border-amber-200 bg-white p-3">
+        <div className="text-sm font-medium text-amber-900">{prompt}</div>
+      </div>
+
+      {approval?.include_context &&
+        approval?.context_data &&
+        Object.keys(approval.context_data).length > 0 && (
+          <div className="mt-3">
+            <div className="text-muted-foreground mb-1 text-xs font-medium">Context</div>
+            <pre className="max-h-[200px] overflow-auto rounded-md border border-amber-200 bg-white p-2 text-xs break-all whitespace-pre-wrap">
+              {JSON.stringify(approval.context_data, null, 2)}
+            </pre>
+          </div>
+        )}
+
+      {actionType === 'input' ? (
+        <div className="mt-3 space-y-3">
+          <textarea
+            value={inputData}
+            onChange={(e) => setInputData(e.target.value)}
+            placeholder="Enter your input..."
+            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            rows={3}
+          />
+          <Button
+            onClick={handleApprove}
+            disabled={approvalAction.isPending || !inputData.trim()}
+            size="sm"
+            className="gap-2"
+          >
+            {approvalAction.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            Submit
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Add a comment (optional)..."
+            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            rows={2}
+          />
+          <div className="flex gap-2">
+            <Button
+              onClick={handleApprove}
+              disabled={approvalAction.isPending}
+              size="sm"
+              className="gap-2 bg-green-600 text-white hover:bg-green-700"
+            >
+              {approvalAction.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {actionType === 'review' ? 'Approve' : 'Approve'}
+            </Button>
+            <Button
+              onClick={handleReject}
+              disabled={approvalAction.isPending}
+              size="sm"
+              variant="outline"
+              className="gap-2 border-red-200 text-red-700 hover:bg-red-50"
+            >
+              {approvalAction.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              {actionType === 'review' ? 'Request Changes' : 'Reject'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {approvalAction.error && (
+        <div className="mt-2 text-sm text-red-600">{approvalAction.error.message}</div>
+      )}
     </div>
   )
 }
@@ -212,23 +392,26 @@ function StepStatusIcon({ status }: { status: string }) {
       return <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-blue-600" />
     case 'failed':
       return <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+    case 'waiting_for_input':
+      return <UserCheck className="h-5 w-5 flex-shrink-0 text-amber-600" />
     default:
       return <Circle className="text-muted-foreground h-5 w-5 flex-shrink-0" />
   }
 }
 
 function RunStatusBadge({ status }: { status: string }) {
-  const styles = {
+  const styles: Record<string, string> = {
     completed: 'bg-green-50 text-green-700 border-green-200',
     running: 'bg-blue-50 text-blue-700 border-blue-200',
     failed: 'bg-red-50 text-red-700 border-red-200',
     pending: 'bg-muted text-muted-foreground border-border',
+    waiting: 'bg-amber-50 text-amber-700 border-amber-200',
   }
 
   return (
     <Badge
       variant="outline"
-      className={cn('text-xs font-medium', styles[status as keyof typeof styles] || styles.pending)}
+      className={cn('text-xs font-medium', styles[status] || styles.pending)}
     >
       {status}
     </Badge>

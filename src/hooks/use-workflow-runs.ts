@@ -6,7 +6,7 @@ import { startWorkflowRun as startWorkflowRunAction } from '@/lib/actions/worksp
 // Type definitions
 export interface RunSummary {
   id: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting'
   started_at: string
   completed_at: string | null
   trigger_type: string
@@ -25,7 +25,7 @@ export interface RunStepDetail {
   id: string
   step_name: string
   step_type: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting_for_input'
   started_at: string | null
   completed_at: string | null
   input: Record<string, unknown> | null
@@ -117,7 +117,7 @@ interface RunDetailResponse {
 
 /**
  * Hook to fetch workflow runs list with smart auto-polling.
- * Polls every 2s while any run is pending/running, stops when all are terminal.
+ * Polls every 2s while any run is pending/running/waiting, stops when all are terminal.
  */
 export function useWorkflowRuns(workflowId: string) {
   return useQuery<RunSummary[]>({
@@ -143,7 +143,9 @@ export function useWorkflowRuns(workflowId: string) {
     refetchInterval: (query) => {
       const runs = query.state.data
       if (!runs) return false
-      const hasActive = runs.some((r) => r.status === 'running' || r.status === 'pending')
+      const hasActive = runs.some(
+        (r) => r.status === 'running' || r.status === 'pending' || r.status === 'waiting'
+      )
       return hasActive ? 2000 : false
     },
   })
@@ -151,7 +153,7 @@ export function useWorkflowRuns(workflowId: string) {
 
 /**
  * Hook to fetch a single workflow run detail with smart auto-polling.
- * Polls every 2s while the run is pending/running, stops when terminal.
+ * Polls every 2s while the run is pending/running/waiting, stops when terminal.
  */
 export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
   return useQuery<RunDetail>({
@@ -205,7 +207,9 @@ export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
     refetchInterval: (query) => {
       const run = query.state.data
       if (!run) return false
-      return run.status === 'running' || run.status === 'pending' ? 2000 : false
+      return run.status === 'running' || run.status === 'pending' || run.status === 'waiting'
+        ? 2000
+        : false
     },
   })
 }
@@ -334,6 +338,70 @@ export function useStartWorkflowRun(workflowId: string) {
       return { runId: result.runId }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
+    },
+  })
+}
+
+interface ApprovalInfo {
+  id: string
+  action_type: string
+  prompt: string
+  context_data: Record<string, unknown>
+  expires_at: string
+  status: string
+  include_context: boolean
+  assignee_type: string
+  assignee: string | null
+}
+
+/**
+ * Hook to fetch the pending approval for a run.
+ */
+export function useApproval(workflowId: string, runId: string | null) {
+  return useQuery<ApprovalInfo | null>({
+    queryKey: ['approval', workflowId, runId],
+    queryFn: async () => {
+      if (!runId) return null
+      const response = await fetch(`/api/workflows/${workflowId}/runs/${runId}/approve`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch approval')
+      }
+      const data = await response.json()
+      return data.approval || null
+    },
+    enabled: !!workflowId && !!runId,
+  })
+}
+
+/**
+ * Hook to submit an approval response (approve/reject/provide input).
+ */
+export function useApprovalAction(workflowId: string, runId: string | null) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      approval_id: string
+      decision: 'approved' | 'rejected' | 'input_provided'
+      comment?: string
+      input_data?: unknown
+    }) => {
+      if (!runId) throw new Error('Run ID is required')
+      const response = await fetch(`/api/workflows/${workflowId}/runs/${runId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to submit approval')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approval', workflowId, runId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-run-detail', workflowId, runId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
     },
   })

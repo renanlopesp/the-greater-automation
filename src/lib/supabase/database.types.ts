@@ -603,6 +603,84 @@ export type Database = {
           },
         ]
       }
+      human_approvals: {
+        Row: {
+          id: string
+          run_id: string
+          step_id: string | null
+          step_position: number
+          workflow_id: string
+          action_type: string
+          assignee_type: string
+          assignee: string | null
+          prompt: string
+          include_context: boolean
+          context_data: Json
+          status: string
+          response: Json
+          responded_by: string | null
+          responded_at: string | null
+          timeout_minutes: number
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          run_id: string
+          step_id?: string | null
+          step_position: number
+          workflow_id: string
+          action_type?: string
+          assignee_type?: string
+          assignee?: string | null
+          prompt: string
+          include_context?: boolean
+          context_data?: Json
+          status?: string
+          response?: Json
+          responded_by?: string | null
+          responded_at?: string | null
+          timeout_minutes?: number
+          expires_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          run_id?: string
+          step_id?: string | null
+          step_position?: number
+          workflow_id?: string
+          action_type?: string
+          assignee_type?: string
+          assignee?: string | null
+          prompt?: string
+          include_context?: boolean
+          context_data?: Json
+          status?: string
+          response?: Json
+          responded_by?: string | null
+          responded_at?: string | null
+          timeout_minutes?: number
+          expires_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'human_approvals_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'workflow_runs'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'human_approvals_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       usage: {
         Row: {
           id: string
@@ -690,5 +768,12 @@ export type StepType =
   | 'utility'
   | 'http'
   | 'sequence'
-export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type RunStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'waiting'
+  | 'waiting_for_input'
 export type ConnectionStatus = 'connected' | 'disconnected' | 'error'

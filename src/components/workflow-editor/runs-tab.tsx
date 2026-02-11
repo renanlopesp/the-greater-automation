@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { Play, Clock, CheckCircle2, XCircle, Circle, Loader2 } from 'lucide-react'
+import { Play, Clock, CheckCircle2, XCircle, Circle, Loader2, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useWorkflowRuns, useStartWorkflowRun } from '@/hooks/use-workflow-runs'
@@ -154,23 +154,26 @@ function RunStatusIcon({ status }: { status: string }) {
       return <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
     case 'failed':
       return <XCircle className="h-5 w-5 text-red-600" />
+    case 'waiting':
+      return <UserCheck className="h-5 w-5 text-amber-600" />
     default:
       return <Circle className="text-muted-foreground h-5 w-5" />
   }
 }
 
 function RunStatusBadge({ status }: { status: string }) {
-  const styles = {
+  const styles: Record<string, string> = {
     completed: 'bg-green-50 text-green-700 border-green-200',
     running: 'bg-blue-50 text-blue-700 border-blue-200',
     failed: 'bg-red-50 text-red-700 border-red-200',
     pending: 'bg-muted text-muted-foreground border-border',
+    waiting: 'bg-amber-50 text-amber-700 border-amber-200',
   }
 
   return (
     <Badge
       variant="outline"
-      className={cn('text-xs font-medium', styles[status as keyof typeof styles] || styles.pending)}
+      className={cn('text-xs font-medium', styles[status] || styles.pending)}
     >
       {status}
     </Badge>

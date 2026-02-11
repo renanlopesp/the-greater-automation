@@ -5,11 +5,16 @@ import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
+import {
+  createHumanApproval,
+  getApprovalForStep,
+} from '@/lib/workflow-editor/human-in-loop-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
+  HumanInLoopStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 
 export async function POST(
@@ -30,7 +35,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify run exists and is in pending status
+    // Verify run exists and is in pending or waiting status (waiting = resume)
     const { data: run, error: runError } = await supabase
       .from('workflow_runs')
       .select('id, status, workflow_id')
@@ -42,7 +47,7 @@ export async function POST(
       return NextResponse.json({ error: 'Run not found' }, { status: 404 })
     }
 
-    if (run.status !== 'pending') {
+    if (run.status !== 'pending' && run.status !== 'waiting') {
       return NextResponse.json({ error: `Run is already ${run.status}` }, { status: 409 })
     }
 
@@ -78,6 +83,22 @@ export async function POST(
     const stepOutputs: Record<string, unknown> = {}
 
     for (const step of steps) {
+      // Check if step already completed (resume scenario — skip completed steps)
+      const { data: existingStep } = await supabase
+        .from('workflow_run_steps')
+        .select('status, output')
+        .eq('run_id', runId)
+        .eq('step_id', step.id)
+        .single()
+
+      if (existingStep?.status === 'completed') {
+        // Restore output to context and skip
+        if (existingStep.output) {
+          stepOutputs[`step_${step.position + 1}`] = { output: existingStep.output }
+        }
+        continue
+      }
+
       const startTime = Date.now()
 
       // Mark step running
@@ -150,6 +171,74 @@ export async function POST(
               stepError = result.error || 'Web scraping failed'
             }
             break
+          }
+          case 'human_in_loop': {
+            const config = step.config as unknown as HumanInLoopStepConfig
+
+            // Check if approval already exists and was responded to (resume scenario)
+            const existing = await getApprovalForStep(runId, step.position)
+            if (existing && existing.status !== 'pending') {
+              // Approval already responded — use the response as output
+              stepOutput = {
+                action_type: config.action_type,
+                status: existing.status,
+                response: existing.response,
+                responded_by: existing.responded_by,
+                responded_at: existing.responded_at,
+              } as unknown as typeof stepOutput
+
+              // If rejected, fail the step
+              if (existing.status === 'rejected') {
+                stepStatus = 'failed'
+                const resp = existing.response as { comment?: string } | null
+                stepError = resp?.comment || 'Approval rejected'
+              }
+              break
+            }
+
+            // No existing approval or still pending — create and pause
+            const result = await createHumanApproval(
+              config,
+              runId,
+              step.id,
+              step.position,
+              workflowId,
+              config.include_context ? (stepOutputs as Record<string, unknown>) : {}
+            )
+
+            if (!result.success) {
+              stepStatus = 'failed'
+              stepError = result.error || 'Failed to create approval request'
+              break
+            }
+
+            // PAUSE: Mark step as waiting_for_input, mark run as waiting, return early
+            await supabase
+              .from('workflow_run_steps')
+              .update({
+                status: 'waiting_for_input',
+                started_at: new Date().toISOString(),
+                output: {
+                  approval_id: result.approval_id,
+                  prompt: config.prompt,
+                  action_type: config.action_type,
+                },
+              })
+              .eq('run_id', runId)
+              .eq('step_id', step.id)
+
+            await supabase
+              .from('workflow_runs')
+              .update({ status: 'waiting', error: null })
+              .eq('id', runId)
+
+            return NextResponse.json({
+              success: true,
+              waiting: true,
+              approval_id: result.approval_id,
+              step_name: step.name,
+              prompt: config.prompt,
+            })
           }
           default:
             stepOutput = { result: `Step "${step.name}" executed (type: ${step.type})` }

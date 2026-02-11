@@ -75,6 +75,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         output = null
         error = err instanceof Error ? err.message : 'Flow control execution failed'
       }
+    } else if (testResult.step_type === 'human_in_loop') {
+      const hilConfig =
+        config as unknown as import('@/lib/workflow-editor/step-defaults').HumanInLoopStepConfig
+      success = !!hilConfig.prompt
+      output = success
+        ? {
+            action_type: hilConfig.action_type,
+            status: 'approved',
+            response: { decision: 'approved', comment: 'Test mode — auto-approved' },
+            responded_by: 'test-user',
+            responded_at: new Date().toISOString(),
+          }
+        : null
+      error = success ? undefined : 'Prompt is required'
     } else if (testResult.step_type === 'web_scraping') {
       const result = await executeWebScrapingStep(config as unknown as WebScrapingStepConfig)
       success = result.success
