@@ -14,6 +14,8 @@ interface WorkflowEditorState {
   isAssistantOpen: boolean
   isDirty: boolean
   workflowStatus: 'draft' | 'published'
+  activeTab: 'editor' | 'runs'
+  pendingRunId: string | null
   undoStack: WorkflowEditorState[]
   redoStack: WorkflowEditorState[]
 }
@@ -34,6 +36,8 @@ interface WorkflowEditorActions {
   undo: () => void
   redo: () => void
   setWorkflowStatus: (status: 'draft' | 'published') => void
+  setActiveTab: (tab: 'editor' | 'runs') => void
+  setPendingRunId: (runId: string | null) => void
   clearDirty: () => void
 }
 
@@ -50,6 +54,8 @@ const initialState: WorkflowEditorState = {
   isAssistantOpen: false,
   isDirty: false,
   workflowStatus: 'draft',
+  activeTab: 'editor',
+  pendingRunId: null,
   undoStack: [],
   redoStack: [],
 }
@@ -68,6 +74,8 @@ function captureState(state: WorkflowEditorState): WorkflowEditorState {
     isAssistantOpen: state.isAssistantOpen,
     isDirty: state.isDirty,
     workflowStatus: state.workflowStatus,
+    activeTab: state.activeTab,
+    pendingRunId: state.pendingRunId,
     undoStack: state.undoStack,
     redoStack: state.redoStack,
   }
@@ -189,6 +197,10 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
     }),
 
   setWorkflowStatus: (status) => set({ workflowStatus: status }),
+
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  setPendingRunId: (runId) => set({ pendingRunId: runId }),
 
   clearDirty: () => set({ isDirty: false }),
 }))

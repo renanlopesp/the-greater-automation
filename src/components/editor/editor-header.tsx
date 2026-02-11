@@ -58,6 +58,8 @@ export default function EditorHeader() {
     setWorkflowName,
     toggleStar,
     setWorkflowStatus,
+    setActiveTab,
+    setPendingRunId,
     clearDirty,
   } = useWorkflowEditorStore()
 
@@ -127,8 +129,9 @@ export default function EditorHeader() {
       return
     }
     try {
-      await startRun.mutateAsync()
-      console.log('Workflow run started')
+      const result = await startRun.mutateAsync()
+      setActiveTab('runs')
+      setPendingRunId(result.runId)
       toast.success('Workflow run started')
     } catch (error) {
       toast.error('Run failed', {

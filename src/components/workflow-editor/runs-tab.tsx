@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Play, Clock, CheckCircle2, XCircle, Circle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkflowRuns, useStartWorkflowRun } from '@/hooks/use-workflow-runs'
+import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import RunDetail from '@/components/workflow-editor/run-detail'
 import { cn } from '@/lib/utils'
 
@@ -15,32 +16,37 @@ interface RunsTabProps {
 }
 
 export default function RunsTab({ workflowId }: RunsTabProps) {
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [manualSelectedRunId, setManualSelectedRunId] = useState<string | null>(null)
+  const { pendingRunId, setPendingRunId } = useWorkflowEditorStore()
 
-  const { data: runs = [], isLoading, refetch } = useWorkflowRuns(workflowId)
+  const { data: runs = [], isLoading } = useWorkflowRuns(workflowId)
   const startRun = useStartWorkflowRun(workflowId)
 
-  // Derive hasRunningRuns from runs data
-  const hasRunningRuns = runs.some((run) => run.status === 'running')
+  // Derive selected run: pendingRunId takes priority when it appears in the list
+  const selectedRunId = useMemo(() => {
+    if (pendingRunId) {
+      const found = runs.find((r) => r.id === pendingRunId)
+      if (found) return found.id
+    }
+    return manualSelectedRunId
+  }, [pendingRunId, runs, manualSelectedRunId])
 
-  // Poll for updates when there are running runs
-  useEffect(() => {
-    if (!hasRunningRuns) return
-    const interval = setInterval(() => refetch(), 3000)
-    return () => clearInterval(interval)
-  }, [hasRunningRuns, refetch])
+  const handleSelectRun = (runId: string) => {
+    if (pendingRunId) setPendingRunId(null)
+    setManualSelectedRunId(runId)
+  }
 
   const handleRunNow = async () => {
     try {
       await startRun.mutateAsync()
-      refetch()
     } catch (error) {
       console.error('Failed to start run:', error)
     }
   }
 
   const handleBackToList = () => {
-    setSelectedRunId(null)
+    if (pendingRunId) setPendingRunId(null)
+    setManualSelectedRunId(null)
   }
 
   if (selectedRunId) {
@@ -105,7 +111,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
           {runs.map((run) => (
             <button
               key={run.id}
-              onClick={() => setSelectedRunId(run.id)}
+              onClick={() => handleSelectRun(run.id)}
               className="hover:bg-muted/50 flex w-full items-center gap-4 px-6 py-4 text-left transition-colors"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">

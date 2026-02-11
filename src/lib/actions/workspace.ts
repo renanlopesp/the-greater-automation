@@ -4,9 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import type { WorkflowStatus, TriggerType, StepType, Database } from '@/lib/supabase/database.types'
 import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
-import { executeAIStep } from '@/lib/ai/chat'
-import { executeHTTPStep } from '@/lib/ai/http-executor'
-import type { AIStepConfig, HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -857,116 +854,6 @@ export async function startWorkflowRun(
     return { error: 'Failed to initialize run steps', runId: '' }
   }
 
-  // Execute the run: transition through running → completed
-  // In production this would be a background job / queue worker.
-  // For now we simulate synchronous step execution.
-  await supabase
-    .from('workflow_runs')
-    .update({ status: 'running', started_at: new Date().toISOString() })
-    .eq('id', run.id)
-
-  // Track total AI credits used across all steps
-  let totalAICreditsUsed = 0
-
-  for (const step of steps) {
-    const startTime = Date.now()
-
-    // Mark step running
-    await supabase
-      .from('workflow_run_steps')
-      .update({ status: 'running', started_at: new Date().toISOString() })
-      .eq('run_id', run.id)
-      .eq('step_id', step.id)
-
-    let stepOutput: Database['public']['Tables']['workflow_run_steps']['Row']['output'] = null
-    let stepError: string | null = null
-    let stepStatus: 'completed' | 'failed' = 'completed'
-
-    try {
-      switch (step.type) {
-        case 'ai': {
-          const result = await executeAIStep(step.config as unknown as AIStepConfig)
-          if (result.success) {
-            stepOutput = {
-              content: result.content,
-              model: result.model ?? null,
-              usage: result.usage
-                ? {
-                    prompt_tokens: result.usage.prompt_tokens,
-                    completion_tokens: result.usage.completion_tokens,
-                    total_tokens: result.usage.total_tokens,
-                  }
-                : null,
-            }
-            // Track token usage for AI credits
-            if (result.usage) {
-              totalAICreditsUsed += result.usage.total_tokens
-            }
-          } else {
-            stepStatus = 'failed'
-            stepError = result.error || 'AI execution failed'
-          }
-          break
-        }
-        case 'http': {
-          const result = await executeHTTPStep(step.config as unknown as HTTPStepConfig)
-          if (result.success) {
-            stepOutput = { status: result.status, body: result.body, headers: result.headers }
-          } else {
-            stepStatus = 'failed'
-            stepError = result.error || 'HTTP request failed'
-          }
-          break
-        }
-        default:
-          // For other step types, simulate execution
-          stepOutput = { result: `Step "${step.name}" executed (type: ${step.type})` }
-      }
-    } catch (err) {
-      stepStatus = 'failed'
-      stepError = err instanceof Error ? err.message : 'Unknown execution error'
-    }
-
-    const durationMs = Date.now() - startTime
-
-    await supabase
-      .from('workflow_run_steps')
-      .update({
-        status: stepStatus,
-        output: stepOutput,
-        error: stepError,
-        completed_at: new Date().toISOString(),
-        duration_ms: durationMs,
-      })
-      .eq('run_id', run.id)
-      .eq('step_id', step.id)
-
-    // If step failed, mark the entire run as failed
-    if (stepStatus === 'failed') {
-      await supabase
-        .from('workflow_runs')
-        .update({
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          error: `Step "${step.name}" failed: ${stepError}`,
-          steps_used: step.position,
-          ai_credits_used: totalAICreditsUsed,
-        })
-        .eq('id', run.id)
-      return { runId: run.id }
-    }
-  }
-
-  // Mark run completed
-  await supabase
-    .from('workflow_runs')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      steps_used: steps.length,
-      ai_credits_used: totalAICreditsUsed,
-    })
-    .eq('id', run.id)
-
+  // Return immediately — execution happens via POST /api/workflows/[id]/runs/[runId]/execute
   return { runId: run.id }
 }

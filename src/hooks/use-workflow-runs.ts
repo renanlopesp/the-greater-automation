@@ -116,9 +116,10 @@ interface RunDetailResponse {
 }
 
 /**
- * Hook to fetch workflow runs list with pagination and auto-refetch
+ * Hook to fetch workflow runs list with smart auto-polling.
+ * Polls every 2s while any run is pending/running, stops when all are terminal.
  */
-export function useWorkflowRuns(workflowId: string, refetchInterval?: number) {
+export function useWorkflowRuns(workflowId: string) {
   return useQuery<RunSummary[]>({
     queryKey: ['workflow-runs', workflowId],
     queryFn: async () => {
@@ -139,12 +140,18 @@ export function useWorkflowRuns(workflowId: string, refetchInterval?: number) {
       }))
     },
     enabled: !!workflowId,
-    refetchInterval,
+    refetchInterval: (query) => {
+      const runs = query.state.data
+      if (!runs) return false
+      const hasActive = runs.some((r) => r.status === 'running' || r.status === 'pending')
+      return hasActive ? 2000 : false
+    },
   })
 }
 
 /**
- * Hook to fetch a single workflow run detail
+ * Hook to fetch a single workflow run detail with smart auto-polling.
+ * Polls every 2s while the run is pending/running, stops when terminal.
  */
 export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
   return useQuery<RunDetail>({
@@ -195,11 +202,17 @@ export function useWorkflowRunDetail(workflowId: string, runId: string | null) {
       }
     },
     enabled: !!workflowId && !!runId,
+    refetchInterval: (query) => {
+      const run = query.state.data
+      if (!run) return false
+      return run.status === 'running' || run.status === 'pending' ? 2000 : false
+    },
   })
 }
 
 /**
- * Hook to start a workflow run
+ * Hook to start a workflow run.
+ * Creates DB records via server action (fast), then fires off background execution.
  */
 export function useStartWorkflowRun(workflowId: string) {
   const queryClient = useQueryClient()
@@ -212,10 +225,14 @@ export function useStartWorkflowRun(workflowId: string) {
         throw new Error(result.error)
       }
 
-      return { runId: result.runId, status: 'started' }
+      // Fire-and-forget: trigger background execution
+      fetch(`/api/workflows/${workflowId}/runs/${result.runId}/execute`, {
+        method: 'POST',
+      }).catch(console.error)
+
+      return { runId: result.runId }
     },
     onSuccess: () => {
-      // Invalidate runs list to refetch
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
     },
   })

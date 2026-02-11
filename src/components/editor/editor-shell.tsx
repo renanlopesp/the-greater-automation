@@ -33,14 +33,19 @@ function useIsMobile() {
 }
 
 export default function EditorShell() {
-  const { workflowId, isAssistantOpen, toggleAssistant } = useWorkflowEditorStore()
+  const { workflowId, isAssistantOpen, toggleAssistant, activeTab, setActiveTab } =
+    useWorkflowEditorStore()
   const isMobile = useIsMobile()
 
   return (
     <div className="flex h-full flex-col">
       <EditorHeader />
 
-      <Tabs defaultValue="editor" className="flex flex-1 flex-col overflow-hidden">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'editor' | 'runs')}
+        className="flex flex-1 flex-col overflow-hidden"
+      >
         {/* Centered segmented control (prod style) */}
         <div className="flex h-12 items-center justify-center border-b px-4">
           <TabsList className="bg-muted h-9 rounded-lg p-1">
