@@ -14,6 +14,7 @@ interface WorkflowEditorState {
   isTriggerConfigOpen: boolean
   isAssistantOpen: boolean
   isDirty: boolean
+  isSaving: boolean
   workflowStatus: 'draft' | 'published'
   activeTab: 'editor' | 'runs' | 'tests'
   pendingRunId: string | null
@@ -42,6 +43,7 @@ interface WorkflowEditorActions {
   setActiveTab: (tab: 'editor' | 'runs' | 'tests') => void
   setPendingRunId: (runId: string | null) => void
   clearDirty: () => void
+  setSaving: (saving: boolean) => void
 }
 
 export type WorkflowEditorStore = WorkflowEditorState & WorkflowEditorActions
@@ -57,6 +59,7 @@ const initialState: WorkflowEditorState = {
   isTriggerConfigOpen: false,
   isAssistantOpen: false,
   isDirty: false,
+  isSaving: false,
   workflowStatus: 'draft',
   activeTab: 'editor',
   pendingRunId: null,
@@ -78,6 +81,7 @@ function captureState(state: WorkflowEditorState): WorkflowEditorState {
     isTriggerConfigOpen: state.isTriggerConfigOpen,
     isAssistantOpen: state.isAssistantOpen,
     isDirty: state.isDirty,
+    isSaving: state.isSaving,
     workflowStatus: state.workflowStatus,
     activeTab: state.activeTab,
     pendingRunId: state.pendingRunId,
@@ -213,4 +217,6 @@ export const useWorkflowEditorStore = create<WorkflowEditorStore>((set) => ({
   setPendingRunId: (runId) => set({ pendingRunId: runId }),
 
   clearDirty: () => set({ isDirty: false }),
+
+  setSaving: (saving) => set({ isSaving: saving }),
 }))

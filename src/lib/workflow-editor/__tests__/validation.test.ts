@@ -18,10 +18,10 @@ describe('isTriggerConfigComplete', () => {
     expect(isTriggerConfigComplete(trigger)).toBe(false)
   })
 
-  it('webhook trigger is complete with url', () => {
+  it('webhook trigger is complete with webhook_token', () => {
     const trigger: WorkflowTrigger = {
       type: 'webhook',
-      config: { url: 'https://example.com', method: 'POST', response_status: 200 },
+      config: { url: '', method: 'POST', response_status: 200, webhook_token: 'abc-123' },
     }
     expect(isTriggerConfigComplete(trigger)).toBe(true)
   })

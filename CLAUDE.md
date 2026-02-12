@@ -74,3 +74,12 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 - `bun run build` - Production build
 - `bun run start` - Start production server
 - `bun run lint` - Run ESLint
+
+## Active Technologies
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Supabase (@supabase/ssr, @supabase/supabase-js) (014-webhook-runner)
+- Supabase (PostgreSQL) — workflow_triggers, workflow_runs, workflow_run_steps tables (014-webhook-runner)
+
+## Recent Changes
+
+- 014-webhook-runner: Added TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Supabase (@supabase/ssr, @supabase/supabase-js)

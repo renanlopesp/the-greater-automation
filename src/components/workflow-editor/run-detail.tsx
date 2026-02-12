@@ -120,20 +120,20 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
           )}
         </div>
         {run.error && (
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div className="bg-destructive/10 border-destructive/20 text-destructive mt-4 flex items-start gap-2 rounded-md border p-3 text-sm">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div>
               <div className="font-medium">Run failed</div>
-              <div className="text-muted-foreground mt-1">{run.error}</div>
+              <div className="text-destructive/70 mt-1">{run.error}</div>
             </div>
           </div>
         )}
         {run.status === 'waiting' && (
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <div className="bg-chart-3/10 border-chart-3/20 text-chart-3 mt-4 flex items-start gap-2 rounded-md border p-3 text-sm">
             <UserCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div>
               <div className="font-medium">Waiting for human input</div>
-              <div className="mt-1 text-amber-700">
+              <div className="text-chart-3/70 mt-1">
                 This run is paused and waiting for a response before continuing.
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                     <div
                       className={cn(
                         'bg-card rounded-lg border',
-                        step.status === 'failed' && 'border-red-300 bg-red-50'
+                        step.status === 'failed' && 'border-destructive/30 bg-destructive/5'
                       )}
                     >
                       <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center gap-3 p-4 text-left transition-colors">
@@ -178,7 +178,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                             </div>
                           )}
                           {step.error && (
-                            <div className="mt-2 text-sm font-medium text-red-700">
+                            <div className="text-destructive mt-2 text-sm font-medium">
                               {step.error}
                             </div>
                           )}
@@ -283,23 +283,23 @@ function ApprovalCard({
   }
 
   return (
-    <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+    <div className="bg-chart-3/10 border-chart-3/30 rounded-lg border-2 p-4">
       <div className="flex items-center gap-3">
-        <UserCheck className="h-5 w-5 flex-shrink-0 text-amber-600" />
+        <UserCheck className="text-chart-3 h-5 w-5 flex-shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium">
               {index + 1}. {step.step_name}
             </span>
-            <Badge className="border-amber-200 bg-amber-100 text-xs text-amber-800">
+            <Badge className="bg-chart-3/15 text-chart-3 border-chart-3/20 text-xs">
               {actionType}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="mt-3 rounded-md border border-amber-200 bg-white p-3">
-        <div className="text-sm font-medium text-amber-900">{prompt}</div>
+      <div className="bg-card border-chart-3/20 mt-3 rounded-md border p-3">
+        <div className="text-foreground text-sm font-medium">{prompt}</div>
       </div>
 
       {approval?.include_context &&
@@ -307,7 +307,7 @@ function ApprovalCard({
         Object.keys(approval.context_data).length > 0 && (
           <div className="mt-3">
             <div className="text-muted-foreground mb-1 text-xs font-medium">Context</div>
-            <pre className="max-h-[200px] overflow-auto rounded-md border border-amber-200 bg-white p-2 text-xs break-all whitespace-pre-wrap">
+            <pre className="bg-muted border-chart-3/20 max-h-[200px] overflow-auto rounded-md border p-2 text-xs break-all whitespace-pre-wrap">
               {JSON.stringify(approval.context_data, null, 2)}
             </pre>
           </div>
@@ -350,7 +350,7 @@ function ApprovalCard({
               onClick={handleApprove}
               disabled={approvalAction.isPending}
               size="sm"
-              className="gap-2 bg-green-600 text-white hover:bg-green-700"
+              className="bg-chart-2 hover:bg-chart-2/90 gap-2 text-white"
             >
               {approvalAction.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -364,7 +364,7 @@ function ApprovalCard({
               disabled={approvalAction.isPending}
               size="sm"
               variant="outline"
-              className="gap-2 border-red-200 text-red-700 hover:bg-red-50"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-2"
             >
               {approvalAction.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -378,7 +378,7 @@ function ApprovalCard({
       )}
 
       {approvalAction.error && (
-        <div className="mt-2 text-sm text-red-600">{approvalAction.error.message}</div>
+        <div className="text-destructive mt-2 text-sm">{approvalAction.error.message}</div>
       )}
     </div>
   )
@@ -387,13 +387,13 @@ function ApprovalCard({
 function StepStatusIcon({ status }: { status: string }) {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />
+      return <CheckCircle2 className="text-chart-2 h-5 w-5 flex-shrink-0" />
     case 'running':
-      return <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-blue-600" />
+      return <Loader2 className="text-primary h-5 w-5 flex-shrink-0 animate-spin" />
     case 'failed':
-      return <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
+      return <XCircle className="text-destructive h-5 w-5 flex-shrink-0" />
     case 'waiting_for_input':
-      return <UserCheck className="h-5 w-5 flex-shrink-0 text-amber-600" />
+      return <UserCheck className="text-chart-3 h-5 w-5 flex-shrink-0" />
     default:
       return <Circle className="text-muted-foreground h-5 w-5 flex-shrink-0" />
   }
@@ -401,11 +401,11 @@ function StepStatusIcon({ status }: { status: string }) {
 
 function RunStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    completed: 'bg-green-50 text-green-700 border-green-200',
-    running: 'bg-blue-50 text-blue-700 border-blue-200',
-    failed: 'bg-red-50 text-red-700 border-red-200',
+    completed: 'bg-chart-2/15 text-chart-2 border-chart-2/20',
+    running: 'bg-primary/15 text-primary border-primary/20',
+    failed: 'bg-destructive/15 text-destructive border-destructive/20',
     pending: 'bg-muted text-muted-foreground border-border',
-    waiting: 'bg-amber-50 text-amber-700 border-amber-200',
+    waiting: 'bg-chart-3/15 text-chart-3 border-chart-3/20',
   }
 
   return (
