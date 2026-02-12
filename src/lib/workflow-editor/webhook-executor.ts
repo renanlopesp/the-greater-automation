@@ -13,7 +13,10 @@ import type {
   WebScrapingStepConfig,
   UtilityStepConfig,
   SequenceStepConfig,
+  AppStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
+import { executeAppAction } from '@/lib/oauth/app-handlers'
+import { getValidAccessToken } from '@/lib/oauth/token-manager'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -426,6 +429,59 @@ export async function executeWorkflowSteps(
           } catch (err) {
             stepStatus = 'failed'
             stepError = err instanceof Error ? err.message : 'Sequence step failed'
+          }
+          break
+        }
+        case 'app': {
+          const appConfig = step.config as unknown as AppStepConfig
+          if (!appConfig.app_id || !appConfig.action) {
+            stepStatus = 'failed'
+            stepError = 'App step requires app_id and action'
+            break
+          }
+
+          // Look up the workflow to get the creator's user_id
+          const { data: wf } = await supabase
+            .from('workflows')
+            .select('created_by')
+            .eq('id', workflowId)
+            .single()
+
+          if (!wf?.created_by) {
+            stepStatus = 'failed'
+            stepError = 'Cannot determine workflow owner for app connection'
+            break
+          }
+
+          // Look up the user's connection for this app
+          const { data: connection } = await supabase
+            .from('app_connections')
+            .select('id')
+            .eq('user_id', wf.created_by)
+            .eq('app_id', appConfig.app_id)
+            .single()
+
+          if (!connection) {
+            stepStatus = 'failed'
+            stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
+            break
+          }
+
+          // Get valid access token (auto-refresh if needed)
+          const accessToken = await getValidAccessToken(connection.id, supabase)
+
+          // Execute the app action
+          const result = await executeAppAction(appConfig, accessToken)
+
+          if (result.success) {
+            stepOutput = {
+              app_id: result.app_id,
+              action: result.action,
+              result: result.result,
+            } as Json
+          } else {
+            stepStatus = 'failed'
+            stepError = result.error || `${appConfig.app_id} ${appConfig.action} failed`
           }
           break
         }

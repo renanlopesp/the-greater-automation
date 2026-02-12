@@ -123,6 +123,7 @@ export const TESTABLE_STEP_TYPES: StepType[] = [
   'human_in_loop',
   'utility',
   'sequence',
+  'app',
 ]
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
@@ -137,7 +138,7 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       return !!ws.url
     }
     case 'app':
-      return !!(step.config as AppStepConfig).app_id
+      return !!(step.config as AppStepConfig).app_id && !!(step.config as AppStepConfig).action
     case 'human_in_loop':
       return !!(step.config as HumanInLoopStepConfig).prompt
     case 'flow_control': {

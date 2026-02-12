@@ -498,10 +498,15 @@ export type Database = {
           id: string
           user_id: string
           team_id: string
-          app_name: string
-          app_logo_url: string | null
-          status: ConnectionStatus
-          credentials: Json
+          app_id: string
+          provider: string
+          access_token: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          scopes: string[] | null
+          account_label: string | null
+          account_id: string | null
+          metadata: Json
           created_at: string
           updated_at: string
         }
@@ -509,10 +514,15 @@ export type Database = {
           id?: string
           user_id: string
           team_id: string
-          app_name: string
-          app_logo_url?: string | null
-          status?: ConnectionStatus
-          credentials?: Json
+          app_id: string
+          provider?: string
+          access_token: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          scopes?: string[] | null
+          account_label?: string | null
+          account_id?: string | null
+          metadata?: Json
           created_at?: string
           updated_at?: string
         }
@@ -520,10 +530,15 @@ export type Database = {
           id?: string
           user_id?: string
           team_id?: string
-          app_name?: string
-          app_logo_url?: string | null
-          status?: ConnectionStatus
-          credentials?: Json
+          app_id?: string
+          provider?: string
+          access_token?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          scopes?: string[] | null
+          account_label?: string | null
+          account_id?: string | null
+          metadata?: Json
           created_at?: string
           updated_at?: string
         }

@@ -65,10 +65,11 @@ export interface ConnectedApp {
 }
 
 export const CONNECTED_APPS: ConnectedApp[] = [
-  { id: 'email', name: 'Email', icon: 'Mail' },
+  { id: 'github', name: 'GitHub', icon: 'Github' },
+  { id: 'notion', name: 'Notion', icon: 'BookOpen' },
+  { id: 'slack', name: 'Slack', icon: 'Hash' },
   { id: 'linkedin', name: 'LinkedIn', icon: 'Linkedin' },
-  { id: 'x', name: 'X (Twitter)', icon: 'Twitter' },
-  { id: 'youtube', name: 'YouTube', icon: 'Youtube' },
+  { id: 'discord', name: 'Discord', icon: 'MessageCircle' },
 ]
 
 export function getStepMeta(type: StepType): StepMeta | undefined {
