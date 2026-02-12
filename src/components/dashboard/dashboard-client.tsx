@@ -13,6 +13,7 @@ interface DashboardClientProps {
   team: { name: string; avatar_url: string | null }
   initialAgents: AgentCardProps[]
   initialWorkflows: Workflow[]
+  runsToday: number
   teamId: string
 }
 
@@ -26,12 +27,13 @@ const stats = [
 export default function DashboardClient({
   initialAgents,
   initialWorkflows,
+  runsToday,
   teamId,
 }: DashboardClientProps) {
   const computedStats = [
     { ...stats[0], value: initialAgents.length },
     { ...stats[1], value: initialWorkflows.length },
-    { ...stats[2], value: 0 },
+    { ...stats[2], value: runsToday },
     { ...stats[3], value: initialWorkflows.filter((w) => w.is_starred).length },
   ]
 

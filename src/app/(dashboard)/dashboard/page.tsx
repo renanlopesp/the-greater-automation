@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { fetchTeam, fetchAgentsWithSkills, fetchWorkflows } from '@/lib/queries/dashboard'
+import {
+  fetchTeam,
+  fetchAgentsWithSkills,
+  fetchWorkflows,
+  fetchRunsToday,
+} from '@/lib/queries/dashboard'
 import DashboardClient from '@/components/dashboard/dashboard-client'
 
 export default async function DashboardPage() {
@@ -27,10 +32,11 @@ export default async function DashboardPage() {
     )
   }
 
-  const [team, agents, workflows] = await Promise.all([
+  const [team, agents, workflows, runsToday] = await Promise.all([
     fetchTeam(supabase, teamId),
     fetchAgentsWithSkills(supabase, teamId),
     fetchWorkflows(supabase, teamId, 'recently-edited'),
+    fetchRunsToday(supabase, teamId),
   ])
 
   return (
@@ -50,6 +56,7 @@ export default async function DashboardPage() {
         })),
       }))}
       initialWorkflows={workflows}
+      runsToday={runsToday}
       teamId={teamId}
     />
   )
