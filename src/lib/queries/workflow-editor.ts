@@ -20,25 +20,26 @@ export async function fetchWorkflowForEditor(
   supabase: Client,
   workflowId: string
 ): Promise<WorkflowEditorData | null> {
-  const { data: workflow } = await supabase
-    .from('workflows')
-    .select('id, name, emoji, is_starred, status')
-    .eq('id', workflowId)
-    .single()
+  // Fetch workflow, trigger, and steps in parallel (independent queries)
+  const [{ data: workflow }, { data: triggerRow }, { data: stepRows }] = await Promise.all([
+    supabase
+      .from('workflows')
+      .select('id, name, emoji, is_starred, status')
+      .eq('id', workflowId)
+      .single(),
+    supabase
+      .from('workflow_triggers')
+      .select('type, config')
+      .eq('workflow_id', workflowId)
+      .maybeSingle(),
+    supabase
+      .from('workflow_steps')
+      .select('id, type, name, config, position')
+      .eq('workflow_id', workflowId)
+      .order('position', { ascending: true }),
+  ])
 
   if (!workflow) return null
-
-  const { data: triggerRow } = await supabase
-    .from('workflow_triggers')
-    .select('type, config')
-    .eq('workflow_id', workflowId)
-    .maybeSingle()
-
-  const { data: stepRows } = await supabase
-    .from('workflow_steps')
-    .select('id, type, name, config, position')
-    .eq('workflow_id', workflowId)
-    .order('position', { ascending: true })
 
   const trigger: WorkflowTrigger = triggerRow
     ? { type: triggerRow.type, config: triggerRow.config as unknown as WorkflowTrigger['config'] }
