@@ -12,23 +12,29 @@ export default function WorkflowEditorPage() {
   const { data, isLoading } = useWorkflowData(params.id)
   const saveWorkflow = useSaveWorkflow(params.id)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
-  const initializedRef = useRef(false)
   const isDirtyRef = useRef(false)
 
-  // Initialize store once when data first arrives
-  if (data && !initializedRef.current) {
-    useWorkflowEditorStore.getState().initializeWorkflow(data)
-    initializedRef.current = true
-  } else if (!data && !isLoading && !initializedRef.current) {
-    useWorkflowEditorStore.getState().initializeWorkflow({ workflowId: params.id })
-    initializedRef.current = true
-  }
+  // Subscribe to storeWorkflowId so the component re-renders if the store
+  // is reset by a late cleanup from the previous page (React 18 transitions
+  // can fire the old cleanup AFTER the new component renders).
+  const storeWorkflowId = useWorkflowEditorStore((s) => s.workflowId)
+  const needsInit = storeWorkflowId !== params.id
+
+  // Initialize store in an effect to avoid "Cannot update a component while
+  // rendering" warnings. The `needsInit` guard ensures this only fires when
+  // the store doesn't match the current route — NOT on query refetches.
+  useEffect(() => {
+    if (data && needsInit) {
+      useWorkflowEditorStore.getState().initializeWorkflow(data)
+    } else if (!data && !isLoading && !storeWorkflowId) {
+      useWorkflowEditorStore.getState().initializeWorkflow({ workflowId: params.id })
+    }
+  }, [data, isLoading, needsInit, storeWorkflowId, params.id])
 
   // Reset store on unmount
   useEffect(() => {
     return () => {
       useWorkflowEditorStore.getState().resetStore()
-      initializedRef.current = false
     }
   }, [params.id])
 
@@ -153,7 +159,7 @@ export default function WorkflowEditorPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
-  if (isLoading) {
+  if (isLoading || needsInit) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-muted-foreground">Loading workflow...</div>

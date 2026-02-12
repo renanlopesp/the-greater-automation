@@ -196,7 +196,7 @@ export default function EditorHeader() {
       if (!response.ok) {
         throw new Error('Failed to delete workflow')
       }
-      router.push('/workflows')
+      router.push('/workspace')
     } catch (error) {
       toast.error('Delete failed', {
         description: error instanceof Error ? error.message : 'Could not delete workflow',
@@ -208,9 +208,9 @@ export default function EditorHeader() {
     <>
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Link
-          href="/dashboard"
+          href="/workspace"
           className="text-muted-foreground hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-          title="Back to dashboard"
+          title="Back to workspace"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>

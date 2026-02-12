@@ -733,7 +733,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      unschedule_cron_job: {
+        Args: { job_name: string }
+        Returns: undefined
+      }
     }
     Enums: {
       team_role: TeamRole

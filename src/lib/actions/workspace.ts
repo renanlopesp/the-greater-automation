@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { WorkflowStatus, TriggerType, StepType, Database } from '@/lib/supabase/database.types'
 import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
 
@@ -727,6 +728,20 @@ export async function publishWorkflow(
     updateData.published_at = new Date().toISOString()
   } else {
     updateData.published_at = null
+
+    // If unpublishing a scheduled workflow, remove the pg_cron job
+    const { data: trigger } = await supabase
+      .from('workflow_triggers')
+      .select('type')
+      .eq('workflow_id', workflowId)
+      .single()
+
+    if (trigger?.type === 'scheduled') {
+      const serviceClient = createServiceClient()
+      await serviceClient.rpc('unschedule_cron_job', {
+        job_name: `scheduled_wf_${workflowId}`,
+      })
+    }
   }
 
   const { error: updateError } = await supabase
