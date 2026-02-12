@@ -24,6 +24,8 @@ export function useWorkflowData(workflowId: string) {
 }
 
 export function useSaveWorkflow(workflowId: string) {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async (data: {
       name: string
@@ -56,9 +58,12 @@ export function useSaveWorkflow(workflowId: string) {
 
       return { success: true, savedAt: result.savedAt }
     },
-    // No query invalidation — the Zustand store holds the authoritative state.
-    // Invalidating would refetch and trigger initializeWorkflow, resetting UI state
-    // (selectedStepId, activeTab, etc.)
+    onSuccess: () => {
+      // Invalidate so the React Query cache stays in sync with saved data.
+      // Safe with the needsInit pattern — the store won't re-initialize
+      // because storeWorkflowId already matches params.id.
+      queryClient.invalidateQueries({ queryKey: ['workflow-editor', workflowId] })
+    },
   })
 }
 
