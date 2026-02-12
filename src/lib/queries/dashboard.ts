@@ -72,6 +72,28 @@ export async function fetchWorkflows(supabase: Client, teamId: string, tab: Dash
   return data ?? []
 }
 
+export async function fetchRunsToday(supabase: Client, teamId: string): Promise<number> {
+  const now = new Date()
+  const startOfDayUTC = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  )
+
+  const { data: workflows } = await supabase.from('workflows').select('id').eq('team_id', teamId)
+
+  if (!workflows || workflows.length === 0) return 0
+
+  const { count } = await supabase
+    .from('workflow_runs')
+    .select('id', { count: 'exact', head: true })
+    .in(
+      'workflow_id',
+      workflows.map((w) => w.id)
+    )
+    .gte('started_at', startOfDayUTC.toISOString())
+
+  return count ?? 0
+}
+
 export interface WorkflowRunStats {
   totalRuns: number
   lastRunAt: string | null
