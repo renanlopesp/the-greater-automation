@@ -63,6 +63,7 @@ export function WebhookTriggerConfigForm({
             <Button
               size="icon"
               variant="outline"
+              title="Copy URL"
               onClick={() => copyToClipboard(webhookUrl, 'url')}
             >
               {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

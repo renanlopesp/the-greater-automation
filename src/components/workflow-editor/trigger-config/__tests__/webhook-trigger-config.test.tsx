@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WebhookTriggerConfigForm } from '../webhook-trigger-config'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
@@ -74,11 +74,11 @@ describe('WebhookTriggerConfigForm', () => {
     expect(secretInput).toHaveAttribute('type', 'text')
   })
 
-  it('copies secret to clipboard', async () => {
+  it('copies secret to clipboard', () => {
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
     const copyButton = screen.getByTitle('Copy secret')
-    copyButton.click()
+    fireEvent.click(copyButton)
 
     expect(mockWriteText).toHaveBeenCalledWith(configWithTokenAndSecret.secret)
   })
@@ -143,10 +143,8 @@ describe('WebhookTriggerConfigForm', () => {
   it('copies webhook URL to clipboard', () => {
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
-    // Find the copy button next to the URL (first button in the URL row)
-    const urlRow = screen.getByDisplayValue(/webhook\/test-token-123/).closest('div')!
-    const copyButtons = urlRow.querySelectorAll('button')
-    copyButtons[0].click()
+    const copyButton = screen.getByTitle('Copy URL')
+    fireEvent.click(copyButton)
 
     expect(mockWriteText).toHaveBeenCalledWith(
       'http://localhost:3000/.well-known/workflow/v1/webhook/test-token-123'
