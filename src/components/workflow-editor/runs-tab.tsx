@@ -149,13 +149,13 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
 function RunStatusIcon({ status }: { status: string }) {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-5 w-5 text-green-600" />
+      return <CheckCircle2 className="text-chart-2 h-5 w-5" />
     case 'running':
-      return <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+      return <Loader2 className="text-primary h-5 w-5 animate-spin" />
     case 'failed':
-      return <XCircle className="h-5 w-5 text-red-600" />
+      return <XCircle className="text-destructive h-5 w-5" />
     case 'waiting':
-      return <UserCheck className="h-5 w-5 text-amber-600" />
+      return <UserCheck className="text-chart-3 h-5 w-5" />
     default:
       return <Circle className="text-muted-foreground h-5 w-5" />
   }
@@ -163,11 +163,11 @@ function RunStatusIcon({ status }: { status: string }) {
 
 function RunStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    completed: 'bg-green-50 text-green-700 border-green-200',
-    running: 'bg-blue-50 text-blue-700 border-blue-200',
-    failed: 'bg-red-50 text-red-700 border-red-200',
+    completed: 'bg-chart-2/15 text-chart-2 border-chart-2/20',
+    running: 'bg-primary/15 text-primary border-primary/20',
+    failed: 'bg-destructive/15 text-destructive border-destructive/20',
     pending: 'bg-muted text-muted-foreground border-border',
-    waiting: 'bg-amber-50 text-amber-700 border-amber-200',
+    waiting: 'bg-chart-3/15 text-chart-3 border-chart-3/20',
   }
 
   return (

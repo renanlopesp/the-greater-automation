@@ -42,6 +42,7 @@ export function DeleteFolderDialog({
         toast.error(result.error)
         return
       }
+      toast.success('Folder deleted successfully')
       onOpenChange(false)
     } catch {
       toast.error('Failed to delete folder')

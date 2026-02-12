@@ -1,9 +1,8 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createBrowserClient } from '@/lib/supabase/client'
-import { fetchWorkflowForEditor } from '@/lib/queries/workflow-editor'
 import {
+  getWorkflowForEditor,
   saveWorkflow as saveWorkflowAction,
   publishWorkflow as publishWorkflowAction,
 } from '@/lib/actions/workspace'
@@ -14,10 +13,7 @@ import type { WorkflowStatus } from '@/lib/supabase/database.types'
 export function useWorkflowData(workflowId: string) {
   return useQuery({
     queryKey: ['workflow-editor', workflowId],
-    queryFn: async () => {
-      const supabase = createBrowserClient()
-      return fetchWorkflowForEditor(supabase, workflowId)
-    },
+    queryFn: () => getWorkflowForEditor(workflowId),
     staleTime: 60_000,
     enabled: !!workflowId,
   })
@@ -78,7 +74,12 @@ export function usePublishWorkflow(workflowId: string) {
         throw new Error(result.error)
       }
 
-      return { success: true, status }
+      return {
+        success: true,
+        status,
+        webhookToken: result.webhookToken,
+        webhookSecret: result.webhookSecret,
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-editor', workflowId] })

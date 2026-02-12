@@ -67,6 +67,7 @@ export default function WorkflowEditorPage() {
       timeoutId = setTimeout(async () => {
         const s = useWorkflowEditorStore.getState()
         if (!s.isDirty) return
+        s.setSaving(true)
         try {
           await saveWorkflow.mutateAsync({
             name: s.workflowName,
@@ -78,6 +79,8 @@ export default function WorkflowEditorPage() {
           useWorkflowEditorStore.getState().clearDirty()
         } catch (error) {
           console.error('Auto-save failed:', error)
+        } finally {
+          useWorkflowEditorStore.getState().setSaving(false)
         }
       }, 3000)
     })

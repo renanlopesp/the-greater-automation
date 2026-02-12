@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
+import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 import {
   useSaveWorkflow,
   usePublishWorkflow,
@@ -83,7 +84,7 @@ export default function EditorHeader() {
     trigger,
     steps,
     workflowStatus,
-    isDirty,
+    isSaving,
     setWorkflowName,
     setWorkflowEmoji,
     toggleStar,
@@ -91,11 +92,12 @@ export default function EditorHeader() {
     setActiveTab,
     setPendingRunId,
     clearDirty,
+    setSaving,
   } = useWorkflowEditorStore()
 
   const [sharingOpen, setSharingOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [showSaved, setShowSaved] = useState(false)
 
   const saveWorkflow = useSaveWorkflow(workflowId)
   const publishWorkflow = usePublishWorkflow(workflowId)
@@ -103,9 +105,9 @@ export default function EditorHeader() {
   const startRun = useStartWorkflowRun(workflowId)
 
   const handleSave = async () => {
-    if (!isDirty || !workflowId) return
+    if (!workflowId) return
 
-    setSaveStatus('saving')
+    setSaving(true)
     try {
       await saveWorkflow.mutateAsync({
         name: workflowName,
@@ -115,21 +117,42 @@ export default function EditorHeader() {
         steps,
       })
       clearDirty()
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
+      setShowSaved(true)
+      setTimeout(() => setShowSaved(false), 2000)
     } catch (error) {
       toast.error('Save failed', {
         description: error instanceof Error ? error.message : 'Could not save workflow',
       })
-      setSaveStatus('idle')
+    } finally {
+      setSaving(false)
     }
   }
 
   const handlePublishToggle = async () => {
     const newStatus = workflowStatus === 'published' ? 'draft' : 'published'
     try {
-      await publishWorkflow.mutateAsync(newStatus)
+      const result = await publishWorkflow.mutateAsync(newStatus)
       setWorkflowStatus(newStatus)
+
+      // Update store with server-generated webhook token and secret
+      if (newStatus === 'published' && trigger?.type === 'webhook') {
+        const currentConfig = trigger.config as WebhookTriggerConfig
+        const newConfig = { ...currentConfig }
+        let updated = false
+        if (result.webhookToken && !currentConfig.webhook_token) {
+          newConfig.webhook_token = result.webhookToken
+          updated = true
+        }
+        if (result.webhookSecret && !currentConfig.secret) {
+          newConfig.secret = result.webhookSecret
+          updated = true
+        }
+        if (updated) {
+          useWorkflowEditorStore.getState().setTrigger({ ...trigger, config: newConfig })
+          useWorkflowEditorStore.getState().clearDirty()
+        }
+      }
+
       toast.success(newStatus === 'published' ? 'Workflow published' : 'Workflow unpublished')
     } catch (error) {
       toast.error('Publish failed', {
@@ -196,6 +219,7 @@ export default function EditorHeader() {
       if (!response.ok) {
         throw new Error('Failed to delete workflow')
       }
+      toast.success('Workflow deleted successfully')
       router.push('/workspace')
     } catch (error) {
       toast.error('Delete failed', {
@@ -261,16 +285,15 @@ export default function EditorHeader() {
 
         <div className="flex-1" />
 
-        {isDirty && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSave}
-            disabled={saveStatus === 'saving'}
-          >
-            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save'}
+        <div className="flex items-center gap-2">
+          {isSaving && (
+            <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" />
+          )}
+          {showSaved && !isSaving && <span className="text-muted-foreground text-xs">Saved</span>}
+          <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
+            Save
           </Button>
-        )}
+        </div>
 
         <Button
           variant={workflowStatus === 'published' ? 'default' : 'outline'}
