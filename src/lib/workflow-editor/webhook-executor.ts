@@ -27,7 +27,9 @@ export function generateWebhookToken(): string {
 
 export function buildWebhookUrl(token: string): string {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
   return `${baseUrl}/api/workflows/webhook/${token}`
 }
 
