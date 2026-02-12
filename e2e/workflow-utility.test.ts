@@ -29,8 +29,8 @@ test.describe('Utility Step', () => {
     // Verify config panel shows with "Utility Type" label
     await expect(page.getByText('Utility Type')).toBeVisible({ timeout: 5000 })
 
-    // Verify "Format" is the default type
-    await expect(page.getByText('Format')).toBeVisible()
+    // Verify "Format data" is the default type
+    await expect(page.getByText('Format data')).toBeVisible()
 
     // Verify format_template field is visible
     await expect(page.getByLabel(/Format Template/i)).toBeVisible()
@@ -105,8 +105,16 @@ test.describe('Utility Step', () => {
     // Click the Test button
     await page.getByRole('button', { name: /Test/i }).click()
 
-    // Verify the result appears (20)
-    await expect(page.getByText('20')).toBeVisible({ timeout: 10000 })
+    // Wait for test to start and navigate to Tests tab
+    await expect(page.getByText('Test started')).toBeVisible({ timeout: 10000 })
+    await page.getByRole('tab', { name: /Tests/i }).click()
+
+    // Wait for test result to appear (success icon) and expand it
+    await expect(page.getByText('Utility').first()).toBeVisible({ timeout: 10000 })
+    await page.locator('button', { hasText: 'Utility' }).first().click()
+
+    // Verify the result output contains 20
+    await expect(page.locator('pre', { hasText: '20' })).toBeVisible({ timeout: 5000 })
   })
 
   test('runs workflow with utility step — verify completed', async ({ page }) => {

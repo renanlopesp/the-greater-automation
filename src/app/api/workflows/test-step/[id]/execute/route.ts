@@ -5,12 +5,14 @@ import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
 import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
+import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
   UtilityStepConfig,
+  SequenceStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 import type { Json } from '@/lib/supabase/database.types'
 
@@ -111,6 +113,54 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         success = false
         output = null
         error = err instanceof Error ? err.message : 'Utility step execution failed'
+      }
+    } else if (testResult.step_type === 'sequence') {
+      try {
+        const seqConfig = config as unknown as SequenceStepConfig
+
+        if (!seqConfig.workflow_id) {
+          throw new Error('Sequence step requires a workflow_id')
+        }
+
+        // Load sub-workflow steps
+        const { data: subSteps, error: subError } = await supabase
+          .from('workflow_steps')
+          .select('id, position, type, name, config')
+          .eq('workflow_id', seqConfig.workflow_id)
+          .order('position', { ascending: true })
+
+        if (subError || !subSteps || subSteps.length === 0) {
+          throw new Error(
+            `Sub-workflow "${seqConfig.workflow_name || seqConfig.workflow_id}" has no steps`
+          )
+        }
+
+        const result = await executeSequenceStep(
+          seqConfig.workflow_id,
+          seqConfig.workflow_name || seqConfig.workflow_id,
+          subSteps.map((s) => ({
+            ...s,
+            config: s.config as Record<string, unknown>,
+          })),
+          {},
+          async (type, cfg, ctx) => {
+            if (type === 'utility')
+              return executeUtilityStep(cfg as unknown as UtilityStepConfig, ctx)
+            if (type === 'flow_control')
+              return executeFlowControlStep(cfg as unknown as FlowControlStepConfig, ctx)
+            if (type === 'human_in_loop')
+              throw new Error('Human-in-loop steps are not supported inside sub-workflows')
+            if (type === 'sequence') throw new Error('Nested sub-workflows are not supported')
+            // Simulate I/O steps in test mode
+            return { message: `Simulated ${type} step`, type }
+          }
+        )
+        success = true
+        output = result
+      } catch (err) {
+        success = false
+        output = null
+        error = err instanceof Error ? err.message : 'Sequence execution failed'
       }
     } else {
       // Simulated result for other step types

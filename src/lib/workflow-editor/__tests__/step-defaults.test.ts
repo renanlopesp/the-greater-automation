@@ -31,9 +31,9 @@ describe('getStepDefaultConfig', () => {
     expect(config).toHaveProperty('method', 'GET')
   })
 
-  it('sequence has empty inline_steps', () => {
+  it('sequence has empty workflow_id', () => {
     const config = getStepDefaultConfig('sequence')
-    expect(config).toHaveProperty('inline_steps', [])
+    expect(config).toHaveProperty('workflow_id', '')
   })
 })
 
@@ -106,5 +106,33 @@ describe('isStepConfigComplete – utility', () => {
 
   it('map: incomplete when format_template missing', () => {
     expect(isStepConfigComplete(makeStep({ utility_type: 'map', input_source: '[]' }))).toBe(false)
+  })
+})
+
+describe('isStepConfigComplete – sequence', () => {
+  const makeStep = (config: Record<string, unknown>): WorkflowStep => ({
+    id: 'test',
+    type: 'sequence',
+    name: 'Sequence',
+    position: 0,
+    config: config as unknown as WorkflowStep['config'],
+  })
+
+  it('complete when workflow_id is set', () => {
+    expect(
+      isStepConfigComplete(makeStep({ workflow_id: 'wf-123', workflow_name: 'My Workflow' }))
+    ).toBe(true)
+  })
+
+  it('incomplete when workflow_id is empty', () => {
+    expect(isStepConfigComplete(makeStep({ workflow_id: '' }))).toBe(false)
+  })
+
+  it('incomplete when workflow_id is missing', () => {
+    expect(isStepConfigComplete(makeStep({}))).toBe(false)
+  })
+
+  it('complete even without workflow_name (only workflow_id required)', () => {
+    expect(isStepConfigComplete(makeStep({ workflow_id: 'wf-456' }))).toBe(true)
   })
 })

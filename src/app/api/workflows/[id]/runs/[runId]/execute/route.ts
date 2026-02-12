@@ -10,6 +10,7 @@ import {
   getApprovalForStep,
 } from '@/lib/workflow-editor/human-in-loop-executor'
 import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
+import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
 import type {
   AIStepConfig,
   HTTPStepConfig,
@@ -17,6 +18,7 @@ import type {
   WebScrapingStepConfig,
   HumanInLoopStepConfig,
   UtilityStepConfig,
+  SequenceStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 
 export async function POST(
@@ -252,6 +254,68 @@ export async function POST(
             } catch (err) {
               stepStatus = 'failed'
               stepError = err instanceof Error ? err.message : 'Utility step failed'
+            }
+            break
+          }
+          case 'sequence': {
+            try {
+              const seqConfig = step.config as unknown as SequenceStepConfig
+
+              if (!seqConfig.workflow_id) {
+                throw new Error('Sequence step requires a workflow_id')
+              }
+
+              // Prevent self-reference
+              if (seqConfig.workflow_id === workflowId) {
+                throw new Error('A workflow cannot reference itself as a sub-workflow')
+              }
+
+              // Load sub-workflow steps
+              const { data: subSteps, error: subError } = await supabase
+                .from('workflow_steps')
+                .select('id, position, type, name, config')
+                .eq('workflow_id', seqConfig.workflow_id)
+                .order('position', { ascending: true })
+
+              if (subError || !subSteps || subSteps.length === 0) {
+                throw new Error(
+                  `Sub-workflow "${seqConfig.workflow_name || seqConfig.workflow_id}" has no steps`
+                )
+              }
+
+              const result = await executeSequenceStep(
+                seqConfig.workflow_id,
+                seqConfig.workflow_name || seqConfig.workflow_id,
+                subSteps.map((s) => ({
+                  ...s,
+                  config: s.config as Record<string, unknown>,
+                })),
+                stepOutputs as Record<string, unknown>,
+                async (type, cfg, ctx) => {
+                  switch (type) {
+                    case 'ai':
+                      return executeAIStep(cfg as unknown as AIStepConfig)
+                    case 'http':
+                      return executeHTTPStep(cfg as unknown as HTTPStepConfig)
+                    case 'flow_control':
+                      return executeFlowControlStep(cfg as unknown as FlowControlStepConfig, ctx)
+                    case 'utility':
+                      return executeUtilityStep(cfg as unknown as UtilityStepConfig, ctx)
+                    case 'web_scraping':
+                      return executeWebScrapingStep(cfg as unknown as WebScrapingStepConfig)
+                    case 'human_in_loop':
+                      throw new Error('Human-in-loop steps are not supported inside sub-workflows')
+                    case 'sequence':
+                      throw new Error('Nested sub-workflows are not supported')
+                    default:
+                      return { result: `Executed ${type} step` }
+                  }
+                }
+              )
+              stepOutput = result as unknown as typeof stepOutput
+            } catch (err) {
+              stepStatus = 'failed'
+              stepError = err instanceof Error ? err.message : 'Sequence step failed'
             }
             break
           }

@@ -32,54 +32,61 @@ test.describe('Workflow Editor - Core', () => {
 
   test('changes trigger to Scheduled', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /Scheduled/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('Scheduled')).toBeVisible()
+    await expect(page.getByText('Scheduled').first()).toBeVisible()
   })
 
   test('changes trigger to Webhook', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /Webhook/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('Webhook')).toBeVisible()
+    await expect(page.getByText('Webhook', { exact: true }).first()).toBeVisible()
   })
 
   test('changes trigger to Form', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /^Form/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('Form').first()).toBeVisible()
+    await expect(page.getByText('Form', { exact: true }).first()).toBeVisible()
   })
 
   test('changes trigger to RSS', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /^RSS/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('RSS').first()).toBeVisible()
+    await expect(page.getByText('RSS', { exact: true }).first()).toBeVisible()
   })
 
   test('changes trigger to Mailhook', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /Mailhook/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('Mailhook')).toBeVisible()
+    await expect(page.getByText('Mailhook').first()).toBeVisible()
   })
 
   test('changes trigger to MCP Server', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByRole('option', { name: /MCP Server/i }).click()
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await expect(page.getByText('MCP Server')).toBeVisible()
+    await expect(page.getByText('MCP Server').first()).toBeVisible()
   })
 
   test('searches triggers in selector', async ({ page }) => {
     await page.locator('button', { hasText: 'Start run manually' }).click()
+    await page.getByRole('button', { name: /Change type/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
 
     await page.getByPlaceholder('Search triggers...').fill('web')

@@ -4,36 +4,46 @@ import { FatalError } from 'workflow'
 import type { SequenceStepConfig } from '@/lib/workflow-editor/step-defaults'
 
 export interface SequenceStepOutput {
-  inline_steps_count: number
+  workflow_id: string
+  workflow_name: string
+  steps_executed: number
   outputs: unknown[]
   aggregated_output: Record<string, unknown>
 }
 
 export async function sequenceStep(
   config: SequenceStepConfig,
+  loadSubWorkflowSteps: (
+    workflowId: string
+  ) => Promise<Array<{ id: string; type: string; name: string; config: Record<string, unknown> }>>,
   executeStepFn: (stepType: string, stepConfig: Record<string, unknown>) => Promise<unknown>
 ): Promise<SequenceStepOutput> {
-  const { inline_steps } = config
+  const { workflow_id, workflow_name } = config
 
-  if (!inline_steps || inline_steps.length === 0) {
-    throw new FatalError('Sequence step requires at least one inline step')
+  if (!workflow_id) {
+    throw new FatalError('Sequence step requires a workflow_id')
   }
 
   try {
+    const steps = await loadSubWorkflowSteps(workflow_id)
+
+    if (!steps || steps.length === 0) {
+      throw new FatalError(`Sub-workflow "${workflow_name || workflow_id}" has no steps`)
+    }
+
     const outputs: unknown[] = []
     const aggregated: Record<string, unknown> = {}
 
-    // Execute inline steps sequentially
-    for (const step of inline_steps) {
+    for (const step of steps) {
       const output = await executeStepFn(step.type, step.config)
       outputs.push(output)
-
-      // Store output with step ID as key
       aggregated[step.id] = output
     }
 
     return {
-      inline_steps_count: inline_steps.length,
+      workflow_id,
+      workflow_name: workflow_name || workflow_id,
+      steps_executed: steps.length,
       outputs,
       aggregated_output: aggregated,
     }
@@ -43,7 +53,9 @@ export async function sequenceStep(
     }
 
     if (error instanceof Error) {
-      throw new FatalError(`Sequence step failed: ${error.message}`)
+      throw new FatalError(
+        `Sub-workflow "${workflow_name || workflow_id}" failed: ${error.message}`
+      )
     }
 
     throw new FatalError('Sequence step failed')

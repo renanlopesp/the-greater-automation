@@ -65,7 +65,8 @@ export interface HTTPStepConfig {
 }
 
 export interface SequenceStepConfig {
-  inline_steps: Array<{ id: string; type: StepType; name: string; config: Record<string, unknown> }>
+  workflow_id: string
+  workflow_name?: string
 }
 
 export type StepConfigMap = {
@@ -109,7 +110,7 @@ export function getStepDefaultConfig(type: StepType): StepConfig {
     },
     utility: { utility_type: 'format', input_source: '' },
     http: { request_type: 'custom', method: 'GET', url: '', timeout_seconds: 30, retry_count: 0 },
-    sequence: { inline_steps: [] },
+    sequence: { workflow_id: '', workflow_name: '' },
   }
   return defaults[type]
 }
@@ -121,6 +122,7 @@ export const TESTABLE_STEP_TYPES: StepType[] = [
   'web_scraping',
   'human_in_loop',
   'utility',
+  'sequence',
 ]
 
 export function isStepConfigComplete(step: WorkflowStep): boolean {
@@ -152,6 +154,10 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       if (uc.utility_type === 'filter') return !!uc.input_source && !!uc.filter_condition
       if (uc.utility_type === 'map') return !!uc.input_source && !!uc.format_template
       return !!uc.input_source // parse_json, parse_csv, merge
+    }
+    case 'sequence': {
+      const sc = step.config as SequenceStepConfig
+      return !!sc.workflow_id
     }
     default:
       return true

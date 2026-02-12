@@ -196,10 +196,17 @@ async function executeStep(
       return flowControlStep(config as never, context)
 
     case 'sequence':
-      // Sequence needs a function to execute inline steps
-      return sequenceStep(config as never, async (type, stepConfig) => {
-        return executeStep(type as StepType, stepConfig, runId, stepPosition, context)
-      })
+      // Sequence needs to load sub-workflow steps, then execute each
+      return sequenceStep(
+        config as never,
+        async (_workflowId: string) => {
+          // In SDK context, sub-workflow step loading is handled by the runtime
+          throw new FatalError('Sub-workflow loading not available in SDK executor')
+        },
+        async (type: string, stepConfig: Record<string, unknown>) => {
+          return executeStep(type as StepType, stepConfig, runId, stepPosition, context)
+        }
+      )
 
     default:
       throw new FatalError(`Unknown step type: ${stepType}`)
