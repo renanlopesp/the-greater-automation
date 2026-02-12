@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   FileText,
   Star,
-  ChevronDown,
   Bell,
   UserPlus,
   MoreHorizontal,
@@ -142,8 +141,9 @@ export default function EditorHeader() {
   const handleDuplicate = async () => {
     try {
       const result = await duplicateWorkflow.mutateAsync(workflowId)
-      if (result.id) {
-        router.push(`/workflows/${result.id}/edit`)
+      if (result.newWorkflowId) {
+        toast.success('Workflow duplicated')
+        router.push(`/workflows/${result.newWorkflowId}/edit`)
       }
     } catch (error) {
       toast.error('Duplicate failed', {
@@ -259,28 +259,6 @@ export default function EditorHeader() {
           <Star className={cn('h-4 w-4', isStarred && 'fill-yellow-400 text-yellow-400')} />
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className="h-8 w-8">
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem
-              onClick={() => {
-                const input = document.querySelector('input[value="' + workflowName + '"]')
-                if (input instanceof HTMLInputElement) {
-                  input.focus()
-                  input.select()
-                }
-              }}
-            >
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDuplicate}>Duplicate</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         <div className="flex-1" />
 
         {isDirty && (
@@ -330,6 +308,10 @@ export default function EditorHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleDuplicate} className="gap-2">
+              <FileText className="h-4 w-4" />
+              Duplicate
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportJSON} className="gap-2">
               <Download className="h-4 w-4" />
               Export JSON
