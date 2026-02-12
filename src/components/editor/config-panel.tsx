@@ -40,7 +40,7 @@ export default function ConfigPanel() {
       {isOpen && !isMobile && (
         <>
           <ResizableHandle />
-          <ResizablePanel defaultSize={25} minSize={20}>
+          <ResizablePanel defaultSize={30} minSize={25}>
             <div className="h-full overflow-hidden">{panelContent}</div>
           </ResizablePanel>
         </>
