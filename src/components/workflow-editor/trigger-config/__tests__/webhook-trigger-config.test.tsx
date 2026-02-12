@@ -5,9 +5,7 @@ import { WebhookTriggerConfigForm } from '../webhook-trigger-config'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 
 vi.mock('@/lib/workflow-editor/webhook-executor', () => ({
-  buildWebhookUrl: vi.fn(
-    (token: string) => `http://localhost:3000/.well-known/workflow/v1/webhook/${token}`
-  ),
+  buildWebhookUrl: vi.fn((token: string) => `http://localhost:3000/api/workflows/webhook/${token}`),
 }))
 
 describe('WebhookTriggerConfigForm', () => {
@@ -47,7 +45,7 @@ describe('WebhookTriggerConfigForm', () => {
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
     const urlInput = screen.getByDisplayValue(
-      'http://localhost:3000/.well-known/workflow/v1/webhook/test-token-123'
+      'http://localhost:3000/api/workflows/webhook/test-token-123'
     )
     expect(urlInput).toBeInTheDocument()
     expect(urlInput).toHaveAttribute('readonly')
@@ -147,7 +145,7 @@ describe('WebhookTriggerConfigForm', () => {
     fireEvent.click(copyButton)
 
     expect(mockWriteText).toHaveBeenCalledWith(
-      'http://localhost:3000/.well-known/workflow/v1/webhook/test-token-123'
+      'http://localhost:3000/api/workflows/webhook/test-token-123'
     )
   })
 

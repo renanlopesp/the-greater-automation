@@ -28,7 +28,7 @@ export function generateWebhookToken(): string {
 export function buildWebhookUrl(token: string): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return `${baseUrl}/.well-known/workflow/v1/webhook/${token}`
+  return `${baseUrl}/api/workflows/webhook/${token}`
 }
 
 // ---------------------------------------------------------------------------
@@ -233,10 +233,29 @@ export async function handleWebhookRequest(
 
   // 11. Return response with configured status code
   const statusCode = config.response_status || 200
+  const responseMode = config.response_mode ?? 'final'
+
+  // Build output based on response_mode
+  let responseOutput: unknown = null
+  if (result.outputs && Object.keys(result.outputs).length > 0) {
+    if (responseMode === 'all_steps') {
+      responseOutput = result.outputs
+    } else {
+      // final: return only the last step's output
+      const keys = Object.keys(result.outputs).sort()
+      const lastKey = keys[keys.length - 1]
+      responseOutput =
+        (result.outputs[lastKey] as { output?: unknown })?.output ?? result.outputs[lastKey]
+    }
+  }
+
   if (result.success) {
-    return { status: statusCode, body: { success: true, run_id: run.id } }
+    return { status: statusCode, body: { success: true, run_id: run.id, output: responseOutput } }
   } else {
-    return { status: statusCode, body: { success: false, run_id: run.id, error: result.error } }
+    return {
+      status: statusCode,
+      body: { success: false, run_id: run.id, error: result.error, output: responseOutput },
+    }
   }
 }
 
@@ -255,7 +274,7 @@ export async function executeWorkflowSteps(
     name: string
     config: Record<string, unknown> | null
   }>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; outputs?: Record<string, unknown> }> {
   let totalAICreditsUsed = 0
   const stepOutputs: Record<string, unknown> = {}
 
@@ -451,6 +470,7 @@ export async function executeWorkflowSteps(
       return {
         success: false,
         error: `Step "${step.name}" failed: ${stepError}`,
+        outputs: stepOutputs,
       }
     }
   }
@@ -466,5 +486,5 @@ export async function executeWorkflowSteps(
     })
     .eq('id', runId)
 
-  return { success: true }
+  return { success: true, outputs: stepOutputs }
 }

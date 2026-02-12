@@ -61,6 +61,7 @@ export interface WebhookTriggerConfig {
   encrypted_secret?: string
   response_status: number
   webhook_token?: string
+  response_mode?: 'final' | 'all_steps'
 }
 
 export interface TableTriggerConfig {

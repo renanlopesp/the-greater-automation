@@ -49,26 +49,26 @@ describe('webhook-executor', () => {
       process.env.NEXT_PUBLIC_SITE_URL = 'https://site.example.com'
       const token = 'test-token-123'
       const url = buildWebhookUrl(token)
-      expect(url).toBe('https://site.example.com/.well-known/workflow/v1/webhook/test-token-123')
+      expect(url).toBe('https://site.example.com/api/workflows/webhook/test-token-123')
     })
 
     it('falls back to NEXT_PUBLIC_APP_URL', () => {
       process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com'
       const token = 'test-token-456'
       const url = buildWebhookUrl(token)
-      expect(url).toBe('https://app.example.com/.well-known/workflow/v1/webhook/test-token-456')
+      expect(url).toBe('https://app.example.com/api/workflows/webhook/test-token-456')
     })
 
     it('falls back to http://localhost:3000', () => {
       const token = 'test-token-789'
       const url = buildWebhookUrl(token)
-      expect(url).toBe('http://localhost:3000/.well-known/workflow/v1/webhook/test-token-789')
+      expect(url).toBe('http://localhost:3000/api/workflows/webhook/test-token-789')
     })
 
     it('constructs correct path format', () => {
       const token = 'abc-def-ghi'
       const url = buildWebhookUrl(token)
-      expect(url).toContain('/.well-known/workflow/v1/webhook/abc-def-ghi')
+      expect(url).toContain('/api/workflows/webhook/abc-def-ghi')
     })
   })
 
