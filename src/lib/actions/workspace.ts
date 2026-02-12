@@ -5,6 +5,9 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { WorkflowStatus, TriggerType, StepType, Database } from '@/lib/supabase/database.types'
 import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
+import { encryptSecret, decryptSecret, generateWebhookSecret } from '@/lib/crypto'
+import { fetchWorkflowForEditor } from '@/lib/queries/workflow-editor'
+import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -52,13 +55,56 @@ export async function createWorkflow(
 export async function deleteWorkflow(workflowId: string): Promise<ActionResult> {
   const supabase = await createServerClient()
 
-  // Cancel any active runs before deleting
-  await supabase
-    .from('workflow_runs')
-    .update({ status: 'cancelled' as const })
-    .eq('workflow_id', workflowId)
-    .in('status', ['pending', 'running'])
+  // Verify user has access to this workflow (RLS enforces ownership)
+  const { data: workflow, error: accessError } = await supabase
+    .from('workflows')
+    .select('id')
+    .eq('id', workflowId)
+    .maybeSingle()
 
+  if (accessError || !workflow) {
+    return { error: 'Workflow not found' }
+  }
+
+  // Clean up scheduled trigger pg_cron job if applicable
+  const { data: trigger } = await supabase
+    .from('workflow_triggers')
+    .select('type')
+    .eq('workflow_id', workflowId)
+    .maybeSingle()
+
+  if (trigger?.type === 'scheduled') {
+    const serviceClient = createServiceClient()
+    const jobName = `scheduled_wf_${workflowId}`
+    await serviceClient.rpc('unschedule_cron_job', { job_name: jobName })
+  }
+
+  // Delete children explicitly BEFORE the parent to avoid RLS + CASCADE
+  // conflict. Child table RLS policies join back to `workflows` for auth,
+  // so CASCADE fails if the parent row is already gone. Deleting children
+  // first while the parent still exists lets RLS checks pass normally.
+
+  // 1. Get run IDs so we can delete grandchildren (workflow_run_steps)
+  const { data: runs } = await supabase
+    .from('workflow_runs')
+    .select('id')
+    .eq('workflow_id', workflowId)
+
+  if (runs && runs.length > 0) {
+    const runIds = runs.map((r) => r.id)
+    // Delete grandchildren first
+    await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
+    await supabase.from('human_approvals').delete().in('run_id', runIds)
+  }
+
+  // 2. Delete direct children
+  await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
+  await supabase.from('agent_skills').delete().eq('workflow_id', workflowId)
+  await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
+  await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
+  await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)
+
+  // 3. Delete the workflow (no children left, CASCADE is a no-op)
   const { error } = await supabase.from('workflows').delete().eq('id', workflowId)
 
   if (error) {
@@ -187,10 +233,24 @@ export async function duplicateWorkflow(
 
   // Copy trigger if it exists
   if (triggerResult.data) {
+    // Clear webhook_token for webhook triggers so duplicates get their own unique URL
+    let triggerConfig = triggerResult.data.config
+    if (
+      triggerResult.data.type === 'webhook' &&
+      triggerConfig &&
+      typeof triggerConfig === 'object'
+    ) {
+      const { webhook_token, secret, encrypted_secret, ...rest } = triggerConfig as Record<
+        string,
+        unknown
+      >
+      triggerConfig = rest as typeof triggerConfig
+    }
+
     const { error: triggerInsertError } = await supabase.from('workflow_triggers').insert({
       workflow_id: newWorkflow.id,
       type: triggerResult.data.type,
-      config: triggerResult.data.config,
+      config: triggerConfig,
     })
 
     if (triggerInsertError) {
@@ -312,20 +372,28 @@ export async function bulkDeleteItems(
   const agentIds = items.filter((i) => i.type === 'agent').map((i) => i.id)
 
   const supabase = await createServerClient()
-
-  // Cancel any active runs on workflows being deleted
-  if (workflowIds.length > 0) {
-    await supabase
-      .from('workflow_runs')
-      .update({ status: 'cancelled' as const })
-      .in('workflow_id', workflowIds)
-      .in('status', ['pending', 'running'])
-  }
-
   const errors: string[] = []
 
-  // Delete workflows
+  // Delete workflows — must delete children first to avoid RLS + CASCADE conflict
   if (workflowIds.length > 0) {
+    // Get run IDs for grandchild deletion
+    const { data: runs } = await supabase
+      .from('workflow_runs')
+      .select('id')
+      .in('workflow_id', workflowIds)
+
+    if (runs && runs.length > 0) {
+      const runIds = runs.map((r) => r.id)
+      await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
+      await supabase.from('human_approvals').delete().in('run_id', runIds)
+    }
+
+    await supabase.from('step_test_results').delete().in('workflow_id', workflowIds)
+    await supabase.from('agent_skills').delete().in('workflow_id', workflowIds)
+    await supabase.from('workflow_runs').delete().in('workflow_id', workflowIds)
+    await supabase.from('workflow_steps').delete().in('workflow_id', workflowIds)
+    await supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds)
+
     const { error } = await supabase.from('workflows').delete().in('id', workflowIds)
 
     if (error) {
@@ -507,16 +575,42 @@ export async function deleteFolder(
       }
     }
 
-    // Delete workflows in all descendant folders
+    // Delete workflows in all descendant folders (children first to avoid RLS + CASCADE)
     const allFolderIds = [folderId, ...descendantIds]
     if (allFolderIds.length > 0) {
-      const { error: deleteWorkflowsError } = await supabase
+      const { data: folderWorkflows } = await supabase
         .from('workflows')
-        .delete()
+        .select('id')
         .in('folder_id', allFolderIds)
 
-      if (deleteWorkflowsError) {
-        return { error: 'Failed to delete workflows in folder' }
+      if (folderWorkflows && folderWorkflows.length > 0) {
+        const wfIds = folderWorkflows.map((w) => w.id)
+
+        const { data: runs } = await supabase
+          .from('workflow_runs')
+          .select('id')
+          .in('workflow_id', wfIds)
+
+        if (runs && runs.length > 0) {
+          const runIds = runs.map((r) => r.id)
+          await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
+          await supabase.from('human_approvals').delete().in('run_id', runIds)
+        }
+
+        await supabase.from('step_test_results').delete().in('workflow_id', wfIds)
+        await supabase.from('agent_skills').delete().in('workflow_id', wfIds)
+        await supabase.from('workflow_runs').delete().in('workflow_id', wfIds)
+        await supabase.from('workflow_steps').delete().in('workflow_id', wfIds)
+        await supabase.from('workflow_triggers').delete().in('workflow_id', wfIds)
+
+        const { error: deleteWorkflowsError } = await supabase
+          .from('workflows')
+          .delete()
+          .in('id', wfIds)
+
+        if (deleteWorkflowsError) {
+          return { error: 'Failed to delete workflows in folder' }
+        }
       }
     }
 
@@ -574,7 +668,31 @@ export async function moveToFolder(
 }
 
 // ---------------------------------------------------------------------------
-// 13. saveWorkflow
+// 13a. getWorkflowForEditor (server-side fetch with decryption)
+// ---------------------------------------------------------------------------
+
+export async function getWorkflowForEditor(workflowId: string) {
+  const supabase = await createServerClient()
+  const data = await fetchWorkflowForEditor(supabase, workflowId)
+  if (!data) return null
+
+  // Decrypt webhook secret server-side (Node.js crypto available here)
+  if (data.trigger.type === 'webhook') {
+    const whConfig = data.trigger.config as WebhookTriggerConfig
+    if (whConfig.encrypted_secret) {
+      const plaintext = decryptSecret(whConfig.encrypted_secret)
+      data.trigger = {
+        ...data.trigger,
+        config: { ...whConfig, secret: plaintext, encrypted_secret: undefined },
+      }
+    }
+  }
+
+  return data
+}
+
+// ---------------------------------------------------------------------------
+// 13b. saveWorkflow
 // ---------------------------------------------------------------------------
 
 export async function saveWorkflow(
@@ -632,11 +750,28 @@ export async function saveWorkflow(
   }
 
   if (data.trigger) {
+    let triggerConfig = data.trigger.config
+
+    // For webhook triggers: encrypt plaintext secret if sent from client (regenerate)
+    if (data.trigger.type === 'webhook') {
+      const webhookConfig = triggerConfig as unknown as {
+        secret?: string
+        encrypted_secret?: string
+      }
+      if (webhookConfig.secret) {
+        triggerConfig = {
+          ...triggerConfig,
+          encrypted_secret: encryptSecret(webhookConfig.secret),
+          secret: undefined,
+        }
+      }
+    }
+
     const { error: triggerError } = await supabase.from('workflow_triggers').insert({
       workflow_id: workflowId,
       type: data.trigger.type,
-      config: data.trigger
-        .config as unknown as Database['public']['Tables']['workflow_triggers']['Insert']['config'],
+      config:
+        triggerConfig as unknown as Database['public']['Tables']['workflow_triggers']['Insert']['config'],
     })
 
     if (triggerError) {
@@ -681,7 +816,7 @@ export async function saveWorkflow(
 export async function publishWorkflow(
   workflowId: string,
   status: WorkflowStatus
-): Promise<ActionResult> {
+): Promise<ActionResult<{ webhookToken?: string; webhookSecret?: string }>> {
   const supabase = await createServerClient()
 
   const {
@@ -693,11 +828,14 @@ export async function publishWorkflow(
     return { error: 'Unauthorized' }
   }
 
+  let generatedWebhookToken: string | undefined
+  let generatedWebhookSecret: string | undefined
+
   // If publishing, verify workflow has trigger and at least 1 step
   if (status === 'published') {
     const { data: trigger } = await supabase
       .from('workflow_triggers')
-      .select('id')
+      .select('id, type, config')
       .eq('workflow_id', workflowId)
       .single()
 
@@ -712,6 +850,37 @@ export async function publishWorkflow(
 
     if (!steps || steps.length === 0) {
       return { error: 'Cannot publish workflow without at least one step' }
+    }
+
+    // Generate webhook token and secret for webhook triggers on publish
+    if (trigger.type === 'webhook') {
+      const config = trigger.config as Record<string, unknown>
+      let needsUpdate = false
+      const updatedConfig = { ...config }
+
+      if (!config.webhook_token) {
+        generatedWebhookToken = crypto.randomUUID()
+        updatedConfig.webhook_token = generatedWebhookToken
+        needsUpdate = true
+      }
+
+      if (!config.encrypted_secret) {
+        const plaintextSecret = generateWebhookSecret()
+        generatedWebhookSecret = plaintextSecret
+        updatedConfig.encrypted_secret = encryptSecret(plaintextSecret)
+        updatedConfig.secret = undefined
+        needsUpdate = true
+      }
+
+      if (needsUpdate) {
+        await supabase
+          .from('workflow_triggers')
+          .update({
+            config:
+              updatedConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
+          })
+          .eq('id', trigger.id)
+      }
     }
   }
 
@@ -754,7 +923,7 @@ export async function publishWorkflow(
   }
 
   revalidatePath('/workspace')
-  return {}
+  return { webhookToken: generatedWebhookToken, webhookSecret: generatedWebhookSecret }
 }
 
 // ---------------------------------------------------------------------------

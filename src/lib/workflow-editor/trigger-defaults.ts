@@ -58,7 +58,9 @@ export interface WebhookTriggerConfig {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'PATCH'
   secret?: string
+  encrypted_secret?: string
   response_status: number
+  webhook_token?: string
 }
 
 export interface TableTriggerConfig {
@@ -172,7 +174,7 @@ export function isTriggerConfigComplete(trigger: WorkflowTrigger): boolean {
       return c.schedule_type === 'cron' ? !!c.cron_expression : !!c.interval_value
     }
     case 'webhook':
-      return !!(config as WebhookTriggerConfig).url
+      return !!(config as WebhookTriggerConfig).webhook_token
     case 'form':
       return true
     case 'rss':

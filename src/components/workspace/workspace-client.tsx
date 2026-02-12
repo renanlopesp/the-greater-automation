@@ -166,6 +166,9 @@ export default function WorkspaceClient({
       if (result.error) {
         toast.error(result.error)
       } else {
+        toast.success(
+          `${deleteTarget.type === 'workflow' ? 'Workflow' : 'Agent'} deleted successfully`
+        )
         setRowSelection({})
         router.refresh()
       }
@@ -402,6 +405,7 @@ export default function WorkspaceClient({
       if (result.error) {
         toast.error(result.error)
       } else {
+        toast.success(`${items.length} item${items.length > 1 ? 's' : ''} deleted successfully`)
         setRowSelection({})
         router.refresh()
       }
