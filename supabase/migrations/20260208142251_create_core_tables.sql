@@ -25,8 +25,7 @@ CREATE TABLE teams (
 
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can create teams" ON teams FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
-CREATE POLICY "Team owners can update their teams" ON teams FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM team_members WHERE team_members.team_id = teams.id AND team_members.user_id = auth.uid() AND team_members.role = 'owner'));
+-- NOTE: teams UPDATE policy created below, after team_members table exists
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON teams FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Team members
@@ -46,3 +45,7 @@ CREATE POLICY "Team owners/admins can update members" ON team_members FOR UPDATE
   USING (EXISTS (SELECT 1 FROM team_members tm WHERE tm.team_id = team_members.team_id AND tm.user_id = auth.uid() AND tm.role IN ('owner', 'admin')));
 CREATE POLICY "Team owners/admins can delete members" ON team_members FOR DELETE
   USING (EXISTS (SELECT 1 FROM team_members tm WHERE tm.team_id = team_members.team_id AND tm.user_id = auth.uid() AND tm.role IN ('owner', 'admin')));
+
+-- Teams UPDATE policy (must come after team_members table creation)
+CREATE POLICY "Team owners can update their teams" ON teams FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM team_members WHERE team_members.team_id = teams.id AND team_members.user_id = auth.uid() AND team_members.role = 'owner'));
