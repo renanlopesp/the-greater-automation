@@ -55,3 +55,6 @@ next-env.d.ts
 .auth/
 
 test-results/
+
+supabase/.branches
+supabase/.temp
