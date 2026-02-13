@@ -1,6 +1,8 @@
 export type { AvailableApp } from './get-available-apps'
 export type { AppConnection } from './get-app-connections'
+export type { ComposioAppAction, ActionParam } from './get-app-actions'
 export { getAvailableApps } from './get-available-apps'
 export { getAppConnections } from './get-app-connections'
+export { getAppActions } from './get-app-actions'
 export { initiateAppConnection } from './initiate-connection'
 export { disconnectApp } from './disconnect-app'
