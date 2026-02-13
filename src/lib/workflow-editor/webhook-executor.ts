@@ -13,7 +13,10 @@ import type {
   WebScrapingStepConfig,
   UtilityStepConfig,
   SequenceStepConfig,
+  AppStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
+import { getComposio } from '@/lib/composio/client'
+import { getComposioActionName } from '@/lib/composio/action-map'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -426,6 +429,71 @@ export async function executeWorkflowSteps(
           } catch (err) {
             stepStatus = 'failed'
             stepError = err instanceof Error ? err.message : 'Sequence step failed'
+          }
+          break
+        }
+        case 'app': {
+          const appConfig = step.config as unknown as AppStepConfig
+          if (!appConfig.app_id || !appConfig.action) {
+            stepStatus = 'failed'
+            stepError = 'App step requires app_id and action'
+            break
+          }
+
+          // Look up the workflow to get the creator's user_id
+          const { data: wf } = await supabase
+            .from('workflows')
+            .select('created_by')
+            .eq('id', workflowId)
+            .single()
+
+          if (!wf?.created_by) {
+            stepStatus = 'failed'
+            stepError = 'Cannot determine workflow owner for app connection'
+            break
+          }
+
+          // Look up the user's connection for this app
+          const { data: connection } = await supabase
+            .from('app_connections')
+            .select('composio_connection_id')
+            .eq('user_id', wf.created_by)
+            .eq('app_id', appConfig.app_id)
+            .single()
+
+          if (!connection?.composio_connection_id) {
+            stepStatus = 'failed'
+            stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
+            break
+          }
+
+          // Execute via Composio
+          const composio = getComposio()
+          const actionName = getComposioActionName(appConfig.app_id, appConfig.action)
+
+          const result = await composio.actions.execute({
+            actionName,
+            requestBody: {
+              connectedAccountId: connection.composio_connection_id,
+              input: appConfig.inputs as Record<string, unknown>,
+            },
+          })
+
+          const appResult = result as {
+            successful?: boolean
+            data?: unknown
+            error?: string
+          }
+
+          if (appResult.successful) {
+            stepOutput = {
+              app_id: appConfig.app_id,
+              action: appConfig.action,
+              result: appResult.data,
+            } as Json
+          } else {
+            stepStatus = 'failed'
+            stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
           }
           break
         }

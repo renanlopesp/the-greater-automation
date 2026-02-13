@@ -1,4 +1,4 @@
-# Relay
+# Snew Automation
 
 ## Codebase Overview
 
@@ -29,7 +29,7 @@ For detailed architecture, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 
 - **Every schema change MUST have a migration file.** When creating, altering, or dropping tables, columns, indexes, enums, functions, triggers, or RLS policies, always create a corresponding migration file in `supabase/migrations/` using the Supabase MCP `apply_migration` tool (or `supabase migration new` locally). Never apply DDL changes directly via `execute_sql` without a migration.
 - Migration names should be descriptive and snake_case (e.g., `add_status_column_to_workflows`, `create_agent_skills_table`).
-- Production project ID: `djohaxwfketlsjurwqne` — Test branch project ID: `fqvqxydiaunlntzjtobr`
+- Production project ID: `djohaxwfketlsjurwqne` — Test branch project ID: `ejqumzvclfkbbzzdvmmi`
 
 ## Spec-Driven Development (MANDATORY)
 
