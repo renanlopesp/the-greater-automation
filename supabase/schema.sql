@@ -1,5 +1,5 @@
 -- ============================================================
--- Relay Database Schema
+-- Snew Automation Database Schema
 -- ============================================================
 -- 6 enum types, 12 tables, RLS policies, indexes, triggers
 -- Apply via Supabase SQL Editor or `supabase db reset`

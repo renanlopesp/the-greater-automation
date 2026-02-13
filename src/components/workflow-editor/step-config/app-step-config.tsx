@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Linkedin } from 'lucide-react'
 import { getAllAppDefinitions, getAppDefinition, getAppAction } from '@/lib/oauth/app-actions'
 import type { AppStepConfig } from '@/lib/workflow-editor/step-defaults'
 import { cn } from '@/lib/utils'
@@ -58,10 +58,15 @@ export default function AppStepConfigForm({
                 config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
               )}
             >
-              <Avatar size="sm">
-                <AvatarImage src={`https://cdn.simpleicons.org/${app.iconSlug}`} alt={app.name} />
-                <AvatarFallback>{app.name.charAt(0)}</AvatarFallback>
-              </Avatar>
+              {app.iconSlug === 'linkedin' ? (
+                <Linkedin className="h-5 w-5 shrink-0" />
+              ) : (
+                <img
+                  src={`https://cdn.simpleicons.org/${app.iconSlug}/white`}
+                  alt={app.name}
+                  className="h-5 w-5 shrink-0"
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{app.name}</div>
               </div>

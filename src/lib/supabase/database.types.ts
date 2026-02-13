@@ -499,11 +499,7 @@ export type Database = {
           user_id: string
           team_id: string
           app_id: string
-          provider: string
-          access_token: string
-          refresh_token: string | null
-          token_expires_at: string | null
-          scopes: string[] | null
+          composio_connection_id: string | null
           account_label: string | null
           account_id: string | null
           metadata: Json
@@ -515,11 +511,7 @@ export type Database = {
           user_id: string
           team_id: string
           app_id: string
-          provider?: string
-          access_token: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
-          scopes?: string[] | null
+          composio_connection_id?: string | null
           account_label?: string | null
           account_id?: string | null
           metadata?: Json
@@ -531,11 +523,7 @@ export type Database = {
           user_id?: string
           team_id?: string
           app_id?: string
-          provider?: string
-          access_token?: string
-          refresh_token?: string | null
-          token_expires_at?: string | null
-          scopes?: string[] | null
+          composio_connection_id?: string | null
           account_label?: string | null
           account_id?: string | null
           metadata?: Json

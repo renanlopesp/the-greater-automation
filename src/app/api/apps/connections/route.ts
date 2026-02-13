@@ -5,7 +5,6 @@ export async function GET() {
   try {
     const supabase = await createServerClient()
 
-    // Verify user is authenticated
     const {
       data: { user },
       error: authError,
@@ -15,10 +14,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch user's connections (exclude sensitive token data)
     const { data: connections, error: fetchError } = await supabase
       .from('app_connections')
-      .select('id, app_id, account_label, account_id, scopes, created_at, updated_at')
+      .select('id, app_id, account_label, account_id, created_at, updated_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 

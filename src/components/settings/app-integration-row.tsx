@@ -1,7 +1,10 @@
+import { Linkedin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { AppIntegration } from '@/lib/data/app-integrations'
+
+// LinkedIn was removed from SimpleIcons — use Lucide fallback
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
 
 interface AppIntegrationRowProps {
   app: AppIntegration
@@ -21,12 +24,19 @@ export default function AppIntegrationRow({
   return (
     <div className="border-border flex items-center justify-between border-b px-4 py-3">
       <div className="flex items-center gap-3">
-        <Avatar className="h-8 w-8">
-          {app.iconSlug && (
-            <AvatarImage src={`https://cdn.simpleicons.org/${app.iconSlug}`} alt={app.name} />
-          )}
-          <AvatarFallback className="text-xs font-medium">{app.name[0]}</AvatarFallback>
-        </Avatar>
+        {app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
+          <img
+            src={`https://cdn.simpleicons.org/${app.iconSlug}/white`}
+            alt={app.name}
+            className="h-7 w-7"
+          />
+        ) : app.iconSlug === 'linkedin' ? (
+          <Linkedin className="h-7 w-7" />
+        ) : (
+          <div className="bg-muted flex h-7 w-7 items-center justify-center rounded text-xs font-medium">
+            {app.name[0]}
+          </div>
+        )}
         <div className="flex flex-col">
           <span className="text-sm font-medium">{app.name}</span>
           {isConnected && accountLabel && (

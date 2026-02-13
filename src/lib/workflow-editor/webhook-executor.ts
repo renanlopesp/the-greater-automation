@@ -15,8 +15,8 @@ import type {
   SequenceStepConfig,
   AppStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
-import { executeAppAction } from '@/lib/oauth/app-handlers'
-import { getValidAccessToken } from '@/lib/oauth/token-manager'
+import { getComposio } from '@/lib/composio/client'
+import { getComposioActionName } from '@/lib/composio/action-map'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -456,32 +456,44 @@ export async function executeWorkflowSteps(
           // Look up the user's connection for this app
           const { data: connection } = await supabase
             .from('app_connections')
-            .select('id')
+            .select('composio_connection_id')
             .eq('user_id', wf.created_by)
             .eq('app_id', appConfig.app_id)
             .single()
 
-          if (!connection) {
+          if (!connection?.composio_connection_id) {
             stepStatus = 'failed'
             stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
             break
           }
 
-          // Get valid access token (auto-refresh if needed)
-          const accessToken = await getValidAccessToken(connection.id, supabase)
+          // Execute via Composio
+          const composio = getComposio()
+          const actionName = getComposioActionName(appConfig.app_id, appConfig.action)
 
-          // Execute the app action
-          const result = await executeAppAction(appConfig, accessToken)
+          const result = await composio.actions.execute({
+            actionName,
+            requestBody: {
+              connectedAccountId: connection.composio_connection_id,
+              input: appConfig.inputs as Record<string, unknown>,
+            },
+          })
 
-          if (result.success) {
+          const appResult = result as {
+            successful?: boolean
+            data?: unknown
+            error?: string
+          }
+
+          if (appResult.successful) {
             stepOutput = {
-              app_id: result.app_id,
-              action: result.action,
-              result: result.result,
+              app_id: appConfig.app_id,
+              action: appConfig.action,
+              result: appResult.data,
             } as Json
           } else {
             stepStatus = 'failed'
-            stepError = result.error || `${appConfig.app_id} ${appConfig.action} failed`
+            stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
           }
           break
         }

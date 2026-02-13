@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import AppIntegrationRow from '@/components/settings/app-integration-row'
 import { APP_INTEGRATIONS } from '@/lib/data/app-integrations'
+import type { AppIntegration } from '@/lib/data/app-integrations'
+import { getAvailableApps } from '@/lib/composio/actions'
 
 interface Connection {
   id: string
@@ -14,55 +16,79 @@ interface Connection {
   created_at: string
 }
 
-const CONNECTABLE_APP_IDS = ['github', 'slack', 'notion', 'linkedin', 'discord']
-
 export default function ManageAppsSection() {
   const [query, setQuery] = useState('')
   const [connections, setConnections] = useState<Connection[]>([])
+  const [availableAppIds, setAvailableAppIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchConnections() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/auth/connections')
-        if (!response.ok) throw new Error('Failed to fetch connections')
-        const data = await response.json()
-        setConnections(data.connections || [])
-      } catch (error) {
-        console.error('Error fetching connections:', error)
-        toast.error('Failed to load connections')
+        const [connectionsRes, apps] = await Promise.all([
+          fetch('/api/apps/connections').then((r) => (r.ok ? r.json() : { connections: [] })),
+          getAvailableApps(),
+        ])
+        setConnections(connectionsRes.connections || [])
+        setAvailableAppIds(apps.map((a) => a.id))
+      } catch {
+        setConnections([])
+        setAvailableAppIds([])
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchConnections()
+    fetchData()
   }, [])
 
   const connectableApps = useMemo(() => {
-    return APP_INTEGRATIONS.filter((app) => CONNECTABLE_APP_IDS.includes(app.id))
-  }, [])
+    return APP_INTEGRATIONS.filter((app) => availableAppIds.includes(app.id))
+  }, [availableAppIds])
 
-  const comingSoonApps = useMemo(() => {
-    return APP_INTEGRATIONS.filter((app) => !CONNECTABLE_APP_IDS.includes(app.id))
-      .slice(0, 10)
-      .map((app) => app.name)
-  }, [])
+  // For apps not in Composio, build a simple AppIntegration from connected accounts
+  // (in case a connection exists but integration was removed)
+  const allApps = useMemo((): AppIntegration[] => {
+    const knownIds = new Set(connectableApps.map((a) => a.id))
+    const fromConnections = connections
+      .filter((c) => !knownIds.has(c.app_id))
+      .map((c): AppIntegration | undefined => APP_INTEGRATIONS.find((a) => a.id === c.app_id))
+      .filter((a): a is AppIntegration => !!a)
+    return [...connectableApps, ...fromConnections]
+  }, [connectableApps, connections])
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return connectableApps
+    if (!query.trim()) return allApps
     const lower = query.toLowerCase()
-    return connectableApps.filter((app) => app.name.toLowerCase().includes(lower))
-  }, [query, connectableApps])
+    return allApps.filter((app) => app.name.toLowerCase().includes(lower))
+  }, [query, allApps])
 
-  function handleConnect(appId: string) {
-    window.location.href = `/api/auth/${appId}/connect`
+  async function handleConnect(appId: string) {
+    try {
+      const response = await fetch('/api/apps/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_id: appId }),
+      })
+
+      if (!response.ok) throw new Error('Failed to initiate connection')
+
+      const data = await response.json()
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl
+      }
+    } catch (error) {
+      console.error('Error connecting app:', error)
+      toast.error('Failed to connect app')
+    }
   }
 
   async function handleDisconnect(appId: string) {
     try {
-      const response = await fetch(`/api/auth/${appId}/disconnect`, {
+      const response = await fetch('/api/apps/disconnect', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_id: appId }),
       })
 
       if (!response.ok) throw new Error('Failed to disconnect')
@@ -89,37 +115,27 @@ export default function ManageAppsSection() {
       />
       <ScrollArea className="flex-1">
         {isLoading ? (
-          <p className="text-muted-foreground py-8 text-center text-sm">Loading connections...</p>
+          <p className="text-muted-foreground py-8 text-center text-sm">Loading apps...</p>
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No apps found matching your search.
+            {query.trim()
+              ? 'No apps found matching your search.'
+              : 'No app integrations configured yet.'}
           </p>
         ) : (
-          <>
-            {filtered.map((app) => {
-              const connection = getConnectionForApp(app.id)
-              return (
-                <AppIntegrationRow
-                  key={app.id}
-                  app={app}
-                  isConnected={!!connection}
-                  accountLabel={connection?.account_label}
-                  onConnect={handleConnect}
-                  onDisconnect={handleDisconnect}
-                />
-              )
-            })}
-            {!query.trim() && (
-              <div className="mt-8 px-4 pb-4">
-                <h3 className="text-muted-foreground mb-2 text-sm font-medium">
-                  More integrations coming soon
-                </h3>
-                <p className="text-muted-foreground text-xs">
-                  {comingSoonApps.join(', ')}, and many more...
-                </p>
-              </div>
-            )}
-          </>
+          filtered.map((app) => {
+            const connection = getConnectionForApp(app.id)
+            return (
+              <AppIntegrationRow
+                key={app.id}
+                app={app}
+                isConnected={!!connection}
+                accountLabel={connection?.account_label}
+                onConnect={handleConnect}
+                onDisconnect={handleDisconnect}
+              />
+            )
+          })
         )}
       </ScrollArea>
     </div>
