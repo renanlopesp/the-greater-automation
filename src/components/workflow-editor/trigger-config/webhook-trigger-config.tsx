@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
-import { buildWebhookUrl } from '@/lib/workflow-editor/webhook-executor'
+import { buildWebhookUrl } from '@/lib/workflow-editor/webhook-utils'
 
 const STATUS_CODE_OPTIONS = [
   { value: '200', label: '200 OK' },

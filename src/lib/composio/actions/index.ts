@@ -1,4 +1,6 @@
-export { getAvailableApps, type AvailableApp } from './get-available-apps'
-export { getAppConnections, type AppConnection } from './get-app-connections'
+export type { AvailableApp } from './get-available-apps'
+export type { AppConnection } from './get-app-connections'
+export { getAvailableApps } from './get-available-apps'
+export { getAppConnections } from './get-app-connections'
 export { initiateAppConnection } from './initiate-connection'
 export { disconnectApp } from './disconnect-app'

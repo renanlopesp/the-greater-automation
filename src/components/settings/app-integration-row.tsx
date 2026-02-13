@@ -27,11 +27,11 @@ export default function AppIntegrationRow({
       <div className="flex items-center gap-3">
         {app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
           <Image
-            src={`https://cdn.simpleicons.org/${app.iconSlug}/white`}
+            src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
             alt={app.name}
             width={28}
             height={28}
-            className="h-7 w-7"
+            className="h-7 w-7 dark:invert"
             unoptimized
           />
         ) : app.iconSlug === 'linkedin' ? (

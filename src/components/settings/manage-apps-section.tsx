@@ -9,7 +9,8 @@ import AppIntegrationRow from '@/components/settings/app-integration-row'
 import { APP_INTEGRATIONS } from '@/lib/data/app-integrations'
 import type { AppIntegration } from '@/lib/data/app-integrations'
 import { useAppConnections } from '@/hooks/use-app-connections'
-import { initiateAppConnection, disconnectApp } from '@/lib/composio/actions'
+import { initiateAppConnection } from '@/lib/composio/actions/initiate-connection'
+import { disconnectApp } from '@/lib/composio/actions/disconnect-app'
 
 export default function ManageAppsSection() {
   const [query, setQuery] = useState('')

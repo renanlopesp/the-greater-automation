@@ -13,7 +13,7 @@ import {
   getTriggerDefaultConfig,
   type WebhookTriggerConfig,
 } from '@/lib/workflow-editor/trigger-defaults'
-import { generateWebhookToken } from '@/lib/workflow-editor/webhook-executor'
+import { generateWebhookToken } from '@/lib/workflow-editor/webhook-utils'
 import { useState } from 'react'
 
 export default function TriggerConfigPanel() {

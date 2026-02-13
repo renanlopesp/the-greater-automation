@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { WebhookTriggerConfigForm } from '../webhook-trigger-config'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 
-vi.mock('@/lib/workflow-editor/webhook-executor', () => ({
+vi.mock('@/lib/workflow-editor/webhook-utils', () => ({
   buildWebhookUrl: vi.fn((token: string) => `http://localhost:3000/api/workflows/webhook/${token}`),
 }))
 

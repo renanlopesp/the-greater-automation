@@ -1,12 +1,10 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import {
-  getAvailableApps,
-  getAppConnections,
-  type AvailableApp,
-  type AppConnection,
-} from '@/lib/composio/actions'
+import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
+import { getAppConnections } from '@/lib/composio/actions/get-app-connections'
+import type { AvailableApp } from '@/lib/composio/actions/get-available-apps'
+import type { AppConnection } from '@/lib/composio/actions/get-app-connections'
 
 interface AppConnectionsData {
   connections: AppConnection[]
