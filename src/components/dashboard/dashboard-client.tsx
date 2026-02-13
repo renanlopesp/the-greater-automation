@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import { Bot, GitBranch, Play, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import AgentsGrid from '@/components/dashboard/agents-grid'
@@ -15,6 +17,8 @@ interface DashboardClientProps {
   initialWorkflows: Workflow[]
   runsToday: number
   teamId: string
+  connectedApp?: string
+  connectionError?: string
 }
 
 const stats = [
@@ -29,7 +33,24 @@ export default function DashboardClient({
   initialWorkflows,
   runsToday,
   teamId,
+  connectedApp,
+  connectionError,
 }: DashboardClientProps) {
+  const toastShown = useRef(false)
+
+  useEffect(() => {
+    if (toastShown.current) return
+    if (connectedApp) {
+      toastShown.current = true
+      toast.success(
+        `${connectedApp.charAt(0).toUpperCase() + connectedApp.slice(1)} connected successfully`
+      )
+    } else if (connectionError) {
+      toastShown.current = true
+      toast.error(`Connection failed: ${connectionError.replace(/_/g, ' ')}`)
+    }
+  }, [connectedApp, connectionError])
+
   const computedStats = [
     { ...stats[0], value: initialAgents.length },
     { ...stats[1], value: initialWorkflows.length },

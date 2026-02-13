@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { Linkedin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +10,7 @@ const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
 interface AppIntegrationRowProps {
   app: AppIntegration
   isConnected?: boolean
-  accountLabel?: string
+  accountLabel?: string | null
   onConnect: (appId: string) => void
   onDisconnect?: (appId: string) => void
 }
@@ -25,10 +26,13 @@ export default function AppIntegrationRow({
     <div className="border-border flex items-center justify-between border-b px-4 py-3">
       <div className="flex items-center gap-3">
         {app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
-          <img
+          <Image
             src={`https://cdn.simpleicons.org/${app.iconSlug}/white`}
             alt={app.name}
+            width={28}
+            height={28}
             className="h-7 w-7"
+            unoptimized
           />
         ) : app.iconSlug === 'linkedin' ? (
           <Linkedin className="h-7 w-7" />

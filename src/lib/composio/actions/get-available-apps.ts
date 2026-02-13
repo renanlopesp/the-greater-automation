@@ -1,6 +1,6 @@
 'use server'
 
-import { getComposio } from './client'
+import { getComposio } from '../client'
 
 export interface AvailableApp {
   id: string

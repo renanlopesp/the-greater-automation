@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import ManageAppsSection from '@/components/settings/manage-apps-section'
 
 // Mock sonner
@@ -8,37 +8,33 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }))
 
-// Mock the server action
-vi.mock('@/lib/composio/actions', () => ({
-  getAvailableApps: vi.fn().mockResolvedValue([
-    { id: 'github', integrationId: 'int_1', name: 'GitHub' },
-    { id: 'slack', integrationId: 'int_2', name: 'Slack' },
-    { id: 'notion', integrationId: 'int_3', name: 'Notion' },
-  ]),
+// Mock React Query
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn().mockReturnValue({
+    data: {
+      connections: [],
+      availableApps: [
+        { id: 'github', integrationId: 'int_1', name: 'GitHub' },
+        { id: 'slack', integrationId: 'int_2', name: 'Slack' },
+        { id: 'notion', integrationId: 'int_3', name: 'Notion' },
+      ],
+    },
+    isLoading: false,
+  }),
+  useQueryClient: vi.fn().mockReturnValue({
+    invalidateQueries: vi.fn(),
+  }),
 }))
 
-beforeEach(() => {
-  // Mock fetch for /api/apps/connections
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ connections: [] }),
-    })
-  )
-})
-
 describe('ManageAppsSection', () => {
-  it('renders the heading', async () => {
+  it('renders the heading', () => {
     render(<ManageAppsSection />)
     expect(screen.getByText('Manage apps')).toBeInTheDocument()
   })
 
-  it('renders app names after loading', async () => {
+  it('renders app names after loading', () => {
     render(<ManageAppsSection />)
-    await waitFor(() => {
-      expect(screen.getByText('GitHub')).toBeInTheDocument()
-    })
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
     expect(screen.getByText('Slack')).toBeInTheDocument()
     expect(screen.getByText('Notion')).toBeInTheDocument()
   })
@@ -46,11 +42,6 @@ describe('ManageAppsSection', () => {
   it('filters apps by search query', async () => {
     const user = userEvent.setup()
     render(<ManageAppsSection />)
-
-    // Wait for apps to load
-    await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument()
-    })
 
     const searchInput = screen.getByPlaceholderText('Search apps...')
     await user.type(searchInput, 'Slack')
@@ -62,11 +53,6 @@ describe('ManageAppsSection', () => {
   it('shows empty state when no apps match', async () => {
     const user = userEvent.setup()
     render(<ManageAppsSection />)
-
-    // Wait for apps to load
-    await waitFor(() => {
-      expect(screen.getByText('GitHub')).toBeInTheDocument()
-    })
 
     const searchInput = screen.getByPlaceholderText('Search apps...')
     await user.type(searchInput, 'zzzznonexistent')

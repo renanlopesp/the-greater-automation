@@ -86,17 +86,3 @@ export async function getIntegrationId(appId: string): Promise<string | undefine
   const cache = await loadIntegrations()
   return cache[appId.toLowerCase()]
 }
-
-/**
- * The set of app IDs that support Composio-managed OAuth connections.
- */
-export const COMPOSIO_APP_IDS = ['github', 'notion', 'slack', 'linkedin', 'discord'] as const
-
-export type ComposioAppId = (typeof COMPOSIO_APP_IDS)[number]
-
-/**
- * Check whether an app ID is a Composio-managed app.
- */
-export function isComposioApp(appId: string): appId is ComposioAppId {
-  return (COMPOSIO_APP_IDS as readonly string[]).includes(appId)
-}

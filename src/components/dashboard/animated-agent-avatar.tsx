@@ -23,7 +23,7 @@ function getInitials(name: string): string {
  * @deprecated Use Avatar + AvatarFallback directly instead.
  * This component is kept for backward compatibility with agent-detail.
  */
-export function getAgentPalette(_name: string) {
+export function getAgentPalette() {
   return { dot: '', bg: '', text: '' }
 }
 

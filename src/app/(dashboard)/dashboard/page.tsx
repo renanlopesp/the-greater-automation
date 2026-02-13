@@ -8,13 +8,19 @@ import {
 } from '@/lib/queries/dashboard'
 import DashboardClient from '@/components/dashboard/dashboard-client'
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>
+}) {
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  const { connected, error: connectionError } = await searchParams
 
   // Get user's team
   const { data: memberRows } = await supabase
@@ -58,6 +64,8 @@ export default async function DashboardPage() {
       initialWorkflows={workflows}
       runsToday={runsToday}
       teamId={teamId}
+      connectedApp={connected}
+      connectionError={connectionError}
     />
   )
 }

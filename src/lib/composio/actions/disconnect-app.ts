@@ -1,33 +1,26 @@
-import { createServerClient } from '@/lib/supabase/server'
-import { getComposio } from '@/lib/composio/client'
-import { NextRequest, NextResponse } from 'next/server'
+'use server'
 
-export async function POST(request: NextRequest) {
+import { getComposio } from '../client'
+import { createServerClient } from '@/lib/supabase/server'
+
+/**
+ * Disconnects an app by removing the connection from Composio and Supabase.
+ */
+export async function disconnectApp(appId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createServerClient()
-
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    if (!user) return { success: false, error: 'Unauthorized' }
 
-    const body = await request.json()
-    const { app_id } = body as { app_id?: string }
-
-    if (!app_id) {
-      return NextResponse.json({ error: 'app_id is required' }, { status: 400 })
-    }
-
-    // Look up the local connection to get the Composio connection ID
+    // Look up connection to get the Composio ID
     const { data: connection } = await supabase
       .from('app_connections')
       .select('composio_connection_id')
       .eq('user_id', user.id)
-      .eq('app_id', app_id)
+      .eq('app_id', appId)
       .single()
 
     // Delete from Composio if we have a connection ID
@@ -38,7 +31,6 @@ export async function POST(request: NextRequest) {
           connectedAccountId: connection.composio_connection_id,
         })
       } catch (error) {
-        // Log but don't block local deletion if Composio delete fails
         console.warn('Failed to delete Composio connection:', error)
       }
     }
@@ -48,19 +40,19 @@ export async function POST(request: NextRequest) {
       .from('app_connections')
       .delete()
       .eq('user_id', user.id)
-      .eq('app_id', app_id)
+      .eq('app_id', appId)
 
     if (deleteError) {
       console.error('Failed to delete connection:', deleteError)
-      return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 })
+      return { success: false, error: 'Failed to disconnect' }
     }
 
-    return NextResponse.json({ success: true })
+    return { success: true }
   } catch (error) {
     console.error('Disconnect error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    )
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to disconnect',
+    }
   }
 }

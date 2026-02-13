@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import * as LucideIcons from 'lucide-react'
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/command'
 import { STEP_TYPES, CONNECTED_APPS } from '@/lib/workflow-editor/step-metadata'
 import type { StepType } from '@/lib/supabase/database.types'
+import { useAppConnections } from '@/hooks/use-app-connections'
 
 interface StepSelectorProps {
   open: boolean
@@ -28,20 +29,13 @@ interface StepSelectorProps {
 }
 
 export default function StepSelector({ open, onOpenChange, onSelect }: StepSelectorProps) {
-  const [connectedAppIds, setConnectedAppIds] = useState<Set<string>>(new Set())
+  const { data } = useAppConnections()
+  const connections = useMemo(() => data?.connections ?? [], [data?.connections])
 
-  useEffect(() => {
-    if (!open) return
-
-    fetch('/api/apps/connections')
-      .then((res) => (res.ok ? res.json() : { connections: [] }))
-      .then((data: { connections: { app_id: string }[] }) => {
-        setConnectedAppIds(new Set(data.connections.map((c) => c.app_id)))
-      })
-      .catch(() => setConnectedAppIds(new Set()))
-  }, [open])
-
-  const connectedApps = CONNECTED_APPS.filter((app) => connectedAppIds.has(app.id))
+  const connectedApps = useMemo(() => {
+    const connectedIds = new Set(connections.map((c) => c.app_id))
+    return CONNECTED_APPS.filter((app) => connectedIds.has(app.id))
+  }, [connections])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
