@@ -11,9 +11,11 @@ import {
 } from '@/lib/workflow-editor/human-in-loop-executor'
 import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
 import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
+import { getComposio } from '@/lib/composio/client'
 import type {
   AIStepConfig,
   HTTPStepConfig,
+  AppStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
   HumanInLoopStepConfig,
@@ -305,6 +307,30 @@ export async function POST(
                       return executeWebScrapingStep(cfg as unknown as WebScrapingStepConfig)
                     case 'human_in_loop':
                       throw new Error('Human-in-loop steps are not supported inside sub-workflows')
+                    case 'app': {
+                      const ac = cfg as unknown as AppStepConfig
+                      if (!ac.app_id || !ac.action)
+                        throw new Error('App step requires app_id and action')
+                      const { data: conn } = await supabase
+                        .from('app_connections')
+                        .select('composio_connection_id')
+                        .eq('user_id', user.id)
+                        .eq('app_id', ac.app_id)
+                        .single()
+                      if (!conn?.composio_connection_id)
+                        throw new Error(`No ${ac.app_id} connection found`)
+                      const res = await getComposio().actions.execute({
+                        actionName: ac.action,
+                        requestBody: {
+                          connectedAccountId: conn.composio_connection_id,
+                          input: ac.inputs ?? {},
+                        },
+                      })
+                      const ar = res as { successful?: boolean; data?: unknown; error?: string }
+                      if (!ar.successful)
+                        throw new Error(ar.error || `${ac.app_id} ${ac.action} failed`)
+                      return ar.data
+                    }
                     case 'sequence':
                       throw new Error('Nested sub-workflows are not supported')
                     default:
@@ -316,6 +342,48 @@ export async function POST(
             } catch (err) {
               stepStatus = 'failed'
               stepError = err instanceof Error ? err.message : 'Sequence step failed'
+            }
+            break
+          }
+          case 'app': {
+            const appConfig = step.config as unknown as AppStepConfig
+            if (!appConfig.app_id || !appConfig.action) {
+              stepStatus = 'failed'
+              stepError = 'App step requires app_id and action'
+            } else {
+              const { data: connection } = await supabase
+                .from('app_connections')
+                .select('composio_connection_id')
+                .eq('user_id', user.id)
+                .eq('app_id', appConfig.app_id)
+                .single()
+
+              if (!connection?.composio_connection_id) {
+                stepStatus = 'failed'
+                stepError = `No ${appConfig.app_id} connection found. Connect the app in Settings.`
+              } else {
+                const composio = getComposio()
+                const result = await composio.actions.execute({
+                  actionName: appConfig.action,
+                  requestBody: {
+                    connectedAccountId: connection.composio_connection_id,
+                    input: appConfig.inputs ?? {},
+                  },
+                })
+
+                const appResult = result as {
+                  successful?: boolean
+                  data?: unknown
+                  error?: string
+                }
+
+                if (appResult.successful) {
+                  stepOutput = appResult.data as typeof stepOutput
+                } else {
+                  stepStatus = 'failed'
+                  stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
+                }
+              }
             }
             break
           }

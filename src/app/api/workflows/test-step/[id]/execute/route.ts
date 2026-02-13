@@ -6,9 +6,11 @@ import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-execu
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
 import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
 import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
+import { getComposio } from '@/lib/composio/client'
 import type {
   AIStepConfig,
   HTTPStepConfig,
+  AppStepConfig,
   FlowControlStepConfig,
   WebScrapingStepConfig,
   UtilityStepConfig,
@@ -161,6 +163,57 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         success = false
         output = null
         error = err instanceof Error ? err.message : 'Sequence execution failed'
+      }
+    } else if (testResult.step_type === 'app') {
+      const appConfig = config as unknown as AppStepConfig
+      if (!appConfig.app_id || !appConfig.action) {
+        success = false
+        output = null
+        error = 'App step requires app_id and action'
+      } else {
+        // Look up the user's Composio connection for this app
+        const { data: connection } = await supabase
+          .from('app_connections')
+          .select('composio_connection_id')
+          .eq('user_id', user.id)
+          .eq('app_id', appConfig.app_id)
+          .single()
+
+        if (!connection?.composio_connection_id) {
+          success = false
+          output = null
+          error = `No ${appConfig.app_id} connection found. Connect the app in Settings.`
+        } else {
+          try {
+            const composio = getComposio()
+            const result = await composio.actions.execute({
+              actionName: appConfig.action,
+              requestBody: {
+                connectedAccountId: connection.composio_connection_id,
+                input: appConfig.inputs ?? {},
+              },
+            })
+
+            const appResult = result as {
+              successful?: boolean
+              data?: unknown
+              error?: string
+            }
+
+            if (appResult.successful) {
+              success = true
+              output = appResult.data
+            } else {
+              success = false
+              output = null
+              error = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
+            }
+          } catch (err) {
+            success = false
+            output = null
+            error = err instanceof Error ? err.message : 'App action execution failed'
+          }
+        }
       }
     } else {
       // Simulated result for other step types
