@@ -57,12 +57,9 @@ export async function fetchAppResource(
 
     // 2. Execute the fetch action via Composio
     const composio = getComposio()
-    const result = await composio.actions.execute({
-      actionName: fetchAction,
-      requestBody: {
-        connectedAccountId: connection.composio_connection_id,
-        input: params ?? {},
-      },
+    const result = await composio.tools.execute(fetchAction, {
+      connectedAccountId: connection.composio_connection_id,
+      arguments: params ?? {},
     })
 
     // 3. Extract items from result

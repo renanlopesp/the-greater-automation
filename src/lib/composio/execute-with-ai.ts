@@ -18,7 +18,7 @@ export interface AppStepAIResult {
  * 1. Fetch available actions for the app via getAppActions()
  * 2. Format actions + user instructions into a prompt for Kiro Chat
  * 3. Kiro Chat returns JSON with { actionName, inputs }
- * 4. Execute via composio.actions.execute()
+ * 4. Execute via composio.tools.execute()
  */
 export async function executeAppStepWithAI(
   appId: string,
@@ -153,12 +153,9 @@ Do not include any text outside the JSON. Do not use markdown code blocks.`
     let lastDecision = decision
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const result = await composio.actions.execute({
-        actionName: lastDecision.actionName,
-        requestBody: {
-          connectedAccountId: composioConnectionId,
-          input: lastDecision.inputs ?? {},
-        },
+      const result = await composio.tools.execute(lastDecision.actionName, {
+        connectedAccountId: composioConnectionId,
+        arguments: lastDecision.inputs ?? {},
       })
 
       const appResult = result as {

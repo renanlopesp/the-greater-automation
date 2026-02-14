@@ -8,7 +8,9 @@ import {
 } from '@/lib/actions/workspace'
 import type { WorkflowTrigger } from '@/lib/workflow-editor/trigger-defaults'
 import type { WorkflowStep } from '@/lib/workflow-editor/step-defaults'
-import type { WorkflowStatus } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type WorkflowStatus = Database['public']['Enums']['workflow_status']
 
 export function useWorkflowData(workflowId: string) {
   return useQuery({

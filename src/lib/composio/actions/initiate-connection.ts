@@ -25,14 +25,17 @@ export async function initiateAppConnection(
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const callbackUrl = `${siteUrl}/api/apps/callback`
 
-    // Use provided integration ID, fall back to auto-discovery
-    const resolvedIntegrationId = integrationId || (await getIntegrationId(appId))
+    // Resolve auth config ID: V2 initiate(userId, authConfigId, options)
+    // The second param is the auth config ID (e.g. "ac_xxx"), NOT the toolkit slug
+    const authConfigId = integrationId || (await getIntegrationId(appId))
+    if (!authConfigId) {
+      return {
+        error: `No auth config found for ${appId}. Set up the integration in Composio first.`,
+      }
+    }
 
-    const connectionRequest = await composio.connectedAccounts.initiate({
-      appName: appId,
-      entityId: user.id,
-      redirectUri: callbackUrl,
-      ...(resolvedIntegrationId && { integrationId: resolvedIntegrationId }),
+    const connectionRequest = await composio.connectedAccounts.initiate(user.id, authConfigId, {
+      callbackUrl,
     })
 
     // Store pending connection in cookie for the callback route
@@ -40,7 +43,7 @@ export async function initiateAppConnection(
     cookieStore.set(
       'composio_pending',
       JSON.stringify({
-        connectedAccountId: connectionRequest.connectedAccountId,
+        connectedAccountId: connectionRequest.id,
         appId,
       }),
       {
@@ -52,11 +55,14 @@ export async function initiateAppConnection(
       }
     )
 
-    if (!connectionRequest.redirectUrl) {
+    // V2 may return `redirectUrl` or `url`
+    const req = connectionRequest as unknown as Record<string, unknown>
+    const redirect = req.redirectUrl ?? req.url
+    if (!redirect || typeof redirect !== 'string') {
       return { error: 'Failed to get redirect URL from Composio' }
     }
 
-    return { redirectUrl: connectionRequest.redirectUrl }
+    return { redirectUrl: redirect }
   } catch (error) {
     console.error('App connect error:', error)
     return { error: error instanceof Error ? error.message : 'Failed to initiate connection' }

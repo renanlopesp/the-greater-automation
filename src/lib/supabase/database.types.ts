@@ -1,367 +1,122 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.1'
+  }
   public: {
     Tables: {
-      profiles: {
+      agent_conversations: {
         Row: {
+          agent_id: string
+          created_at: string | null
           id: string
-          email: string
-          full_name: string | null
-          avatar_url: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          email: string
-          full_name?: string | null
-          avatar_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          email?: string
-          full_name?: string | null
-          avatar_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      teams: {
-        Row: {
-          id: string
-          name: string
-          slug: string
-          avatar_url: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          slug: string
-          avatar_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          slug?: string
-          avatar_url?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      team_members: {
-        Row: {
-          team_id: string
+          title: string | null
+          updated_at: string | null
           user_id: string
-          role: TeamRole
-          created_at: string
         }
         Insert: {
-          team_id: string
+          agent_id: string
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
           user_id: string
-          role?: TeamRole
-          created_at?: string
         }
         Update: {
-          team_id?: string
+          agent_id?: string
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
           user_id?: string
-          role?: TeamRole
-          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'team_members_team_id_fkey'
-            columns: ['team_id']
+            foreignKeyName: 'agent_conversations_agent_id_fkey'
+            columns: ['agent_id']
             isOneToOne: false
-            referencedRelation: 'teams'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'team_members_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
+            referencedRelation: 'agents'
             referencedColumns: ['id']
           },
         ]
       }
-      agents: {
+      agent_messages: {
         Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
           id: string
-          team_id: string
-          name: string
-          description: string | null
-          avatar_url: string | null
-          avatar_type: string | null
-          palette: string
-          created_by: string
-          created_at: string
-          updated_at: string
+          metadata: Json | null
+          role: string
         }
         Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
           id?: string
-          team_id: string
-          name: string
-          description?: string | null
-          avatar_url?: string | null
-          avatar_type?: string | null
-          palette?: string
-          created_by: string
-          created_at?: string
-          updated_at?: string
+          metadata?: Json | null
+          role: string
         }
         Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
           id?: string
-          team_id?: string
-          name?: string
-          description?: string | null
-          avatar_url?: string | null
-          avatar_type?: string | null
-          palette?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
+          metadata?: Json | null
+          role?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'agents_team_id_fkey'
-            columns: ['team_id']
+            foreignKeyName: 'agent_messages_conversation_id_fkey'
+            columns: ['conversation_id']
             isOneToOne: false
-            referencedRelation: 'teams'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'agents_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      folders: {
-        Row: {
-          id: string
-          team_id: string
-          name: string
-          parent_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          team_id: string
-          name: string
-          parent_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          team_id?: string
-          name?: string
-          parent_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'folders_team_id_fkey'
-            columns: ['team_id']
-            isOneToOne: false
-            referencedRelation: 'teams'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'folders_parent_id_fkey'
-            columns: ['parent_id']
-            isOneToOne: false
-            referencedRelation: 'folders'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      workflows: {
-        Row: {
-          id: string
-          team_id: string
-          folder_id: string | null
-          name: string
-          emoji: string | null
-          description: string | null
-          status: WorkflowStatus
-          is_starred: boolean
-          created_by: string
-          published_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          team_id: string
-          folder_id?: string | null
-          name: string
-          emoji?: string | null
-          description?: string | null
-          status?: WorkflowStatus
-          is_starred?: boolean
-          created_by: string
-          published_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          team_id?: string
-          folder_id?: string | null
-          name?: string
-          emoji?: string | null
-          description?: string | null
-          status?: WorkflowStatus
-          is_starred?: boolean
-          created_by?: string
-          published_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'workflows_team_id_fkey'
-            columns: ['team_id']
-            isOneToOne: false
-            referencedRelation: 'teams'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'workflows_folder_id_fkey'
-            columns: ['folder_id']
-            isOneToOne: false
-            referencedRelation: 'folders'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'workflows_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      workflow_triggers: {
-        Row: {
-          id: string
-          workflow_id: string
-          type: TriggerType
-          config: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          workflow_id: string
-          type: TriggerType
-          config?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          workflow_id?: string
-          type?: TriggerType
-          config?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'workflow_triggers_workflow_id_fkey'
-            columns: ['workflow_id']
-            isOneToOne: true
-            referencedRelation: 'workflows'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      workflow_steps: {
-        Row: {
-          id: string
-          workflow_id: string
-          position: number
-          type: StepType
-          name: string
-          config: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          workflow_id: string
-          position: number
-          type: StepType
-          name: string
-          config?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          workflow_id?: string
-          position?: number
-          type?: StepType
-          name?: string
-          config?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'workflow_steps_workflow_id_fkey'
-            columns: ['workflow_id']
-            isOneToOne: false
-            referencedRelation: 'workflows'
+            referencedRelation: 'agent_conversations'
             referencedColumns: ['id']
           },
         ]
       }
       agent_skills: {
         Row: {
-          id: string
+          action_template: Json | null
           agent_id: string
-          workflow_id: string
-          name: string
-          last_run_at: string | null
-          run_count: number
           created_at: string
+          description: string | null
+          id: string
+          last_run_at: string | null
+          name: string
+          run_count: number
+          source: string | null
           updated_at: string
+          workflow_id: string | null
         }
         Insert: {
-          id?: string
+          action_template?: Json | null
           agent_id: string
-          workflow_id: string
-          name: string
-          last_run_at?: string | null
-          run_count?: number
           created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          run_count?: number
+          source?: string | null
           updated_at?: string
+          workflow_id?: string | null
         }
         Update: {
-          id?: string
+          action_template?: Json | null
           agent_id?: string
-          workflow_id?: string
-          name?: string
-          last_run_at?: string | null
-          run_count?: number
           created_at?: string
+          description?: string | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          run_count?: number
+          source?: string | null
           updated_at?: string
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -380,166 +135,74 @@ export type Database = {
           },
         ]
       }
-      workflow_runs: {
+      agents: {
         Row: {
-          id: string
-          workflow_id: string
-          agent_id: string | null
-          status: RunStatus
-          steps_used: number
-          ai_credits_used: number
-          trigger_type: TriggerType | null
-          trigger_data: Json
-          error: string | null
-          started_at: string | null
-          completed_at: string | null
+          avatar_type: string | null
+          avatar_url: string | null
+          conversation_starters: Json | null
           created_at: string
-        }
-        Insert: {
-          id?: string
-          workflow_id: string
-          agent_id?: string | null
-          status?: RunStatus
-          steps_used?: number
-          ai_credits_used?: number
-          trigger_type?: TriggerType | null
-          trigger_data?: Json
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          workflow_id?: string
-          agent_id?: string | null
-          status?: RunStatus
-          steps_used?: number
-          ai_credits_used?: number
-          trigger_type?: TriggerType | null
-          trigger_data?: Json
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'workflow_runs_workflow_id_fkey'
-            columns: ['workflow_id']
-            isOneToOne: false
-            referencedRelation: 'workflows'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'workflow_runs_agent_id_fkey'
-            columns: ['agent_id']
-            isOneToOne: false
-            referencedRelation: 'agents'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      workflow_run_steps: {
-        Row: {
+          created_by: string
+          description: string | null
           id: string
-          run_id: string
-          step_id: string | null
-          step_position: number
-          step_type: StepType
-          status: RunStatus
-          input: Json
-          output: Json
-          error: string | null
-          started_at: string | null
-          completed_at: string | null
-          duration_ms: number | null
-        }
-        Insert: {
-          id?: string
-          run_id: string
-          step_id?: string | null
-          step_position: number
-          step_type: StepType
-          status?: RunStatus
-          input?: Json
-          output?: Json
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          duration_ms?: number | null
-        }
-        Update: {
-          id?: string
-          run_id?: string
-          step_id?: string | null
-          step_position?: number
-          step_type?: StepType
-          status?: RunStatus
-          input?: Json
-          output?: Json
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          duration_ms?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'workflow_run_steps_run_id_fkey'
-            columns: ['run_id']
-            isOneToOne: false
-            referencedRelation: 'workflow_runs'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      app_connections: {
-        Row: {
-          id: string
-          user_id: string
+          is_active: boolean | null
+          max_tokens: number | null
+          model: string | null
+          name: string
+          palette: string
+          status: string | null
+          system_prompt: string | null
           team_id: string
-          app_id: string
-          composio_connection_id: string | null
-          account_label: string | null
-          account_id: string | null
-          metadata: Json
-          created_at: string
+          temperature: number | null
           updated_at: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          team_id: string
-          app_id: string
-          composio_connection_id?: string | null
-          account_label?: string | null
-          account_id?: string | null
-          metadata?: Json
+          avatar_type?: string | null
+          avatar_url?: string | null
+          conversation_starters?: Json | null
           created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_tokens?: number | null
+          model?: string | null
+          name: string
+          palette?: string
+          status?: string | null
+          system_prompt?: string | null
+          team_id: string
+          temperature?: number | null
           updated_at?: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          team_id?: string
-          app_id?: string
-          composio_connection_id?: string | null
-          account_label?: string | null
-          account_id?: string | null
-          metadata?: Json
+          avatar_type?: string | null
+          avatar_url?: string | null
+          conversation_starters?: Json | null
           created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_tokens?: number | null
+          model?: string | null
+          name?: string
+          palette?: string
+          status?: string | null
+          system_prompt?: string | null
+          team_id?: string
+          temperature?: number | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'app_connections_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: 'agents_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
           {
-            foreignKeyName: 'app_connections_team_id_fkey'
+            foreignKeyName: 'agents_team_id_fkey'
             columns: ['team_id']
             isOneToOne: false
             referencedRelation: 'teams'
@@ -547,125 +210,180 @@ export type Database = {
           },
         ]
       }
-      step_test_results: {
+      app_connections: {
         Row: {
-          id: string
-          workflow_id: string
-          step_id: string | null
-          step_position: number
-          step_type: StepType
-          step_name: string
-          step_config: Json
-          status: 'running' | 'success' | 'failed'
-          output: Json
-          error: string | null
-          duration_ms: number
-          tested_by: string
+          account_id: string | null
+          account_label: string | null
+          app_id: string
+          composio_connection_id: string | null
           created_at: string
-          expires_at: string
+          id: string
+          metadata: Json | null
+          team_id: string
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          workflow_id: string
-          step_id?: string | null
-          step_position: number
-          step_type: StepType
-          step_name: string
-          step_config?: Json
-          status: 'running' | 'success' | 'failed'
-          output?: Json
-          error?: string | null
-          duration_ms: number
-          tested_by: string
+          account_id?: string | null
+          account_label?: string | null
+          app_id?: string
+          composio_connection_id?: string | null
           created_at?: string
-          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          team_id: string
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          id?: string
-          workflow_id?: string
-          step_id?: string | null
-          step_position?: number
-          step_type?: StepType
-          step_name?: string
-          step_config?: Json
-          status?: 'success' | 'failed'
-          output?: Json
-          error?: string | null
-          duration_ms?: number
-          tested_by?: string
+          account_id?: string | null
+          account_label?: string | null
+          app_id?: string
+          composio_connection_id?: string | null
           created_at?: string
-          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          team_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'step_test_results_workflow_id_fkey'
-            columns: ['workflow_id']
+            foreignKeyName: 'app_connections_team_id_fkey'
+            columns: ['team_id']
             isOneToOne: false
-            referencedRelation: 'workflows'
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'app_connections_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      cron_config: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'folders_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'folders_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
             referencedColumns: ['id']
           },
         ]
       }
       human_approvals: {
         Row: {
+          action_type: string
+          assignee: string | null
+          assignee_type: string
+          context_data: Json | null
+          created_at: string
+          expires_at: string
           id: string
+          include_context: boolean
+          prompt: string
+          responded_at: string | null
+          responded_by: string | null
+          response: Json | null
           run_id: string
+          status: string
           step_id: string | null
           step_position: number
+          timeout_minutes: number | null
           workflow_id: string
-          action_type: string
-          assignee_type: string
-          assignee: string | null
-          prompt: string
-          include_context: boolean
-          context_data: Json
-          status: string
-          response: Json
-          responded_by: string | null
-          responded_at: string | null
-          timeout_minutes: number
-          expires_at: string
-          created_at: string
         }
         Insert: {
+          action_type?: string
+          assignee?: string | null
+          assignee_type?: string
+          context_data?: Json | null
+          created_at?: string
+          expires_at: string
           id?: string
+          include_context?: boolean
+          prompt: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: Json | null
           run_id: string
+          status?: string
           step_id?: string | null
           step_position: number
+          timeout_minutes?: number | null
           workflow_id: string
-          action_type?: string
-          assignee_type?: string
-          assignee?: string | null
-          prompt: string
-          include_context?: boolean
-          context_data?: Json
-          status?: string
-          response?: Json
-          responded_by?: string | null
-          responded_at?: string | null
-          timeout_minutes?: number
-          expires_at: string
-          created_at?: string
         }
         Update: {
+          action_type?: string
+          assignee?: string | null
+          assignee_type?: string
+          context_data?: Json | null
+          created_at?: string
+          expires_at?: string
           id?: string
+          include_context?: boolean
+          prompt?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response?: Json | null
           run_id?: string
+          status?: string
           step_id?: string | null
           step_position?: number
+          timeout_minutes?: number | null
           workflow_id?: string
-          action_type?: string
-          assignee_type?: string
-          assignee?: string | null
-          prompt?: string
-          include_context?: boolean
-          context_data?: Json
-          status?: string
-          response?: Json
-          responded_by?: string | null
-          responded_at?: string | null
-          timeout_minutes?: number
-          expires_at?: string
-          created_at?: string
         }
         Relationships: [
           {
@@ -684,41 +402,190 @@ export type Database = {
           },
         ]
       }
-      usage: {
+      profiles: {
         Row: {
-          id: string
-          team_id: string
-          period_start: string
-          period_end: string
-          steps_used: number
-          steps_limit: number
-          ai_credits_used: number
-          ai_credits_limit: number
+          avatar_url: string | null
           created_at: string
+          email: string
+          full_name: string | null
+          id: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          team_id: string
-          period_start: string
-          period_end: string
-          steps_used?: number
-          steps_limit?: number
-          ai_credits_used?: number
-          ai_credits_limit?: number
+          avatar_url?: string | null
           created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          team_id?: string
-          period_start?: string
-          period_end?: string
-          steps_used?: number
-          steps_limit?: number
-          ai_credits_used?: number
-          ai_credits_limit?: number
+          avatar_url?: string | null
           created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      step_test_results: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error: string | null
+          expires_at: string
+          id: string
+          output: Json | null
+          status: string
+          step_config: Json
+          step_id: string | null
+          step_name: string
+          step_position: number
+          step_type: Database['public']['Enums']['step_type']
+          tested_by: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error?: string | null
+          expires_at?: string
+          id?: string
+          output?: Json | null
+          status: string
+          step_config?: Json
+          step_id?: string | null
+          step_name: string
+          step_position: number
+          step_type: Database['public']['Enums']['step_type']
+          tested_by: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          expires_at?: string
+          id?: string
+          output?: Json | null
+          status?: string
+          step_config?: Json
+          step_id?: string | null
+          step_name?: string
+          step_position?: number
+          step_type?: Database['public']['Enums']['step_type']
+          tested_by?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'step_test_results_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          role: Database['public']['Enums']['team_role']
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role?: Database['public']['Enums']['team_role']
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: Database['public']['Enums']['team_role']
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'team_members_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'team_members_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      usage: {
+        Row: {
+          ai_credits_limit: number
+          ai_credits_used: number
+          created_at: string
+          id: string
+          period_end: string
+          period_start: string
+          steps_limit: number
+          steps_used: number
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_credits_limit?: number
+          ai_credits_used?: number
+          created_at?: string
+          id?: string
+          period_end: string
+          period_start: string
+          steps_limit?: number
+          steps_used?: number
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          ai_credits_limit?: number
+          ai_credits_used?: number
+          created_at?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          steps_limit?: number
+          steps_used?: number
+          team_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -731,55 +598,477 @@ export type Database = {
           },
         ]
       }
+      workflow_run_steps: {
+        Row: {
+          completed_at: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          input: Json | null
+          output: Json | null
+          run_id: string
+          started_at: string | null
+          status: Database['public']['Enums']['run_status']
+          step_id: string | null
+          step_position: number
+          step_type: Database['public']['Enums']['step_type']
+        }
+        Insert: {
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          run_id: string
+          started_at?: string | null
+          status?: Database['public']['Enums']['run_status']
+          step_id?: string | null
+          step_position: number
+          step_type: Database['public']['Enums']['step_type']
+        }
+        Update: {
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          run_id?: string
+          started_at?: string | null
+          status?: Database['public']['Enums']['run_status']
+          step_id?: string | null
+          step_position?: number
+          step_type?: Database['public']['Enums']['step_type']
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_run_steps_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'workflow_runs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflow_runs: {
+        Row: {
+          agent_id: string | null
+          ai_credits_used: number
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          started_at: string | null
+          status: Database['public']['Enums']['run_status']
+          steps_used: number
+          trigger_data: Json | null
+          trigger_type: Database['public']['Enums']['trigger_type'] | null
+          workflow_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          ai_credits_used?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database['public']['Enums']['run_status']
+          steps_used?: number
+          trigger_data?: Json | null
+          trigger_type?: Database['public']['Enums']['trigger_type'] | null
+          workflow_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          ai_credits_used?: number
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database['public']['Enums']['run_status']
+          steps_used?: number
+          trigger_data?: Json | null
+          trigger_type?: Database['public']['Enums']['trigger_type'] | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_runs_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflow_runs_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          position: number
+          type: Database['public']['Enums']['step_type']
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          position: number
+          type: Database['public']['Enums']['step_type']
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          type?: Database['public']['Enums']['step_type']
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_steps_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflow_triggers: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          type: Database['public']['Enums']['trigger_type']
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          type: Database['public']['Enums']['trigger_type']
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          type?: Database['public']['Enums']['trigger_type']
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_triggers_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: true
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflows: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          emoji: string | null
+          folder_id: string | null
+          id: string
+          is_starred: boolean
+          name: string
+          published_at: string | null
+          status: Database['public']['Enums']['workflow_status']
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          emoji?: string | null
+          folder_id?: string | null
+          id?: string
+          is_starred?: boolean
+          name: string
+          published_at?: string | null
+          status?: Database['public']['Enums']['workflow_status']
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          emoji?: string | null
+          folder_id?: string | null
+          id?: string
+          is_starred?: boolean
+          name?: string
+          published_at?: string | null
+          status?: Database['public']['Enums']['workflow_status']
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflows_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflows_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflows_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      unschedule_cron_job: {
-        Args: { job_name: string }
+      cleanup_expired_test_results: { Args: never; Returns: number }
+      interval_to_cron: {
+        Args: { p_interval_unit: string; p_interval_value: number }
+        Returns: string
+      }
+      seed_demo_data: { Args: { user_uuid: string }; Returns: undefined }
+      unschedule_cron_job: { Args: { job_name: string }; Returns: undefined }
+      update_agent_config: {
+        Args: {
+          p_agent_id: string
+          p_conversation_starters?: Json
+          p_is_active?: boolean
+          p_max_tokens?: number
+          p_model?: string
+          p_status?: string
+          p_system_prompt?: string
+          p_temperature?: number
+        }
         Returns: undefined
       }
     }
     Enums: {
-      team_role: TeamRole
-      workflow_status: WorkflowStatus
-      trigger_type: TriggerType
-      step_type: StepType
-      run_status: RunStatus
-      connection_status: ConnectionStatus
+      connection_status: 'connected' | 'disconnected' | 'error'
+      run_status:
+        | 'pending'
+        | 'running'
+        | 'completed'
+        | 'failed'
+        | 'cancelled'
+        | 'waiting'
+        | 'waiting_for_input'
+      step_type:
+        | 'app'
+        | 'ai'
+        | 'flow_control'
+        | 'web_scraping'
+        | 'human_in_loop'
+        | 'utility'
+        | 'http'
+        | 'sequence'
+      team_role: 'owner' | 'admin' | 'member'
+      trigger_type:
+        | 'manual'
+        | 'scheduled'
+        | 'webhook'
+        | 'form'
+        | 'rss'
+        | 'mailhook'
+        | 'table'
+        | 'mcp'
+        | 'app'
+      workflow_status: 'draft' | 'published'
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
 
-// Enum union types matching PostgreSQL enums
-export type TeamRole = 'owner' | 'admin' | 'member'
-export type WorkflowStatus = 'draft' | 'published'
-export type TriggerType =
-  | 'manual'
-  | 'scheduled'
-  | 'webhook'
-  | 'form'
-  | 'rss'
-  | 'mailhook'
-  | 'table'
-  | 'mcp'
-  | 'app'
-export type StepType =
-  | 'app'
-  | 'ai'
-  | 'flow_control'
-  | 'web_scraping'
-  | 'human_in_loop'
-  | 'utility'
-  | 'http'
-  | 'sequence'
-export type RunStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'waiting'
-  | 'waiting_for_input'
-export type ConnectionStatus = 'connected' | 'disconnected' | 'error'
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema['Enums']
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema['CompositeTypes']
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      connection_status: ['connected', 'disconnected', 'error'],
+      run_status: [
+        'pending',
+        'running',
+        'completed',
+        'failed',
+        'cancelled',
+        'waiting',
+        'waiting_for_input',
+      ],
+      step_type: [
+        'app',
+        'ai',
+        'flow_control',
+        'web_scraping',
+        'human_in_loop',
+        'utility',
+        'http',
+        'sequence',
+      ],
+      team_role: ['owner', 'admin', 'member'],
+      trigger_type: [
+        'manual',
+        'scheduled',
+        'webhook',
+        'form',
+        'rss',
+        'mailhook',
+        'table',
+        'mcp',
+        'app',
+      ],
+      workflow_status: ['draft', 'published'],
+    },
+  },
+} as const

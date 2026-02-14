@@ -1,52 +1,52 @@
-import { Globe, Mail, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
 
-interface ConnectionItem {
-  label: string
-  icon: ReactNode
-  connected: boolean
+interface ConnectedApp {
+  app_id: string
+  account_label: string | null
 }
 
-const connections: ConnectionItem[] = [
-  {
-    label: 'Web browsing',
-    icon: <Globe className="h-4 w-4" />,
-    connected: false,
-  },
-  {
-    label: 'Email',
-    icon: <Mail className="h-4 w-4" />,
-    connected: false,
-  },
-  {
-    label: 'Slack',
-    icon: <MessageSquare className="h-4 w-4" />,
-    connected: false,
-  },
-]
+interface ConnectionIndicatorsProps {
+  apps: ConnectedApp[]
+}
 
-export default function ConnectionIndicators() {
+const APP_ICONS: Record<string, string> = {
+  github: '🐙',
+  slack: '💬',
+  gmail: '📧',
+  notion: '📝',
+  linear: '📊',
+  asana: '✓',
+  trello: '📋',
+  google_calendar: '📅',
+  zoom: '🎥',
+  dropbox: '📦',
+}
+
+function formatAppName(appId: string): string {
+  // Replace underscores and hyphens with spaces, capitalize words
+  return appId
+    .split(/[-_]/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+export default function ConnectionIndicators({ apps }: ConnectionIndicatorsProps) {
+  if (apps.length === 0) {
+    return <p className="text-muted-foreground text-xs">No connected apps</p>
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
-      {connections.map((item) => (
+      {apps.map((app) => (
         <div
-          key={item.label}
+          key={app.app_id}
           className={cn(
-            'bg-background/70 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm',
-            item.connected
-              ? 'border-primary/30 bg-primary/10 text-primary'
-              : 'border-border text-muted-foreground'
+            'border-primary/30 bg-primary/10 text-primary flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs'
           )}
         >
-          {item.icon}
-          <span>{item.label}</span>
-          <span
-            className={cn(
-              'h-2 w-2 rounded-full',
-              item.connected ? 'bg-primary' : 'bg-muted-foreground/40'
-            )}
-          />
+          <span>{APP_ICONS[app.app_id] ?? '⚡'}</span>
+          <span>{app.account_label ?? formatAppName(app.app_id)}</span>
+          <span className="bg-primary h-2 w-2 rounded-full" />
         </div>
       ))}
     </div>

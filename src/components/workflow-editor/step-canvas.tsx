@@ -12,7 +12,9 @@ import StepSelector from '@/components/workflow-editor/step-selector'
 import { getTriggerDefaultConfig } from '@/lib/workflow-editor/trigger-defaults'
 import { getStepDefaultConfig } from '@/lib/workflow-editor/step-defaults'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 export default function StepCanvas() {
   const { trigger, steps, selectedStepId, setTrigger, addStep, selectStep, reorderSteps } =

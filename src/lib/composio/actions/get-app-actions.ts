@@ -29,12 +29,12 @@ interface ActionParameters {
   required?: string[]
 }
 
-interface ActionDetails {
-  name: string
-  displayName?: string
+interface V2Tool {
+  slug: string // SCREAMING_SNAKE action name (e.g., "GITHUB_CREATE_ISSUE")
+  name: string // Human readable name
   description?: string
-  parameters?: ActionParameters
-  deprecated?: boolean
+  inputParameters?: ActionParameters
+  isDeprecated?: boolean
 }
 
 /**
@@ -89,21 +89,21 @@ export async function getAppActions(appId: string): Promise<ComposioAppAction[]>
   try {
     const composio = getComposio()
 
-    // Fetch actions for this app — the `apps` param is a string
-    const response = await composio.actions.list({ apps: appId })
+    // Fetch tools (actions) for this app using V2 SDK
+    const tools = await composio.tools.getRawComposioTools({ toolkits: [appId] })
 
-    if (!response?.items) {
+    if (!tools || tools.length === 0) {
       console.error(`No actions found for app: ${appId}`)
       return []
     }
 
     // Filter out deprecated actions and map to our format
-    const actions = response.items
-      .filter((action: ActionDetails) => !action.deprecated)
-      .map((action: ActionDetails): ComposioAppAction => {
+    const actions = tools
+      .filter((tool: V2Tool) => !tool.isDeprecated)
+      .map((tool: V2Tool): ComposioAppAction => {
         const params: ActionParam[] = []
-        const properties = action.parameters?.properties ?? {}
-        const required = action.parameters?.required ?? []
+        const properties = tool.inputParameters?.properties ?? {}
+        const required = tool.inputParameters?.required ?? []
 
         // Parse parameters from JSON Schema
         for (const [key, prop] of Object.entries(properties)) {
@@ -122,9 +122,9 @@ export async function getAppActions(appId: string): Promise<ComposioAppAction[]>
         }
 
         return {
-          name: action.name,
-          displayName: action.displayName ?? humanize(action.name),
-          description: action.description ?? '',
+          name: tool.slug, // SCREAMING_SNAKE action name (e.g., "GITHUB_CREATE_ISSUE")
+          displayName: tool.name, // Human readable name from V2
+          description: tool.description ?? '',
           params,
         }
       })

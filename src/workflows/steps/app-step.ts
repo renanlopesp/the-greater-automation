@@ -32,12 +32,9 @@ export async function appStep(config: AppStepConfig): Promise<AppStepOutput> {
   const actionInputs = { ...inputs } as Record<string, unknown>
   delete actionInputs._composio_connection_id
 
-  const result = await composio.actions.execute({
-    actionName,
-    requestBody: {
-      connectedAccountId,
-      input: actionInputs,
-    },
+  const result = await composio.tools.execute(actionName, {
+    connectedAccountId,
+    arguments: actionInputs,
   })
 
   const response = result as { successful?: boolean; data?: unknown; error?: string }

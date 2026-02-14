@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  subMonths,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -38,9 +37,9 @@ function MonthCalendar({ month, data }: { month: Date; data: Map<string, number>
   }
 
   return (
-    <div className="flex-1">
-      <h4 className="mb-2 text-center text-sm font-semibold">{format(month, 'MMMM')}</h4>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+    <div>
+      <h4 className="mb-2 text-center text-sm font-semibold">{format(month, 'MMMM yyyy')}</h4>
+      <div className="grid grid-cols-7 gap-1.5 text-center text-xs">
         {/* Day of week headers */}
         {DAY_LABELS.map((label, i) => (
           <div key={i} className="text-muted-foreground pb-1 text-[10px] font-semibold">
@@ -65,7 +64,7 @@ function MonthCalendar({ month, data }: { month: Date; data: Map<string, number>
               data-day-cell
               data-date={key}
               className={cn(
-                'mx-auto flex h-5 w-5 items-center justify-center rounded-md text-[10px]',
+                'mx-auto flex h-7 w-7 items-center justify-center rounded-md text-xs',
                 count > 0 && 'bg-primary/15 text-primary font-semibold',
                 today && 'ring-foreground/60 ring-1 ring-inset',
                 weekend && count === 0 && 'text-muted-foreground/60',
@@ -83,21 +82,10 @@ function MonthCalendar({ month, data }: { month: Date; data: Map<string, number>
 
 export default function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const today = new Date()
-  const months = [
-    subMonths(today, 4),
-    subMonths(today, 3),
-    subMonths(today, 2),
-    subMonths(today, 1),
-    today,
-  ]
 
   return (
-    <div className="bg-background overflow-x-auto rounded-2xl border p-4 shadow-sm">
-      <div className="grid min-w-[760px] grid-cols-5 gap-8">
-        {months.map((month) => (
-          <MonthCalendar key={format(month, 'yyyy-MM')} month={month} data={data} />
-        ))}
-      </div>
+    <div className="bg-background rounded-xl border p-4 shadow-sm">
+      <MonthCalendar month={today} data={data} />
     </div>
   )
 }

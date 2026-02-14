@@ -1,4 +1,6 @@
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 export interface SubWorkflowStep {
   id: string

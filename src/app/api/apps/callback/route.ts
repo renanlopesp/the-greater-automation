@@ -39,18 +39,14 @@ export async function GET(request: NextRequest) {
     let account: { id?: string; status?: string; accountId?: string } | null = null
 
     try {
-      account = await composio.connectedAccounts.get({
-        connectedAccountId: pending.connectedAccountId,
-      })
+      account = await composio.connectedAccounts.get(pending.connectedAccountId)
     } catch {
       // Connection might still be processing - check via query param if available
       const connectedAccountId =
         request.nextUrl.searchParams.get('connectedAccountId') || pending.connectedAccountId
 
       try {
-        account = await composio.connectedAccounts.get({
-          connectedAccountId,
-        })
+        account = await composio.connectedAccounts.get(connectedAccountId)
       } catch {
         return NextResponse.redirect(
           `${siteUrl}/dashboard?error=connection_failed&provider=${pending.appId}`

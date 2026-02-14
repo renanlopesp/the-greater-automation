@@ -7,6 +7,7 @@ export interface AppConnection {
   app_id: string
   account_label: string | null
   created_at: string
+  composio_connection_id: string | null
 }
 
 /**
@@ -25,7 +26,7 @@ export async function getAppConnections(): Promise<AppConnection[]> {
 
     const { data: connections } = await supabase
       .from('app_connections')
-      .select('id, app_id, account_label, created_at')
+      .select('id, app_id, account_label, created_at, composio_connection_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 

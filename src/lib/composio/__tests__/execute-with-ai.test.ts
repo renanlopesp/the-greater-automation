@@ -60,7 +60,7 @@ describe('executeAppStepWithAI', () => {
   ]
 
   const mockComposio = {
-    actions: {
+    tools: {
       execute: vi.fn(),
     },
   }
@@ -108,7 +108,7 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: { id: 123 } })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: { id: 123 } })
 
     await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId)
 
@@ -145,7 +145,7 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: { id: 456 } })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: { id: 456 } })
 
     const result = await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId)
 
@@ -158,26 +158,23 @@ describe('executeAppStepWithAI', () => {
     })
   })
 
-  it('passes correct params to composio.actions.execute()', async () => {
+  it('passes correct params to composio.tools.execute()', async () => {
     const aiResponse = JSON.stringify({
       actionName: 'GITHUB_CREATE_ISSUE',
       inputs: { owner: 'test-org', repo: 'test-repo', title: 'Test Issue' },
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: { id: 789 } })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: { id: 789 } })
 
     await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId)
 
-    expect(mockComposio.actions.execute).toHaveBeenCalledWith({
-      actionName: 'GITHUB_CREATE_ISSUE',
-      requestBody: {
-        connectedAccountId: 'conn_123',
-        input: {
-          owner: 'test-org',
-          repo: 'test-repo',
-          title: 'Test Issue',
-        },
+    expect(mockComposio.tools.execute).toHaveBeenCalledWith('GITHUB_CREATE_ISSUE', {
+      connectedAccountId: 'conn_123',
+      arguments: {
+        owner: 'test-org',
+        repo: 'test-repo',
+        title: 'Test Issue',
       },
     })
   })
@@ -189,7 +186,7 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({
+    mockComposio.tools.execute.mockResolvedValue({
       successful: true,
       data: [{ name: 'repo1' }, { name: 'repo2' }],
     })
@@ -282,7 +279,7 @@ describe('executeAppStepWithAI', () => {
       success: false,
       error: 'AI selected unknown action: GITHUB_DELETE_UNIVERSE',
     })
-    expect(mockComposio.actions.execute).not.toHaveBeenCalled()
+    expect(mockComposio.tools.execute).not.toHaveBeenCalled()
   })
 
   it('includes workflow context in prompt when provided', async () => {
@@ -297,7 +294,7 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: {} })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: {} })
 
     await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId, context)
 
@@ -369,7 +366,7 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({
+    mockComposio.tools.execute.mockResolvedValue({
       successful: false,
       error: 'Repository not found',
     })
@@ -415,17 +412,14 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: { id: 999 } })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: { id: 999 } })
 
     const result = await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId)
 
     expect(result.success).toBe(true)
-    expect(mockComposio.actions.execute).toHaveBeenCalledWith({
-      actionName: 'GITHUB_CREATE_ISSUE',
-      requestBody: {
-        connectedAccountId: 'conn_123',
-        input: {},
-      },
+    expect(mockComposio.tools.execute).toHaveBeenCalledWith('GITHUB_CREATE_ISSUE', {
+      connectedAccountId: 'conn_123',
+      arguments: {},
     })
   })
 
@@ -435,17 +429,14 @@ describe('executeAppStepWithAI', () => {
     })
 
     mockFetch.mockResolvedValue(createMockFetchResponse(aiResponse))
-    mockComposio.actions.execute.mockResolvedValue({ successful: true, data: [] })
+    mockComposio.tools.execute.mockResolvedValue({ successful: true, data: [] })
 
     const result = await executeAppStepWithAI(mockAppId, mockInstructions, mockConnectionId)
 
     expect(result.success).toBe(true)
-    expect(mockComposio.actions.execute).toHaveBeenCalledWith({
-      actionName: 'GITHUB_LIST_REPOS',
-      requestBody: {
-        connectedAccountId: 'conn_123',
-        input: {},
-      },
+    expect(mockComposio.tools.execute).toHaveBeenCalledWith('GITHUB_LIST_REPOS', {
+      connectedAccountId: 'conn_123',
+      arguments: {},
     })
   })
 
@@ -467,7 +458,7 @@ describe('executeAppStepWithAI', () => {
       .mockResolvedValueOnce(createMockFetchResponse(correctedResponse))
 
     // First Composio call fails, second succeeds
-    mockComposio.actions.execute
+    mockComposio.tools.execute
       .mockResolvedValueOnce({
         successful: false,
         error: 'Input should be a valid list on parameter labels',
@@ -485,7 +476,7 @@ describe('executeAppStepWithAI', () => {
       labels: ['bug'],
     })
     expect(result.result).toEqual({ id: 42 })
-    expect(mockComposio.actions.execute).toHaveBeenCalledTimes(2)
+    expect(mockComposio.tools.execute).toHaveBeenCalledTimes(2)
   })
 
   it('sends error context to AI in retry prompt', async () => {
@@ -502,7 +493,7 @@ describe('executeAppStepWithAI', () => {
       .mockResolvedValueOnce(createMockFetchResponse(initialResponse))
       .mockResolvedValueOnce(createMockFetchResponse(correctedResponse))
 
-    mockComposio.actions.execute
+    mockComposio.tools.execute
       .mockResolvedValueOnce({
         successful: false,
         error: 'Input should be a valid list on parameter labels',
@@ -534,7 +525,7 @@ describe('executeAppStepWithAI', () => {
     mockFetch.mockResolvedValue(createMockFetchResponse(sameResponse))
 
     // All Composio calls fail
-    mockComposio.actions.execute.mockResolvedValue({
+    mockComposio.tools.execute.mockResolvedValue({
       successful: false,
       error: 'Persistent failure',
     })
@@ -545,7 +536,7 @@ describe('executeAppStepWithAI', () => {
     expect(result.error).toBe('Persistent failure')
     expect(result.action_used).toBe('GITHUB_CREATE_ISSUE')
     // 3 Composio attempts total (initial + 2 retries)
-    expect(mockComposio.actions.execute).toHaveBeenCalledTimes(3)
+    expect(mockComposio.tools.execute).toHaveBeenCalledTimes(3)
     // 3 fetch calls: initial + 2 retry AI calls
     expect(mockFetch).toHaveBeenCalledTimes(3)
   })
@@ -560,7 +551,7 @@ describe('executeAppStepWithAI', () => {
       .mockResolvedValueOnce(createMockFetchResponse(initialResponse))
       .mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'Server Error' })
 
-    mockComposio.actions.execute.mockResolvedValueOnce({
+    mockComposio.tools.execute.mockResolvedValueOnce({
       successful: false,
       error: 'Bad input',
     })
@@ -570,7 +561,7 @@ describe('executeAppStepWithAI', () => {
     expect(result.success).toBe(false)
     expect(result.error).toBe('Bad input')
     // Only 1 Composio call — stopped after retry AI failed
-    expect(mockComposio.actions.execute).toHaveBeenCalledTimes(1)
+    expect(mockComposio.tools.execute).toHaveBeenCalledTimes(1)
   })
 
   it('stops retrying when retry AI returns invalid JSON', async () => {
@@ -583,7 +574,7 @@ describe('executeAppStepWithAI', () => {
       .mockResolvedValueOnce(createMockFetchResponse(initialResponse))
       .mockResolvedValueOnce(createMockFetchResponse("Sorry, I can't fix that. Let me try again."))
 
-    mockComposio.actions.execute.mockResolvedValueOnce({
+    mockComposio.tools.execute.mockResolvedValueOnce({
       successful: false,
       error: 'Invalid parameters',
     })
@@ -592,7 +583,7 @@ describe('executeAppStepWithAI', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toBe('Invalid parameters')
-    expect(mockComposio.actions.execute).toHaveBeenCalledTimes(1)
+    expect(mockComposio.tools.execute).toHaveBeenCalledTimes(1)
   })
 
   it('succeeds on third attempt after two failures', async () => {
@@ -614,7 +605,7 @@ describe('executeAppStepWithAI', () => {
       .mockResolvedValueOnce(createMockFetchResponse(attempt2))
       .mockResolvedValueOnce(createMockFetchResponse(attempt3))
 
-    mockComposio.actions.execute
+    mockComposio.tools.execute
       .mockResolvedValueOnce({ successful: false, error: 'labels must be array' })
       .mockResolvedValueOnce({ successful: false, error: 'assignees must be array' })
       .mockResolvedValueOnce({ successful: true, data: { id: 99 } })
@@ -629,7 +620,7 @@ describe('executeAppStepWithAI', () => {
       labels: ['bug'],
       assignees: ['me'],
     })
-    expect(mockComposio.actions.execute).toHaveBeenCalledTimes(3)
+    expect(mockComposio.tools.execute).toHaveBeenCalledTimes(3)
     expect(mockFetch).toHaveBeenCalledTimes(3)
   })
 })

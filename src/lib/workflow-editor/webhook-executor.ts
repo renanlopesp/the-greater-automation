@@ -471,12 +471,9 @@ export async function executeWorkflowSteps(
           const composio = getComposio()
           const actionName = getComposioActionName(appConfig.app_id, appConfig.action)
 
-          const result = await composio.actions.execute({
-            actionName,
-            requestBody: {
-              connectedAccountId: connection.composio_connection_id,
-              input: appConfig.inputs as Record<string, unknown>,
-            },
+          const result = await composio.tools.execute(actionName, {
+            connectedAccountId: connection.composio_connection_id,
+            arguments: appConfig.inputs as Record<string, unknown>,
           })
 
           const appResult = result as {

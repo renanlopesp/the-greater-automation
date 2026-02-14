@@ -8,7 +8,9 @@ import AddStepButton from '@/components/workflow-editor/add-step-button'
 import StepSelector from '@/components/workflow-editor/step-selector'
 import { getStepDefaultConfig } from '@/lib/workflow-editor/step-defaults'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 export default function StepsPanel() {
   const { steps, selectedStepId, addStep, selectStep, reorderSteps } = useWorkflowEditorStore()

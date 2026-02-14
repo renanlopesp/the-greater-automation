@@ -2,11 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { getAppActions } from '../get-app-actions'
 import type { ComposioAppAction } from '../get-app-actions'
 
-// Mock the Composio client
+// Mock the Composio client with V2 API structure
 vi.mock('../../client', () => ({
   getComposio: vi.fn().mockReturnValue({
-    actions: {
-      list: vi.fn(),
+    tools: {
+      getRawComposioTools: vi.fn(),
     },
   }),
 }))
@@ -14,56 +14,51 @@ vi.mock('../../client', () => ({
 describe('getAppActions', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    // Reset the mock implementation for each test
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
-    mockList.mockReset()
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
+    mockGetTools.mockReset()
   })
 
   it('returns parsed actions for a valid app', async () => {
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
 
-    mockList.mockResolvedValue({
-      items: [
-        {
-          name: 'GITHUB_CREATE_ISSUE',
-          displayName: 'Create Issue',
-          description: 'Create a new issue',
-          parameters: {
-            type: 'object',
-            properties: {
-              owner: {
-                type: 'string',
-                title: 'Owner',
-                description: 'Repository owner',
-              },
-              repo: {
-                type: 'string',
-                title: 'Repository',
-                description: 'Repo name',
-              },
-              title: {
-                type: 'string',
-                title: 'Title',
-                description: 'Issue title',
-              },
-              body: {
-                type: 'string',
-                title: 'Body',
-                description: 'Issue body',
-              },
+    mockGetTools.mockResolvedValue([
+      {
+        slug: 'GITHUB_CREATE_ISSUE',
+        name: 'Create Issue',
+        description: 'Create a new issue',
+        inputParameters: {
+          type: 'object',
+          properties: {
+            owner: {
+              type: 'string',
+              title: 'Owner',
+              description: 'Repository owner',
             },
-            required: ['owner', 'repo', 'title'],
+            repo: {
+              type: 'string',
+              title: 'Repository',
+              description: 'Repo name',
+            },
+            title: {
+              type: 'string',
+              title: 'Title',
+              description: 'Issue title',
+            },
+            body: {
+              type: 'string',
+              title: 'Body',
+              description: 'Issue body',
+            },
           },
-          deprecated: false,
-          appKey: 'github',
-          appName: 'github',
+          required: ['owner', 'repo', 'title'],
         },
-      ],
-    })
+        isDeprecated: false,
+      },
+    ])
 
     const result = await getAppActions('github')
 
@@ -95,32 +90,30 @@ describe('getAppActions', () => {
   it('filters out deprecated actions', async () => {
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
 
-    mockList.mockResolvedValue({
-      items: [
-        {
-          name: 'GITHUB_CREATE_ISSUE',
-          displayName: 'Create Issue',
-          description: 'Create a new issue',
-          parameters: {
-            properties: {},
-            required: [],
-          },
-          deprecated: false,
+    mockGetTools.mockResolvedValue([
+      {
+        slug: 'GITHUB_CREATE_ISSUE',
+        name: 'Create Issue',
+        description: 'Create a new issue',
+        inputParameters: {
+          properties: {},
+          required: [],
         },
-        {
-          name: 'GITHUB_OLD_ACTION',
-          displayName: 'Old Action',
-          description: 'Deprecated action',
-          parameters: {
-            properties: {},
-            required: [],
-          },
-          deprecated: true,
+        isDeprecated: false,
+      },
+      {
+        slug: 'GITHUB_OLD_ACTION',
+        name: 'Old Action',
+        description: 'Deprecated action',
+        inputParameters: {
+          properties: {},
+          required: [],
         },
-      ],
-    })
+        isDeprecated: true,
+      },
+    ])
 
     const result = await getAppActions('github')
 
@@ -131,9 +124,9 @@ describe('getAppActions', () => {
   it('returns empty array when Composio fails', async () => {
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
 
-    mockList.mockRejectedValue(new Error('API error'))
+    mockGetTools.mockRejectedValue(new Error('API error'))
 
     const result = await getAppActions('github')
 
@@ -143,18 +136,16 @@ describe('getAppActions', () => {
   it('handles missing parameters gracefully', async () => {
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
 
-    mockList.mockResolvedValue({
-      items: [
-        {
-          name: 'SIMPLE_ACTION',
-          displayName: 'Simple Action',
-          description: 'Action with no parameters',
-          deprecated: false,
-        },
-      ],
-    })
+    mockGetTools.mockResolvedValue([
+      {
+        slug: 'SIMPLE_ACTION',
+        name: 'Simple Action',
+        description: 'Action with no parameters',
+        isDeprecated: false,
+      },
+    ])
 
     const result = await getAppActions('testapp')
 
@@ -165,36 +156,34 @@ describe('getAppActions', () => {
   it('maps JSON Schema types correctly', async () => {
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
-    const mockList = mockComposio.actions.list as ReturnType<typeof vi.fn>
+    const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>
 
-    mockList.mockResolvedValue({
-      items: [
-        {
-          name: 'TYPE_TEST',
-          displayName: 'Type Test',
-          description: 'Test type mapping',
-          parameters: {
-            properties: {
-              textField: { type: 'string', title: 'Text Field' },
-              integerField: { type: 'integer', title: 'Integer Field' },
-              numberField: { type: 'number', title: 'Number Field' },
-              urlField: {
-                type: 'string',
-                title: 'URL Field',
-                description: 'Enter a URL',
-              },
-              longTextField: {
-                type: 'string',
-                title: 'Long Text',
-                description: 'Enter a long description',
-              },
+    mockGetTools.mockResolvedValue([
+      {
+        slug: 'TYPE_TEST',
+        name: 'Type Test',
+        description: 'Test type mapping',
+        inputParameters: {
+          properties: {
+            textField: { type: 'string', title: 'Text Field' },
+            integerField: { type: 'integer', title: 'Integer Field' },
+            numberField: { type: 'number', title: 'Number Field' },
+            urlField: {
+              type: 'string',
+              title: 'URL Field',
+              description: 'Enter a URL',
             },
-            required: [],
+            longTextField: {
+              type: 'string',
+              title: 'Long Text',
+              description: 'Enter a long description',
+            },
           },
-          deprecated: false,
+          required: [],
         },
-      ],
-    })
+        isDeprecated: false,
+      },
+    ])
 
     const result = await getAppActions('testapp')
 
