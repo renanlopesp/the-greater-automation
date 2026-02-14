@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { getStepDefaultConfig, isStepConfigComplete } from '@/lib/workflow-editor/step-defaults'
 import type { WorkflowStep } from '@/lib/workflow-editor/step-defaults'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 const allTypes: StepType[] = [
   'app',

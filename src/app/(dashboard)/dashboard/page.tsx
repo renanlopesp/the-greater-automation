@@ -55,6 +55,7 @@ export default async function DashboardPage({
           description: a.description,
           avatar_url: a.avatar_url,
           palette: a.palette,
+          is_active: a.is_active,
         },
         skills: a.skills.map((s) => ({
           id: s.id,

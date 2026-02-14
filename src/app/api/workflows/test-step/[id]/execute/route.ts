@@ -186,12 +186,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         } else {
           try {
             const composio = getComposio()
-            const result = await composio.actions.execute({
-              actionName: appConfig.action,
-              requestBody: {
-                connectedAccountId: connection.composio_connection_id,
-                input: appConfig.inputs ?? {},
-              },
+            const result = await composio.tools.execute(appConfig.action, {
+              connectedAccountId: connection.composio_connection_id,
+              arguments: appConfig.inputs ?? {},
             })
 
             const appResult = result as {

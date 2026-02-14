@@ -319,12 +319,9 @@ export async function POST(
                         .single()
                       if (!conn?.composio_connection_id)
                         throw new Error(`No ${ac.app_id} connection found`)
-                      const res = await getComposio().actions.execute({
-                        actionName: ac.action,
-                        requestBody: {
-                          connectedAccountId: conn.composio_connection_id,
-                          input: ac.inputs ?? {},
-                        },
+                      const res = await getComposio().tools.execute(ac.action, {
+                        connectedAccountId: conn.composio_connection_id,
+                        arguments: ac.inputs ?? {},
                       })
                       const ar = res as { successful?: boolean; data?: unknown; error?: string }
                       if (!ar.successful)
@@ -363,12 +360,9 @@ export async function POST(
                 stepError = `No ${appConfig.app_id} connection found. Connect the app in Settings.`
               } else {
                 const composio = getComposio()
-                const result = await composio.actions.execute({
-                  actionName: appConfig.action,
-                  requestBody: {
-                    connectedAccountId: connection.composio_connection_id,
-                    input: appConfig.inputs ?? {},
-                  },
+                const result = await composio.tools.execute(appConfig.action, {
+                  connectedAccountId: connection.composio_connection_id,
+                  arguments: appConfig.inputs ?? {},
                 })
 
                 const appResult = result as {

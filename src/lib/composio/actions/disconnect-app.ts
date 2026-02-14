@@ -27,9 +27,7 @@ export async function disconnectApp(appId: string): Promise<{ success: boolean; 
     if (connection?.composio_connection_id) {
       try {
         const composio = getComposio()
-        await composio.connectedAccounts.delete({
-          connectedAccountId: connection.composio_connection_id,
-        })
+        await composio.connectedAccounts.delete(connection.composio_connection_id)
       } catch (error) {
         console.warn('Failed to delete Composio connection:', error)
       }

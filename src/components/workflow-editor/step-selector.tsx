@@ -19,8 +19,10 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { STEP_TYPES, CONNECTED_APPS } from '@/lib/workflow-editor/step-metadata'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
 import { useAppConnections } from '@/hooks/use-app-connections'
+
+type StepType = Database['public']['Enums']['step_type']
 
 interface StepSelectorProps {
   open: boolean

@@ -55,24 +55,21 @@ let _integrationCache: Record<string, string> | null = null
 
 /**
  * Fetches integration IDs from Composio API and caches them.
- * Matches custom auth configs by appName.
+ * Matches custom auth configs by toolkit slug.
  */
 async function loadIntegrations(): Promise<Record<string, string>> {
   if (_integrationCache) return _integrationCache
 
   const { getComposio } = await import('./client')
   const composio = getComposio()
-  const result = await composio.integrations.list()
-  const items = (result as { items?: unknown[] }).items || result
+  const result = await composio.authConfigs.list()
+  const items = result.items || []
 
   _integrationCache = {}
-  if (Array.isArray(items)) {
-    for (const item of items) {
-      const i = item as { id: string; appName?: string; appId?: string }
-      const appName = i.appName || i.appId
-      if (appName && i.id) {
-        _integrationCache[appName.toLowerCase()] = i.id
-      }
+  for (const item of items) {
+    const appName = item.toolkit?.slug
+    if (appName && item.id) {
+      _integrationCache[appName.toLowerCase()] = item.id
     }
   }
   return _integrationCache

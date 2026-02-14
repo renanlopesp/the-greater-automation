@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import type { StepType, Json } from '@/lib/supabase/database.types'
+import type { Database, Json } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()

@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import type { WorkflowStatus, TriggerType, StepType, Database } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type WorkflowStatus = Database['public']['Enums']['workflow_status']
+type TriggerType = Database['public']['Enums']['trigger_type']
+type StepType = Database['public']['Enums']['step_type']
 import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
 import { encryptSecret, decryptSecret, generateWebhookSecret } from '@/lib/crypto'
 import { fetchWorkflowForEditor } from '@/lib/queries/workflow-editor'

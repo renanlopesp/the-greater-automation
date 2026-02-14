@@ -15,7 +15,7 @@ const { mockExecute, mockGetUser, mockSingle, mockEq2, mockEq1, mockSelect, mock
 )
 
 vi.mock('../../client', () => ({
-  getComposio: vi.fn(() => ({ actions: { execute: mockExecute } })),
+  getComposio: vi.fn(() => ({ tools: { execute: mockExecute } })),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -87,12 +87,9 @@ describe('fetchAppResource', () => {
         { label: 'repo-2', value: 'id-2', raw: { name: 'repo-2', id: 'id-2' } },
       ],
     })
-    expect(mockExecute).toHaveBeenCalledWith({
-      actionName: 'GITHUB_LIST_USER_REPOS',
-      requestBody: {
-        connectedAccountId: 'conn-456',
-        input: {},
-      },
+    expect(mockExecute).toHaveBeenCalledWith('GITHUB_LIST_USER_REPOS', {
+      connectedAccountId: 'conn-456',
+      arguments: {},
     })
   })
 
@@ -140,12 +137,9 @@ describe('fetchAppResource', () => {
     const params = { org: 'myorg', type: 'public' }
     await fetchAppResource('github', 'GITHUB_LIST_ORG_REPOS', 'name', 'id', params)
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      actionName: 'GITHUB_LIST_ORG_REPOS',
-      requestBody: {
-        connectedAccountId: 'conn-456',
-        input: params,
-      },
+    expect(mockExecute).toHaveBeenCalledWith('GITHUB_LIST_ORG_REPOS', {
+      connectedAccountId: 'conn-456',
+      arguments: params,
     })
   })
 

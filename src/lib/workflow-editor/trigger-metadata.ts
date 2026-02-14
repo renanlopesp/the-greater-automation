@@ -1,4 +1,6 @@
-import type { TriggerType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type TriggerType = Database['public']['Enums']['trigger_type']
 
 export interface TriggerMeta {
   type: TriggerType

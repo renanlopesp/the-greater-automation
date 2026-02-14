@@ -94,7 +94,9 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
   const workflowToAgent: Record<string, string> = {}
   if (skillsResult.data) {
     for (const s of skillsResult.data) {
-      workflowToAgent[s.workflow_id] = s.agent_id
+      if (s.workflow_id !== null) {
+        workflowToAgent[s.workflow_id] = s.agent_id
+      }
     }
   }
 

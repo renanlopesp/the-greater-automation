@@ -77,6 +77,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Composio SDK (`composio-core`), Kiro Chat API (OpenAI-compatible, streaming + function calling), TanStack React Query, Zustand (018-autonomous-agent-skills)
+- Supabase (PostgreSQL) — existing tables: `agents`, `agent_conversations`, `agent_messages`, `agent_skills`, `app_connections` (018-autonomous-agent-skills)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Supabase (@supabase/ssr, @supabase/supabase-js) (014-webhook-runner)
 - Supabase (PostgreSQL) — workflow_triggers, workflow_runs, workflow_run_steps tables (014-webhook-runner)
 

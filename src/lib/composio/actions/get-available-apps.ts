@@ -15,17 +15,17 @@ export interface AvailableApp {
 export async function getAvailableApps(): Promise<AvailableApp[]> {
   try {
     const composio = getComposio()
-    const result = await composio.integrations.list()
-    const items = (result as { items?: unknown[] }).items || result
+    const result = await composio.authConfigs.list()
+    const items = result.items
 
     if (!Array.isArray(items)) return []
 
     return items.map((item) => {
-      const i = item as { id: string; appName?: string; appId?: string; name?: string }
+      const i = item as { id: string; toolkit?: { slug: string }; name?: string }
       return {
-        id: (i.appName || i.appId || '').toLowerCase(),
+        id: i.toolkit?.slug?.toLowerCase() || '',
         integrationId: i.id,
-        name: i.name || i.appName || i.appId || '',
+        name: i.name || i.toolkit?.slug || '',
       }
     })
   } catch (error) {

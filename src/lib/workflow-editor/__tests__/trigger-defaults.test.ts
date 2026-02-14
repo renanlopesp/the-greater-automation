@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { getTriggerDefaultConfig } from '@/lib/workflow-editor/trigger-defaults'
-import type { TriggerType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type TriggerType = Database['public']['Enums']['trigger_type']
 
 const allTypes: TriggerType[] = [
   'app',
