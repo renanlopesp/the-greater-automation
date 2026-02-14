@@ -25,14 +25,3 @@ BEGIN
   WHERE id = p_agent_id;
 END;
 $$;
-
--- Keep legacy function for backward compatibility
-CREATE OR REPLACE FUNCTION update_agent_starters(agent_id UUID, starters JSONB)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  UPDATE agents SET conversation_starters = starters WHERE id = agent_id;
-END;
-$$;
