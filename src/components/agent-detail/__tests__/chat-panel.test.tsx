@@ -92,14 +92,16 @@ vi.mock('@/lib/agent-palettes', () => ({
   getAgentPalette: () => ['#000', '#111', '#222', '#333', '#444'],
 }))
 
-vi.mock('@/components/agent-detail/save-skill-dialog', () => ({
-  default: () => <div data-testid="save-skill-dialog" />,
-}))
+// SaveSkillDialog was removed — skills are created via conversational tool calling
 
 vi.mock('ai', () => ({
   isTextUIPart: (p: any) => p.type === 'text',
   isReasoningUIPart: (p: any) => p.type === 'reasoning',
   isToolUIPart: (p: any) => p.type === 'dynamic-tool' || p.type?.startsWith?.('tool-'),
+}))
+
+vi.mock('@/hooks/use-agent-skills', () => ({
+  useInvalidateAgentSkills: () => vi.fn(),
 }))
 
 vi.mock('@/hooks/use-agent-chat', () => ({
@@ -419,36 +421,6 @@ describe('ChatPanel', () => {
   })
 
   describe('Component Composition', () => {
-    it('should render save-skill-dialog when there are completed tool calls', () => {
-      mockChatState({
-        messages: [
-          {
-            id: 'msg-1',
-            role: 'assistant',
-            content: [],
-            parts: [
-              {
-                type: 'tool-search',
-                toolCallId: 'call-1',
-                toolName: 'search',
-                state: 'output-available',
-                input: { query: 'test' },
-                output: 'Results',
-              },
-              {
-                type: 'text',
-                text: 'Here are the search results',
-              },
-            ],
-            createdAt: new Date(),
-          },
-        ],
-      })
-      render(<ChatPanel {...defaultProps} />)
-
-      expect(screen.getByTestId('save-skill-dialog')).toBeInTheDocument()
-    })
-
     it('should render conversation scroll button', () => {
       mockChatState()
       render(<ChatPanel {...defaultProps} />)

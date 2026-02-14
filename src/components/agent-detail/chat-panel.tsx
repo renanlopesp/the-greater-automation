@@ -30,9 +30,10 @@ import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-e
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
-import SaveSkillDialog from '@/components/agent-detail/save-skill-dialog'
+// SaveSkillDialog removed - skills are now created via chat tool calling
 import { Button } from '@/components/ui/button'
 import { useAgentChat } from '@/hooks/use-agent-chat'
+import { useInvalidateAgentSkills } from '@/hooks/use-agent-skills'
 import { getAgentPalette } from '@/lib/agent-palettes'
 
 interface ChatPanelProps {
@@ -168,28 +169,7 @@ function ChatMessageItem({
             <ThumbsDownIcon className="size-3.5" />
           </MessageAction>
 
-          {/* Save as skill button for completed tool calls */}
-          {hasCompletedTools && (
-            <SaveSkillDialog
-              agentId={agentId}
-              toolExecutions={completedTools.map((te) => {
-                const isDynamic = te.type === 'dynamic-tool'
-                const toolName = isDynamic
-                  ? (te as { toolName: string }).toolName
-                  : te.type.replace(/^tool-/, '')
-                return {
-                  action: toolName,
-                  appId: 'composio',
-                  inputs: ('input' in te ? (te.input as Record<string, unknown>) : {}) || {},
-                }
-              })}
-              trigger={
-                <Button variant="ghost" size="sm" className="text-muted-foreground h-7 text-xs">
-                  Save as skill
-                </Button>
-              }
-            />
-          )}
+          {/* Skills are now created via chat tool calling (SNEW_CREATE_SKILL) */}
         </MessageActions>
       )}
     </Message>
@@ -202,8 +182,9 @@ export default function ChatPanel({
   agentPalette,
   conversationStarters,
 }: ChatPanelProps) {
+  const invalidateSkills = useInvalidateAgentSkills(agentId)
   const { messages, status, isLoading, isStreaming, isLoadingHistory, error, sendMessage, stop } =
-    useAgentChat(agentId)
+    useAgentChat(agentId, { onSkillMutation: invalidateSkills })
 
   const hasMessages = messages.length > 0
 

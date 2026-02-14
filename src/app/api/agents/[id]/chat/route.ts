@@ -8,6 +8,7 @@ import {
   type AgentSkill,
   type ConnectedApp,
 } from '@/lib/ai/agent-chat'
+import { buildSkillBuilderTools } from '@/lib/ai/skill-builder-tools'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: agentId } = await params
@@ -146,6 +147,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     actions: [],
   }))
 
+  // 8.5. Build Relay virtual tools for skill management
+  const relayTools = buildSkillBuilderTools(agentId, user.id, agent.team_id)
+
   // 9. Build system prompt
   const systemPrompt = buildAgentSystemPrompt(
     agentConfig,
@@ -164,6 +168,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       agent: agentConfig,
       messages: modelMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
       systemPrompt,
+      relayTools,
     })
 
     // Persist assistant response after stream completes (fire and forget)

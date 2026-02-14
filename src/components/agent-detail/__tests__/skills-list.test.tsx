@@ -12,17 +12,17 @@ vi.mock('@/lib/actions/agent-skills', () => ({
   removeSkill: vi.fn(),
 }))
 
-// Mock AddSkillDialog to avoid complex client-side dependency
-vi.mock('@/components/agent-detail/add-skill-dialog', () => ({
-  default: ({ trigger }: { trigger: React.ReactNode }) => <div>{trigger}</div>,
+// Mock agent skills hook (needs QueryClientProvider otherwise)
+vi.mock('@/hooks/use-agent-skills', () => ({
+  useInvalidateAgentSkills: () => vi.fn(),
 }))
 
-const mockSkills = [
+const mockLegacySkills = [
   {
     id: '1',
     name: 'Email Summarizer',
     description: null,
-    source: null,
+    source: 'manual',
     last_run_at: null,
     workflow_id: 'wf-1',
     workflow: { name: 'Email Flow', emoji: '📧' },
@@ -32,7 +32,7 @@ const mockSkills = [
     id: '2',
     name: 'Data Processor',
     description: null,
-    source: null,
+    source: 'manual',
     last_run_at: new Date(Date.now() - 3_600_000).toISOString(),
     workflow_id: 'wf-2',
     workflow: { name: 'Data Pipeline', emoji: '🔄' },
@@ -40,41 +40,85 @@ const mockSkills = [
   },
 ]
 
+const mockRuleSkills = [
+  {
+    id: '3',
+    name: 'Test Ping',
+    description: 'Sends a ping notification',
+    source: 'rule',
+    last_run_at: null,
+    workflow: null,
+    trigger_config: { type: 'manual' },
+    conditions: [],
+    actions: [{ type: 'notify', channel: 'internal', message: 'Pong!' }],
+    is_enabled: true,
+    execution_mode: 'auto',
+    run_count: 0,
+  },
+  {
+    id: '4',
+    name: 'Daily Standup',
+    description: 'Scheduled reminder',
+    source: 'rule',
+    last_run_at: new Date(Date.now() - 3_600_000).toISOString(),
+    workflow: null,
+    trigger_config: { type: 'scheduled', cron_expression: '0 9 * * 1-5' },
+    conditions: [{ field: 'body.team', operator: 'equals', value: 'engineering' }],
+    actions: [{ type: 'notify', channel: 'slack', message: 'Standup time!' }],
+    is_enabled: true,
+    execution_mode: 'auto',
+    run_count: 5,
+  },
+]
+
 describe('SkillsList', () => {
-  it('renders skill cards with names', () => {
-    render(<SkillsList skills={mockSkills} agentId="agent-1" teamId="team-1" />)
+  it('renders legacy skill cards with names and emojis', () => {
+    render(<SkillsList skills={mockLegacySkills} agentId="agent-1" teamId="team-1" />)
     expect(screen.getByText('Email Summarizer')).toBeInTheDocument()
     expect(screen.getByText('Data Processor')).toBeInTheDocument()
-  })
-
-  it('renders workflow emojis', () => {
-    render(<SkillsList skills={mockSkills} agentId="agent-1" teamId="team-1" />)
     expect(screen.getByText('📧')).toBeInTheDocument()
     expect(screen.getByText('🔄')).toBeInTheDocument()
   })
 
   it('shows "Never ran" for skills with null last_run_at', () => {
-    render(<SkillsList skills={mockSkills} agentId="agent-1" teamId="team-1" />)
+    render(<SkillsList skills={mockLegacySkills} agentId="agent-1" teamId="team-1" />)
     expect(screen.getByText('Never ran')).toBeInTheDocument()
   })
 
-  it('shows relative time for skills with last_run_at', () => {
-    render(<SkillsList skills={mockSkills} agentId="agent-1" teamId="team-1" />)
+  it('shows relative time for legacy skills with last_run_at', () => {
+    render(<SkillsList skills={mockLegacySkills} agentId="agent-1" teamId="team-1" />)
     expect(screen.getByText(/ago/)).toBeInTheDocument()
   })
 
-  it('renders "New skill" button', () => {
-    render(<SkillsList skills={mockSkills} agentId="agent-1" teamId="team-1" />)
-    expect(screen.getByText('New skill')).toBeInTheDocument()
+  it('renders rule-based skills with trigger icons', () => {
+    render(<SkillsList skills={mockRuleSkills} agentId="agent-1" teamId="team-1" />)
+    expect(screen.getByText('Test Ping')).toBeInTheDocument()
+    expect(screen.getByText('Daily Standup')).toBeInTheDocument()
   })
 
-  it('renders default emoji when workflow is null', () => {
+  it('shows "Run" button for manual trigger skills', () => {
+    render(<SkillsList skills={mockRuleSkills} agentId="agent-1" teamId="team-1" />)
+    expect(screen.getByText('Run')).toBeInTheDocument()
+  })
+
+  it('shows enable/disable toggle for rule skills', () => {
+    render(<SkillsList skills={mockRuleSkills} agentId="agent-1" teamId="team-1" />)
+    const toggles = screen.getAllByRole('switch', { name: 'Toggle skill' })
+    expect(toggles.length).toBeGreaterThan(0)
+  })
+
+  it('shows condition count badge when conditions exist', () => {
+    render(<SkillsList skills={mockRuleSkills} agentId="agent-1" teamId="team-1" />)
+    expect(screen.getByText('1 condition')).toBeInTheDocument()
+  })
+
+  it('renders default emoji when legacy skill has no workflow', () => {
     const skills = [
       {
-        id: '3',
+        id: '5',
         name: 'Orphan Skill',
         description: null,
-        source: null,
+        source: 'manual',
         last_run_at: null,
         workflow_id: null,
         workflow: null,
@@ -88,7 +132,7 @@ describe('SkillsList', () => {
   it('renders dynamic skills with Dynamic badge', () => {
     const skills = [
       {
-        id: '4',
+        id: '6',
         name: 'Quick Bug Report',
         description: 'Create GitHub issue',
         source: 'dynamic',
@@ -102,5 +146,16 @@ describe('SkillsList', () => {
     expect(screen.getByText('Quick Bug Report')).toBeInTheDocument()
     expect(screen.getByText('Dynamic')).toBeInTheDocument()
     expect(screen.getByText('Create GitHub issue')).toBeInTheDocument()
+  })
+
+  it('shows help text to create skills via chat', () => {
+    render(<SkillsList skills={mockLegacySkills} agentId="agent-1" teamId="team-1" />)
+    expect(screen.getByText('Chat with your agent to create new skills')).toBeInTheDocument()
+  })
+
+  it('shows empty state when no skills', () => {
+    render(<SkillsList skills={[]} agentId="agent-1" teamId="team-1" />)
+    expect(screen.getByText('No skills yet')).toBeInTheDocument()
+    expect(screen.getByText('Chat with your agent to create new skills')).toBeInTheDocument()
   })
 })

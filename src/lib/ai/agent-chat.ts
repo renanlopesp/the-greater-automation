@@ -80,6 +80,37 @@ export function buildAgentSystemPrompt(
     }
   }
 
+  prompt += '\n\n## Skill Building\n'
+  prompt +=
+    'You can create, manage, and test executable skills (automation rules) for yourself. Skills follow a WHEN → IF → THEN pattern:\n\n'
+  prompt +=
+    '- **WHEN** (Trigger): What starts the skill — manual button, chat command, webhook, or schedule\n'
+  prompt +=
+    '- **IF** (Conditions): Optional rules that must be true for actions to run (e.g. "sender contains @acme.com")\n'
+  prompt +=
+    '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, or send a notification\n'
+  prompt +=
+    "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
+  prompt += '### How to Build a Skill\n\n'
+  prompt +=
+    '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'
+  prompt += '2. **VERIFY**: Use SNEW_CHECK_CONNECTIONS to ensure required apps are connected\n'
+  prompt +=
+    '3. **LOOKUP ACTIONS**: ALWAYS call SNEW_LIST_APP_ACTIONS for each app you plan to use (e.g. github, slack). NEVER guess action names — use only names returned by this tool.\n'
+  prompt +=
+    '4. **SUMMARIZE**: Present a clear summary: "Here\'s what I\'ll set up: WHEN [trigger] → IF [conditions] → THEN [actions] in [mode] mode"\n'
+  prompt += '5. **BUILD**: Call SNEW_CREATE_SKILL with the full configuration\n'
+  prompt += '6. **TEST**: Offer to dry-run with SNEW_TEST_SKILL using sample data\n\n'
+  prompt += '### Available Skill Tools\n\n'
+  prompt +=
+    '- SNEW_LIST_APP_ACTIONS — **MUST call before using composio_action** to get real action names and params\n'
+  prompt += '- SNEW_CREATE_SKILL — Create a new automation rule\n'
+  prompt += '- SNEW_LIST_SKILLS — See all current skills\n'
+  prompt += '- SNEW_UPDATE_SKILL — Modify an existing skill\n'
+  prompt += '- SNEW_DELETE_SKILL — Remove a skill\n'
+  prompt += '- SNEW_TEST_SKILL — Dry-run with sample data\n'
+  prompt += '- SNEW_CHECK_CONNECTIONS — Verify app connections\n'
+
   prompt += '\n\n## Instructions\n'
   prompt +=
     '- ALWAYS use your tools to fulfill requests. You have real tools that execute real actions — use them.\n'
@@ -129,6 +160,7 @@ export interface AgentChatOptions {
   agent: AgentConfig
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
   systemPrompt: string
+  relayTools?: Record<string, unknown>
 }
 
 /**
@@ -136,15 +168,18 @@ export interface AgentChatOptions {
  * Uses OpenAI (gpt-4o) + Composio session tools via Vercel AI SDK.
  */
 export async function runAgentChat(options: AgentChatOptions) {
-  const { userId, agent, messages, systemPrompt } = options
+  const { userId, agent, messages, systemPrompt, relayTools } = options
 
   // Get Composio tools for this user's connected apps
   const session = await getComposioSession(userId)
   const composioTools = await session.tools()
 
-  const toolNames = Object.keys(composioTools)
+  // Merge Relay virtual tools with Composio tools
+  const allTools = relayTools ? { ...composioTools, ...relayTools } : composioTools
+
+  const toolNames = Object.keys(allTools)
   console.log(
-    `[agent-chat] Composio tools: ${toolNames.length} for user ${userId} — ${toolNames.join(', ')}`
+    `[agent-chat] Tools: ${toolNames.length} for user ${userId} — ${toolNames.join(', ')}`
   )
 
   // Use OpenAI for agent chat (supports function calling)
@@ -158,7 +193,7 @@ export async function runAgentChat(options: AgentChatOptions) {
     model: provider.chat(modelId),
     system: systemPrompt,
     messages,
-    tools: composioTools as unknown as ToolSet,
+    tools: allTools as unknown as ToolSet,
     stopWhen: stepCountIs(10),
     temperature: agent.temperature ?? 0.7,
     maxOutputTokens: agent.max_tokens ?? 4096,

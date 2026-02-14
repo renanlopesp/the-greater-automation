@@ -21,7 +21,6 @@ import { PALETTE_MAP, type PaletteName } from '@/lib/agent-palettes'
 import { createAgent, updateAgent } from '@/lib/actions/agents'
 import PalettePicker from './palette-picker'
 import StarterEditor from './starter-editor'
-import SkillSelector from './skill-selector'
 
 interface AgentData {
   id: string
@@ -33,7 +32,7 @@ interface AgentData {
   temperature: number | null
   max_tokens: number | null
   conversation_starters: unknown
-  skillWorkflowIds: string[]
+  skillWorkflowIds?: string[]
 }
 
 interface Workflow {
@@ -69,7 +68,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
     if (Array.isArray(raw)) return raw.filter((s): s is string => typeof s === 'string')
     return []
   })
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(agent?.skillWorkflowIds ?? [])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -88,7 +86,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
           temperature,
           maxTokens,
           conversationStarters: starters.filter(Boolean),
-          skillWorkflowIds: selectedSkillIds,
         })
 
         if (result.error) {
@@ -107,7 +104,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
           temperature,
           maxTokens,
           conversationStarters: starters.filter(Boolean),
-          skillWorkflowIds: selectedSkillIds,
         })
 
         if (result.error) {
@@ -120,7 +116,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
     })
   }
 
-  const selectedSkillCount = selectedSkillIds.length
   const paletteColors = PALETTE_MAP[palette] ?? PALETTE_MAP.blue
 
   return (
@@ -256,21 +251,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
             </p>
             <StarterEditor starters={starters} onChange={setStarters} />
           </section>
-
-          <Separator />
-
-          {/* Skills */}
-          <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Skills</h2>
-            <p className="text-muted-foreground text-sm">
-              Link workflows as skills this agent can use.
-            </p>
-            <SkillSelector
-              workflows={workflows}
-              selectedIds={selectedSkillIds}
-              onChange={setSelectedSkillIds}
-            />
-          </section>
         </div>
 
         {/* Right column: Preview card */}
@@ -297,17 +277,6 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
                   </p>
                 )}
               </div>
-              {selectedSkillCount > 0 && (
-                <span
-                  className="rounded-full px-3 py-1 text-xs font-medium"
-                  style={{
-                    backgroundColor: paletteColors[2],
-                    color: paletteColors[0],
-                  }}
-                >
-                  {selectedSkillCount} {selectedSkillCount === 1 ? 'skill' : 'skills'}
-                </span>
-              )}
             </div>
           </div>
         </div>

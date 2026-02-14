@@ -26,37 +26,48 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   // Parallel data fetching
   const sixMonthsAgo = subMonths(new Date(), 6)
 
-  const [skillsResult, runsResult, recentRunsResult, connectionsResult] = await Promise.all([
-    // Skills with workflow info
-    supabase
-      .from('agent_skills')
-      .select(
-        'id, name, description, source, last_run_at, workflow_id, action_template, workflows(name, emoji)'
-      )
-      .eq('agent_id', id)
-      .order('created_at', { ascending: true }),
+  const [skillsResult, runsResult, recentRunsResult, connectionsResult, skillRunsResult] =
+    await Promise.all([
+      // Skills with workflow info + new columns
+      supabase
+        .from('agent_skills')
+        .select(
+          'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
+        )
+        .eq('agent_id', id)
+        .order('created_at', { ascending: true }),
 
-    // Runs for heatmap (last 6 months)
-    supabase
-      .from('workflow_runs')
-      .select('started_at')
-      .eq('agent_id', id)
-      .gte('started_at', sixMonthsAgo.toISOString())
-      .order('started_at', { ascending: false }),
+      // Runs for heatmap (last 6 months)
+      supabase
+        .from('workflow_runs')
+        .select('started_at')
+        .eq('agent_id', id)
+        .gte('started_at', sixMonthsAgo.toISOString())
+        .order('started_at', { ascending: false }),
 
-    // Recent runs for history
-    supabase
-      .from('workflow_runs')
-      .select(
-        'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
-      )
-      .eq('agent_id', id)
-      .order('started_at', { ascending: false })
-      .limit(20),
+      // Recent runs for history
+      supabase
+        .from('workflow_runs')
+        .select(
+          'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
+        )
+        .eq('agent_id', id)
+        .order('started_at', { ascending: false })
+        .limit(20),
 
-    // User's app connections
-    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
-  ])
+      // User's app connections
+      supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
+
+      // Skill runs
+      supabase
+        .from('agent_skill_runs')
+        .select(
+          'id, skill_id, status, trigger_data, actions_executed, error, duration_ms, created_at, agent_skills(name)'
+        )
+        .eq('agent_id', id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ])
 
   // Build heatmap data
   const heatmapData = new Map<string, number>()
@@ -76,9 +87,15 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     description: s.description ?? null,
     source: s.source ?? null,
     last_run_at: s.last_run_at,
-    workflow_id: s.workflow_id,
+    workflow_id: s.workflow_id ?? undefined,
     workflow: s.workflow_id ? (s.workflows as { name: string; emoji: string } | null) : null,
     action_template: s.action_template as Record<string, unknown> | null,
+    trigger_config: s.trigger_config as Record<string, unknown> | null,
+    conditions: Array.isArray(s.conditions) ? s.conditions : undefined,
+    actions: Array.isArray(s.actions) ? s.actions : undefined,
+    is_enabled: s.is_enabled ?? undefined,
+    execution_mode: s.execution_mode ?? undefined,
+    run_count: s.run_count ?? undefined,
   }))
 
   // Transform app connections for component
@@ -96,6 +113,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     started_at: r.started_at ?? '',
     completed_at: r.completed_at,
     workflow: r.workflows as { name: string; emoji: string } | null,
+  }))
+
+  // Transform skill runs for component
+  const skillRuns = (skillRunsResult.data ?? []).map((r) => ({
+    id: r.id,
+    skill_id: r.skill_id,
+    status: r.status,
+    trigger_data: r.trigger_data as Record<string, unknown> | null,
+    actions_executed: Array.isArray(r.actions_executed) ? r.actions_executed : null,
+    error: r.error,
+    duration_ms: r.duration_ms,
+    created_at: r.created_at,
+    agent_skills: r.agent_skills as { name: string } | null,
   }))
 
   return (
@@ -130,9 +160,10 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           <AgentSidebar
             agentId={id}
             teamId={agent.team_id}
-            skills={skills}
+            initialSkills={skills}
             connectedApps={connectedApps}
             recentRuns={recentRuns}
+            skillRuns={skillRuns}
             heatmapData={heatmapData}
           />
         </div>

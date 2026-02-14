@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,20 +16,13 @@ import SkillsList from '@/components/agent-detail/skills-list'
 import ConnectionIndicators from '@/components/agent-detail/connection-indicators'
 import ActivityHeatmap from '@/components/agent-detail/activity-heatmap'
 import RunHistory from '@/components/agent-detail/run-history'
+import { useAgentSkills } from '@/hooks/use-agent-skills'
+import type { AgentSkillData } from '@/lib/actions/agents'
 
 interface AgentSidebarProps {
   agentId: string
   teamId: string
-  skills: Array<{
-    id: string
-    name: string
-    description: string | null
-    source: string | null
-    last_run_at: string | null
-    workflow_id?: string | null
-    workflow: { name: string; emoji: string } | null
-    action_template?: Record<string, unknown> | null
-  }>
+  initialSkills: AgentSkillData[]
   connectedApps: Array<{
     app_id: string
     account_label: string | null
@@ -42,17 +36,52 @@ interface AgentSidebarProps {
     completed_at: string | null
     workflow: { name: string; emoji: string } | null
   }>
+  skillRuns: Array<{
+    id: string
+    skill_id: string
+    status: string
+    trigger_data: Record<string, unknown> | null
+    actions_executed: unknown[] | null
+    error: string | null
+    duration_ms: number | null
+    created_at: string
+    agent_skills: { name: string } | null
+  }>
   heatmapData: Map<string, number>
 }
 
 export default function AgentSidebar({
   agentId,
   teamId,
-  skills,
+  initialSkills,
   connectedApps,
   recentRuns,
+  skillRuns,
   heatmapData,
 }: AgentSidebarProps) {
+  const { data: skills = initialSkills } = useAgentSkills(agentId, initialSkills)
+  // Merge workflow runs and skill runs into a single chronological list
+  const allRuns = useMemo(() => {
+    const normalizedSkillRuns = skillRuns.map((sr) => ({
+      id: sr.id,
+      status: sr.status,
+      steps_used: 0,
+      ai_credits_used: 0,
+      started_at: sr.created_at,
+      completed_at: sr.duration_ms
+        ? new Date(new Date(sr.created_at).getTime() + sr.duration_ms).toISOString()
+        : null,
+      workflow: sr.agent_skills ? { name: sr.agent_skills.name, emoji: '\u26A1' } : null,
+      trigger_data: sr.trigger_data,
+      actions_executed: sr.actions_executed,
+      error: sr.error,
+    }))
+
+    return [...recentRuns, ...normalizedSkillRuns].sort(
+      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+    )
+  }, [recentRuns, skillRuns])
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -67,7 +96,7 @@ export default function AgentSidebar({
             Skills, connected apps, and activity
           </SheetDescription>
         </SheetHeader>
-        <ScrollArea className="h-[calc(100vh-5rem)]">
+        <ScrollArea className="h-[calc(100vh-5rem)] [&>[data-slot=scroll-area-viewport]>div]:!block">
           <div className="space-y-6 p-6">
             <SkillsList skills={skills} agentId={agentId} teamId={teamId} />
 
@@ -81,7 +110,10 @@ export default function AgentSidebar({
               <ActivityHeatmap data={heatmapData} />
             </section>
 
-            <RunHistory runs={recentRuns} />
+            <section className="space-y-3">
+              <h2 className="text-foreground text-[15px] font-semibold">Run history</h2>
+              <RunHistory runs={allRuns} />
+            </section>
           </div>
         </ScrollArea>
       </SheetContent>

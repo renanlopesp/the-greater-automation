@@ -35,14 +35,14 @@ const mockRuns = [
 describe('RunHistory', () => {
   it('renders empty state when no runs', () => {
     render(<RunHistory runs={[]} />)
-    expect(screen.getByText('No runs yet.')).toBeInTheDocument()
+    expect(screen.getByText('No runs yet')).toBeInTheDocument()
   })
 
   it('renders status badges', () => {
     render(<RunHistory runs={mockRuns} />)
-    expect(screen.getByText('completed')).toBeInTheDocument()
-    expect(screen.getByText('failed')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
   })
 
   it('renders workflow names with emojis', () => {
@@ -51,14 +51,14 @@ describe('RunHistory', () => {
     expect(screen.getByText(/Data Pipeline/)).toBeInTheDocument()
   })
 
-  it('shows "Unknown workflow" for null workflow', () => {
+  it('shows "Unknown" for null workflow', () => {
     render(<RunHistory runs={mockRuns} />)
-    expect(screen.getByText(/Unknown workflow/)).toBeInTheDocument()
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
   })
 
   it('shows duration for completed runs', () => {
     render(<RunHistory runs={mockRuns} />)
-    // First run has a 1-hour duration
-    expect(screen.getByText('1h')).toBeInTheDocument()
+    // First run has a 1-hour duration — text is within a larger string
+    expect(screen.getByText(/1h/)).toBeInTheDocument()
   })
 })

@@ -38,6 +38,40 @@ async function updateAgentConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Fetch agent skills (used by React Query on the client)
+// ---------------------------------------------------------------------------
+
+export async function getAgentSkills(agentId: string) {
+  const supabase = await createServerClient()
+  const { data } = await supabase
+    .from('agent_skills')
+    .select(
+      'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
+    )
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending: true })
+
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description ?? null,
+    source: s.source ?? null,
+    last_run_at: s.last_run_at,
+    workflow_id: s.workflow_id ?? undefined,
+    workflow: s.workflow_id ? (s.workflows as { name: string; emoji: string } | null) : null,
+    action_template: s.action_template as Record<string, unknown> | null,
+    trigger_config: s.trigger_config as Record<string, unknown> | null,
+    conditions: Array.isArray(s.conditions) ? s.conditions : undefined,
+    actions: Array.isArray(s.actions) ? s.actions : undefined,
+    is_enabled: s.is_enabled ?? undefined,
+    execution_mode: s.execution_mode ?? undefined,
+    run_count: s.run_count ?? undefined,
+  }))
+}
+
+export type AgentSkillData = Awaited<ReturnType<typeof getAgentSkills>>[number]
+
+// ---------------------------------------------------------------------------
 // 1. createAgent
 // ---------------------------------------------------------------------------
 
@@ -90,31 +124,6 @@ export async function createAgent(data: {
     maxTokens: data.maxTokens ?? null,
     conversationStarters: data.conversationStarters,
   })
-
-  // Insert agent_skills for each selected workflow
-  if (data.skillWorkflowIds && data.skillWorkflowIds.length > 0) {
-    // Fetch workflow names to use as skill names
-    const { data: workflows } = await supabase
-      .from('workflows')
-      .select('id, name')
-      .in('id', data.skillWorkflowIds)
-
-    if (workflows && workflows.length > 0) {
-      const skills = workflows.map((w) => ({
-        agent_id: agent.id,
-        workflow_id: w.id,
-        name: w.name,
-      }))
-
-      const { error: skillsError } = await supabase.from('agent_skills').insert(skills)
-
-      if (skillsError) {
-        // Clean up the agent if skills fail
-        await supabase.from('agents').delete().eq('id', agent.id)
-        return { error: 'Failed to add agent skills', id: '' }
-      }
-    }
-  }
 
   revalidatePath('/workspace')
   revalidatePath('/dashboard')
@@ -174,34 +183,6 @@ export async function updateAgent(
       conversationStarters: data.conversationStarters,
     }),
   })
-
-  // Update skills if provided
-  if (data.skillWorkflowIds !== undefined) {
-    // Delete existing skills
-    await supabase.from('agent_skills').delete().eq('agent_id', agentId)
-
-    // Insert new skills
-    if (data.skillWorkflowIds.length > 0) {
-      const { data: workflows } = await supabase
-        .from('workflows')
-        .select('id, name')
-        .in('id', data.skillWorkflowIds)
-
-      if (workflows && workflows.length > 0) {
-        const skills = workflows.map((w) => ({
-          agent_id: agentId,
-          workflow_id: w.id,
-          name: w.name,
-        }))
-
-        const { error: skillsError } = await supabase.from('agent_skills').insert(skills)
-
-        if (skillsError) {
-          return { error: 'Failed to update agent skills' }
-        }
-      }
-    }
-  }
 
   revalidatePath('/workspace')
   revalidatePath('/dashboard')

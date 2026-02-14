@@ -1,15 +1,23 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { loadConversationHistory } from '@/lib/actions/agent-conversations'
 
-export function useAgentChat(agentId: string) {
+const SKILL_MUTATING_TOOLS = ['SNEW_CREATE_SKILL', 'SNEW_DELETE_SKILL', 'SNEW_UPDATE_SKILL']
+
+interface UseAgentChatOptions {
+  onSkillMutation?: () => void
+}
+
+export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const historyLoadedRef = useRef(false)
   const conversationIdRef = useRef<string | null>(null)
+  const onSkillMutationRef = useRef(options?.onSkillMutation)
+  onSkillMutationRef.current = options?.onSkillMutation
 
   // Keep ref in sync with state so the transport body closure reads latest value
   conversationIdRef.current = conversationId
@@ -20,8 +28,8 @@ export function useAgentChat(agentId: string) {
       new DefaultChatTransport({
         api: `/api/agents/${agentId}/chat`,
         body: () => ({ conversationId: conversationIdRef.current }),
-        fetch: async (url, options) => {
-          const response = await globalThis.fetch(url as string, options as RequestInit)
+        fetch: async (url, fetchOptions) => {
+          const response = await globalThis.fetch(url as string, fetchOptions as RequestInit)
           // Capture conversation ID from response header
           const newConvId = response.headers.get('X-Conversation-Id')
           if (newConvId) setConversationId(newConvId)
@@ -31,6 +39,21 @@ export function useAgentChat(agentId: string) {
     [agentId]
   )
 
+  // Detect completed skill-mutating tool calls and notify parent
+  const onFinish = useCallback(({ message }: { message: UIMessage }) => {
+    const hasSkillMutation = (message.parts ?? []).some((part) => {
+      if (!isToolUIPart(part)) return false
+      const toolName =
+        part.type === 'dynamic-tool'
+          ? (part as { toolName: string }).toolName
+          : part.type.replace(/^tool-/, '')
+      return SKILL_MUTATING_TOOLS.includes(toolName)
+    })
+    if (hasSkillMutation) {
+      onSkillMutationRef.current?.()
+    }
+  }, [])
+
   // Vercel AI SDK v6 useChat hook — expose raw UIMessages
   const {
     messages,
@@ -39,7 +62,7 @@ export function useAgentChat(agentId: string) {
     sendMessage: aiSendMessage,
     setMessages,
     stop,
-  } = useChat({ transport })
+  } = useChat({ transport, onFinish })
 
   // Load conversation history on mount
   useEffect(() => {

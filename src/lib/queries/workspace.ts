@@ -90,12 +90,13 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       : Promise.resolve({ data: null }),
   ])
 
-  // Build workflow-to-agent map
-  const workflowToAgent: Record<string, string> = {}
+  // Build per-agent workflow ID sets from skills
+  const agentWorkflowIds: Record<string, Set<string>> = {}
   if (skillsResult.data) {
     for (const s of skillsResult.data) {
       if (s.workflow_id !== null) {
-        workflowToAgent[s.workflow_id] = s.agent_id
+        if (!agentWorkflowIds[s.agent_id]) agentWorkflowIds[s.agent_id] = new Set()
+        agentWorkflowIds[s.agent_id].add(s.workflow_id)
       }
     }
   }
@@ -124,7 +125,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     }
   }
 
-  // Map workflows
+  // Map workflows (agent_id assigned later per-agent)
   const mappedWorkflows: WorkspaceWorkflow[] = (workflows ?? []).map((w) => ({
     type: 'workflow' as const,
     id: w.id,
@@ -139,17 +140,21 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     created_by_name: null,
     step_count: stepsByWorkflow[w.id]?.count ?? 0,
     has_ai_steps: stepsByWorkflow[w.id]?.hasAi ?? false,
-    agent_id: workflowToAgent[w.id] ?? null,
+    agent_id: null,
     folder_id: w.folder_id ?? null,
   }))
 
   // Build result: agents with nested workflows + standalone workflows
   const items: WorkspaceItem[] = []
-  const agentWorkflows = new Set<string>()
+  const claimedWorkflows = new Set<string>()
 
   for (const agent of agents ?? []) {
-    const childWorkflows = mappedWorkflows.filter((w) => w.agent_id === agent.id)
-    childWorkflows.forEach((w) => agentWorkflows.add(w.id))
+    const workflowIdSet = agentWorkflowIds[agent.id] ?? new Set<string>()
+    const childWorkflows = mappedWorkflows
+      .filter((w) => workflowIdSet.has(w.id))
+      .map((w) => ({ ...w, agent_id: agent.id }))
+    childWorkflows.forEach((w) => claimedWorkflows.add(w.id))
+
     items.push({
       type: 'agent',
       id: agent.id,
@@ -161,9 +166,9 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     })
   }
 
-  // Add standalone workflows (not assigned to an agent)
+  // Add standalone workflows (not assigned to any agent)
   for (const w of mappedWorkflows) {
-    if (!agentWorkflows.has(w.id)) {
+    if (!claimedWorkflows.has(w.id)) {
       items.push(w)
     }
   }
