@@ -90,6 +90,7 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
       connectedAccountId: connection.composio_connection_id,
       triggerConfig: params.triggerConfig,
     })
+    await enableTrigger(composioTriggerId)
 
     // Insert into database
     const { data: subscription, error: dbError } = await supabase
