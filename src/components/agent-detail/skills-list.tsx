@@ -1,221 +1,303 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { formatDistanceToNow } from 'date-fns'
-import { Webhook, Clock, MessageSquare, Play, Zap, X } from 'lucide-react'
-import { removeSkill } from '@/lib/actions/agent-skills'
-import { useInvalidateAgentSkills } from '@/hooks/use-agent-skills'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { Plus, X, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
+import { createSkill, deleteSkill, toggleSkill } from '@/lib/actions/agent-skills'
 
-interface Skill {
+export interface Skill {
   id: string
   name: string
   description: string | null
-  source: string | null
-  last_run_at: string | null
-  workflow_id?: string | null
-  workflow: { name: string; emoji: string } | null
-  action_template?: Record<string, unknown> | null
-  trigger_config?: Record<string, unknown> | null
-  conditions?: unknown[]
-  actions?: unknown[]
-  is_enabled?: boolean
-  execution_mode?: string
-  run_count?: number
+  content: string
+  source: string
+  is_enabled: boolean | null
+  type: string
+  parameters: unknown | null
+  version: number
+}
+
+interface SkillSection {
+  heading: string
+  content: string
+}
+
+/**
+ * Parse skill content into sections based on ## headers
+ * Returns array of {heading, content} objects
+ * Handles unstructured content as single "Content" block
+ */
+export function parseSkillSections(content: string): SkillSection[] {
+  if (!content || content.trim() === '') {
+    return []
+  }
+
+  const trimmed = content.trim()
+  const sections: SkillSection[] = []
+
+  // Split on ## headers
+  const parts = trimmed.split(/^##\s+/m)
+
+  // If no ## headers found, return entire content as single block
+  if (parts.length === 1) {
+    return [{ heading: 'Content', content: trimmed }]
+  }
+
+  // First part before any ## is ignored if empty
+  const firstPart = parts[0].trim()
+  if (firstPart) {
+    sections.push({ heading: 'Content', content: firstPart })
+  }
+
+  // Process remaining parts (each starts with a heading)
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i]
+    const firstLineEnd = part.indexOf('\n')
+
+    if (firstLineEnd === -1) {
+      // No newline, entire part is heading
+      sections.push({ heading: part.trim(), content: '' })
+    } else {
+      const heading = part.substring(0, firstLineEnd).trim()
+      const content = part.substring(firstLineEnd + 1).trim()
+      sections.push({ heading, content })
+    }
+  }
+
+  return sections
+}
+
+/**
+ * Count steps in content by looking for numbered items in ## Steps section
+ */
+function countSteps(content: string): number {
+  const sections = parseSkillSections(content)
+  const stepsSection = sections.find((s) => s.heading.toLowerCase() === 'steps')
+
+  if (!stepsSection || !stepsSection.content) return 0
+
+  // Count lines that start with numbers (e.g., "1.", "2.", etc.)
+  const lines = stepsSection.content.split('\n')
+  return lines.filter((line) => /^\s*\d+\.\s+/.test(line)).length
+}
+
+/**
+ * Count parameters from parameters JSON
+ */
+function countParameters(parameters: unknown | null): number {
+  if (!parameters) return 0
+  if (Array.isArray(parameters)) return parameters.length
+  if (typeof parameters === 'object') return Object.keys(parameters).length
+  return 0
 }
 
 interface SkillsListProps {
   skills: Skill[]
   agentId: string
-  teamId: string
 }
 
-export default function SkillsList({ skills, agentId, teamId }: SkillsListProps) {
-  const invalidateSkills = useInvalidateAgentSkills(agentId)
-  const [isPending, startTransition] = useTransition()
-  const [executingSkills, setExecutingSkills] = useState<Set<string>>(new Set())
+interface SkillContentProps {
+  content: string
+}
 
-  function handleRemove(skillId: string) {
+function SkillContent({ content }: SkillContentProps) {
+  const sections = parseSkillSections(content)
+
+  if (sections.length === 0) {
+    return (
+      <div className="bg-muted/30 mt-2 rounded-lg p-3">
+        <p className="text-muted-foreground text-xs">No content</p>
+      </div>
+    )
+  }
+
+  // If only one section, don't use collapsible
+  if (sections.length === 1) {
+    return (
+      <div className="bg-muted/30 mt-2 rounded-lg p-3">
+        <p className="text-muted-foreground text-xs whitespace-pre-wrap">{sections[0].content}</p>
+      </div>
+    )
+  }
+
+  // Multiple sections - use collapsible
+  return (
+    <div className="mt-2 space-y-2">
+      {sections.map((section, index) => (
+        <Collapsible key={index} defaultOpen={index === 0}>
+          <div className="bg-muted/30 rounded-lg">
+            <CollapsibleTrigger className="hover:bg-muted/50 flex w-full items-center justify-between px-3 py-2 text-left transition-colors">
+              <span className="text-sm font-medium">{section.heading}</span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-3 pb-3">
+                <p className="text-muted-foreground text-xs whitespace-pre-wrap">
+                  {section.content}
+                </p>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      ))}
+    </div>
+  )
+}
+
+export default function SkillsList({ skills, agentId }: SkillsListProps) {
+  const [isPending, startTransition] = useTransition()
+  const [showForm, setShowForm] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [formContent, setFormContent] = useState('')
+
+  function handleCreate() {
+    if (!formName.trim() || !formContent.trim()) return
     startTransition(async () => {
-      const result = await removeSkill(skillId, agentId)
+      const result = await createSkill(
+        agentId,
+        formName.trim(),
+        formContent.trim(),
+        formDescription.trim() || undefined
+      )
       if (!result.error) {
-        invalidateSkills()
+        setFormName('')
+        setFormDescription('')
+        setFormContent('')
+        setShowForm(false)
       }
     })
   }
 
-  async function handleToggleEnabled(skillId: string, currentEnabled: boolean) {
-    // TODO: Implement toggle enabled action
-    console.log('Toggle skill', skillId, !currentEnabled)
+  function handleDelete(skillId: string) {
+    startTransition(async () => {
+      await deleteSkill(skillId, agentId)
+    })
   }
 
-  async function handleExecute(skillId: string) {
-    setExecutingSkills((prev) => new Set(prev).add(skillId))
-    try {
-      const response = await fetch(`/api/skills/${skillId}/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger_data: {} }),
-      })
-      const result = await response.json()
-      if (result.success) {
-        invalidateSkills()
-      }
-    } catch (error) {
-      console.error('Failed to execute skill:', error)
-    } finally {
-      setExecutingSkills((prev) => {
-        const next = new Set(prev)
-        next.delete(skillId)
-        return next
-      })
-    }
+  function handleToggle(skillId: string, current: boolean) {
+    startTransition(async () => {
+      await toggleSkill(skillId, agentId, !current)
+    })
   }
-
-  function getTriggerIcon(triggerConfig: Record<string, unknown> | null | undefined) {
-    const type = triggerConfig?.type as string | undefined
-    switch (type) {
-      case 'webhook':
-        return <Webhook className="h-4 w-4" />
-      case 'scheduled':
-        return <Clock className="h-4 w-4" />
-      case 'chat_command':
-        return <MessageSquare className="h-4 w-4" />
-      case 'manual':
-        return <Play className="h-4 w-4" />
-      default:
-        return <Zap className="h-4 w-4" />
-    }
-  }
-
-  // Separate legacy and rule skills
-  const legacySkills = skills.filter((s) => s.source === 'manual' || s.source === 'dynamic')
-  const ruleSkills = skills.filter((s) => s.source === 'rule')
 
   return (
     <div className="space-y-3">
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
         <div className="divide-y">
-          {/* Rule-based skills */}
-          {ruleSkills.map((skill) => {
-            const conditionCount = Array.isArray(skill.conditions) ? skill.conditions.length : 0
-            const isManualTrigger =
-              (skill.trigger_config as Record<string, unknown> | null)?.type === 'manual'
-
-            return (
-              <div
-                key={skill.id}
-                className="hover:bg-muted/40 group flex items-center gap-3 px-4 py-3 transition-colors"
-              >
-                <div className="bg-background text-muted-foreground relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border shadow-sm">
-                  {getTriggerIcon(skill.trigger_config)}
-                  {conditionCount > 0 && (
-                    <span className="bg-primary text-primary-foreground absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] leading-none font-bold">
-                      {conditionCount}
-                    </span>
-                  )}
+          {skills.map((skill) => (
+            <div key={skill.id} className="group px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-background text-muted-foreground flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border shadow-sm">
+                  <Brain className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{skill.name}</p>
+                    <Badge variant={skill.type === 'knowledge' ? 'secondary' : 'default'}>
+                      {skill.type === 'knowledge' ? 'Knowledge' : 'Procedure'}
+                    </Badge>
                   </div>
-                  <p className="text-muted-foreground text-xs">
-                    {skill.last_run_at
-                      ? `Last ran ${formatDistanceToNow(new Date(skill.last_run_at), { addSuffix: true })}`
-                      : 'Never ran'}
-                  </p>
+                  {skill.description && (
+                    <p className="text-muted-foreground truncate text-xs">{skill.description}</p>
+                  )}
+                  {skill.type === 'procedure' && expandedId !== skill.id && (
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {countParameters(skill.parameters)} parameters · {countSteps(skill.content)}{' '}
+                      steps
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {isManualTrigger && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleExecute(skill.id)}
-                      disabled={executingSkills.has(skill.id)}
-                      className="h-8 px-2"
-                    >
-                      {executingSkills.has(skill.id) ? 'Running...' : 'Run'}
-                    </Button>
-                  )}
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => setExpandedId(expandedId === skill.id ? null : skill.id)}
+                  >
+                    {expandedId === skill.id ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
                   <Switch
-                    checked={skill.is_enabled ?? false}
-                    onCheckedChange={() => handleToggleEnabled(skill.id, skill.is_enabled ?? false)}
+                    checked={skill.is_enabled ?? true}
+                    onCheckedChange={() => handleToggle(skill.id, skill.is_enabled ?? true)}
                     aria-label="Toggle skill"
                   />
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={() => handleRemove(skill.id)}
+                    onClick={() => handleDelete(skill.id)}
                     className="text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-            )
-          })}
+              {expandedId === skill.id && <SkillContent content={skill.content} />}
+            </div>
+          ))}
 
-          {/* Legacy skills (manual/dynamic) */}
-          {legacySkills.map((skill) => {
-            const isDynamic = skill.source === 'dynamic'
-            const emoji = isDynamic ? '⚡' : (skill.workflow?.emoji ?? '🔧')
-
-            return (
-              <div
-                key={skill.id}
-                className="hover:bg-muted/40 group flex items-center gap-3 px-4 py-3 transition-colors"
-              >
-                <div className="bg-background relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border shadow-sm">
-                  <span className="text-xl">{emoji}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold">{skill.name}</p>
-                    {isDynamic && (
-                      <Badge variant="secondary" className={cn('text-xs')}>
-                        Dynamic
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {skill.description
-                      ? skill.description
-                      : skill.last_run_at
-                        ? `Last ran ${formatDistanceToNow(new Date(skill.last_run_at), { addSuffix: true })}`
-                        : 'Never ran'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => handleRemove(skill.id)}
-                  className="text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )
-          })}
-
-          {/* Help text for creating new skills */}
-          {skills.length === 0 ? (
+          {skills.length === 0 && !showForm && (
             <div className="px-4 py-8 text-center">
               <p className="text-muted-foreground text-sm">No skills yet</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Chat with your agent to create new skills
-              </p>
-            </div>
-          ) : (
-            <div className="bg-muted/20 px-4 py-3">
-              <p className="text-muted-foreground text-center text-xs">
-                Chat with your agent to create new skills
+                Add skills to teach your agent specialized knowledge
               </p>
             </div>
           )}
         </div>
+
+        {showForm ? (
+          <div className="space-y-3 border-t p-4">
+            <Input
+              placeholder="Skill name"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              autoFocus
+            />
+            <Input
+              placeholder="Description (optional)"
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+            />
+            <Textarea
+              placeholder="Skill content — instructions or knowledge for the agent..."
+              value={formContent}
+              onChange={(e) => setFormContent(e.target.value)}
+              rows={4}
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleCreate}
+                disabled={isPending || !formName.trim() || !formContent.trim()}
+              >
+                {isPending ? 'Creating...' : 'Create'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center justify-center gap-2 border-t px-4 py-3 text-sm transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add skill
+          </button>
+        )}
       </div>
     </div>
   )

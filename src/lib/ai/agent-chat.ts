@@ -45,22 +45,29 @@ export function buildAgentSystemPrompt(
   skills: AgentSkill[],
   connectedApps: ConnectedApp[],
   dynamicSkills?: AgentSkill[],
-  knowledgeSkills?: Array<{ name: string; content: string; is_enabled: boolean }>
+  knowledgeSkills?: Array<{
+    name: string
+    description: string | null
+    type: string | null
+    is_enabled: boolean
+  }>
 ): string {
   let prompt = `You are ${agent.name}.`
   if (agent.system_prompt) {
     prompt += `\n\n${agent.system_prompt}`
   }
 
-  // Knowledge skills
+  // Knowledge skills (progressive disclosure - metadata only)
   if (knowledgeSkills && knowledgeSkills.length > 0) {
     const enabledSkills = knowledgeSkills.filter((s) => s.is_enabled)
     if (enabledSkills.length > 0) {
       prompt += '\n\n## Your Knowledge & Skills\n'
       prompt +=
-        'The following skills define your specialized knowledge. Apply them when relevant:\n'
+        'The following skills define your specialized knowledge. Use SNEW_GET_SKILL_CONTENT to load full details when relevant to the conversation:\n'
       for (const skill of enabledSkills) {
-        prompt += `\n### ${skill.name}\n${skill.content}\n`
+        const typeLabel = skill.type === 'procedure' ? '[Procedure]' : '[Knowledge]'
+        const desc = skill.description ? ` - ${skill.description}` : ''
+        prompt += `\n- ${typeLabel} **${skill.name}**${desc}`
       }
     }
   }
@@ -152,8 +159,11 @@ export function buildAgentSystemPrompt(
   prompt +=
     '5. Some apps have separate toolkits for different auth types (e.g. user OAuth vs bot). If the current toolkit lacks the needed action, suggest the alternative toolkit.\n\n'
   prompt += '### Knowledge Skill Tools\n\n'
-  prompt += '- SNEW_CREATE_SKILL — Create a new knowledge skill (embedded instruction/knowledge)\n'
-  prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills\n'
+  prompt += '- SNEW_CREATE_SKILL — Create a new knowledge or procedure skill (supports templates)\n'
+  prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills with metadata\n'
+  prompt += '- SNEW_UPDATE_SKILL — Update an existing skill (auto-increments version)\n'
+  prompt += '- SNEW_GET_SKILL_CONTENT — Load full skill content by ID or name (fuzzy match)\n'
+  prompt += '- SNEW_EXECUTE_SKILL — Execute a procedure skill with parameters\n'
   prompt += '- SNEW_DELETE_SKILL — Remove a knowledge skill\n'
 
   prompt += '\n\n## Instructions\n'

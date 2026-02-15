@@ -60,7 +60,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     // 2. Delete direct children
     await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
-    await supabase.from('agent_skills').delete().eq('workflow_id', workflowId)
+    await supabase.from('agent_workflows').delete().eq('workflow_id', workflowId)
     await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
     await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
     await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)

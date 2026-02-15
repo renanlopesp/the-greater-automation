@@ -18,25 +18,25 @@ export async function fetchAgentsWithSkills(supabase: Client, teamId: string) {
   if (!agents || agents.length === 0) return []
 
   const agentIds = agents.map((a) => a.id)
-  const { data: skills } = await supabase
-    .from('agent_skills')
+  const { data: workflows } = await supabase
+    .from('agent_workflows')
     .select('id, agent_id, name')
     .in('agent_id', agentIds)
 
   // Build Map for O(1) lookup instead of O(n) filter per agent
-  const skillsByAgent = new Map<string, { id: string; agent_id: string; name: string }[]>()
-  for (const skill of skills ?? []) {
-    const list = skillsByAgent.get(skill.agent_id)
+  const workflowsByAgent = new Map<string, { id: string; agent_id: string; name: string }[]>()
+  for (const workflow of workflows ?? []) {
+    const list = workflowsByAgent.get(workflow.agent_id)
     if (list) {
-      list.push(skill)
+      list.push(workflow)
     } else {
-      skillsByAgent.set(skill.agent_id, [skill])
+      workflowsByAgent.set(workflow.agent_id, [workflow])
     }
   }
 
   return agents.map((agent) => ({
     ...agent,
-    skills: skillsByAgent.get(agent.id) ?? [],
+    skills: workflowsByAgent.get(agent.id) ?? [],
   }))
 }
 

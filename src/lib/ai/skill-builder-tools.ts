@@ -2,7 +2,11 @@ import { jsonSchema } from 'ai'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
-import type { SkillTriggerConfig, SkillActionConfig, SkillCondition } from '@/lib/skills/types'
+import type {
+  WorkflowTriggerConfig,
+  WorkflowActionConfig,
+  WorkflowCondition,
+} from '@/lib/workflows/types'
 import type { Json, Database } from '@/lib/supabase/database.types'
 
 type TriggerType = Database['public']['Enums']['trigger_type']
@@ -89,10 +93,10 @@ interface ActionParam {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: build typed SkillActionConfig[] from raw params
+// Helper: build typed WorkflowActionConfig[] from raw params
 // ---------------------------------------------------------------------------
 
-function buildActions(raw: ActionParam[]): SkillActionConfig[] {
+function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
   return raw.map((a) => {
     if (a.type === 'composio_action') {
       return {
@@ -406,7 +410,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
         // 4. Create the skill linked to the workflow
         // Also store trigger_config/actions for backward compat with sidebar display
-        const skillTriggerConfig: SkillTriggerConfig =
+        const skillTriggerConfig: WorkflowTriggerConfig =
           params.trigger.type === 'webhook'
             ? { type: 'webhook', webhook_token: webhookToken, webhook_secret: webhookSecret }
             : params.trigger.type === 'scheduled'
@@ -423,7 +427,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         const executionMode = params.execution_mode || 'auto'
 
         const { data: skill, error } = await supabase
-          .from('agent_skills')
+          .from('agent_workflows')
           .insert({
             agent_id: agentId,
             name: params.name,
@@ -450,7 +454,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           name: skill.name,
         }
         if (params.trigger.type === 'webhook') {
-          result.webhook_url = `/api/skills/webhook/${webhookToken}`
+          result.webhook_url = `/api/agent-workflows/webhook/${webhookToken}`
           result.webhook_secret = webhookSecret
           result.signature_header = 'X-Webhook-Signature-256'
           result.setup_instructions =
@@ -469,7 +473,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async () => {
         const supabase = await createServerClient()
         const { data: skills } = await supabase
-          .from('agent_skills')
+          .from('agent_workflows')
           .select(
             'id, name, description, source, trigger_config, conditions, actions, is_enabled, execution_mode, last_run_at, run_count'
           )
@@ -513,7 +517,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         if (params.actions) update.actions = buildActions(params.actions)
 
         const { error } = await supabase
-          .from('agent_skills')
+          .from('agent_workflows')
           .update(update)
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
@@ -535,7 +539,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async (params: { skill_id: string }) => {
         const supabase = await createServerClient()
         const { error } = await supabase
-          .from('agent_skills')
+          .from('agent_workflows')
           .delete()
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
@@ -562,7 +566,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async (params: { skill_id: string; sample_data: Record<string, unknown> }) => {
         const supabase = await createServerClient()
         const { data: skill } = await supabase
-          .from('agent_skills')
+          .from('agent_workflows')
           .select('*')
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
@@ -570,8 +574,8 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
         if (!skill) return { success: false, error: 'Skill not found' }
 
-        const { evaluateConditions } = await import('@/lib/skills/condition-engine')
-        const conditions = (skill.conditions || []) as unknown as SkillCondition[]
+        const { evaluateConditions } = await import('@/lib/workflows/condition-engine')
+        const conditions = (skill.conditions || []) as unknown as WorkflowCondition[]
         const result = evaluateConditions(conditions, params.sample_data)
 
         return {
@@ -634,7 +638,26 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
     SNEW_CREATE_SKILL: {
       description:
-        'Create a new knowledge skill for this agent. Skills are embedded instructions/knowledge that influence how the agent behaves in conversations. Use this when the user teaches you something to remember or wants to add a capability.',
+        'Create a new knowledge or procedure skill for this agent. Skills are embedded instructions/knowledge that influence how the agent behaves in conversations. Use this when the user teaches you something to remember or wants to add a capability.\n\n' +
+        'For knowledge skills (type: "knowledge"), use this template:\n' +
+        '## Description\n' +
+        '[When this skill applies]\n' +
+        '## Instructions\n' +
+        '[Step-by-step guidance]\n' +
+        '## Examples\n' +
+        '[Input/output pairs]\n' +
+        '## Constraints\n' +
+        '[Rules and limitations]\n\n' +
+        'For procedure skills (type: "procedure"), use this template:\n' +
+        '## Description\n' +
+        '[What this procedure does]\n' +
+        '## Parameters\n' +
+        '[List input parameters]\n' +
+        '## Steps\n' +
+        '1. [Action step with {{param.name}} variables]\n' +
+        '2. [Next step, can reference {{prev.field}}]\n' +
+        '## Error Handling\n' +
+        '[What to do if steps fail]',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -648,21 +671,79 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             description:
               'The full instruction/knowledge text. This will be injected into your system prompt when chatting.',
           },
+          type: {
+            type: 'string',
+            enum: ['knowledge', 'procedure'],
+            description: 'Type of skill: knowledge (instructions) or procedure (executable steps)',
+          },
+          parameters: {
+            type: 'array',
+            description:
+              'Parameter definitions for procedure skills. Each parameter should have: name, type, required, description, and optional default.',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                type: { type: 'string' },
+                required: { type: 'boolean' },
+                description: { type: 'string' },
+                default: { type: 'string' },
+              },
+              required: ['name', 'type', 'required', 'description'],
+            },
+          },
         },
         required: ['name', 'content'],
       }),
-      execute: async (params: { name: string; description?: string; content: string }) => {
+      execute: async (params: {
+        name: string
+        description?: string
+        content: string
+        type?: 'knowledge' | 'procedure'
+        parameters?: Array<{
+          name: string
+          type: string
+          required: boolean
+          description: string
+          default?: string
+        }>
+      }) => {
+        const skillType = params.type || 'knowledge'
+
+        // Validate procedure skills have parameters
+        if (skillType === 'procedure' && (!params.parameters || params.parameters.length === 0)) {
+          return {
+            error:
+              'Procedure skills must have at least one parameter defined. Please provide the parameters array with name, type, required, and description for each parameter.',
+          }
+        }
+
+        // Validate parameter structure for procedure skills
+        if (skillType === 'procedure' && params.parameters) {
+          for (const param of params.parameters) {
+            if (!param.name || !param.type || param.required === undefined || !param.description) {
+              return {
+                error: `Invalid parameter structure. Each parameter must have: name (string), type (string), required (boolean), description (string), and optional default (string).`,
+              }
+            }
+          }
+        }
+
         const supabase = await createServerClient()
         const { data, error } = await supabase
-          .from('agent_knowledge_skills')
+          .from('agent_skills')
           .insert({
             agent_id: agentId,
             name: params.name,
             description: params.description ?? null,
             content: params.content,
+            type: skillType,
+            parameters: params.parameters ? (params.parameters as unknown as Json) : null,
+            version: 1,
+            metadata: {},
             source: 'chat',
           })
-          .select('id, name')
+          .select('id, name, type, version')
           .single()
 
         if (error) {
@@ -675,7 +756,9 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           success: true,
           skill_id: data.id,
           name: data.name,
-          message: `Skill "${data.name}" created. It will now influence your behavior in future conversations.`,
+          type: data.type,
+          version: data.version,
+          message: `${data.type === 'procedure' ? 'Procedure' : 'Knowledge'} skill "${data.name}" created (v${data.version}). It will now influence your behavior in future conversations.`,
         }
       },
     },
@@ -686,12 +769,235 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async () => {
         const supabase = await createServerClient()
         const { data } = await supabase
-          .from('agent_knowledge_skills')
-          .select('id, name, description, content, is_enabled, source')
+          .from('agent_skills')
+          .select('id, name, description, content, is_enabled, source, type, version')
           .eq('agent_id', agentId)
           .order('created_at', { ascending: true })
 
         return { skills: data ?? [] }
+      },
+    },
+
+    SNEW_UPDATE_SKILL: {
+      description:
+        'Update an existing knowledge or procedure skill. Auto-increments version when content or parameters change.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          skill_id: { type: 'string', description: 'The ID of the skill to update' },
+          name: { type: 'string', description: 'New name for the skill' },
+          description: { type: 'string', description: 'New description' },
+          content: { type: 'string', description: 'New content/instructions' },
+          parameters: {
+            type: 'array',
+            description: 'New parameter definitions for procedure skills',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                type: { type: 'string' },
+                required: { type: 'boolean' },
+                description: { type: 'string' },
+                default: { type: 'string' },
+              },
+              required: ['name', 'type', 'required', 'description'],
+            },
+          },
+        },
+        required: ['skill_id'],
+      }),
+      execute: async (params: {
+        skill_id: string
+        name?: string
+        description?: string
+        content?: string
+        parameters?: Array<{
+          name: string
+          type: string
+          required: boolean
+          description: string
+          default?: string
+        }>
+      }) => {
+        const supabase = await createServerClient()
+
+        // First, fetch the current skill to get the version
+        const { data: currentSkill, error: fetchError } = await supabase
+          .from('agent_skills')
+          .select('version, type, content, parameters')
+          .eq('id', params.skill_id)
+          .eq('agent_id', agentId)
+          .single()
+
+        if (fetchError || !currentSkill) {
+          return { error: 'Skill not found' }
+        }
+
+        const updates: Record<string, unknown> = {}
+        if (params.name !== undefined) updates.name = params.name
+        if (params.description !== undefined) updates.description = params.description
+        if (params.content !== undefined) updates.content = params.content
+        if (params.parameters !== undefined)
+          updates.parameters = params.parameters as unknown as Json
+
+        // Auto-increment version if content or parameters changed
+        const shouldIncrementVersion =
+          params.content !== undefined || params.parameters !== undefined
+        if (shouldIncrementVersion) {
+          updates.version = (currentSkill.version || 1) + 1
+        }
+
+        const { data, error } = await supabase
+          .from('agent_skills')
+          .update(updates)
+          .eq('id', params.skill_id)
+          .eq('agent_id', agentId)
+          .select('id, name, version')
+          .single()
+
+        if (error) return { error: error.message }
+
+        revalidatePath(`/agents/${agentId}`)
+        return {
+          success: true,
+          skill_id: data.id,
+          name: data.name,
+          version: data.version,
+          message: `Skill "${data.name}" updated to v${data.version}`,
+        }
+      },
+    },
+
+    SNEW_GET_SKILL_CONTENT: {
+      description:
+        'Load the full content of a skill by ID or name. Use this when you need detailed instructions from a skill referenced in the conversation. Supports fuzzy name matching.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          skill_id: { type: 'string', description: 'Exact skill ID' },
+          name: { type: 'string', description: 'Skill name for fuzzy search (uses ILIKE)' },
+        },
+      }),
+      execute: async (params: { skill_id?: string; name?: string }) => {
+        if (!params.skill_id && !params.name) {
+          return { error: 'Either skill_id or name is required' }
+        }
+
+        const supabase = await createServerClient()
+        let query = supabase
+          .from('agent_skills')
+          .select('id, name, description, content, type, parameters, version, is_enabled')
+          .eq('agent_id', agentId)
+
+        if (params.skill_id) {
+          query = query.eq('id', params.skill_id)
+        } else if (params.name) {
+          query = query.ilike('name', `%${params.name}%`)
+        }
+
+        const { data, error } = await query.maybeSingle()
+
+        if (error) return { error: error.message }
+        if (!data) return { error: 'Skill not found' }
+
+        return {
+          success: true,
+          skill: {
+            id: data.id,
+            name: data.name,
+            description: data.description,
+            content: data.content,
+            type: data.type,
+            parameters: data.parameters,
+            version: data.version,
+            is_enabled: data.is_enabled,
+          },
+        }
+      },
+    },
+
+    SNEW_EXECUTE_SKILL: {
+      description:
+        'Execute a procedure skill by resolving its parameters and returning the step-by-step action plan. Only works with procedure-type skills. Returns resolved steps for the agent to follow.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          skill_id: { type: 'string', description: 'The ID of the procedure skill to execute' },
+          params: {
+            type: 'object',
+            description: 'Parameter values to pass to the procedure',
+            additionalProperties: true,
+          },
+        },
+        required: ['skill_id'],
+      }),
+      execute: async (params: { skill_id: string; params?: Record<string, unknown> }) => {
+        const supabase = await createServerClient()
+        const { data: skill, error } = await supabase
+          .from('agent_skills')
+          .select('id, name, type, content, parameters, is_enabled')
+          .eq('id', params.skill_id)
+          .eq('agent_id', agentId)
+          .single()
+
+        if (error || !skill) return { error: 'Skill not found' }
+        if (!skill.is_enabled) return { error: 'Skill is disabled' }
+        if (skill.type !== 'procedure') {
+          return { error: 'This skill is not a procedure. Only procedure skills can be executed.' }
+        }
+
+        // Parse parameters from skill definition
+        const paramDefs = (skill.parameters || []) as Array<{
+          name: string
+          type: string
+          required: boolean
+          description: string
+          default?: string
+        }>
+        const providedParams = params.params || {}
+
+        // Resolve parameter values
+        const resolvedParams: Record<string, unknown> = {}
+        for (const paramDef of paramDefs) {
+          if (providedParams[paramDef.name] !== undefined) {
+            resolvedParams[paramDef.name] = providedParams[paramDef.name]
+          } else if (paramDef.default !== undefined) {
+            resolvedParams[paramDef.name] = paramDef.default
+          } else if (paramDef.required) {
+            return {
+              error: `Required parameter "${paramDef.name}" is missing. Description: ${paramDef.description}`,
+            }
+          }
+        }
+
+        // Parse steps from content (look for ## Steps section)
+        const stepsMatch = skill.content.match(/## Steps\s*\n([\s\S]*?)(?=\n##|$)/i)
+        if (!stepsMatch) {
+          return { error: 'No steps found in procedure content. Add a "## Steps" section.' }
+        }
+
+        const stepsText = stepsMatch[1].trim()
+        const stepLines = stepsText.split('\n').filter((line) => /^\d+\./.test(line.trim()))
+
+        // Resolve {{param.name}} templates in steps
+        const resolvedSteps = stepLines.map((step) => {
+          let resolved = step
+          // Replace {{param.name}} with actual values
+          for (const [key, value] of Object.entries(resolvedParams)) {
+            const regex = new RegExp(`\\{\\{param\\.${key}\\}\\}`, 'g')
+            resolved = resolved.replace(regex, String(value))
+          }
+          // Keep {{prev.field}} as-is for the agent to fill during execution
+          return resolved
+        })
+
+        return {
+          success: true,
+          skill_name: skill.name,
+          resolved_params: resolvedParams,
+          steps: resolvedSteps,
+          note: 'Follow these steps in order. {{prev.field}} placeholders should be filled with values from previous step outputs.',
+        }
       },
     },
 
@@ -707,7 +1013,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async (params: { skill_id: string }) => {
         const supabase = await createServerClient()
         const { error } = await supabase
-          .from('agent_knowledge_skills')
+          .from('agent_skills')
           .delete()
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)

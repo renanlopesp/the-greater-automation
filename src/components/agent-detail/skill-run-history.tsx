@@ -9,14 +9,14 @@ import { cn } from '@/lib/utils'
 interface SkillRunHistoryProps {
   runs: Array<{
     id: string
-    skill_id: string
+    workflow_id: string
     status: string
     trigger_data: Record<string, unknown> | null
     actions_executed: unknown[] | null
     error: string | null
     duration_ms: number | null
     created_at: string
-    agent_skills: { name: string } | null
+    agent_workflows: { name: string } | null
   }>
 }
 
@@ -78,10 +78,10 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
   if (runs.length === 0) {
     return (
       <div className="space-y-3">
-        <h2 className="text-foreground text-[15px] font-semibold">Skill run history</h2>
+        <h2 className="text-foreground text-[15px] font-semibold">Workflow run history</h2>
         <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
           <div className="px-4 py-8 text-center">
-            <p className="text-muted-foreground text-sm">No skill runs yet</p>
+            <p className="text-muted-foreground text-sm">No workflow runs yet</p>
           </div>
         </div>
       </div>
@@ -90,12 +90,12 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-foreground text-[15px] font-semibold">Skill run history</h2>
+      <h2 className="text-foreground text-[15px] font-semibold">Workflow run history</h2>
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
         <div className="divide-y">
           {runs.map((run) => {
             const isExpanded = expandedRuns.has(run.id)
-            const skillName = run.agent_skills?.name ?? 'Unknown skill'
+            const workflowName = run.agent_workflows?.name ?? 'Unknown workflow'
 
             return (
               <div key={run.id}>
@@ -111,7 +111,7 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">{skillName}</p>
+                      <p className="truncate text-sm font-medium">{workflowName}</p>
                       {getStatusBadge(run.status)}
                     </div>
                     <p className="text-muted-foreground text-xs">

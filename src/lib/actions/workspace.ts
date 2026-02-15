@@ -103,7 +103,7 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 
   // 2. Delete direct children
   await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
-  await supabase.from('agent_skills').delete().eq('workflow_id', workflowId)
+  await supabase.from('agent_workflows').delete().eq('workflow_id', workflowId)
   await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
   await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
   await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)
@@ -126,23 +126,23 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 export async function deleteAgent(agentId: string): Promise<ActionResult> {
   const supabase = await createServerClient()
 
-  // Collect workflow IDs created by agent skills before cascade deletes them
-  const { data: skills } = await supabase
-    .from('agent_skills')
+  // Collect workflow IDs created by agent workflows before cascade deletes them
+  const { data: workflows } = await supabase
+    .from('agent_workflows')
     .select('workflow_id')
     .eq('agent_id', agentId)
     .not('workflow_id', 'is', null)
 
-  const workflowIds = skills?.map((s) => s.workflow_id).filter(Boolean) as string[] | undefined
+  const workflowIds = workflows?.map((w) => w.workflow_id).filter(Boolean) as string[] | undefined
 
-  // Delete agent (cascades to skills, conversations, messages, skill_runs)
+  // Delete agent (cascades to workflows, conversations, messages, workflow_runs)
   const { error } = await supabase.from('agents').delete().eq('id', agentId)
 
   if (error) {
     return { error: error.message ?? 'Failed to delete agent' }
   }
 
-  // Clean up orphaned workflows that were created by the agent's skills
+  // Clean up orphaned workflows that were created by the agent's workflows
   if (workflowIds && workflowIds.length > 0) {
     await supabase.from('workflows').delete().in('id', workflowIds)
   }
@@ -408,7 +408,7 @@ export async function bulkDeleteItems(
     }
 
     await supabase.from('step_test_results').delete().in('workflow_id', workflowIds)
-    await supabase.from('agent_skills').delete().in('workflow_id', workflowIds)
+    await supabase.from('agent_workflows').delete().in('workflow_id', workflowIds)
     await supabase.from('workflow_runs').delete().in('workflow_id', workflowIds)
     await supabase.from('workflow_steps').delete().in('workflow_id', workflowIds)
     await supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds)
@@ -420,17 +420,17 @@ export async function bulkDeleteItems(
     }
   }
 
-  // Delete agents and their skill-created workflows
+  // Delete agents and their workflow-created workflows
   if (agentIds.length > 0) {
-    // Collect workflow IDs created by agent skills before cascade deletes them
-    const { data: skillWorkflows } = await supabase
-      .from('agent_skills')
+    // Collect workflow IDs created by agent workflows before cascade deletes them
+    const { data: agentWorkflows } = await supabase
+      .from('agent_workflows')
       .select('workflow_id')
       .in('agent_id', agentIds)
       .not('workflow_id', 'is', null)
 
-    const skillWorkflowIds = (
-      skillWorkflows?.map((s) => s.workflow_id).filter(Boolean) as string[] | undefined
+    const agentWorkflowIds = (
+      agentWorkflows?.map((w) => w.workflow_id).filter(Boolean) as string[] | undefined
     )?.filter((id) => !workflowIds.includes(id)) // exclude already-deleted workflows
 
     const { error } = await supabase.from('agents').delete().in('id', agentIds)
@@ -439,9 +439,9 @@ export async function bulkDeleteItems(
       errors.push(`Failed to delete agents: ${error.message}`)
     }
 
-    // Clean up orphaned workflows that were created by agent skills
-    if (skillWorkflowIds && skillWorkflowIds.length > 0) {
-      await supabase.from('workflows').delete().in('id', skillWorkflowIds)
+    // Clean up orphaned workflows that were created by agent workflows
+    if (agentWorkflowIds && agentWorkflowIds.length > 0) {
+      await supabase.from('workflows').delete().in('id', agentWorkflowIds)
     }
   }
 
@@ -633,7 +633,7 @@ export async function deleteFolder(
         }
 
         await supabase.from('step_test_results').delete().in('workflow_id', wfIds)
-        await supabase.from('agent_skills').delete().in('workflow_id', wfIds)
+        await supabase.from('agent_workflows').delete().in('workflow_id', wfIds)
         await supabase.from('workflow_runs').delete().in('workflow_id', wfIds)
         await supabase.from('workflow_steps').delete().in('workflow_id', wfIds)
         await supabase.from('workflow_triggers').delete().in('workflow_id', wfIds)

@@ -147,7 +147,7 @@ export default function SkillDetailDialog({
               <span className="text-sm capitalize">{triggerType.replace('_', ' ')}</span>
               {triggerType === 'webhook' && (
                 <code className="bg-background ml-auto rounded px-1.5 py-0.5 text-xs">
-                  /api/skills/webhook/
+                  /api/agent-workflows/webhook/
                   {(skill.trigger_config as { webhook_token?: string })?.webhook_token?.slice(0, 8)}
                   ...
                 </code>

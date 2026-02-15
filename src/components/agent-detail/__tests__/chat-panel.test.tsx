@@ -100,8 +100,8 @@ vi.mock('ai', () => ({
   isToolUIPart: (p: any) => p.type === 'dynamic-tool' || p.type?.startsWith?.('tool-'),
 }))
 
-vi.mock('@/hooks/use-agent-skills', () => ({
-  useInvalidateAgentSkills: () => vi.fn(),
+vi.mock('@/hooks/use-agent-workflows', () => ({
+  useInvalidateAgentWorkflows: () => vi.fn(),
 }))
 
 vi.mock('@/hooks/use-agent-chat', () => ({

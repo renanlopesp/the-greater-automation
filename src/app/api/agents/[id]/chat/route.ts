@@ -118,9 +118,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }))
   }
 
-  // 7. Load agent skills (workflows)
+  // 7. Load agent skills (workflows/automations)
   const { data: skillRows } = await supabase
-    .from('agent_skills')
+    .from('agent_workflows')
     .select('*')
     .eq('agent_id', agentId)
 
@@ -136,15 +136,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const staticSkills = allSkills.filter((s) => s.source !== 'dynamic')
   const dynamicSkills = allSkills.filter((s) => s.source === 'dynamic')
 
-  // Load knowledge skills
+  // Load knowledge skills (metadata only for progressive disclosure)
   const { data: knowledgeSkillRows } = await supabase
-    .from('agent_knowledge_skills')
-    .select('name, content, is_enabled')
+    .from('agent_skills')
+    .select('id, name, type, description, is_enabled')
     .eq('agent_id', agentId)
 
   const knowledgeSkills = (knowledgeSkillRows ?? []).map((s) => ({
     name: s.name,
-    content: s.content,
+    type: s.type,
+    description: s.description,
     is_enabled: s.is_enabled ?? true,
   }))
 

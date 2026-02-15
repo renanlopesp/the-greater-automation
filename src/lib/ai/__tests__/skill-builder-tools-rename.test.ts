@@ -157,9 +157,9 @@ describe('skill-builder-tools rename verification', () => {
   })
 
   describe('Tool count and completeness', () => {
-    it('should return exactly 10 tools', () => {
+    it('should return exactly 13 tools', () => {
       const toolNames = Object.keys(tools)
-      expect(toolNames).toHaveLength(10)
+      expect(toolNames).toHaveLength(13)
     })
 
     it('should have all expected tool names', () => {
@@ -173,6 +173,9 @@ describe('skill-builder-tools rename verification', () => {
         'SNEW_CHECK_CONNECTIONS',
         'SNEW_CREATE_SKILL',
         'SNEW_LIST_SKILLS',
+        'SNEW_UPDATE_SKILL',
+        'SNEW_GET_SKILL_CONTENT',
+        'SNEW_EXECUTE_SKILL',
         'SNEW_DELETE_SKILL',
       ]
 
