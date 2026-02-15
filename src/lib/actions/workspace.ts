@@ -775,6 +775,28 @@ export async function saveWorkflow(
     return { error: workflowError.message, savedAt: '' }
   }
 
+  // Clean up old Composio trigger if the previous trigger was an app trigger
+  {
+    const { data: oldTrigger } = await supabase
+      .from('workflow_triggers')
+      .select('type, config')
+      .eq('workflow_id', workflowId)
+      .eq('type', 'app')
+      .single()
+
+    if (oldTrigger) {
+      const oldConfig = oldTrigger.config as Record<string, unknown> | null
+      const oldComposioId = oldConfig?.composio_trigger_id as string | undefined
+      if (oldComposioId) {
+        try {
+          await deleteComposioTrigger(oldComposioId)
+        } catch {
+          // Ignore cleanup errors — trigger may already be deleted in Composio
+        }
+      }
+    }
+  }
+
   // Handle trigger (delete existing + insert new if provided)
   const { error: triggerDeleteError } = await supabase
     .from('workflow_triggers')
@@ -799,6 +821,39 @@ export async function saveWorkflow(
           ...triggerConfig,
           encrypted_secret: encryptSecret(webhookConfig.secret),
           secret: undefined,
+        }
+      }
+    }
+
+    // For app triggers: create a Composio trigger subscription so events are delivered
+    if (data.trigger.type === 'app') {
+      const appConfig = triggerConfig as unknown as {
+        app_id?: string
+        event?: string
+        trigger_config?: Record<string, string>
+      }
+      if (appConfig.app_id && appConfig.event) {
+        try {
+          // Look up the user's connected account for this app
+          const { data: connection } = await supabase
+            .from('app_connections')
+            .select('composio_connection_id')
+            .eq('user_id', user.id)
+            .eq('app_id', appConfig.app_id)
+            .single()
+
+          if (connection?.composio_connection_id) {
+            const composioTriggerId = await createTrigger({
+              userId: user.id,
+              triggerSlug: appConfig.event,
+              connectedAccountId: connection.composio_connection_id,
+              triggerConfig: (appConfig.trigger_config as Record<string, unknown>) ?? {},
+            })
+            triggerConfig = { ...triggerConfig, composio_trigger_id: composioTriggerId }
+          }
+        } catch (error) {
+          console.error('Failed to create Composio trigger:', error)
+          // Don't fail the save — the trigger config is still saved for retry
         }
       }
     }
