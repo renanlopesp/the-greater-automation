@@ -1,9 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { composioWebhookPayloadSchema } from '@/lib/composio/webhook-schema'
 import { executePipeline } from '@/lib/workflows/pipeline-executor'
 import { executeVisualWorkflowSteps } from '@/lib/workflows/execute-visual-steps'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+
+/**
+ * Verify Composio webhook signature (Standard Webhooks / Svix format).
+ * Headers: webhook-id, webhook-timestamp, webhook-signature
+ * Signature: HMAC-SHA256 of "${id}.${timestamp}.${body}" with base64-decoded secret.
+ */
+function verifyWebhookSignature(
+  rawBody: string,
+  webhookId: string,
+  webhookTimestamp: string,
+  webhookSignature: string,
+  secret: string
+): boolean {
+  // Secret may have "whsec_" prefix — strip it before base64 decoding
+  const cleanSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret
+  // Try base64 decode; fall back to raw UTF-8 if it doesn't look like valid base64
+  const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(cleanSecret) && cleanSecret.length % 4 === 0
+  const secretBytes = isBase64
+    ? Buffer.from(cleanSecret, 'base64')
+    : Buffer.from(cleanSecret, 'utf-8')
+
+  // Verify timestamp is within 5 minutes to prevent replay attacks
+  const timestampSec = parseInt(webhookTimestamp, 10)
+  const nowSec = Math.floor(Date.now() / 1000)
+  if (Math.abs(nowSec - timestampSec) > 300) {
+    return false
+  }
+
+  // Compute expected signature
+  const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`
+  const expectedSignature = createHmac('sha256', secretBytes).update(signedContent).digest('base64')
+
+  // webhook-signature can have multiple signatures: "v1,<sig1> v1,<sig2>"
+  const signatures = webhookSignature.split(' ')
+  for (const sig of signatures) {
+    const [, sigValue] = sig.split(',')
+    if (!sigValue) continue
+    try {
+      const sigBuf = Buffer.from(sigValue, 'base64')
+      const expectedBuf = Buffer.from(expectedSignature, 'base64')
+      if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
+        return true
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return false
+}
 
 /**
  * Composio webhook endpoint - receives ALL trigger event callbacks
@@ -12,6 +63,7 @@ import type { Json } from '@/lib/supabase/database.types'
  *   2. Visual editor workflows (workflow_triggers table with type='app')
  *
  * Contract: POST /api/composio/webhook
+ * - Verifies webhook signature using COMPOSIO_TRIGGER_KEY
  * - Validates incoming payload with Zod schema
  * - Checks idempotency via event_log_id
  * - Looks up matching subscriptions in both systems
@@ -21,12 +73,39 @@ import type { Json } from '@/lib/supabase/database.types'
  * - 200 { status: "ok", runs_created: N } - Success
  * - 200 { status: "no_subscription" } - No active subscription found
  * - 400 { error: "..." } - Validation error
+ * - 401 { error: "..." } - Signature verification failed
  * - 500 { error: "Internal server error" } - Server error
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Parse and validate payload
-    const body = await request.json()
+    // 1. Verify webhook signature
+    const webhookSecret = process.env.COMPOSIO_TRIGGER_KEY
+    const rawBody = await request.text()
+
+    if (webhookSecret) {
+      const webhookId = request.headers.get('webhook-id')
+      const webhookTimestamp = request.headers.get('webhook-timestamp')
+      const webhookSignature = request.headers.get('webhook-signature')
+
+      if (!webhookId || !webhookTimestamp || !webhookSignature) {
+        return NextResponse.json({ error: 'Missing webhook signature headers' }, { status: 401 })
+      }
+
+      if (
+        !verifyWebhookSignature(
+          rawBody,
+          webhookId,
+          webhookTimestamp,
+          webhookSignature,
+          webhookSecret
+        )
+      ) {
+        return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
+      }
+    }
+
+    // 2. Parse and validate payload
+    const body = JSON.parse(rawBody)
     const parseResult = composioWebhookPayloadSchema.safeParse(body)
 
     if (!parseResult.success) {
@@ -39,13 +118,13 @@ export async function POST(request: NextRequest) {
     const payload = parseResult.data
     const { type: triggerSlug, log_id: eventLogId, data: triggerData } = payload
 
-    // 2. Initialize service role client (bypasses RLS)
+    // 3. Initialize service role client (bypasses RLS)
     const supabase = createServiceRoleClient()
 
     let runsCreated = 0
 
     // -----------------------------------------------------------------------
-    // 3. Agent workflow subscriptions (trigger_subscriptions)
+    // 4. Agent workflow subscriptions (trigger_subscriptions)
     // -----------------------------------------------------------------------
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from('trigger_subscriptions')
@@ -184,7 +263,7 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------------------------------------------------
-    // 4. Visual editor workflows (workflow_triggers with type='app')
+    // 5. Visual editor workflows (workflow_triggers with type='app')
     // -----------------------------------------------------------------------
     try {
       // Look up workflow_triggers where type='app' and the config event matches
@@ -312,7 +391,7 @@ export async function POST(request: NextRequest) {
     }
 
     // -----------------------------------------------------------------------
-    // 5. Return result
+    // 6. Return result
     // -----------------------------------------------------------------------
     if (runsCreated === 0 && (!subscriptions || subscriptions.length === 0)) {
       return NextResponse.json({ status: 'no_subscription' }, { status: 200 })
