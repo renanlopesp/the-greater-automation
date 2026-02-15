@@ -1,54 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, timingSafeEqual } from 'crypto'
 import { composioWebhookPayloadSchema } from '@/lib/composio/webhook-schema'
+import { getComposio } from '@/lib/composio/client'
 import { executePipeline } from '@/lib/workflows/pipeline-executor'
 import { executeVisualWorkflowSteps } from '@/lib/workflows/execute-visual-steps'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
-
-/**
- * Verify Composio webhook signature (Standard Webhooks / Svix format).
- * Headers: webhook-id, webhook-timestamp, webhook-signature
- * Signature: HMAC-SHA256 of "${id}.${timestamp}.${body}" with base64-decoded secret.
- */
-function verifyWebhookSignature(
-  rawBody: string,
-  webhookId: string,
-  webhookTimestamp: string,
-  webhookSignature: string,
-  secret: string
-): boolean {
-  const cleanSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret
-
-  // Verify timestamp is within 5 minutes to prevent replay attacks
-  const timestampSec = parseInt(webhookTimestamp, 10)
-  const nowSec = Math.floor(Date.now() / 1000)
-  if (Math.abs(nowSec - timestampSec) > 300) {
-    return false
-  }
-
-  // Compute expected signature — secret as plain string (UTF-8), matching Composio SDK
-  const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`
-  const expectedSignature = createHmac('sha256', cleanSecret).update(signedContent).digest('base64')
-
-  // webhook-signature can have multiple signatures: "v1,<sig1> v1,<sig2>"
-  const signatures = webhookSignature.split(' ')
-  for (const sig of signatures) {
-    const [, sigValue] = sig.split(',')
-    if (!sigValue) continue
-    try {
-      const sigBuf = Buffer.from(sigValue, 'base64')
-      const expectedBuf = Buffer.from(expectedSignature, 'base64')
-      if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
-        return true
-      }
-    } catch {
-      continue
-    }
-  }
-
-  return false
-}
 
 /**
  * Composio webhook endpoint - receives ALL trigger event callbacks
@@ -72,11 +28,12 @@ function verifyWebhookSignature(
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Verify webhook signature
+    // 1. Verify webhook signature using Composio SDK
     const webhookSecret = process.env.COMPOSIO_TRIGGER_KEY
     const rawBody = await request.text()
 
     if (webhookSecret) {
+      const composio = getComposio()
       const webhookId = request.headers.get('webhook-id')
       const webhookTimestamp = request.headers.get('webhook-timestamp')
       const webhookSignature = request.headers.get('webhook-signature')
@@ -85,15 +42,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing webhook signature headers' }, { status: 401 })
       }
 
-      if (
-        !verifyWebhookSignature(
-          rawBody,
-          webhookId,
-          webhookTimestamp,
-          webhookSignature,
-          webhookSecret
-        )
-      ) {
+      try {
+        await composio.triggers.verifyWebhook({
+          id: webhookId,
+          payload: rawBody,
+          signature: webhookSignature,
+          timestamp: webhookTimestamp,
+          secret: webhookSecret,
+        })
+      } catch {
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
       }
     }
