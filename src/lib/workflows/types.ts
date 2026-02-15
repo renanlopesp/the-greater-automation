@@ -2,8 +2,8 @@
 // Workflow Definition Types — Real Agent Workflows System
 // ---------------------------------------------------------------------------
 
-export type WorkflowTriggerType = 'manual' | 'chat_command' | 'webhook' | 'scheduled'
-export type WorkflowActionType = 'composio_action' | 'ai_transform' | 'notify'
+export type WorkflowTriggerType = 'manual' | 'chat_command' | 'webhook' | 'scheduled' | 'app_event'
+export type WorkflowActionType = 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent'
 export type WorkflowExecutionMode = 'auto' | 'confirm' | 'draft'
 export type WorkflowSource = 'manual' | 'dynamic' | 'rule'
 
@@ -55,11 +55,19 @@ export interface ScheduledTriggerConfig {
   timezone?: string
 }
 
+export interface AppEventTriggerConfig {
+  type: 'app_event'
+  trigger_slug: string // Composio trigger slug, e.g., "GITHUB_PULL_REQUEST_OPENED"
+  app_id: string // e.g., "github"
+  trigger_config?: Record<string, unknown> // App-specific config params
+}
+
 export type WorkflowTriggerConfig =
   | ManualTriggerConfig
   | ChatCommandTriggerConfig
   | WebhookTriggerConfig
   | ScheduledTriggerConfig
+  | AppEventTriggerConfig
 
 // ---------------------------------------------------------------------------
 // Conditions
@@ -102,10 +110,21 @@ export interface NotifyActionConfig {
   target?: string // channel name, email, etc.
 }
 
+export interface ClaudeAgentActionConfig {
+  type: 'claude_agent'
+  prompt: string // supports {{trigger.field}} and {{prev.key}} templates
+  output_key: string // key to store result for next action
+  tools?: string[] // Composio tool names the agent can use
+  model?: string // AI model to use (default: gpt-4o-mini)
+  timeout_ms?: number // max execution time (default: 300000)
+  output_format?: 'text' | 'json' // structured output format
+}
+
 export type WorkflowActionConfig =
   | ComposioActionConfig
   | AiTransformActionConfig
   | NotifyActionConfig
+  | ClaudeAgentActionConfig
 
 // ---------------------------------------------------------------------------
 // Full Workflow Definition (what the AI builds via SNEW_CREATE_WORKFLOW)
@@ -137,6 +156,9 @@ export interface WorkflowRun {
   completed_at: string | null
   duration_ms: number | null
   created_at: string
+  event_log_id?: string | null
+  pipeline_steps?: PipelineStepRecord[] | null
+  current_step_index?: number | null
 }
 
 export interface ActionExecutionResult {
@@ -145,6 +167,18 @@ export interface ActionExecutionResult {
   status: 'success' | 'failed' | 'skipped'
   output?: unknown
   error?: string
+  duration_ms?: number
+}
+
+export interface PipelineStepRecord {
+  step_index: number
+  action_type: WorkflowActionType
+  action_config: WorkflowActionConfig
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+  output?: unknown
+  error?: string
+  started_at?: string
+  completed_at?: string
   duration_ms?: number
 }
 
@@ -167,6 +201,28 @@ export interface AgentWorkflowRow {
   execution_mode: WorkflowExecutionMode
   last_run_at: string | null
   run_count: number
+  created_at: string
+  updated_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Trigger Subscription (DB row type)
+// ---------------------------------------------------------------------------
+
+export interface TriggerSubscriptionRow {
+  id: string
+  agent_workflow_id: string
+  agent_id: string
+  user_id: string
+  composio_trigger_id: string
+  trigger_slug: string
+  app_id: string
+  trigger_config: Record<string, unknown>
+  filters: WorkflowCondition[]
+  field_mappings: Record<string, string>
+  is_enabled: boolean
+  last_event_at: string | null
+  event_count: number
   created_at: string
   updated_at: string
 }

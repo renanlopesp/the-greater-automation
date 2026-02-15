@@ -31,9 +31,23 @@ interface WorkflowsListProps {
   workflows: Workflow[]
   agentId: string
   teamId: string
+  triggerSubscriptions?: Array<{
+    id: string
+    agent_workflow_id: string
+    trigger_slug: string
+    app_id: string
+    is_enabled: boolean
+    last_event_at: string | null
+    event_count: number
+  }>
 }
 
-export default function WorkflowsList({ workflows, agentId, teamId }: WorkflowsListProps) {
+export default function WorkflowsList({
+  workflows,
+  agentId,
+  teamId,
+  triggerSubscriptions = [],
+}: WorkflowsListProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const [isPending, startTransition] = useTransition()
   const [executingWorkflows, setExecutingWorkflows] = useState<Set<string>>(new Set())
@@ -86,6 +100,8 @@ export default function WorkflowsList({ workflows, agentId, teamId }: WorkflowsL
         return <MessageSquare className="h-4 w-4" />
       case 'manual':
         return <Play className="h-4 w-4" />
+      case 'app_event':
+        return <Zap className="h-4 w-4 text-amber-500" />
       default:
         return <Zap className="h-4 w-4" />
     }
@@ -123,6 +139,32 @@ export default function WorkflowsList({ workflows, agentId, teamId }: WorkflowsL
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{workflow.name}</p>
+                    {(() => {
+                      const sub = triggerSubscriptions.find(
+                        (ts) => ts.agent_workflow_id === workflow.id
+                      )
+                      if (!sub) return null
+                      return (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            sub.is_enabled
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
+                              : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'h-1.5 w-1.5 rounded-full',
+                              sub.is_enabled
+                                ? 'animate-pulse bg-emerald-500'
+                                : 'bg-muted-foreground'
+                            )}
+                          />
+                          {sub.is_enabled ? 'Listening' : 'Paused'}
+                        </span>
+                      )
+                    })()}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {workflow.last_run_at

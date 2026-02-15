@@ -20,6 +20,29 @@ import RunHistory from '@/components/agent-detail/run-history'
 import { useAgentWorkflows } from '@/hooks/use-agent-workflows'
 import type { AgentWorkflowData } from '@/lib/actions/agent-workflows'
 
+type Run = {
+  id: string
+  status: string
+  steps_used: number
+  ai_credits_used: number
+  started_at: string
+  completed_at: string | null
+  workflow: { name: string; emoji: string } | null
+  trigger_data?: Record<string, unknown> | null
+  actions_executed?: unknown[] | null
+  error?: string | null
+  pipeline_steps?: Array<{
+    step_index: number
+    action_type: string
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+    output?: Record<string, unknown>
+    error?: string
+    started_at?: string
+    completed_at?: string
+    duration_ms?: number
+  }> | null
+}
+
 interface AgentSidebarProps {
   agentId: string
   teamId: string
@@ -58,6 +81,17 @@ interface AgentSidebarProps {
     duration_ms: number | null
     created_at: string
     agent_workflows: { name: string } | null
+    pipeline_steps?: unknown[] | null
+    event_log_id?: string | null
+  }>
+  triggerSubscriptions?: Array<{
+    id: string
+    agent_workflow_id: string
+    trigger_slug: string
+    app_id: string
+    is_enabled: boolean
+    last_event_at: string | null
+    event_count: number
   }>
 }
 
@@ -69,6 +103,7 @@ export default function AgentSidebar({
   connectedApps,
   recentRuns,
   workflowRuns,
+  triggerSubscriptions,
 }: AgentSidebarProps) {
   const { data: workflows = initialWorkflows } = useAgentWorkflows(agentId, initialWorkflows)
   // Merge workflow runs and workflow runs into a single chronological list
@@ -86,6 +121,9 @@ export default function AgentSidebar({
       trigger_data: wr.trigger_data,
       actions_executed: wr.actions_executed,
       error: wr.error,
+      pipeline_steps: Array.isArray(wr.pipeline_steps)
+        ? (wr.pipeline_steps as Run['pipeline_steps'])
+        : null,
     }))
 
     return [...recentRuns, ...normalizedWorkflowRuns].sort(
@@ -119,7 +157,12 @@ export default function AgentSidebar({
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="workflows" className="mt-0">
-                <WorkflowsList workflows={workflows} agentId={agentId} teamId={teamId} />
+                <WorkflowsList
+                  workflows={workflows}
+                  agentId={agentId}
+                  teamId={teamId}
+                  triggerSubscriptions={triggerSubscriptions}
+                />
               </TabsContent>
               <TabsContent value="skills" className="mt-0">
                 <SkillsList skills={skills} agentId={agentId} />

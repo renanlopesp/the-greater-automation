@@ -70,10 +70,10 @@ describe('GitHub Module', () => {
     expect(repoField?.type).toBe('select')
   })
 
-  it('repo field uses GITHUB_LIST_USER_REPOS as data source', () => {
+  it('repo field uses GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER as data source', () => {
     const action = githubModule.actions.GITHUB_CREATE_ISSUE
     const repoField = action.fieldOverrides?.repo
-    expect(repoField?.dataSource.action).toBe('GITHUB_LIST_USER_REPOS')
+    expect(repoField?.dataSource.action).toBe('GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER')
     expect(repoField?.dataSource.displayField).toBe('full_name')
     expect(repoField?.dataSource.valueField).toBe('name')
   })
@@ -100,9 +100,8 @@ describe('GitHub Module', () => {
   })
 
   it('actions without fieldOverrides still exist for override lookup', () => {
-    // Actions like GITHUB_LIST_USER_REPOS and GITHUB_STAR_REPO were removed
+    // Actions like GITHUB_STAR_REPO were removed
     // since they had no fieldOverrides — they don't need module entries
-    expect(githubModule.actions.GITHUB_LIST_USER_REPOS).toBeUndefined()
     expect(githubModule.actions.GITHUB_STAR_REPO).toBeUndefined()
   })
 })

@@ -7,6 +7,7 @@ import type {
   ComposioActionConfig,
   AiTransformActionConfig,
   NotifyActionConfig,
+  ClaudeAgentActionConfig,
 } from './types'
 import { getComposio } from '@/lib/composio/client'
 
@@ -246,6 +247,96 @@ async function executeNotify(
 }
 
 /**
+ * Execute a claude_agent action — AI analysis with tool access and structured output.
+ */
+async function executeClaudeAgentStep(
+  config: ClaudeAgentActionConfig,
+  triggerData: Record<string, unknown>,
+  previousOutputs: Record<string, unknown>,
+  userId: string,
+  supabaseClient: SupabaseClient
+): Promise<ActionExecutionResult> {
+  const startTime = Date.now()
+
+  try {
+    const openai = createOpenAI({
+      apiKey: process.env.OPEN_AI_API_KEY,
+    })
+
+    const model = config.model && config.model !== 'default' ? config.model : 'gpt-4o'
+    const resolvedPrompt = resolveTemplate(config.prompt, triggerData, previousOutputs)
+    const timeoutMs = config.timeout_ms ?? 300_000
+
+    // Build Composio tools if specified
+    let tools: Record<string, unknown> | undefined
+    if (config.tools && config.tools.length > 0) {
+      try {
+        const { getComposioSession } = await import('@/lib/composio/composio-session')
+        const session = await getComposioSession(userId)
+        const allTools = await session.tools()
+
+        // Filter to only the requested tools
+        const filteredTools: Record<string, unknown> = {}
+        for (const toolName of config.tools) {
+          if (allTools[toolName]) {
+            filteredTools[toolName] = allTools[toolName]
+          }
+        }
+        if (Object.keys(filteredTools).length > 0) {
+          tools = filteredTools
+        }
+      } catch (toolError) {
+        console.warn('[action-executor] Failed to load Composio tools for claude_agent:', toolError)
+        // Continue without tools
+      }
+    }
+
+    // Build system prompt with context
+    const systemPrompt = `You are an AI agent executing a workflow step. Analyze the provided data and produce a clear, structured response.
+
+${config.output_format === 'json' ? 'IMPORTANT: Your final response MUST be valid JSON. Do not include markdown code fences or any text outside the JSON object.' : ''}`
+
+    const { text } = await generateText({
+      model: openai(model),
+      system: systemPrompt,
+      prompt: resolvedPrompt,
+      ...(tools
+        ? { tools: tools as Parameters<typeof generateText>[0]['tools'], maxSteps: 5 }
+        : {}),
+      abortSignal: AbortSignal.timeout(timeoutMs),
+    })
+
+    // Parse output based on format
+    let output: unknown = text.trim()
+    if (config.output_format === 'json') {
+      try {
+        // Try to extract JSON from the response (handle markdown code fences)
+        const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text]
+        output = JSON.parse((jsonMatch[1] || text).trim())
+      } catch {
+        output = { raw_text: text.trim() }
+      }
+    }
+
+    return {
+      action_type: 'claude_agent',
+      action_config: config,
+      status: 'success',
+      output: { [config.output_key]: output },
+      duration_ms: Date.now() - startTime,
+    }
+  } catch (error) {
+    return {
+      action_type: 'claude_agent',
+      action_config: config,
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      duration_ms: Date.now() - startTime,
+    }
+  }
+}
+
+/**
  * Execute all actions sequentially, passing outputs between steps.
  */
 export async function executeActions(
@@ -277,6 +368,16 @@ export async function executeActions(
 
       case 'notify':
         result = await executeNotify(action, triggerData, previousOutputs)
+        break
+
+      case 'claude_agent':
+        result = await executeClaudeAgentStep(
+          action,
+          triggerData,
+          previousOutputs,
+          userId,
+          supabaseClient
+        )
         break
 
       default:

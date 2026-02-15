@@ -49,7 +49,7 @@ const actionJsonSchema: Record<string, unknown> = {
   properties: {
     type: {
       type: 'string',
-      enum: ['composio_action', 'ai_transform', 'notify'],
+      enum: ['composio_action', 'ai_transform', 'notify', 'claude_agent'],
     },
     action: { type: 'string', description: 'Composio action ID like SLACK_SEND_MESSAGE' },
     app_id: { type: 'string', description: 'App ID like slack' },
@@ -65,6 +65,20 @@ const actionJsonSchema: Record<string, unknown> = {
     channel: { type: 'string', enum: ['internal', 'slack', 'email'] },
     message: { type: 'string', description: 'Notification message with templates' },
     target: { type: 'string', description: 'Channel name, email, etc.' },
+    tools: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Composio tool names the Claude agent can use (for claude_agent type)',
+    },
+    timeout_ms: {
+      type: 'number',
+      description: 'Max execution time in ms for claude_agent (default: 300000)',
+    },
+    output_format: {
+      type: 'string',
+      enum: ['text', 'json'],
+      description: 'Output format for claude_agent (default: text)',
+    },
   },
   required: ['type'],
 }
@@ -80,7 +94,7 @@ interface ConditionParam {
 }
 
 interface ActionParam {
-  type: 'composio_action' | 'ai_transform' | 'notify'
+  type: 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent'
   action?: string
   app_id?: string
   params?: Record<string, string>
@@ -90,6 +104,9 @@ interface ActionParam {
   channel?: 'internal' | 'slack' | 'email'
   message?: string
   target?: string
+  tools?: string[]
+  timeout_ms?: number
+  output_format?: 'text' | 'json'
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +128,16 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
         prompt: a.prompt || '',
         output_key: a.output_key || 'result',
         model: a.model,
+      }
+    } else if (a.type === 'claude_agent') {
+      return {
+        type: 'claude_agent' as const,
+        prompt: a.prompt || '',
+        output_key: a.output_key || 'analysis',
+        tools: a.tools,
+        model: a.model,
+        timeout_ms: a.timeout_ms,
+        output_format: a.output_format,
       }
     } else {
       return {
@@ -182,11 +209,35 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
           const triggerItems = triggerTypesResult?.items || []
           const triggers = triggerItems.map(
-            (t: { slug: string; name: string; description?: string }) => ({
-              trigger_name: t.slug,
-              display_name: t.name,
-              description: t.description?.slice(0, 120) || '',
-            })
+            (t: {
+              slug: string
+              name: string
+              description?: string
+              config?: Record<string, unknown>
+              payload?: Record<string, unknown>
+            }) => {
+              // Build lightweight sample payload (top 10 fields, truncate nested objects)
+              const samplePayload = t.payload
+                ? Object.fromEntries(
+                    Object.entries(t.payload)
+                      .slice(0, 10)
+                      .map(([key, val]) => [
+                        key,
+                        typeof val === 'object' && val !== null ? '(object)' : val,
+                      ])
+                  )
+                : null
+
+              return {
+                trigger_name: t.slug,
+                display_name: t.name,
+                description: t.description?.slice(0, 120) || '',
+                config_params: t.config ? Object.keys(t.config) : [],
+                payload_fields: t.payload ? Object.keys(t.payload) : [],
+                sample_payload: samplePayload,
+                _trigger_hint: `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
+              }
+            }
           )
 
           return {
@@ -221,7 +272,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             properties: {
               type: {
                 type: 'string',
-                enum: ['manual', 'chat_command', 'webhook', 'scheduled'],
+                enum: ['manual', 'chat_command', 'webhook', 'scheduled', 'app_event'],
               },
               command: { type: 'string', description: 'For chat_command triggers' },
               cron_expression: {
@@ -229,6 +280,34 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 description: 'For scheduled triggers, e.g. "0 9 * * 1-5"',
               },
               timezone: { type: 'string' },
+              trigger_slug: {
+                type: 'string',
+                description:
+                  'Composio trigger slug (e.g., GITHUB_PULL_REQUEST_OPENED) — required for app_event triggers',
+              },
+              trigger_app_id: {
+                type: 'string',
+                description:
+                  'App ID for the trigger (e.g., github) — required for app_event triggers',
+              },
+              trigger_config: {
+                type: 'object',
+                additionalProperties: true,
+                description:
+                  'App-specific trigger configuration params — optional for app_event triggers',
+              },
+              filters: {
+                type: 'array',
+                description:
+                  'Event filters — only run when ALL conditions match the event data. Each filter checks a field in the event payload.',
+                items: conditionJsonSchema,
+              },
+              field_mappings: {
+                type: 'object',
+                additionalProperties: { type: 'string' },
+                description:
+                  'Map event fields to workflow variables. Key = variable name, Value = dot-path in event data (e.g., {"pr_title": "data.pull_request.title"})',
+              },
             },
             required: ['type'],
           },
@@ -255,7 +334,17 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async (params: {
         name: string
         description?: string
-        trigger: { type: string; command?: string; cron_expression?: string; timezone?: string }
+        trigger: {
+          type: string
+          command?: string
+          cron_expression?: string
+          timezone?: string
+          trigger_slug?: string
+          trigger_app_id?: string
+          trigger_config?: Record<string, unknown>
+          filters?: Array<{ field: string; operator: string; value?: unknown }>
+          field_mappings?: Record<string, string>
+        }
         conditions?: ConditionParam[]
         actions: ActionParam[]
         execution_mode?: string
@@ -421,7 +510,14 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 }
               : params.trigger.type === 'chat_command'
                 ? { type: 'chat_command', command: params.trigger.command || params.name }
-                : { type: 'manual' }
+                : params.trigger.type === 'app_event'
+                  ? {
+                      type: 'app_event' as const,
+                      trigger_slug: params.trigger.trigger_slug || '',
+                      app_id: params.trigger.trigger_app_id || '',
+                      trigger_config: params.trigger.trigger_config,
+                    }
+                  : { type: 'manual' }
 
         const actions = buildActions(params.actions)
         const executionMode = params.execution_mode || 'auto'
@@ -444,6 +540,94 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           .single()
 
         if (error) return { success: false, error: error.message }
+
+        // After inserting the agent_workflow (skill), if trigger is app_event, create trigger subscription
+        if (
+          params.trigger.type === 'app_event' &&
+          params.trigger.trigger_slug &&
+          params.trigger.trigger_app_id
+        ) {
+          try {
+            // Check subscription limit before creating
+            const { count: subCount } = await supabase
+              .from('trigger_subscriptions')
+              .select('id', { count: 'exact', head: true })
+              .eq('agent_id', agentId)
+              .eq('is_enabled', true)
+
+            if (subCount !== null && subCount >= 50) {
+              return {
+                success: false,
+                error:
+                  'Trigger subscription limit reached (50 per agent). Disable or delete existing subscriptions first.',
+              }
+            }
+
+            const { createTrigger } = await import('@/lib/composio/triggers')
+
+            // Get connected account for this user+app
+            const composio = getComposio()
+            const { items: accounts } = await composio.connectedAccounts.list({ userIds: [userId] })
+            const appAccount = accounts.find(
+              (acc: { toolkit?: { slug?: string }; status: string }) =>
+                acc.toolkit?.slug === params.trigger.trigger_app_id && acc.status === 'ACTIVE'
+            )
+
+            if (!appAccount) {
+              return {
+                success: false,
+                error: `No active connection found for ${params.trigger.trigger_app_id}. Please connect the app in Settings first.`,
+              }
+            }
+
+            // Create Composio trigger subscription
+            const composioTriggerId = await createTrigger({
+              userId,
+              triggerSlug: params.trigger.trigger_slug,
+              connectedAccountId: appAccount.id,
+              triggerConfig: params.trigger.trigger_config || {},
+            })
+
+            // Insert trigger_subscriptions row
+            await supabase.from('trigger_subscriptions').insert({
+              agent_workflow_id: skill.id,
+              agent_id: agentId,
+              user_id: userId,
+              composio_trigger_id: composioTriggerId,
+              trigger_slug: params.trigger.trigger_slug,
+              app_id: params.trigger.trigger_app_id,
+              trigger_config: (params.trigger.trigger_config || {}) as unknown as Json,
+              filters: (params.trigger.filters || []) as unknown as Json,
+              field_mappings: (params.trigger.field_mappings || {}) as unknown as Json,
+            })
+
+            const result: Record<string, unknown> = {
+              success: true,
+              skill_id: skill.id,
+              workflow_id: workflow.id,
+              name: skill.name,
+              trigger_subscription: {
+                composio_trigger_id: composioTriggerId,
+                trigger_slug: params.trigger.trigger_slug,
+                app_id: params.trigger.trigger_app_id,
+                status: 'active',
+              },
+            }
+
+            revalidatePath(`/agents/${agentId}`)
+            return result
+          } catch (triggerError) {
+            // Workflow was created but trigger subscription failed
+            revalidatePath(`/agents/${agentId}`)
+            return {
+              success: true,
+              skill_id: skill.id,
+              workflow_id: workflow.id,
+              name: skill.name,
+              trigger_warning: `Workflow created but trigger subscription failed: ${triggerError instanceof Error ? triggerError.message : 'Unknown error'}. You can retry by deleting and recreating the workflow.`,
+            }
+          }
+        }
 
         revalidatePath(`/agents/${agentId}`)
 

@@ -40,9 +40,10 @@ describe('RunHistory', () => {
 
   it('renders status badges', () => {
     render(<RunHistory runs={mockRuns} />)
-    expect(screen.getByText('Completed')).toBeInTheDocument()
-    expect(screen.getByText('Failed')).toBeInTheDocument()
-    expect(screen.getByText('Running')).toBeInTheDocument()
+    // Filter buttons also render these labels, so expect multiple matches
+    expect(screen.getAllByText('Completed').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Running').length).toBeGreaterThanOrEqual(2)
   })
 
   it('renders workflow names with emojis', () => {

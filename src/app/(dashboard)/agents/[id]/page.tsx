@@ -33,6 +33,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     connectionsResult,
     workflowRunsResult,
     skillsResult,
+    triggerSubsResult,
   ] = await Promise.all([
     // Workflows (automations) with workflow info + new columns
     supabase
@@ -68,7 +69,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     supabase
       .from('agent_workflow_runs')
       .select(
-        'id, workflow_id, status, trigger_data, actions_executed, error, duration_ms, created_at, agent_workflows(name)'
+        'id, workflow_id, status, trigger_data, actions_executed, error, duration_ms, created_at, pipeline_steps, event_log_id, agent_workflows(name)'
       )
       .eq('agent_id', id)
       .order('created_at', { ascending: false })
@@ -80,6 +81,12 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       .select('id, name, description, content, source, is_enabled, type, parameters, version')
       .eq('agent_id', id)
       .order('created_at', { ascending: true }),
+
+    // Trigger subscriptions
+    supabase
+      .from('trigger_subscriptions')
+      .select('id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count')
+      .eq('agent_id', id),
   ])
 
   // Build heatmap data
@@ -139,6 +146,8 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     duration_ms: r.duration_ms,
     created_at: r.created_at ?? new Date().toISOString(),
     agent_workflows: r.agent_workflows as { name: string } | null,
+    pipeline_steps: Array.isArray(r.pipeline_steps) ? r.pipeline_steps : null,
+    event_log_id: r.event_log_id,
   }))
 
   // Transform skills (knowledge) for component
@@ -152,6 +161,17 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     type: s.type,
     parameters: s.parameters,
     version: s.version,
+  }))
+
+  // Transform trigger subscriptions for component
+  const triggerSubscriptions = (triggerSubsResult.data ?? []).map((ts) => ({
+    id: ts.id,
+    agent_workflow_id: ts.agent_workflow_id,
+    trigger_slug: ts.trigger_slug,
+    app_id: ts.app_id,
+    is_enabled: ts.is_enabled,
+    last_event_at: ts.last_event_at,
+    event_count: ts.event_count,
   }))
 
   return (
@@ -191,6 +211,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             connectedApps={connectedApps}
             recentRuns={recentRuns}
             workflowRuns={workflowRuns}
+            triggerSubscriptions={triggerSubscriptions}
           />
         </div>
       </header>

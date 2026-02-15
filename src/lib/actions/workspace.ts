@@ -12,6 +12,7 @@ import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
 import { encryptSecret, decryptSecret, generateWebhookSecret } from '@/lib/crypto'
 import { fetchWorkflowForEditor } from '@/lib/queries/workflow-editor'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
+import { createTrigger, deleteTrigger as deleteComposioTrigger } from '@/lib/composio/triggers'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -917,6 +918,58 @@ export async function publishWorkflow(
           .eq('id', trigger.id)
       }
     }
+
+    // Create Composio trigger subscription for app triggers on publish
+    if (trigger.type === 'app') {
+      const config = trigger.config as Record<string, unknown>
+      const appId = config.app_id as string
+      const event = config.event as string
+
+      if (!appId || !event) {
+        return { error: 'App trigger requires both an app and an event' }
+      }
+
+      // Only create if not already subscribed
+      if (!config.composio_trigger_id) {
+        // Look up the connected account for this app
+        const { data: connection } = await supabase
+          .from('app_connections')
+          .select('composio_connection_id')
+          .eq('app_id', appId)
+          .single()
+
+        if (!connection?.composio_connection_id) {
+          return {
+            error: `App "${appId}" is not connected. Connect it in Settings first.`,
+          }
+        }
+
+        try {
+          const triggerConfig = (config.trigger_config ?? {}) as Record<string, unknown>
+          const composioTriggerId = await createTrigger({
+            userId: user.id,
+            triggerSlug: event,
+            connectedAccountId: connection.composio_connection_id,
+            triggerConfig,
+          })
+
+          // Store composio_trigger_id in trigger config
+          await supabase
+            .from('workflow_triggers')
+            .update({
+              config: {
+                ...config,
+                composio_trigger_id: composioTriggerId,
+              } as Database['public']['Tables']['workflow_triggers']['Update']['config'],
+            })
+            .eq('id', trigger.id)
+        } catch (triggerError) {
+          return {
+            error: `Failed to create app trigger: ${triggerError instanceof Error ? triggerError.message : 'Unknown error'}`,
+          }
+        }
+      }
+    }
   }
 
   const updateData: {
@@ -933,10 +986,10 @@ export async function publishWorkflow(
   } else {
     updateData.published_at = null
 
-    // If unpublishing a scheduled workflow, remove the pg_cron job
+    // Clean up trigger subscriptions when unpublishing
     const { data: trigger } = await supabase
       .from('workflow_triggers')
-      .select('type')
+      .select('id, type, config')
       .eq('workflow_id', workflowId)
       .single()
 
@@ -945,6 +998,26 @@ export async function publishWorkflow(
       await serviceClient.rpc('unschedule_cron_job', {
         job_name: `scheduled_wf_${workflowId}`,
       })
+    }
+
+    // Delete Composio trigger subscription for app triggers
+    if (trigger?.type === 'app') {
+      const config = trigger.config as Record<string, unknown>
+      const composioTriggerId = config?.composio_trigger_id as string | undefined
+      if (composioTriggerId) {
+        await deleteComposioTrigger(composioTriggerId).catch(() => {
+          // Best-effort cleanup
+        })
+        // Remove composio_trigger_id from config
+        const { composio_trigger_id: _, ...restConfig } = config
+        await supabase
+          .from('workflow_triggers')
+          .update({
+            config:
+              restConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
+          })
+          .eq('id', trigger.id)
+      }
     }
   }
 
