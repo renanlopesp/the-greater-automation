@@ -12,7 +12,11 @@ import { WORKFLOW_TEMPLATES } from '@/lib/data/workflow-templates'
 import { encryptSecret, decryptSecret, generateWebhookSecret } from '@/lib/crypto'
 import { fetchWorkflowForEditor } from '@/lib/queries/workflow-editor'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
-import { createTrigger, deleteTrigger as deleteComposioTrigger } from '@/lib/composio/triggers'
+import {
+  createTrigger,
+  enableTrigger,
+  deleteTrigger as deleteComposioTrigger,
+} from '@/lib/composio/triggers'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -849,6 +853,7 @@ export async function saveWorkflow(
               connectedAccountId: connection.composio_connection_id,
               triggerConfig: (appConfig.trigger_config as Record<string, unknown>) ?? {},
             })
+            await enableTrigger(composioTriggerId)
             triggerConfig = { ...triggerConfig, composio_trigger_id: composioTriggerId }
           }
         } catch (error) {
@@ -1007,6 +1012,7 @@ export async function publishWorkflow(
             connectedAccountId: connection.composio_connection_id,
             triggerConfig,
           })
+          await enableTrigger(composioTriggerId)
 
           // Store composio_trigger_id in trigger config
           await supabase
