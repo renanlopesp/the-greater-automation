@@ -48,7 +48,9 @@ export async function executeAIStep(
   if (context) {
     Object.entries(context).forEach(([key, value]) => {
       const placeholder = `{{${key}}}`
-      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), String(value))
+      const serialized =
+        typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
+      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), serialized)
     })
   }
 
