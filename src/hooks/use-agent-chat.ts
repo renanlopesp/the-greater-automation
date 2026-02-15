@@ -5,7 +5,14 @@ import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { loadConversationHistory } from '@/lib/actions/agent-conversations'
 
-const SKILL_MUTATING_TOOLS = ['SNEW_CREATE_SKILL', 'SNEW_DELETE_SKILL', 'SNEW_UPDATE_SKILL']
+const SKILL_MUTATING_TOOLS = [
+  'SNEW_CREATE_SKILL',
+  'SNEW_DELETE_SKILL',
+  'SNEW_UPDATE_SKILL',
+  'SNEW_CREATE_WORKFLOW',
+  'SNEW_DELETE_WORKFLOW',
+  'SNEW_UPDATE_WORKFLOW',
+]
 
 interface UseAgentChatOptions {
   onSkillMutation?: () => void
@@ -102,6 +109,13 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     [aiSendMessage]
   )
 
+  // Start a fresh conversation — clears messages and resets conversationId
+  const startNewChat = useCallback(() => {
+    setConversationId(null)
+    conversationIdRef.current = null
+    setMessages([])
+  }, [setMessages])
+
   const isStreaming = status === 'streaming'
   const isLoading = status === 'submitted' || isStreaming
 
@@ -114,6 +128,7 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     error: chatError?.message ?? null,
     conversationId,
     sendMessage,
+    startNewChat,
     stop,
   }
 }

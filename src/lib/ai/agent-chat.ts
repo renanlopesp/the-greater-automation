@@ -44,11 +44,25 @@ export function buildAgentSystemPrompt(
   agent: AgentConfig,
   skills: AgentSkill[],
   connectedApps: ConnectedApp[],
-  dynamicSkills?: AgentSkill[]
+  dynamicSkills?: AgentSkill[],
+  knowledgeSkills?: Array<{ name: string; content: string; is_enabled: boolean }>
 ): string {
   let prompt = `You are ${agent.name}.`
   if (agent.system_prompt) {
     prompt += `\n\n${agent.system_prompt}`
+  }
+
+  // Knowledge skills
+  if (knowledgeSkills && knowledgeSkills.length > 0) {
+    const enabledSkills = knowledgeSkills.filter((s) => s.is_enabled)
+    if (enabledSkills.length > 0) {
+      prompt += '\n\n## Your Knowledge & Skills\n'
+      prompt +=
+        'The following skills define your specialized knowledge. Apply them when relevant:\n'
+      for (const skill of enabledSkills) {
+        prompt += `\n### ${skill.name}\n${skill.content}\n`
+      }
+    }
   }
 
   // Connected apps (informational — tools are passed natively)
@@ -63,8 +77,8 @@ export function buildAgentSystemPrompt(
 
   // Static skills
   if (skills.length > 0) {
-    prompt += '\n\n## Skills\n'
-    prompt += 'You have the following skills (workflows you can trigger):\n'
+    prompt += '\n\n## Workflows\n'
+    prompt += 'You have the following workflows (automations you can trigger):\n'
     for (const skill of skills) {
       prompt += `\n- **${skill.name}**`
       if (skill.description) prompt += `: ${skill.description}`
@@ -73,43 +87,74 @@ export function buildAgentSystemPrompt(
 
   // Dynamic skills
   if (dynamicSkills && dynamicSkills.length > 0) {
-    prompt += '\n\n## Dynamic Skills\n'
+    prompt += '\n\n## Dynamic Workflows\n'
     for (const skill of dynamicSkills) {
       prompt += `\n- **${skill.name}**`
       if (skill.description) prompt += `: ${skill.description}`
     }
   }
 
-  prompt += '\n\n## Skill Building\n'
+  prompt += '\n\n## Automation Capabilities\n'
   prompt +=
-    'You can create, manage, and test executable skills (automation rules) for yourself. Skills follow a WHEN → IF → THEN pattern:\n\n'
+    'You can create, manage, and test executable workflows (automation rules) for yourself. Workflows follow a WHEN → IF → THEN pattern:\n\n'
   prompt +=
-    '- **WHEN** (Trigger): What starts the skill — manual button, chat command, webhook, or schedule\n'
+    '- **WHEN** (Trigger): What starts the workflow — manual button, chat command, webhook, schedule, or a **Composio trigger** (event-driven, e.g. "new Discord message", "new GitHub issue")\n'
   prompt +=
     '- **IF** (Conditions): Optional rules that must be true for actions to run (e.g. "sender contains @acme.com")\n'
   prompt +=
     '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, or send a notification\n'
   prompt +=
     "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
-  prompt += '### How to Build a Skill\n\n'
+  prompt += '### How to Build a Workflow\n\n'
   prompt +=
     '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'
   prompt += '2. **VERIFY**: Use SNEW_CHECK_CONNECTIONS to ensure required apps are connected\n'
   prompt +=
-    '3. **LOOKUP ACTIONS**: ALWAYS call SNEW_LIST_APP_ACTIONS for each app you plan to use (e.g. github, slack). NEVER guess action names — use only names returned by this tool.\n'
+    '3. **CHECK CAPABILITIES**: ALWAYS call SNEW_LIST_APP_CAPABILITIES for each app you plan to use. This returns both available **actions** (things you can do) and **triggers** (events you can listen for). NEVER invent or guess action names — only use slugs returned by this tool.\n'
   prompt +=
-    '4. **SUMMARIZE**: Present a clear summary: "Here\'s what I\'ll set up: WHEN [trigger] → IF [conditions] → THEN [actions] in [mode] mode"\n'
-  prompt += '5. **BUILD**: Call SNEW_CREATE_SKILL with the full configuration\n'
-  prompt += '6. **TEST**: Offer to dry-run with SNEW_TEST_SKILL using sample data\n\n'
-  prompt += '### Available Skill Tools\n\n'
+    '4. **MAP PARAMS**: For EVERY composio_action, you MUST map ALL required parameters. Read the `required_params` and `params` from SNEW_LIST_APP_CAPABILITIES output and map each one:\n'
   prompt +=
-    '- SNEW_LIST_APP_ACTIONS — **MUST call before using composio_action** to get real action names and params\n'
-  prompt += '- SNEW_CREATE_SKILL — Create a new automation rule\n'
-  prompt += '- SNEW_LIST_SKILLS — See all current skills\n'
-  prompt += '- SNEW_UPDATE_SKILL — Modify an existing skill\n'
-  prompt += '- SNEW_DELETE_SKILL — Remove a skill\n'
-  prompt += '- SNEW_TEST_SKILL — Dry-run with sample data\n'
-  prompt += '- SNEW_CHECK_CONNECTIONS — Verify app connections\n'
+    '   - For **webhook** triggers: use `{{trigger.field.path}}` to reference incoming payload fields — inspect the trigger schema to know what fields are available\n'
+  prompt +=
+    '   - For **AI output** from a previous step: use `{{prev.output_key}}` to reference the output key from that step\n'
+  prompt += '   - For **static values** the user explicitly provided: use the literal value\n'
+  prompt +=
+    "   - **NEVER guess or hardcode** context-dependent values (names, IDs, channels, repos, emails, etc.). If you don't know a value, ASK THE USER.\n"
+  prompt +=
+    '5. **ASK WHEN UNSURE**: If any required parameter cannot be derived from the trigger data or a previous action output, you MUST ask the user before creating the workflow. Never assume names, identifiers, or targets.\n'
+  prompt +=
+    '6. **SUMMARIZE**: Present a clear summary showing the parameter mapping: "Here\'s what I\'ll set up: WHEN [trigger] → IF [conditions] → THEN [actions with mapped params] in [mode] mode"\n'
+  prompt +=
+    '7. **BUILD**: Call SNEW_CREATE_WORKFLOW with the full configuration including all mapped params\n'
+  prompt += '8. **TEST**: Offer to dry-run with SNEW_TEST_WORKFLOW using sample data\n\n'
+  prompt += '### Available Workflow Tools\n\n'
+  prompt +=
+    '- SNEW_LIST_APP_CAPABILITIES — **MUST call before using composio_action** to get real action names, triggers, required params, and param descriptions\n'
+  prompt +=
+    '- SNEW_CREATE_WORKFLOW — Create a new automation rule (params must be fully mapped, action slugs are validated)\n'
+  prompt += '- SNEW_LIST_WORKFLOWS — See all current workflows\n'
+  prompt += '- SNEW_UPDATE_WORKFLOW — Modify an existing workflow\n'
+  prompt += '- SNEW_DELETE_WORKFLOW — Remove a workflow\n'
+  prompt += '- SNEW_TEST_WORKFLOW — Dry-run with sample data\n'
+  prompt +=
+    '- SNEW_CHECK_CONNECTIONS — Verify app connections and their auth type (OAuth, Bot, API Key)\n\n'
+  prompt += '### Authentication Awareness (CRITICAL)\n\n'
+  prompt +=
+    'Each app connection has an **auth_type** (OAuth, Bot, API Key, etc.) that determines what it can do. Different auth types grant different scopes and permissions — an OAuth user token may NOT support the same actions as a Bot token or API Key.\n\n'
+  prompt += '**Before creating any workflow, ALWAYS:**\n'
+  prompt += '1. Call SNEW_CHECK_CONNECTIONS to see the auth_type and scopes of each connection\n'
+  prompt +=
+    '2. Call SNEW_LIST_APP_CAPABILITIES to see what actions and triggers are actually available for that app\n'
+  prompt +=
+    '3. Cross-reference: if a trigger or action requires permissions that the current auth_type/scopes do not cover, **warn the user** and explain what connection type they need. Do NOT create workflows that will fail due to insufficient permissions.\n'
+  prompt +=
+    '4. If unsure whether the connection supports the intended action, tell the user: "Let me verify your connection supports this" — then check capabilities and scopes.\n'
+  prompt +=
+    '5. Some apps have separate toolkits for different auth types (e.g. user OAuth vs bot). If the current toolkit lacks the needed action, suggest the alternative toolkit.\n\n'
+  prompt += '### Knowledge Skill Tools\n\n'
+  prompt += '- SNEW_CREATE_SKILL — Create a new knowledge skill (embedded instruction/knowledge)\n'
+  prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills\n'
+  prompt += '- SNEW_DELETE_SKILL — Remove a knowledge skill\n'
 
   prompt += '\n\n## Instructions\n'
   prompt +=

@@ -45,6 +45,7 @@ export interface ChatCommandTriggerConfig {
 export interface WebhookTriggerConfig {
   type: 'webhook'
   webhook_token: string
+  webhook_secret: string // HMAC secret for signature verification
   webhook_url?: string // computed, not stored
 }
 

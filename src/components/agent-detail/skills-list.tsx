@@ -97,8 +97,6 @@ export default function SkillsList({ skills, agentId, teamId }: SkillsListProps)
 
   return (
     <div className="space-y-3">
-      <h2 className="text-foreground text-[15px] font-semibold">Skills</h2>
-
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
         <div className="divide-y">
           {/* Rule-based skills */}
@@ -114,15 +112,15 @@ export default function SkillsList({ skills, agentId, teamId }: SkillsListProps)
               >
                 <div className="bg-background text-muted-foreground relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border shadow-sm">
                   {getTriggerIcon(skill.trigger_config)}
+                  {conditionCount > 0 && (
+                    <span className="bg-primary text-primary-foreground absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] leading-none font-bold">
+                      {conditionCount}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{skill.name}</p>
-                    {conditionCount > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {conditionCount} {conditionCount === 1 ? 'condition' : 'conditions'}
-                      </Badge>
-                    )}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {skill.last_run_at

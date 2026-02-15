@@ -3,12 +3,21 @@
 import { FatalError } from 'workflow'
 import type { AppStepConfig } from '@/lib/workflow-editor/step-defaults'
 import { getComposio } from '@/lib/composio/client'
-import { getComposioActionName } from '@/lib/composio/action-map'
 
 export interface AppStepOutput {
   app_id: string
   action: string
   result: unknown
+}
+
+/**
+ * Resolve the Composio action slug from config.
+ * New workflows store the full slug (e.g. "DISCORD_SEND_A_MESSAGE_IN_A_CHANNEL").
+ * Legacy workflows may store a short name (e.g. "send_message") — construct APP_ACTION format.
+ */
+function resolveActionSlug(appId: string, action: string): string {
+  if (action.includes('_') && action === action.toUpperCase()) return action
+  return `${appId.toUpperCase()}_${action.toUpperCase()}`
 }
 
 export async function appStep(config: AppStepConfig): Promise<AppStepOutput> {
@@ -26,7 +35,7 @@ export async function appStep(config: AppStepConfig): Promise<AppStepOutput> {
   }
 
   const composio = getComposio()
-  const actionName = getComposioActionName(app_id, action)
+  const actionName = resolveActionSlug(app_id, action)
 
   // Strip internal fields from inputs before sending to Composio
   const actionInputs = { ...inputs } as Record<string, unknown>

@@ -16,7 +16,6 @@ import type {
   AppStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
 import { getComposio } from '@/lib/composio/client'
-import { getComposioActionName } from '@/lib/composio/action-map'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -469,7 +468,11 @@ export async function executeWorkflowSteps(
 
           // Execute via Composio
           const composio = getComposio()
-          const actionName = getComposioActionName(appConfig.app_id, appConfig.action)
+          // New workflows store full Composio slugs; legacy ones may use short names
+          const actionName =
+            appConfig.action.includes('_') && appConfig.action === appConfig.action.toUpperCase()
+              ? appConfig.action
+              : `${appConfig.app_id.toUpperCase()}_${appConfig.action.toUpperCase()}`
 
           const result = await composio.tools.execute(actionName, {
             connectedAccountId: connection.composio_connection_id,

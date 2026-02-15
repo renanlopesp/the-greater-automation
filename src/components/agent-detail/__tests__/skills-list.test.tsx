@@ -109,7 +109,7 @@ describe('SkillsList', () => {
 
   it('shows condition count badge when conditions exist', () => {
     render(<SkillsList skills={mockRuleSkills} agentId="agent-1" teamId="team-1" />)
-    expect(screen.getByText('1 condition')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
   })
 
   it('renders default emoji when legacy skill has no workflow', () => {

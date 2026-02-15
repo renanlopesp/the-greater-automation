@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }))
   }
 
-  // 7. Load agent skills
+  // 7. Load agent skills (workflows)
   const { data: skillRows } = await supabase
     .from('agent_skills')
     .select('*')
@@ -135,6 +135,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const staticSkills = allSkills.filter((s) => s.source !== 'dynamic')
   const dynamicSkills = allSkills.filter((s) => s.source === 'dynamic')
+
+  // Load knowledge skills
+  const { data: knowledgeSkillRows } = await supabase
+    .from('agent_knowledge_skills')
+    .select('name, content, is_enabled')
+    .eq('agent_id', agentId)
+
+  const knowledgeSkills = (knowledgeSkillRows ?? []).map((s) => ({
+    name: s.name,
+    content: s.content,
+    is_enabled: s.is_enabled ?? true,
+  }))
 
   // 8. Load connected apps for system prompt context
   const { data: appConnections } = await supabase
@@ -155,7 +167,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     agentConfig,
     staticSkills,
     connectedApps,
-    dynamicSkills
+    dynamicSkills,
+    knowledgeSkills
   )
 
   // 10. Update agent status to 'running'

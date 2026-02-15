@@ -3,7 +3,7 @@
 import type { UIMessage } from 'ai'
 import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
 import BoringAvatar from 'boring-avatars'
-import { CopyIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react'
+import { CopyIcon, ThumbsDownIcon, ThumbsUpIcon, SquarePen } from 'lucide-react'
 import { useCallback } from 'react'
 
 import {
@@ -183,8 +183,17 @@ export default function ChatPanel({
   conversationStarters,
 }: ChatPanelProps) {
   const invalidateSkills = useInvalidateAgentSkills(agentId)
-  const { messages, status, isLoading, isStreaming, isLoadingHistory, error, sendMessage, stop } =
-    useAgentChat(agentId, { onSkillMutation: invalidateSkills })
+  const {
+    messages,
+    status,
+    isLoading,
+    isStreaming,
+    isLoadingHistory,
+    error,
+    sendMessage,
+    startNewChat,
+    stop,
+  } = useAgentChat(agentId, { onSkillMutation: invalidateSkills })
 
   const hasMessages = messages.length > 0
 
@@ -271,6 +280,18 @@ export default function ChatPanel({
           <PromptInput onSubmit={handleSubmit}>
             <PromptInputTextarea placeholder={`Chat with ${agentName}...`} disabled={isLoading} />
             <PromptInputFooter>
+              {hasMessages && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground h-8 gap-1.5 text-xs"
+                  onClick={startNewChat}
+                  disabled={isLoading}
+                >
+                  <SquarePen className="h-3.5 w-3.5" />
+                  New chat
+                </Button>
+              )}
               <PromptInputSubmit status={status} onStop={stop} />
             </PromptInputFooter>
           </PromptInput>

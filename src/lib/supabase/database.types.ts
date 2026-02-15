@@ -138,6 +138,50 @@ export type Database = {
           },
         ]
       }
+      agent_knowledge_skills: {
+        Row: {
+          agent_id: string
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          name: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          content: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          name: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          name?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_knowledge_skills_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       agent_skills: {
         Row: {
           action_template: Json | null

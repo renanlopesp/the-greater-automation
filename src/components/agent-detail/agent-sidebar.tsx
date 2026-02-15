@@ -12,7 +12,9 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import SkillsList from '@/components/agent-detail/skills-list'
+import KnowledgeSkillsList from '@/components/agent-detail/knowledge-skills-list'
 import ConnectionIndicators from '@/components/agent-detail/connection-indicators'
 import ActivityHeatmap from '@/components/agent-detail/activity-heatmap'
 import RunHistory from '@/components/agent-detail/run-history'
@@ -23,6 +25,14 @@ interface AgentSidebarProps {
   agentId: string
   teamId: string
   initialSkills: AgentSkillData[]
+  knowledgeSkills: Array<{
+    id: string
+    name: string
+    description: string | null
+    content: string
+    source: string
+    is_enabled: boolean | null
+  }>
   connectedApps: Array<{
     app_id: string
     account_label: string | null
@@ -54,6 +64,7 @@ export default function AgentSidebar({
   agentId,
   teamId,
   initialSkills,
+  knowledgeSkills,
   connectedApps,
   recentRuns,
   skillRuns,
@@ -98,7 +109,24 @@ export default function AgentSidebar({
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-5rem)] [&>[data-slot=scroll-area-viewport]>div]:!block">
           <div className="space-y-6 p-6">
-            <SkillsList skills={skills} agentId={agentId} teamId={teamId} />
+            <Tabs defaultValue="workflows" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <TabsList className="h-8">
+                  <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
+                    Workflows
+                  </TabsTrigger>
+                  <TabsTrigger value="skills" className="h-7 px-3 text-xs">
+                    Skills
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="workflows" className="mt-0">
+                <SkillsList skills={skills} agentId={agentId} teamId={teamId} />
+              </TabsContent>
+              <TabsContent value="skills" className="mt-0">
+                <KnowledgeSkillsList skills={knowledgeSkills} agentId={agentId} />
+              </TabsContent>
+            </Tabs>
 
             <section className="space-y-3">
               <h2 className="text-foreground text-[15px] font-semibold">Connected apps</h2>

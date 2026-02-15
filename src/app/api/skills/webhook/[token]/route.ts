@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import { executeSkill } from '@/lib/skills/skill-executor'
 import type { AgentSkillRow } from '@/lib/skills/types'
+
+/**
+ * Verify HMAC-SHA256 webhook signature.
+ * Supports X-Webhook-Signature-256 (generic) and X-Hub-Signature-256 (GitHub).
+ */
+function verifySignature(rawBody: string, secret: string, signatureHeader: string | null): boolean {
+  if (!signatureHeader) return false
+  const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader))
+  } catch {
+    return false
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -25,13 +40,26 @@ export async function POST(
     return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
   }
 
+  // Read raw body for signature verification
+  const rawBody = await request.text()
+
+  // Verify webhook signature if secret is configured
+  const triggerConfig = skill.trigger_config as { webhook_secret?: string } | null
+  const webhookSecret = triggerConfig?.webhook_secret
+  if (webhookSecret) {
+    const signature =
+      request.headers.get('x-webhook-signature-256') || request.headers.get('x-hub-signature-256')
+    if (!verifySignature(rawBody, webhookSecret, signature)) {
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
+    }
+  }
+
   // Parse request body as trigger data
   let triggerData: Record<string, unknown> = {}
   try {
-    triggerData = await request.json()
+    triggerData = JSON.parse(rawBody)
   } catch {
-    // If not JSON, use raw text
-    triggerData = { body: await request.text() }
+    triggerData = { body: rawBody }
   }
 
   // Add metadata to trigger data

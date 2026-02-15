@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { getComposio } from '../client'
-import { getIntegrationId } from '../action-map'
+import { getIntegrationId } from '../integrations'
 import { createServerClient } from '@/lib/supabase/server'
 
 /**

@@ -107,13 +107,17 @@ async function executeComposioAction(
 
     // Look up the tool version (required for manual execution)
     const composio = getComposio()
-    const tools = await composio.tools.getRawComposioTools({ toolkits: [config.app_id] })
+    const tools = await composio.tools.getRawComposioTools({
+      toolkits: [config.app_id],
+      limit: 200,
+    })
     const toolMeta = tools.find((t) => t.slug === config.action)
     const version = toolMeta?.version
 
-    // Execute via composio.tools.execute()
+    // Execute via composio.tools.execute() — requires version + userId for manual execution
     const result = await composio.tools.execute(config.action, {
       connectedAccountId: connection.composio_connection_id,
+      userId,
       arguments: resolvedParams,
       ...(version ? { version } : {}),
     })
@@ -144,12 +148,19 @@ async function executeComposioAction(
       duration_ms: Date.now() - startTime,
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
+    // Extract full error details from Composio
+    const err = error as Record<string, unknown>
+    const message = err?.message ?? 'Unknown error'
+    const resp = err?.response as Record<string, unknown> | undefined
+    const detail = resp?.data ?? resp?.body ?? err?.cause ?? err?.errCode ?? null
+    const resolvedParams = resolveParams(config.params, triggerData, previousOutputs)
+    console.error(`[action-executor] Composio error for ${config.action}:`, message, detail)
     return {
       action_type: 'composio_action',
       action_config: config,
       status: 'failed',
-      error: message,
+      error: `${message}${detail ? ` — ${JSON.stringify(detail)}` : ''}`,
+      output: { resolved_params: resolvedParams },
       duration_ms: Date.now() - startTime,
     }
   }
@@ -178,11 +189,14 @@ async function executeAiTransform(
       prompt: resolvedPrompt,
     })
 
+    // Clean AI output: trim whitespace, remove surrounding quotes
+    const cleaned = text.trim().replace(/^['"`]+|['"`]+$/g, '')
+
     return {
       action_type: 'ai_transform',
       action_config: config,
       status: 'success',
-      output: { [config.output_key]: text },
+      output: { [config.output_key]: cleaned },
       duration_ms: Date.now() - startTime,
     }
   } catch (error) {

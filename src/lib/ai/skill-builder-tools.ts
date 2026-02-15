@@ -52,7 +52,8 @@ const actionJsonSchema: Record<string, unknown> = {
     params: {
       type: 'object',
       additionalProperties: { type: 'string' },
-      description: 'Parameters with {{trigger.field}} templates',
+      description:
+        'REQUIRED for composio_action. Map ALL required params from SNEW_LIST_APP_CAPABILITIES using {{trigger.field.path}} for webhook data, {{prev.key}} for previous action output, or literal values the user provided. NEVER leave empty for composio_action.',
     },
     prompt: { type: 'string', description: 'AI prompt with {{trigger.field}} templates' },
     output_key: { type: 'string', description: 'Key to store AI output for next action' },
@@ -125,16 +126,16 @@ function buildActions(raw: ActionParam[]): SkillActionConfig[] {
 
 export function buildSkillBuilderTools(agentId: string, userId: string, teamId: string) {
   return {
-    SNEW_LIST_APP_ACTIONS: {
+    SNEW_LIST_APP_CAPABILITIES: {
       description:
-        'List available Composio actions for an app (e.g. github, slack, discord). ALWAYS call this before creating a skill with composio_action to get the correct action names and required parameters. Never guess action names.',
+        'List available Composio actions AND triggers for an app (e.g. github, slack, discord). ALWAYS call this before creating a workflow with composio_action to get the correct action names and required parameters. Never guess action names. Triggers are events the app can listen for (e.g. new message, new issue).',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           app_id: {
             type: 'string',
             description:
-              'The app ID to list actions for (e.g. "github", "slack", "discord", "notion")',
+              'The app ID to list capabilities for (e.g. "github", "slack", "discord", "notion")',
           },
         },
         required: ['app_id'],
@@ -142,7 +143,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       execute: async (params: { app_id: string }) => {
         try {
           const composio = getComposio()
-          const tools = await composio.tools.getRawComposioTools({ toolkits: [params.app_id] })
+
+          // Query both tools (actions) and trigger types in parallel
+          const [tools, triggerTypesResult] = await Promise.all([
+            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 200 }),
+            composio.triggers.listTypes({ toolkits: [params.app_id] }).catch(() => ({ items: [] })),
+          ])
 
           const actions = tools
             .filter((t: { isDeprecated?: boolean }) => !t.isDeprecated)
@@ -170,27 +176,44 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
               })
             )
 
-          return { app_id: params.app_id, actions_count: actions.length, actions }
+          const triggerItems = triggerTypesResult?.items || []
+          const triggers = triggerItems.map(
+            (t: { slug: string; name: string; description?: string }) => ({
+              trigger_name: t.slug,
+              display_name: t.name,
+              description: t.description?.slice(0, 120) || '',
+            })
+          )
+
+          return {
+            app_id: params.app_id,
+            actions_count: actions.length,
+            actions,
+            triggers_count: triggers.length,
+            triggers,
+            _hint:
+              'Use action names from "actions" for composio_action steps. Use trigger names from "triggers" for event-driven workflows (Composio polls for events automatically). You MUST populate the params object with ALL required_params. Use {{trigger.field.path}} for webhook data, {{prev.key}} for previous action output, or ask the user for values you cannot derive from the trigger payload.',
+          }
         } catch (error) {
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to list actions',
+            error: error instanceof Error ? error.message : 'Failed to list capabilities',
           }
         }
       },
     },
 
-    SNEW_CREATE_SKILL: {
+    SNEW_CREATE_WORKFLOW: {
       description:
-        'Create a new executable skill for this agent. Use this when the user wants to set up an automation rule (WHEN trigger, IF conditions, THEN actions). IMPORTANT: Before using composio_action type, ALWAYS call SNEW_LIST_APP_ACTIONS first to get the correct action names. Never guess action names.',
+        "Create a new executable workflow for this agent. Use this when the user wants to set up an automation rule (WHEN trigger, IF conditions, THEN actions). CRITICAL RULES: 1) Before using composio_action, ALWAYS call SNEW_LIST_APP_CAPABILITIES first. 2) For EVERY composio_action, the params object MUST map ALL required parameters using {{trigger.field}} templates or {{prev.key}} references. NEVER leave params empty. 3) NEVER hardcode context-dependent values (repo names, channel names, etc.) — ask the user if you don't know them. 4) Only use action slugs returned by SNEW_LIST_APP_CAPABILITIES — invented slugs will be rejected.",
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Short, descriptive name for the skill' },
-          description: { type: 'string', description: 'What this skill does' },
+          name: { type: 'string', description: 'Short, descriptive name for the workflow' },
+          description: { type: 'string', description: 'What this workflow does' },
           trigger: {
             type: 'object',
-            description: 'When should this skill run?',
+            description: 'When should this workflow run?',
             properties: {
               type: {
                 type: 'string',
@@ -233,6 +256,56 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         actions: ActionParam[]
         execution_mode?: string
       }) => {
+        // Validate composio_action params are not empty
+        const emptyParamActions = params.actions.filter(
+          (a) => a.type === 'composio_action' && (!a.params || Object.keys(a.params).length === 0)
+        )
+        if (emptyParamActions.length > 0) {
+          const actionNames = emptyParamActions.map((a) => a.action).join(', ')
+          return {
+            success: false,
+            error: `composio_action(s) [${actionNames}] have empty params. You MUST map all required parameters using {{trigger.field}} templates or {{prev.key}} references. Call SNEW_LIST_APP_CAPABILITIES to see required params for each action, then retry with fully mapped params.`,
+          }
+        }
+
+        // Validate that all composio_action slugs actually exist in Composio
+        const composioActions = params.actions.filter((a) => a.type === 'composio_action')
+        if (composioActions.length > 0) {
+          const composio = getComposio()
+          const appIds = [
+            ...new Set(
+              composioActions.map((a) => a.app_id).filter((id): id is string => Boolean(id))
+            ),
+          ]
+          const allSlugs = new Set<string>()
+
+          for (const appId of appIds) {
+            try {
+              const tools = await composio.tools.getRawComposioTools({
+                toolkits: [appId],
+                limit: 200,
+              })
+              for (const t of tools) {
+                allSlugs.add((t as { slug: string }).slug)
+              }
+            } catch {
+              // If we can't fetch tools for an app, skip validation for that app
+            }
+          }
+
+          if (allSlugs.size > 0) {
+            const invalidActions = composioActions.filter(
+              (a) => a.action && !allSlugs.has(a.action)
+            )
+            if (invalidActions.length > 0) {
+              return {
+                success: false,
+                error: `Action(s) not found in Composio: ${invalidActions.map((a) => a.action).join(', ')}. Call SNEW_LIST_APP_CAPABILITIES to see real action names.`,
+              }
+            }
+          }
+        }
+
         const supabase = await createServerClient()
 
         // 1. Create the workflow
@@ -255,6 +328,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
         // 2. Create the workflow trigger
         const webhookToken = crypto.randomUUID()
+        const webhookSecret = `whsec_${crypto.randomUUID().replace(/-/g, '')}`
         let triggerType: TriggerType = params.trigger.type as TriggerType
         let triggerConfig: Record<string, unknown>
 
@@ -265,6 +339,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             method: 'POST',
             response_status: 200,
             webhook_token: webhookToken,
+            secret: webhookSecret,
             response_mode: 'final',
           }
         } else if (params.trigger.type === 'scheduled') {
@@ -333,7 +408,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         // Also store trigger_config/actions for backward compat with sidebar display
         const skillTriggerConfig: SkillTriggerConfig =
           params.trigger.type === 'webhook'
-            ? { type: 'webhook', webhook_token: webhookToken }
+            ? { type: 'webhook', webhook_token: webhookToken, webhook_secret: webhookSecret }
             : params.trigger.type === 'scheduled'
               ? {
                   type: 'scheduled',
@@ -375,14 +450,18 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           name: skill.name,
         }
         if (params.trigger.type === 'webhook') {
-          result.webhook_url = `/api/workflows/webhook/${webhookToken}`
+          result.webhook_url = `/api/skills/webhook/${webhookToken}`
+          result.webhook_secret = webhookSecret
+          result.signature_header = 'X-Webhook-Signature-256'
+          result.setup_instructions =
+            'Configure this secret in your webhook provider to sign payloads. The endpoint verifies HMAC-SHA256 signatures via the X-Webhook-Signature-256 header (or X-Hub-Signature-256 for GitHub).'
         }
         return result
       },
     },
 
-    SNEW_LIST_SKILLS: {
-      description: 'List all skills for this agent with their current status and configuration.',
+    SNEW_LIST_WORKFLOWS: {
+      description: 'List all workflows for this agent with their current status and configuration.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {},
@@ -400,12 +479,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       },
     },
 
-    SNEW_UPDATE_SKILL: {
-      description: 'Update an existing skill configuration.',
+    SNEW_UPDATE_WORKFLOW: {
+      description: 'Update an existing workflow configuration.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          skill_id: { type: 'string', description: 'The skill ID to update' },
+          skill_id: { type: 'string', description: 'The workflow ID to update' },
           name: { type: 'string' },
           description: { type: 'string' },
           is_enabled: { type: 'boolean' },
@@ -444,12 +523,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       },
     },
 
-    SNEW_DELETE_SKILL: {
-      description: 'Delete a skill permanently.',
+    SNEW_DELETE_WORKFLOW: {
+      description: 'Delete a workflow permanently.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          skill_id: { type: 'string', description: 'The skill ID to delete' },
+          skill_id: { type: 'string', description: 'The workflow ID to delete' },
         },
         required: ['skill_id'],
       }),
@@ -466,12 +545,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       },
     },
 
-    SNEW_TEST_SKILL: {
-      description: 'Dry-run a skill with sample trigger data to verify it works correctly.',
+    SNEW_TEST_WORKFLOW: {
+      description: 'Dry-run a workflow with sample trigger data to verify it works correctly.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          skill_id: { type: 'string', description: 'The skill ID to test' },
+          skill_id: { type: 'string', description: 'The workflow ID to test' },
           sample_data: {
             type: 'object',
             description: 'Sample trigger data to test with',
@@ -510,18 +589,133 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
     SNEW_CHECK_CONNECTIONS: {
       description:
-        'Check which apps the user has connected. Use this to verify required integrations are set up before creating a skill.',
+        'Check which apps the user has connected, including auth type (OAuth, Bot, API Key). Use this to verify required integrations are set up and have the right auth type before creating a workflow. Important: some actions/triggers require specific auth types (e.g. Discord channel polling needs a Bot token, not OAuth).',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {},
       }),
       execute: async () => {
+        // Query Composio directly for real connected accounts with auth details
+        try {
+          const composio = getComposio()
+          const { items } = await composio.connectedAccounts.list({ userIds: [userId] })
+          const activeAccounts = items
+            .filter((acc: { status: string }) => acc.status === 'ACTIVE')
+            .map(
+              (acc: {
+                id: string
+                toolkit?: { slug?: string }
+                state?: { authScheme?: string }
+                data?: { scope?: string }
+              }) => ({
+                app_id: acc.toolkit?.slug || 'unknown',
+                connection_id: acc.id,
+                auth_type: acc.state?.authScheme || 'unknown',
+                scopes: acc.data?.scope || null,
+              })
+            )
+
+          return {
+            connected_apps: activeAccounts,
+            _hint:
+              'Check auth_type before creating workflows. OAuth user tokens have limited permissions (e.g. cannot read guild channel messages on Discord — need Bot token). Bot/API Key connections generally have broader access. If the auth type is wrong for your intended action, tell the user they need a different connection type.',
+          }
+        } catch {
+          // Fallback to local DB
+          const supabase = await createServerClient()
+          const { data: connections } = await supabase
+            .from('app_connections')
+            .select('app_id, account_label')
+            .eq('user_id', userId)
+          return { connected_apps: connections || [] }
+        }
+      },
+    },
+
+    SNEW_CREATE_SKILL: {
+      description:
+        'Create a new knowledge skill for this agent. Skills are embedded instructions/knowledge that influence how the agent behaves in conversations. Use this when the user teaches you something to remember or wants to add a capability.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Short name for the skill (e.g. "Portuguese Greeting", "Deploy Process")',
+          },
+          description: { type: 'string', description: 'Brief description of what this skill does' },
+          content: {
+            type: 'string',
+            description:
+              'The full instruction/knowledge text. This will be injected into your system prompt when chatting.',
+          },
+        },
+        required: ['name', 'content'],
+      }),
+      execute: async (params: { name: string; description?: string; content: string }) => {
         const supabase = await createServerClient()
-        const { data: connections } = await supabase
-          .from('app_connections')
-          .select('app_id, account_label')
-          .eq('user_id', userId)
-        return { connected_apps: connections || [] }
+        const { data, error } = await supabase
+          .from('agent_knowledge_skills')
+          .insert({
+            agent_id: agentId,
+            name: params.name,
+            description: params.description ?? null,
+            content: params.content,
+            source: 'chat',
+          })
+          .select('id, name')
+          .single()
+
+        if (error) {
+          if (error.code === '23505') return { error: 'A skill with this name already exists' }
+          return { error: error.message }
+        }
+
+        revalidatePath(`/agents/${agentId}`)
+        return {
+          success: true,
+          skill_id: data.id,
+          name: data.name,
+          message: `Skill "${data.name}" created. It will now influence your behavior in future conversations.`,
+        }
+      },
+    },
+
+    SNEW_LIST_SKILLS: {
+      description: 'List all knowledge skills for this agent.',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => {
+        const supabase = await createServerClient()
+        const { data } = await supabase
+          .from('agent_knowledge_skills')
+          .select('id, name, description, content, is_enabled, source')
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: true })
+
+        return { skills: data ?? [] }
+      },
+    },
+
+    SNEW_DELETE_SKILL: {
+      description: 'Delete a knowledge skill from this agent.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          skill_id: { type: 'string', description: 'The ID of the skill to delete' },
+        },
+        required: ['skill_id'],
+      }),
+      execute: async (params: { skill_id: string }) => {
+        const supabase = await createServerClient()
+        const { error } = await supabase
+          .from('agent_knowledge_skills')
+          .delete()
+          .eq('id', params.skill_id)
+          .eq('agent_id', agentId)
+
+        if (error) return { error: error.message }
+
+        revalidatePath(`/agents/${agentId}`)
+        return { success: true, message: 'Skill deleted successfully' }
       },
     },
   }

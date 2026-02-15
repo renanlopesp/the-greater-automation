@@ -26,48 +26,61 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   // Parallel data fetching
   const sixMonthsAgo = subMonths(new Date(), 6)
 
-  const [skillsResult, runsResult, recentRunsResult, connectionsResult, skillRunsResult] =
-    await Promise.all([
-      // Skills with workflow info + new columns
-      supabase
-        .from('agent_skills')
-        .select(
-          'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
-        )
-        .eq('agent_id', id)
-        .order('created_at', { ascending: true }),
+  const [
+    skillsResult,
+    runsResult,
+    recentRunsResult,
+    connectionsResult,
+    skillRunsResult,
+    knowledgeSkillsResult,
+  ] = await Promise.all([
+    // Skills with workflow info + new columns
+    supabase
+      .from('agent_skills')
+      .select(
+        'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
+      )
+      .eq('agent_id', id)
+      .order('created_at', { ascending: true }),
 
-      // Runs for heatmap (last 6 months)
-      supabase
-        .from('workflow_runs')
-        .select('started_at')
-        .eq('agent_id', id)
-        .gte('started_at', sixMonthsAgo.toISOString())
-        .order('started_at', { ascending: false }),
+    // Runs for heatmap (last 6 months)
+    supabase
+      .from('workflow_runs')
+      .select('started_at')
+      .eq('agent_id', id)
+      .gte('started_at', sixMonthsAgo.toISOString())
+      .order('started_at', { ascending: false }),
 
-      // Recent runs for history
-      supabase
-        .from('workflow_runs')
-        .select(
-          'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
-        )
-        .eq('agent_id', id)
-        .order('started_at', { ascending: false })
-        .limit(20),
+    // Recent runs for history
+    supabase
+      .from('workflow_runs')
+      .select(
+        'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
+      )
+      .eq('agent_id', id)
+      .order('started_at', { ascending: false })
+      .limit(20),
 
-      // User's app connections
-      supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
+    // User's app connections
+    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
 
-      // Skill runs
-      supabase
-        .from('agent_skill_runs')
-        .select(
-          'id, skill_id, status, trigger_data, actions_executed, error, duration_ms, created_at, agent_skills(name)'
-        )
-        .eq('agent_id', id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-    ])
+    // Skill runs
+    supabase
+      .from('agent_skill_runs')
+      .select(
+        'id, skill_id, status, trigger_data, actions_executed, error, duration_ms, created_at, agent_skills(name)'
+      )
+      .eq('agent_id', id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+
+    // Knowledge skills
+    supabase
+      .from('agent_knowledge_skills')
+      .select('id, name, description, content, source, is_enabled')
+      .eq('agent_id', id)
+      .order('created_at', { ascending: true }),
+  ])
 
   // Build heatmap data
   const heatmapData = new Map<string, number>()
@@ -128,6 +141,16 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     agent_skills: r.agent_skills as { name: string } | null,
   }))
 
+  // Transform knowledge skills for component
+  const knowledgeSkills = (knowledgeSkillsResult.data ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    content: s.content,
+    source: s.source,
+    is_enabled: s.is_enabled,
+  }))
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
       {/* Compact agent header */}
@@ -161,6 +184,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             agentId={id}
             teamId={agent.team_id}
             initialSkills={skills}
+            knowledgeSkills={knowledgeSkills}
             connectedApps={connectedApps}
             recentRuns={recentRuns}
             skillRuns={skillRuns}

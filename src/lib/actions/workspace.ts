@@ -126,10 +126,25 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 export async function deleteAgent(agentId: string): Promise<ActionResult> {
   const supabase = await createServerClient()
 
+  // Collect workflow IDs created by agent skills before cascade deletes them
+  const { data: skills } = await supabase
+    .from('agent_skills')
+    .select('workflow_id')
+    .eq('agent_id', agentId)
+    .not('workflow_id', 'is', null)
+
+  const workflowIds = skills?.map((s) => s.workflow_id).filter(Boolean) as string[] | undefined
+
+  // Delete agent (cascades to skills, conversations, messages, skill_runs)
   const { error } = await supabase.from('agents').delete().eq('id', agentId)
 
   if (error) {
     return { error: error.message ?? 'Failed to delete agent' }
+  }
+
+  // Clean up orphaned workflows that were created by the agent's skills
+  if (workflowIds && workflowIds.length > 0) {
+    await supabase.from('workflows').delete().in('id', workflowIds)
   }
 
   revalidatePath('/workspace')
@@ -405,12 +420,28 @@ export async function bulkDeleteItems(
     }
   }
 
-  // Delete agents
+  // Delete agents and their skill-created workflows
   if (agentIds.length > 0) {
+    // Collect workflow IDs created by agent skills before cascade deletes them
+    const { data: skillWorkflows } = await supabase
+      .from('agent_skills')
+      .select('workflow_id')
+      .in('agent_id', agentIds)
+      .not('workflow_id', 'is', null)
+
+    const skillWorkflowIds = (
+      skillWorkflows?.map((s) => s.workflow_id).filter(Boolean) as string[] | undefined
+    )?.filter((id) => !workflowIds.includes(id)) // exclude already-deleted workflows
+
     const { error } = await supabase.from('agents').delete().in('id', agentIds)
 
     if (error) {
       errors.push(`Failed to delete agents: ${error.message}`)
+    }
+
+    // Clean up orphaned workflows that were created by agent skills
+    if (skillWorkflowIds && skillWorkflowIds.length > 0) {
+      await supabase.from('workflows').delete().in('id', skillWorkflowIds)
     }
   }
 
