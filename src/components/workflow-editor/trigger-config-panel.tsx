@@ -9,11 +9,15 @@ import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getTriggerMeta } from '@/lib/workflow-editor/trigger-metadata'
 import { TriggerConfigRouter } from '@/components/workflow-editor/trigger-config'
 import TriggerSelector from '@/components/workflow-editor/trigger-selector'
-import { getTriggerDefaultConfig } from '@/lib/workflow-editor/trigger-defaults'
+import {
+  getTriggerDefaultConfig,
+  type WebhookTriggerConfig,
+} from '@/lib/workflow-editor/trigger-defaults'
+import { generateWebhookToken } from '@/lib/workflow-editor/webhook-utils'
 import { useState } from 'react'
 
 export default function TriggerConfigPanel() {
-  const { trigger, setTrigger, closeTriggerConfig } = useWorkflowEditorStore()
+  const { trigger, setTrigger, closeTriggerConfig, workflowStatus } = useWorkflowEditorStore()
   const [selectorOpen, setSelectorOpen] = useState(false)
 
   if (!trigger) return null
@@ -64,7 +68,18 @@ export default function TriggerConfigPanel() {
         open={selectorOpen}
         onOpenChange={setSelectorOpen}
         onSelect={(type) => {
-          setTrigger({ type, config: getTriggerDefaultConfig(type) })
+          let config = getTriggerDefaultConfig(type)
+          if (type === 'webhook' && workflowStatus === 'published') {
+            const array = new Uint8Array(32)
+            crypto.getRandomValues(array)
+            const secret = Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('')
+            config = {
+              ...config,
+              webhook_token: generateWebhookToken(),
+              secret,
+            } as WebhookTriggerConfig
+          }
+          setTrigger({ type, config })
         }}
       />
     </div>

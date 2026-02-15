@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, RunStatus } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
 
 type Client = SupabaseClient<Database>
+type RunStatus = Database['public']['Enums']['run_status']
 
 export interface Run {
   id: string

@@ -6,7 +6,7 @@ test.describe('Webhook Runner', () => {
   test.describe('Edge cases (no workflow needed)', () => {
     test('returns 404 for invalid token', async ({ request }) => {
       const response = await request.post(
-        `${BASE_URL}/.well-known/workflow/v1/webhook/00000000-0000-0000-0000-000000000000`
+        `${BASE_URL}/api/workflows/webhook/00000000-0000-0000-0000-000000000000`
       )
       expect(response.status()).toBe(404)
       const body = await response.json()
@@ -14,9 +14,7 @@ test.describe('Webhook Runner', () => {
     })
 
     test('returns 404 for non-existent token', async ({ request }) => {
-      const response = await request.get(
-        `${BASE_URL}/.well-known/workflow/v1/webhook/non-existent-token`
-      )
+      const response = await request.get(`${BASE_URL}/api/workflows/webhook/non-existent-token`)
       expect(response.status()).toBe(404)
       const body = await response.json()
       expect(body.error).toBe('Webhook not found')
@@ -61,8 +59,8 @@ test.describe('Webhook Runner', () => {
         .locator('button', { hasText: /Webhook/i })
         .first()
         .click()
-      // Check that a webhook URL is displayed (contains .well-known/workflow/v1/webhook/)
-      const webhookUrlLocator = page.locator('text=/.well-known\\/workflow\\/v1\\/webhook\\//')
+      // Check that a webhook URL is displayed (contains /api/workflows/webhook/)
+      const webhookUrlLocator = page.locator('text=/\\/api\\/workflows\\/webhook\\//')
       // If the URL is in an input, check its value
       const urlInput = page.locator('input[readonly]').first()
       let webhookUrl = ''
@@ -88,7 +86,7 @@ test.describe('Webhook Runner', () => {
             (t: { type: string }) => t.type === 'webhook'
           )
           if (webhookTrigger?.config?.webhook_token) {
-            webhookUrl = `${BASE_URL}/.well-known/workflow/v1/webhook/${webhookTrigger.config.webhook_token}`
+            webhookUrl = `${BASE_URL}/api/workflows/webhook/${webhookTrigger.config.webhook_token}`
           }
         }
       }
@@ -152,7 +150,7 @@ test.describe('Webhook Runner', () => {
         const data = await apiResponse.json()
         const trigger = data.triggers?.find((t: { type: string }) => t.type === 'webhook')
         if (trigger?.config?.webhook_token) {
-          const webhookUrl = `${BASE_URL}/.well-known/workflow/v1/webhook/${trigger.config.webhook_token}`
+          const webhookUrl = `${BASE_URL}/api/workflows/webhook/${trigger.config.webhook_token}`
 
           // 7. Send GET request to POST-only webhook → should get 405
           const wrongMethodResponse = await request.get(webhookUrl)
@@ -206,7 +204,7 @@ test.describe('Webhook Runner', () => {
         const data = await apiResponse.json()
         const trigger = data.triggers?.find((t: { type: string }) => t.type === 'webhook')
         if (trigger?.config?.webhook_token && trigger?.config?.secret) {
-          const webhookUrl = `${BASE_URL}/.well-known/workflow/v1/webhook/${trigger.config.webhook_token}`
+          const webhookUrl = `${BASE_URL}/api/workflows/webhook/${trigger.config.webhook_token}`
 
           // 8. Send request with wrong secret → 401
           const wrongSecretResponse = await request.post(webhookUrl, {
@@ -258,7 +256,7 @@ test.describe('Webhook Runner', () => {
         const data = await apiResponse.json()
         const trigger = data.triggers?.find((t: { type: string }) => t.type === 'webhook')
         if (trigger?.config?.webhook_token) {
-          const webhookUrl = `${BASE_URL}/.well-known/workflow/v1/webhook/${trigger.config.webhook_token}`
+          const webhookUrl = `${BASE_URL}/api/workflows/webhook/${trigger.config.webhook_token}`
 
           // 6. Send request to unpublished workflow → 404
           const response = await request.post(webhookUrl)

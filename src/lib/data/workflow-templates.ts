@@ -1,4 +1,7 @@
-import type { Json, StepType, TriggerType } from '@/lib/supabase/database.types'
+import type { Json, Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
+type TriggerType = Database['public']['Enums']['trigger_type']
 
 interface TemplateStep {
   position: number

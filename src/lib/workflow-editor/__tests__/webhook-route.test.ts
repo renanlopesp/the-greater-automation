@@ -207,7 +207,9 @@ describe('webhook route handler', () => {
     const result = await handleWebhookRequest('valid-token', request, mockSupabase)
 
     expect(result.status).toBe(200)
-    expect(result.body).toEqual({ success: true, run_id: 'run-123' })
+    expect(result.body.success).toBe(true)
+    expect(result.body.run_id).toBe('run-123')
+    expect(result.body).toHaveProperty('output')
   })
 
   it('returns configured status code', async () => {
@@ -231,6 +233,7 @@ describe('webhook route handler', () => {
     const result = await handleWebhookRequest('valid-token', request, mockSupabase)
 
     expect(result.status).toBe(201)
-    expect(result.body).toEqual({ success: true, run_id: 'run-456' })
+    expect(result.body.success).toBe(true)
+    expect(result.body.run_id).toBe('run-456')
   })
 })

@@ -1,9 +1,13 @@
-import type { TriggerType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type TriggerType = Database['public']['Enums']['trigger_type']
 
 export interface AppsTriggerConfig {
   app_id: string
   event: string
   filters: Record<string, string>
+  trigger_config?: Record<string, string>
+  composio_trigger_id?: string
 }
 
 export interface ManualTriggerConfig {
@@ -61,6 +65,7 @@ export interface WebhookTriggerConfig {
   encrypted_secret?: string
   response_status: number
   webhook_token?: string
+  response_mode?: 'final' | 'all_steps'
 }
 
 export interface TableTriggerConfig {
@@ -99,7 +104,7 @@ export interface WorkflowTrigger {
 
 export function getTriggerDefaultConfig(type: TriggerType): TriggerConfig {
   const defaults: Record<TriggerType, TriggerConfig> = {
-    app: { app_id: '', event: '', filters: {} },
+    app: { app_id: '', event: '', filters: {}, trigger_config: {} },
     manual: { run_inputs: [] },
     scheduled: {
       schedule_type: 'interval',
@@ -185,7 +190,9 @@ export function isTriggerConfigComplete(trigger: WorkflowTrigger): boolean {
       return !!(config as TableTriggerConfig).table_id
     case 'mcp':
       return !!(config as MCPServerTriggerConfig).server_name
-    case 'app':
-      return !!(config as AppsTriggerConfig).app_id
+    case 'app': {
+      const ac = config as AppsTriggerConfig
+      return !!ac.app_id && !!ac.event
+    }
   }
 }

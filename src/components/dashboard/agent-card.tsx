@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { getAgentPalette, getGlitchPalette } from '@/lib/agent-palettes'
 
 // Code-split heavy canvas animation — only loaded on first hover
@@ -20,6 +21,7 @@ export interface AgentCardProps {
     description: string | null
     avatar_url: string | null
     palette?: string | null
+    is_active?: boolean | null
   }
   skills: { id: string; name: string }[]
 }
@@ -37,6 +39,13 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
         onMouseLeave={() => setHovered(false)}
       >
         <Card className="relative flex h-[280px] flex-col overflow-hidden transition-shadow hover:shadow-md">
+          {/* Status dot */}
+          <span
+            className={cn(
+              'absolute top-3 right-3 z-10 h-2.5 w-2.5 rounded-full',
+              agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+            )}
+          />
           {hovered && (
             <div className="pointer-events-none absolute inset-0 opacity-40 transition-opacity duration-300">
               <Suspense fallback={null}>

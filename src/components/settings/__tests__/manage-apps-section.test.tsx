@@ -1,11 +1,29 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import ManageAppsSection from '@/components/settings/manage-apps-section'
 
 // Mock sonner
 vi.mock('sonner', () => ({
-  toast: vi.fn(),
+  toast: { error: vi.fn(), success: vi.fn() },
+}))
+
+// Mock React Query
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn().mockReturnValue({
+    data: {
+      connections: [],
+      availableApps: [
+        { id: 'github', integrationId: 'int_1', name: 'GitHub' },
+        { id: 'slack', integrationId: 'int_2', name: 'Slack' },
+        { id: 'notion', integrationId: 'int_3', name: 'Notion' },
+      ],
+    },
+    isLoading: false,
+  }),
+  useQueryClient: vi.fn().mockReturnValue({
+    invalidateQueries: vi.fn(),
+  }),
 }))
 
 describe('ManageAppsSection', () => {
@@ -14,10 +32,10 @@ describe('ManageAppsSection', () => {
     expect(screen.getByText('Manage apps')).toBeInTheDocument()
   })
 
-  it('renders app names', () => {
+  it('renders app names after loading', () => {
     render(<ManageAppsSection />)
-    expect(screen.getByText('Slack')).toBeInTheDocument()
     expect(screen.getByText('GitHub')).toBeInTheDocument()
+    expect(screen.getByText('Slack')).toBeInTheDocument()
     expect(screen.getByText('Notion')).toBeInTheDocument()
   })
 

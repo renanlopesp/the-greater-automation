@@ -2,7 +2,12 @@
 
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import ActivitySparkline from '@/components/dashboard/activity-sparkline'
+import dynamic from 'next/dynamic'
+
+const ActivitySparkline = dynamic(() => import('@/components/dashboard/activity-sparkline'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-24" />,
+})
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 
 export interface WorkflowListItemProps {

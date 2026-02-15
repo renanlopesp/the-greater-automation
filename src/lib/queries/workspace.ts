@@ -74,10 +74,10 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
   const agentIds = (agents ?? []).map((a) => a.id)
   const workflowIds = (workflows ?? []).map((w) => w.id)
 
-  // Fetch skills, step counts, and last runs in parallel (all depend on IDs from above)
-  const [skillsResult, stepsResult, runsResult] = await Promise.all([
+  // Fetch workflows, step counts, and last runs in parallel (all depend on IDs from above)
+  const [workflowsResult, stepsResult, runsResult] = await Promise.all([
     agentIds.length > 0
-      ? supabase.from('agent_skills').select('agent_id, workflow_id').in('agent_id', agentIds)
+      ? supabase.from('agent_workflows').select('agent_id, workflow_id').in('agent_id', agentIds)
       : Promise.resolve({ data: null }),
     workflowIds.length > 0
       ? supabase.from('workflow_steps').select('workflow_id, type').in('workflow_id', workflowIds)
@@ -90,11 +90,14 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       : Promise.resolve({ data: null }),
   ])
 
-  // Build workflow-to-agent map
-  const workflowToAgent: Record<string, string> = {}
-  if (skillsResult.data) {
-    for (const s of skillsResult.data) {
-      workflowToAgent[s.workflow_id] = s.agent_id
+  // Build per-agent workflow ID sets from agent_workflows
+  const agentWorkflowIds: Record<string, Set<string>> = {}
+  if (workflowsResult.data) {
+    for (const w of workflowsResult.data) {
+      if (w.workflow_id !== null) {
+        if (!agentWorkflowIds[w.agent_id]) agentWorkflowIds[w.agent_id] = new Set()
+        agentWorkflowIds[w.agent_id].add(w.workflow_id)
+      }
     }
   }
 
@@ -122,7 +125,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     }
   }
 
-  // Map workflows
+  // Map workflows (agent_id assigned later per-agent)
   const mappedWorkflows: WorkspaceWorkflow[] = (workflows ?? []).map((w) => ({
     type: 'workflow' as const,
     id: w.id,
@@ -137,17 +140,21 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     created_by_name: null,
     step_count: stepsByWorkflow[w.id]?.count ?? 0,
     has_ai_steps: stepsByWorkflow[w.id]?.hasAi ?? false,
-    agent_id: workflowToAgent[w.id] ?? null,
+    agent_id: null,
     folder_id: w.folder_id ?? null,
   }))
 
   // Build result: agents with nested workflows + standalone workflows
   const items: WorkspaceItem[] = []
-  const agentWorkflows = new Set<string>()
+  const claimedWorkflows = new Set<string>()
 
   for (const agent of agents ?? []) {
-    const childWorkflows = mappedWorkflows.filter((w) => w.agent_id === agent.id)
-    childWorkflows.forEach((w) => agentWorkflows.add(w.id))
+    const workflowIdSet = agentWorkflowIds[agent.id] ?? new Set<string>()
+    const childWorkflows = mappedWorkflows
+      .filter((w) => workflowIdSet.has(w.id))
+      .map((w) => ({ ...w, agent_id: agent.id }))
+    childWorkflows.forEach((w) => claimedWorkflows.add(w.id))
+
     items.push({
       type: 'agent',
       id: agent.id,
@@ -159,9 +166,9 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
     })
   }
 
-  // Add standalone workflows (not assigned to an agent)
+  // Add standalone workflows (not assigned to any agent)
   for (const w of mappedWorkflows) {
-    if (!agentWorkflows.has(w.id)) {
+    if (!claimedWorkflows.has(w.id)) {
       items.push(w)
     }
   }

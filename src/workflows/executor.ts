@@ -12,7 +12,9 @@ import { humanInLoopStep } from './steps/human-in-loop-step'
 import { utilityStep } from './steps/utility-step'
 import { flowControlStep } from './steps/flow-control-step'
 import { sequenceStep } from './steps/sequence-step'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type StepType = Database['public']['Enums']['step_type']
 
 export interface WorkflowConfig {
   workflowId: string

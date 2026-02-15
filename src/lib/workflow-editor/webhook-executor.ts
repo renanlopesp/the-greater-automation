@@ -13,7 +13,9 @@ import type {
   WebScrapingStepConfig,
   UtilityStepConfig,
   SequenceStepConfig,
+  AppStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
+import { getComposio } from '@/lib/composio/client'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -28,7 +30,7 @@ export function generateWebhookToken(): string {
 export function buildWebhookUrl(token: string): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return `${baseUrl}/.well-known/workflow/v1/webhook/${token}`
+  return `${baseUrl}/api/workflows/webhook/${token}`
 }
 
 // ---------------------------------------------------------------------------
@@ -233,10 +235,29 @@ export async function handleWebhookRequest(
 
   // 11. Return response with configured status code
   const statusCode = config.response_status || 200
+  const responseMode = config.response_mode ?? 'final'
+
+  // Build output based on response_mode
+  let responseOutput: unknown = null
+  if (result.outputs && Object.keys(result.outputs).length > 0) {
+    if (responseMode === 'all_steps') {
+      responseOutput = result.outputs
+    } else {
+      // final: return only the last step's output
+      const keys = Object.keys(result.outputs).sort()
+      const lastKey = keys[keys.length - 1]
+      responseOutput =
+        (result.outputs[lastKey] as { output?: unknown })?.output ?? result.outputs[lastKey]
+    }
+  }
+
   if (result.success) {
-    return { status: statusCode, body: { success: true, run_id: run.id } }
+    return { status: statusCode, body: { success: true, run_id: run.id, output: responseOutput } }
   } else {
-    return { status: statusCode, body: { success: false, run_id: run.id, error: result.error } }
+    return {
+      status: statusCode,
+      body: { success: false, run_id: run.id, error: result.error, output: responseOutput },
+    }
   }
 }
 
@@ -255,7 +276,7 @@ export async function executeWorkflowSteps(
     name: string
     config: Record<string, unknown> | null
   }>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; outputs?: Record<string, unknown> }> {
   let totalAICreditsUsed = 0
   const stepOutputs: Record<string, unknown> = {}
 
@@ -410,6 +431,72 @@ export async function executeWorkflowSteps(
           }
           break
         }
+        case 'app': {
+          const appConfig = step.config as unknown as AppStepConfig
+          if (!appConfig.app_id || !appConfig.action) {
+            stepStatus = 'failed'
+            stepError = 'App step requires app_id and action'
+            break
+          }
+
+          // Look up the workflow to get the creator's user_id
+          const { data: wf } = await supabase
+            .from('workflows')
+            .select('created_by')
+            .eq('id', workflowId)
+            .single()
+
+          if (!wf?.created_by) {
+            stepStatus = 'failed'
+            stepError = 'Cannot determine workflow owner for app connection'
+            break
+          }
+
+          // Look up the user's connection for this app
+          const { data: connection } = await supabase
+            .from('app_connections')
+            .select('composio_connection_id')
+            .eq('user_id', wf.created_by)
+            .eq('app_id', appConfig.app_id)
+            .single()
+
+          if (!connection?.composio_connection_id) {
+            stepStatus = 'failed'
+            stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
+            break
+          }
+
+          // Execute via Composio
+          const composio = getComposio()
+          // New workflows store full Composio slugs; legacy ones may use short names
+          const actionName =
+            appConfig.action.includes('_') && appConfig.action === appConfig.action.toUpperCase()
+              ? appConfig.action
+              : `${appConfig.app_id.toUpperCase()}_${appConfig.action.toUpperCase()}`
+
+          const result = await composio.tools.execute(actionName, {
+            connectedAccountId: connection.composio_connection_id,
+            arguments: appConfig.inputs as Record<string, unknown>,
+          })
+
+          const appResult = result as {
+            successful?: boolean
+            data?: unknown
+            error?: string
+          }
+
+          if (appResult.successful) {
+            stepOutput = {
+              app_id: appConfig.app_id,
+              action: appConfig.action,
+              result: appResult.data,
+            } as Json
+          } else {
+            stepStatus = 'failed'
+            stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
+          }
+          break
+        }
         default:
           stepOutput = { result: `Step "${step.name}" executed (type: ${step.type})` }
       }
@@ -451,6 +538,7 @@ export async function executeWorkflowSteps(
       return {
         success: false,
         error: `Step "${step.name}" failed: ${stepError}`,
+        outputs: stepOutputs,
       }
     }
   }
@@ -466,5 +554,5 @@ export async function executeWorkflowSteps(
     })
     .eq('id', runId)
 
-  return { success: true }
+  return { success: true, outputs: stepOutputs }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import * as LucideIcons from 'lucide-react'
 import {
   Dialog,
@@ -18,7 +19,10 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { STEP_TYPES, CONNECTED_APPS } from '@/lib/workflow-editor/step-metadata'
-import type { StepType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+import { useAppConnections } from '@/hooks/use-app-connections'
+
+type StepType = Database['public']['Enums']['step_type']
 
 interface StepSelectorProps {
   open: boolean
@@ -27,6 +31,14 @@ interface StepSelectorProps {
 }
 
 export default function StepSelector({ open, onOpenChange, onSelect }: StepSelectorProps) {
+  const { data } = useAppConnections()
+  const connections = useMemo(() => data?.connections ?? [], [data?.connections])
+
+  const connectedApps = useMemo(() => {
+    const connectedIds = new Set(connections.map((c) => c.app_id))
+    return CONNECTED_APPS.filter((app) => connectedIds.has(app.id))
+  }, [connections])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 sm:max-w-[480px]">
@@ -64,30 +76,34 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
                 )
               })}
             </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Connected Apps">
-              {CONNECTED_APPS.map((app) => {
-                const IconComponent = LucideIcons[
-                  app.icon as keyof typeof LucideIcons
-                ] as React.ComponentType<{ className?: string }>
-                return (
-                  <CommandItem
-                    key={app.id}
-                    value={app.name}
-                    onSelect={() => {
-                      onSelect('app')
-                      onOpenChange(false)
-                    }}
-                    className="flex items-center gap-3 p-3"
-                  >
-                    <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
-                      {IconComponent && <IconComponent className="h-4 w-4" />}
-                    </div>
-                    <span className="text-sm font-medium">{app.name}</span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
+            {connectedApps.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Connected Apps">
+                  {connectedApps.map((app) => {
+                    const IconComponent = LucideIcons[
+                      app.icon as keyof typeof LucideIcons
+                    ] as React.ComponentType<{ className?: string }>
+                    return (
+                      <CommandItem
+                        key={app.id}
+                        value={app.name}
+                        onSelect={() => {
+                          onSelect('app')
+                          onOpenChange(false)
+                        }}
+                        className="flex items-center gap-3 p-3"
+                      >
+                        <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
+                          {IconComponent && <IconComponent className="h-4 w-4" />}
+                        </div>
+                        <span className="text-sm font-medium">{app.name}</span>
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </DialogContent>

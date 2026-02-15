@@ -8,6 +8,20 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
 }))
 
+// Mock React Query
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn().mockReturnValue({
+    data: {
+      connections: [],
+      availableApps: [],
+    },
+    isLoading: false,
+  }),
+  useQueryClient: vi.fn().mockReturnValue({
+    invalidateQueries: vi.fn(),
+  }),
+}))
+
 // Mock server actions
 vi.mock('@/lib/actions/settings', () => ({
   updateProfileAction: vi.fn().mockResolvedValue({ success: true }),

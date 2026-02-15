@@ -279,7 +279,7 @@ export default function WorkspaceClient({
           !(item as WorkspaceAgent).workflows.some((w) => w.status === filters.status)
         )
           return false
-        if (item.type === 'folder') return false // folders don't have status
+        if (item.type === 'folder') return false
       }
       if (searchLower && !item.name.toLowerCase().includes(searchLower)) return false
       return true
@@ -331,7 +331,8 @@ export default function WorkspaceClient({
         if (!matchesFilters(item)) continue
         result.push(item)
         if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
-          for (const w of (item as WorkspaceAgent).workflows) {
+          const agent = item as WorkspaceAgent
+          for (const w of agent.workflows) {
             result.push(w)
           }
         }
@@ -346,7 +347,8 @@ export default function WorkspaceClient({
       if (!matchesFilters(item)) continue
       result.push(item)
       if (item.type === 'agent' && expandedAgentIds.has(item.id)) {
-        for (const w of (item as WorkspaceAgent).workflows) {
+        const agent = item as WorkspaceAgent
+        for (const w of agent.workflows) {
           result.push(w)
         }
       }

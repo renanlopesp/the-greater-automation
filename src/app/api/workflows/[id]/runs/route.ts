@@ -65,31 +65,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Failed to load workflow runs' }, { status: 500 })
     }
 
-    // For each run, get the step progress
-    const runsWithProgress = await Promise.all(
-      (runs || []).map(async (run) => {
-        const { data: stepStats } = await supabase
-          .from('workflow_run_steps')
-          .select('status')
-          .eq('run_id', run.id)
+    // Batch-fetch all step stats in a single query (avoids N+1)
+    const runIds = (runs || []).map((r) => r.id)
+    const { data: allStepStats } = runIds.length
+      ? await supabase.from('workflow_run_steps').select('run_id, status').in('run_id', runIds)
+      : { data: [] }
 
-        const totalSteps = stepStats?.length || 0
-        const completedSteps = stepStats?.filter((s) => s.status === 'completed').length || 0
-        const failedSteps = stepStats?.filter((s) => s.status === 'failed').length || 0
-        const runningSteps = stepStats?.filter((s) => s.status === 'running').length || 0
+    const statsByRun = new Map<
+      string,
+      { total: number; completed: number; failed: number; running: number }
+    >()
+    for (const stat of allStepStats || []) {
+      const entry = statsByRun.get(stat.run_id) ?? { total: 0, completed: 0, failed: 0, running: 0 }
+      entry.total++
+      if (stat.status === 'completed') entry.completed++
+      else if (stat.status === 'failed') entry.failed++
+      else if (stat.status === 'running') entry.running++
+      statsByRun.set(stat.run_id, entry)
+    }
 
-        return {
-          ...run,
-          progress: {
-            total: totalSteps,
-            completed: completedSteps,
-            failed: failedSteps,
-            running: runningSteps,
-            pending: totalSteps - completedSteps - failedSteps - runningSteps,
-          },
-        }
-      })
-    )
+    const runsWithProgress = (runs || []).map((run) => {
+      const s = statsByRun.get(run.id) ?? { total: 0, completed: 0, failed: 0, running: 0 }
+      return {
+        ...run,
+        progress: {
+          total: s.total,
+          completed: s.completed,
+          failed: s.failed,
+          running: s.running,
+          pending: s.total - s.completed - s.failed - s.running,
+        },
+      }
+    })
 
     return NextResponse.json({
       runs: runsWithProgress,

@@ -18,7 +18,9 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { TRIGGER_TYPES } from '@/lib/workflow-editor/trigger-metadata'
-import type { TriggerType } from '@/lib/supabase/database.types'
+import type { Database } from '@/lib/supabase/database.types'
+
+type TriggerType = Database['public']['Enums']['trigger_type']
 
 interface TriggerSelectorProps {
   open: boolean

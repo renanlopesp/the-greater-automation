@@ -107,14 +107,16 @@ export default function EditorHeader() {
   const handleSave = async () => {
     if (!workflowId) return
 
+    // Read latest state at call time (not from render closure) to avoid stale data
+    const s = useWorkflowEditorStore.getState()
     setSaving(true)
     try {
       await saveWorkflow.mutateAsync({
-        name: workflowName,
-        emoji: workflowEmoji,
-        isStarred,
-        trigger,
-        steps,
+        name: s.workflowName,
+        emoji: s.workflowEmoji,
+        isStarred: s.isStarred,
+        trigger: s.trigger,
+        steps: s.steps,
       })
       clearDirty()
       setShowSaved(true)

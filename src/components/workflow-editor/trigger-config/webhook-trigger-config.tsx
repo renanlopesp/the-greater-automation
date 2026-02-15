@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import type { WebhookTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
-import { buildWebhookUrl } from '@/lib/workflow-editor/webhook-executor'
+import { buildWebhookUrl } from '@/lib/workflow-editor/webhook-utils'
 
 const STATUS_CODE_OPTIONS = [
   { value: '200', label: '200 OK' },
@@ -164,6 +165,24 @@ export function WebhookTriggerConfigForm({
         <p className="text-muted-foreground mt-1 text-xs">
           HTTP status code to return after receiving the webhook
         </p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label htmlFor="response-mode">Include all steps in response</Label>
+          <p className="text-muted-foreground text-xs">
+            {config.response_mode === 'all_steps'
+              ? 'Returns output from every step'
+              : 'Returns only the final step output'}
+          </p>
+        </div>
+        <Switch
+          id="response-mode"
+          checked={config.response_mode === 'all_steps'}
+          onCheckedChange={(checked) =>
+            onUpdate({ ...config, response_mode: checked ? 'all_steps' : 'final' })
+          }
+        />
       </div>
     </div>
   )

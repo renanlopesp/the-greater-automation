@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { format, subMonths } from 'date-fns'
+import { format } from 'date-fns'
 import ActivityHeatmap from '../activity-heatmap'
 
 describe('ActivityHeatmap', () => {
@@ -26,16 +26,9 @@ describe('ActivityHeatmap', () => {
     const data = new Map<string, number>()
     render(<ActivityHeatmap data={data} />)
     const today = new Date()
-    const labels = [
-      format(subMonths(today, 4), 'MMMM'),
-      format(subMonths(today, 3), 'MMMM'),
-      format(subMonths(today, 2), 'MMMM'),
-      format(subMonths(today, 1), 'MMMM'),
-      format(today, 'MMMM'),
-    ]
-    for (const label of labels) {
-      expect(screen.getByText(label)).toBeInTheDocument()
-    }
+    // Component renders only the current month
+    const label = format(today, 'MMMM yyyy')
+    expect(screen.getByText(label)).toBeInTheDocument()
   })
 
   it('renders day-of-week labels', () => {

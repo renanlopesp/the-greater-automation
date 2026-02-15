@@ -1,4 +1,4 @@
-# Relay
+# Snew Automation
 
 ## Codebase Overview
 
@@ -29,7 +29,7 @@ For detailed architecture, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 
 - **Every schema change MUST have a migration file.** When creating, altering, or dropping tables, columns, indexes, enums, functions, triggers, or RLS policies, always create a corresponding migration file in `supabase/migrations/` using the Supabase MCP `apply_migration` tool (or `supabase migration new` locally). Never apply DDL changes directly via `execute_sql` without a migration.
 - Migration names should be descriptive and snake_case (e.g., `add_status_column_to_workflows`, `create_agent_skills_table`).
-- Production project ID: `djohaxwfketlsjurwqne` — Test branch project ID: `fqvqxydiaunlntzjtobr`
+- Production project ID: `djohaxwfketlsjurwqne` — Test branch project ID: `ejqumzvclfkbbzzdvmmi`
 
 ## Spec-Driven Development (MANDATORY)
 
@@ -76,6 +76,15 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 - `bun run lint` - Run ESLint
 
 ## Active Technologies
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19 + `composio-core` ^0.6.3 (triggers API), `@ai-sdk/openai` (Claude agent steps), `@supabase/ssr` + `@supabase/supabase-js` (Realtime for progress), TanStack React Query (021-app-event-triggers)
+- Supabase PostgreSQL — new `trigger_subscriptions` table, extended `agent_workflows` and `agent_workflow_runs` (021-app-event-triggers)
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Supabase, Vercel AI SDK, Composio SDK (020-structured-skills)
+- PostgreSQL via Supabase (production: `djohaxwfketlsjurwqne`, branch: `ejqumzvclfkbbzzdvmmi`) (020-structured-skills)
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Composio SDK (`composio-core`), Kiro Chat API (OpenAI-compatible, streaming + function calling), TanStack React Query, Zustand (018-autonomous-agent-skills)
+- Supabase (PostgreSQL) — existing tables: `agents`, `agent_conversations`, `agent_messages`, `agent_skills`, `app_connections` (018-autonomous-agent-skills)
 
 - TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19, Supabase (@supabase/ssr, @supabase/supabase-js) (014-webhook-runner)
 - Supabase (PostgreSQL) — workflow_triggers, workflow_runs, workflow_run_steps tables (014-webhook-runner)
