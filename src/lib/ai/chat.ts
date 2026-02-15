@@ -52,6 +52,21 @@ export async function executeAIStep(
         typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
       userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), serialized)
     })
+
+    // Always append trigger data as context if available and not already interpolated
+    if (context.trigger && !config.prompt_template.includes('{{trigger}}')) {
+      const triggerJson = JSON.stringify(context.trigger, null, 2)
+      userPrompt += `\n\n--- Trigger Event Data ---\n${triggerJson}`
+    }
+
+    // Append previous step outputs as context if available
+    const stepKeys = Object.keys(context).filter((k) => k.startsWith('step_'))
+    for (const key of stepKeys) {
+      if (!config.prompt_template.includes(`{{${key}}}`)) {
+        const stepJson = JSON.stringify(context[key], null, 2)
+        userPrompt += `\n\n--- ${key} output ---\n${stepJson}`
+      }
+    }
   }
 
   // Add output format instruction
