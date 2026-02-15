@@ -18,13 +18,7 @@ function verifyWebhookSignature(
   webhookSignature: string,
   secret: string
 ): boolean {
-  // Secret may have "whsec_" prefix — strip it before base64 decoding
   const cleanSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret
-  // Try base64 decode; fall back to raw UTF-8 if it doesn't look like valid base64
-  const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(cleanSecret) && cleanSecret.length % 4 === 0
-  const secretBytes = isBase64
-    ? Buffer.from(cleanSecret, 'base64')
-    : Buffer.from(cleanSecret, 'utf-8')
 
   // Verify timestamp is within 5 minutes to prevent replay attacks
   const timestampSec = parseInt(webhookTimestamp, 10)
@@ -33,9 +27,9 @@ function verifyWebhookSignature(
     return false
   }
 
-  // Compute expected signature
+  // Compute expected signature — secret as plain string (UTF-8), matching Composio SDK
   const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`
-  const expectedSignature = createHmac('sha256', secretBytes).update(signedContent).digest('base64')
+  const expectedSignature = createHmac('sha256', cleanSecret).update(signedContent).digest('base64')
 
   // webhook-signature can have multiple signatures: "v1,<sig1> v1,<sig2>"
   const signatures = webhookSignature.split(' ')
