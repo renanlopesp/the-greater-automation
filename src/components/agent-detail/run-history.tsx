@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { usePipelineRunSteps } from '@/hooks/use-trigger-subscriptions'
 
 interface Run {
   id: string
@@ -16,6 +19,18 @@ interface Run {
   trigger_data?: Record<string, unknown> | null
   actions_executed?: unknown[] | null
   error?: string | null
+  event_log_id?: string | null
+  trigger_type?: string | null
+  pipeline_steps?: Array<{
+    step_index: number
+    action_type: string
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+    output?: Record<string, unknown>
+    error?: string
+    started_at?: string
+    completed_at?: string
+    duration_ms?: number
+  }> | null
 }
 
 interface RunHistoryProps {
@@ -64,8 +79,69 @@ function formatDuration(startedAt: string, completedAt: string): string {
   return `${Math.round(diffMs / 3_600_000)}h`
 }
 
+// Wrapper component for real-time pipeline steps
+function PipelineStepsLive({ runId }: { runId: string }) {
+  const { steps } = usePipelineRunSteps(runId)
+
+  if (!steps || steps.length === 0) return null
+
+  return (
+    <div className="mb-3">
+      <p className="text-foreground mb-2 text-xs font-medium">
+        Pipeline Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
+      </p>
+      <div className="space-y-1">
+        {steps.map((step, idx) => (
+          <div
+            key={idx}
+            className="bg-background flex items-center gap-2 rounded border px-2 py-1.5"
+          >
+            {/* Status icon */}
+            <span
+              className={cn('h-2 w-2 flex-shrink-0 rounded-full', {
+                'bg-muted-foreground': step.status === 'pending',
+                'animate-pulse bg-blue-500': step.status === 'running',
+                'bg-green-500': step.status === 'completed',
+                'bg-red-500': step.status === 'failed',
+                'bg-muted': step.status === 'skipped',
+              })}
+            />
+            {/* Step info */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium">
+                Step {step.step_index + 1}: {step.action_type}
+              </p>
+              {step.error && <p className="text-destructive truncate text-[10px]">{step.error}</p>}
+            </div>
+            {/* Duration */}
+            {step.duration_ms != null && (
+              <span className="text-muted-foreground flex-shrink-0 text-[10px]">
+                {step.duration_ms < 1000 ? '<1s' : `${Math.round(step.duration_ms / 1000)}s`}
+              </span>
+            )}
+            {/* Status label */}
+            <span
+              className={cn('flex-shrink-0 text-[10px] font-medium', {
+                'text-muted-foreground': step.status === 'pending' || step.status === 'skipped',
+                'text-blue-600': step.status === 'running',
+                'text-green-600': step.status === 'completed',
+                'text-red-600': step.status === 'failed',
+              })}
+            >
+              {step.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function RunHistory({ runs }: RunHistoryProps) {
   const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set())
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [sourceFilter, setSourceFilter] = useState<string>('all')
+  const [retryingRuns, setRetryingRuns] = useState<Set<string>>(new Set())
 
   function toggleExpanded(runId: string) {
     setExpandedRuns((prev) => {
@@ -79,6 +155,30 @@ export default function RunHistory({ runs }: RunHistoryProps) {
     })
   }
 
+  async function handleRetry(runId: string) {
+    setRetryingRuns((prev) => new Set(prev).add(runId))
+    try {
+      const { retryWorkflowRun } = await import('@/lib/actions/trigger-subscriptions')
+      await retryWorkflowRun(runId)
+    } catch {
+      // Ignore - UI will show the result
+    } finally {
+      setRetryingRuns((prev) => {
+        const next = new Set(prev)
+        next.delete(runId)
+        return next
+      })
+    }
+  }
+
+  // Filter runs
+  const filteredRuns = runs.filter((run) => {
+    if (statusFilter !== 'all' && run.status !== statusFilter) return false
+    if (sourceFilter === 'event' && !run.event_log_id) return false
+    if (sourceFilter === 'manual' && run.event_log_id) return false
+    return true
+  })
+
   if (runs.length === 0) {
     return (
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
@@ -91,8 +191,41 @@ export default function RunHistory({ runs }: RunHistoryProps) {
 
   return (
     <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
+      <div className="flex items-center gap-1.5 border-b px-4 py-2">
+        {['all', 'completed', 'failed', 'running'].map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setStatusFilter(status)}
+            className={cn(
+              'rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors',
+              statusFilter === status
+                ? 'bg-foreground text-background'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
+        <div className="bg-border mx-1 h-4 w-px" />
+        {['all', 'event', 'manual'].map((source) => (
+          <button
+            key={source}
+            type="button"
+            onClick={() => setSourceFilter(source)}
+            className={cn(
+              'rounded-full px-2.5 py-0.5 text-[10px] font-medium transition-colors',
+              sourceFilter === source
+                ? 'bg-foreground text-background'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {source === 'all' ? 'All' : source.charAt(0).toUpperCase() + source.slice(1)}
+          </button>
+        ))}
+      </div>
       <div className="divide-y">
-        {runs.map((run) => {
+        {filteredRuns.map((run) => {
           const isExpanded = expandedRuns.has(run.id)
           const name = run.workflow ? `${run.workflow.emoji} ${run.workflow.name}` : 'Unknown'
 
@@ -111,6 +244,28 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-medium">{name}</p>
+                    {run.event_log_id && (
+                      <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                        {(() => {
+                          const td = run.trigger_data
+                          if (!td) return 'Event'
+                          // Try to extract app/trigger info from trigger_data metadata
+                          const meta = td.metadata as Record<string, unknown> | undefined
+                          const slug = meta?.triggerSlug as string | undefined
+                          if (slug) {
+                            // Convert "GITHUB_PULL_REQUEST_OPENED" → "GitHub: Pull Request Opened"
+                            const parts = slug.split('_')
+                            const app = parts[0]
+                            const event = parts
+                              .slice(1)
+                              .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
+                              .join(' ')
+                            return `${app.charAt(0) + app.slice(1).toLowerCase()}: ${event}`
+                          }
+                          return 'Event'
+                        })()}
+                      </Badge>
+                    )}
                     {getStatusBadge(run.status)}
                   </div>
                   <p className="text-muted-foreground text-xs">
@@ -127,6 +282,84 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                       <p className="text-destructive text-xs font-medium">Error</p>
                       <p className="text-muted-foreground mt-1 text-xs break-words">{run.error}</p>
                     </div>
+                  )}
+                  {run.status === 'failed' && (
+                    <div className="mb-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRetry(run.id)}
+                        disabled={retryingRuns.has(run.id)}
+                        className="h-7 text-xs"
+                      >
+                        {retryingRuns.has(run.id) ? 'Retrying...' : 'Retry'}
+                      </Button>
+                    </div>
+                  )}
+                  {/* Use real-time hook for running/pending runs, static data for completed/failed */}
+                  {run.status === 'running' || run.status === 'pending' ? (
+                    <PipelineStepsLive runId={run.id} />
+                  ) : (
+                    run.pipeline_steps &&
+                    run.pipeline_steps.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-foreground mb-2 text-xs font-medium">
+                          Pipeline Steps (
+                          {run.pipeline_steps.filter((s) => s.status === 'completed').length}/
+                          {run.pipeline_steps.length})
+                        </p>
+                        <div className="space-y-1">
+                          {run.pipeline_steps.map((step, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-background flex items-center gap-2 rounded border px-2 py-1.5"
+                            >
+                              {/* Status icon */}
+                              <span
+                                className={cn('h-2 w-2 flex-shrink-0 rounded-full', {
+                                  'bg-muted-foreground': step.status === 'pending',
+                                  'animate-pulse bg-blue-500': step.status === 'running',
+                                  'bg-green-500': step.status === 'completed',
+                                  'bg-red-500': step.status === 'failed',
+                                  'bg-muted': step.status === 'skipped',
+                                })}
+                              />
+                              {/* Step info */}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-medium">
+                                  Step {step.step_index + 1}: {step.action_type}
+                                </p>
+                                {step.error && (
+                                  <p className="text-destructive truncate text-[10px]">
+                                    {step.error}
+                                  </p>
+                                )}
+                              </div>
+                              {/* Duration */}
+                              {step.duration_ms != null && (
+                                <span className="text-muted-foreground flex-shrink-0 text-[10px]">
+                                  {step.duration_ms < 1000
+                                    ? '<1s'
+                                    : `${Math.round(step.duration_ms / 1000)}s`}
+                                </span>
+                              )}
+                              {/* Status label */}
+                              <span
+                                className={cn('flex-shrink-0 text-[10px] font-medium', {
+                                  'text-muted-foreground':
+                                    step.status === 'pending' || step.status === 'skipped',
+                                  'text-blue-600': step.status === 'running',
+                                  'text-green-600': step.status === 'completed',
+                                  'text-red-600': step.status === 'failed',
+                                })}
+                              >
+                                {step.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
                   )}
                   {run.trigger_data && (
                     <div className="mb-3">
@@ -164,7 +397,8 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                   {!run.error &&
                     !run.trigger_data &&
                     !run.actions_executed?.length &&
-                    !run.steps_used && (
+                    !run.steps_used &&
+                    !run.pipeline_steps?.length && (
                       <p className="text-muted-foreground text-xs">No additional details</p>
                     )}
                 </div>

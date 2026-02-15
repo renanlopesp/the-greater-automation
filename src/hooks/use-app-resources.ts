@@ -10,7 +10,7 @@ export type { ResourceItem }
  * Fetches resources for a form field dropdown from a connected OAuth app.
  *
  * @param appId - The app ID (e.g., "github")
- * @param fetchAction - The Composio action to fetch data (e.g., "GITHUB_LIST_USER_REPOS")
+ * @param fetchAction - The Composio action to fetch data (e.g., "GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER")
  * @param displayField - Field path for the display label
  * @param valueField - Field path for the value
  * @param params - Additional params (e.g., { owner: "octocat", repo: "my-repo" })

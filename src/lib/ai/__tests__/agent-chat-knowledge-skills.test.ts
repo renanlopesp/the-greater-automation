@@ -19,12 +19,14 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     const knowledgeSkills = [
       {
         name: 'Product Guidelines',
-        content: 'Always mention our product name: SuperApp.',
+        description: 'Company product naming',
+        type: 'knowledge',
         is_enabled: true,
       },
       {
         name: 'Company Values',
-        content: 'We value transparency and honesty.',
+        description: null,
+        type: 'knowledge',
         is_enabled: true,
       },
     ]
@@ -38,22 +40,24 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     )
 
     expect(prompt).toContain('## Your Knowledge & Skills')
-    expect(prompt).toContain('### Product Guidelines')
-    expect(prompt).toContain('Always mention our product name: SuperApp.')
-    expect(prompt).toContain('### Company Values')
-    expect(prompt).toContain('We value transparency and honesty.')
+    expect(prompt).toContain('**Product Guidelines**')
+    expect(prompt).toContain('Company product naming')
+    expect(prompt).toContain('**Company Values**')
+    expect(prompt).toContain('SNEW_GET_SKILL_CONTENT')
   })
 
   it('excludes disabled knowledge skills from the system prompt', () => {
     const knowledgeSkills = [
       {
         name: 'Enabled Skill',
-        content: 'This should appear in the prompt.',
+        description: 'This is enabled',
+        type: 'knowledge',
         is_enabled: true,
       },
       {
         name: 'Disabled Skill',
-        content: 'This should NOT appear in the prompt.',
+        description: 'This is disabled',
+        type: 'knowledge',
         is_enabled: false,
       },
     ]
@@ -67,16 +71,16 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     )
 
     expect(prompt).toContain('## Your Knowledge & Skills')
-    expect(prompt).toContain('### Enabled Skill')
-    expect(prompt).toContain('This should appear in the prompt.')
-    expect(prompt).not.toContain('### Disabled Skill')
-    expect(prompt).not.toContain('This should NOT appear in the prompt.')
+    expect(prompt).toContain('**Enabled Skill**')
+    expect(prompt).not.toContain('**Disabled Skill**')
+    expect(prompt).not.toContain('This is disabled')
   })
 
   it('handles empty knowledge skills array', () => {
     const knowledgeSkills: Array<{
       name: string
-      content: string
+      description: string | null
+      type: string | null
       is_enabled: boolean
     }> = []
 
@@ -111,12 +115,14 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     const knowledgeSkills = [
       {
         name: 'Disabled Skill 1',
-        content: 'Content 1',
+        description: 'Content 1',
+        type: 'knowledge',
         is_enabled: false,
       },
       {
         name: 'Disabled Skill 2',
-        content: 'Content 2',
+        description: 'Content 2',
+        type: 'knowledge',
         is_enabled: false,
       },
     ]
@@ -138,7 +144,8 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     const knowledgeSkills = [
       {
         name: 'Style Guide',
-        content: 'Use formal tone in all communications.',
+        description: 'Use formal tone in all communications.',
+        type: 'knowledge',
         is_enabled: true,
       },
     ]
@@ -152,10 +159,8 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     )
 
     expect(prompt).toContain('## Your Knowledge & Skills')
-    expect(prompt).toContain(
-      'The following skills define your specialized knowledge. Apply them when relevant:'
-    )
-    expect(prompt).toContain('### Style Guide')
+    expect(prompt).toContain('SNEW_GET_SKILL_CONTENT')
+    expect(prompt).toContain('**Style Guide**')
     expect(prompt).toContain('Use formal tone in all communications.')
   })
 
@@ -163,7 +168,8 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     const knowledgeSkills = [
       {
         name: 'Test Skill',
-        content: 'Test content',
+        description: 'Test content',
+        type: 'knowledge',
         is_enabled: true,
       },
     ]
@@ -191,11 +197,18 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
     expect(knowledgeIndex).toBeLessThan(appsIndex)
   })
 
-  it('handles skills with multiline content', () => {
+  it('shows type labels for knowledge and procedure skills', () => {
     const knowledgeSkills = [
       {
-        name: 'Multiline Skill',
-        content: 'Line 1: Introduction\nLine 2: Details\nLine 3: Conclusion',
+        name: 'Knowledge Skill',
+        description: 'Knowledge content',
+        type: 'knowledge',
+        is_enabled: true,
+      },
+      {
+        name: 'Procedure Skill',
+        description: 'Procedure content',
+        type: 'procedure',
         is_enabled: true,
       },
     ]
@@ -208,9 +221,9 @@ describe('buildAgentSystemPrompt - knowledge skills', () => {
       knowledgeSkills
     )
 
-    expect(prompt).toContain('### Multiline Skill')
-    expect(prompt).toContain('Line 1: Introduction')
-    expect(prompt).toContain('Line 2: Details')
-    expect(prompt).toContain('Line 3: Conclusion')
+    expect(prompt).toContain('[Knowledge]')
+    expect(prompt).toContain('[Procedure]')
+    expect(prompt).toContain('**Knowledge Skill**')
+    expect(prompt).toContain('**Procedure Skill**')
   })
 })

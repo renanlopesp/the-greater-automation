@@ -8,7 +8,7 @@ export interface FieldOverride {
   type: 'select' | 'multi-select'
   /** How to fetch options for this field */
   dataSource: {
-    /** Composio action name to execute for fetching options (e.g., GITHUB_LIST_USER_REPOS) */
+    /** Composio action name to execute for fetching options (e.g., GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER) */
     action: string
     /** Field path in the result items to display (e.g., "full_name") */
     displayField: string

@@ -15,17 +15,17 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
   const agent = await fetchAgent(supabase, id)
   if (!agent) notFound()
 
-  // Fetch skills for this agent (to pre-select workflows)
-  const { data: skills } = await supabase
-    .from('agent_skills')
+  // Fetch workflows for this agent (to pre-select workflows)
+  const { data: workflows } = await supabase
+    .from('agent_workflows')
     .select('workflow_id')
     .eq('agent_id', id)
 
-  const skillWorkflowIds = (skills ?? [])
-    .map((s) => s.workflow_id)
+  const workflowIds = (workflows ?? [])
+    .map((w) => w.workflow_id)
     .filter((id): id is string => id !== null)
 
-  const workflows = await fetchTeamWorkflows(supabase, agent.team_id)
+  const teamWorkflows = await fetchTeamWorkflows(supabase, agent.team_id)
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -41,9 +41,9 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
           temperature: agent.temperature,
           max_tokens: agent.max_tokens,
           conversation_starters: agent.conversation_starters,
-          skillWorkflowIds,
+          skillWorkflowIds: workflowIds,
         }}
-        workflows={workflows}
+        workflows={teamWorkflows}
         teamId={agent.team_id}
         userId={user.id}
       />

@@ -1,6 +1,5 @@
 'use server'
 
-import { getComposio } from '../client'
 import { createServerClient } from '@/lib/supabase/server'
 
 export interface ResourceItem {
@@ -19,7 +18,7 @@ export interface FetchResourceResult {
  * Executes a Composio "Find/List" action using the user's OAuth connection.
  *
  * @param appId - The app ID (e.g., "github")
- * @param fetchAction - The Composio action to execute (e.g., "GITHUB_LIST_USER_REPOS")
+ * @param fetchAction - The Composio action to execute (e.g., "GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER")
  * @param displayField - The field path in results to use as display label
  * @param valueField - The field path in results to use as the value
  * @param params - Additional parameters for the action
@@ -34,7 +33,7 @@ export async function fetchAppResource(
   resultPath?: string
 ): Promise<FetchResourceResult> {
   try {
-    // 1. Get current user's connection for this app
+    // 1. Get current user
     const supabase = await createServerClient()
     const {
       data: { user },
@@ -44,32 +43,45 @@ export async function fetchAppResource(
       return { items: [], error: 'Not authenticated' }
     }
 
-    const { data: connection } = await supabase
-      .from('app_connections')
-      .select('composio_connection_id')
-      .eq('user_id', user.id)
-      .eq('app_id', appId)
-      .single()
-
-    if (!connection?.composio_connection_id) {
-      return { items: [], error: `No ${appId} connection found` }
+    const apiKey = process.env.COMPOSIO_API_KEY
+    if (!apiKey) {
+      return { items: [], error: 'COMPOSIO_API_KEY not configured' }
     }
 
-    // 2. Execute the fetch action via Composio
-    const composio = getComposio()
-    const result = await composio.tools.execute(fetchAction, {
-      connectedAccountId: connection.composio_connection_id,
-      arguments: params ?? {},
-    })
+    // 2. Resolve the Composio connection UUID via their API
+    //    The DB stores SDK-format IDs (ca_xxx) but the REST API v2 requires UUIDs.
+    const connUuid = await resolveConnectionUuid(apiKey, user.id, appId)
+    if (!connUuid) {
+      return { items: [], error: `No active ${appId} connection found` }
+    }
 
-    // 3. Extract items from result
-    const appResult = result as {
-      successful?: boolean
+    // 3. Execute the fetch action via Composio REST API directly
+    const response = await fetch(
+      `https://backend.composio.dev/api/v2/actions/${encodeURIComponent(fetchAction)}/execute`,
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          connectedAccountId: connUuid,
+          input: params ?? {},
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      return { items: [], error: `Composio API error: ${response.status}` }
+    }
+
+    const appResult = (await response.json()) as {
+      successfull?: boolean
       data?: unknown
       error?: string
     }
 
-    if (!appResult.successful) {
+    if (!appResult.successfull) {
       return { items: [], error: appResult.error || `Failed to fetch ${fetchAction}` }
     }
 
@@ -117,6 +129,31 @@ export async function fetchAppResource(
       error: error instanceof Error ? error.message : 'Failed to fetch resources',
     }
   }
+}
+
+/**
+ * Resolve a Composio connection UUID for a given user + app.
+ * The DB stores SDK-format IDs (ca_xxx) but the REST API v2 requires UUIDs.
+ * This queries Composio's connected accounts API filtered by user_uuid (entity ID).
+ */
+async function resolveConnectionUuid(
+  apiKey: string,
+  userId: string,
+  appId: string
+): Promise<string | null> {
+  const resp = await fetch(
+    `https://backend.composio.dev/api/v1/connectedAccounts?user_uuid=${encodeURIComponent(userId)}&showActiveOnly=true`,
+    { headers: { 'x-api-key': apiKey } }
+  )
+  if (!resp.ok) return null
+
+  const data = (await resp.json()) as {
+    items?: Array<{ id: string; appName: string; status: string }>
+  }
+  const match = data.items?.find(
+    (c) => c.appName?.toLowerCase() === appId.toLowerCase() && c.status === 'ACTIVE'
+  )
+  return match?.id ?? null
 }
 
 /**

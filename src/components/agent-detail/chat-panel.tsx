@@ -33,7 +33,7 @@ import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/componen
 // SaveSkillDialog removed - skills are now created via chat tool calling
 import { Button } from '@/components/ui/button'
 import { useAgentChat } from '@/hooks/use-agent-chat'
-import { useInvalidateAgentSkills } from '@/hooks/use-agent-skills'
+import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
 import { getAgentPalette } from '@/lib/agent-palettes'
 
 interface ChatPanelProps {
@@ -182,7 +182,7 @@ export default function ChatPanel({
   agentPalette,
   conversationStarters,
 }: ChatPanelProps) {
-  const invalidateSkills = useInvalidateAgentSkills(agentId)
+  const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const {
     messages,
     status,
@@ -193,7 +193,7 @@ export default function ChatPanel({
     sendMessage,
     startNewChat,
     stop,
-  } = useAgentChat(agentId, { onSkillMutation: invalidateSkills })
+  } = useAgentChat(agentId, { onSkillMutation: invalidateWorkflows })
 
   const hasMessages = messages.length > 0
 

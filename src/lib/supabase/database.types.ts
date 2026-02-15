@@ -78,99 +78,51 @@ export type Database = {
           },
         ]
       }
-      agent_skill_runs: {
-        Row: {
-          id: string
-          skill_id: string
-          agent_id: string
-          status: string
-          trigger_data: Json | null
-          condition_results: Json | null
-          actions_executed: Json | null
-          error: string | null
-          started_at: string | null
-          completed_at: string | null
-          duration_ms: number | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          skill_id: string
-          agent_id: string
-          status?: string
-          trigger_data?: Json | null
-          condition_results?: Json | null
-          actions_executed?: Json | null
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          duration_ms?: number | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          skill_id?: string
-          agent_id?: string
-          status?: string
-          trigger_data?: Json | null
-          condition_results?: Json | null
-          actions_executed?: Json | null
-          error?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          duration_ms?: number | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'agent_skill_runs_skill_id_fkey'
-            columns: ['skill_id']
-            isOneToOne: false
-            referencedRelation: 'agent_skills'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'agent_skill_runs_agent_id_fkey'
-            columns: ['agent_id']
-            isOneToOne: false
-            referencedRelation: 'agents'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      agent_knowledge_skills: {
+      agent_skills: {
         Row: {
           agent_id: string
           content: string
-          created_at: string
+          created_at: string | null
           description: string | null
           id: string
           is_enabled: boolean | null
+          metadata: Json
           name: string
+          parameters: Json | null
           source: string
-          updated_at: string
+          type: string
+          updated_at: string | null
+          version: number
         }
         Insert: {
           agent_id: string
           content: string
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           is_enabled?: boolean | null
+          metadata?: Json
           name: string
+          parameters?: Json | null
           source?: string
-          updated_at?: string
+          type?: string
+          updated_at?: string | null
+          version?: number
         }
         Update: {
           agent_id?: string
           content?: string
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           id?: string
           is_enabled?: boolean | null
+          metadata?: Json
           name?: string
+          parameters?: Json | null
           source?: string
-          updated_at?: string
+          type?: string
+          updated_at?: string | null
+          version?: number
         }
         Relationships: [
           {
@@ -182,17 +134,86 @@ export type Database = {
           },
         ]
       }
-      agent_skills: {
+      agent_workflow_runs: {
+        Row: {
+          actions_executed: Json | null
+          agent_id: string
+          completed_at: string | null
+          condition_results: Json | null
+          created_at: string | null
+          current_step_index: number | null
+          duration_ms: number | null
+          error: string | null
+          event_log_id: string | null
+          id: string
+          pipeline_steps: Json | null
+          started_at: string | null
+          status: string
+          trigger_data: Json | null
+          workflow_id: string
+        }
+        Insert: {
+          actions_executed?: Json | null
+          agent_id: string
+          completed_at?: string | null
+          condition_results?: Json | null
+          created_at?: string | null
+          current_step_index?: number | null
+          duration_ms?: number | null
+          error?: string | null
+          event_log_id?: string | null
+          id?: string
+          pipeline_steps?: Json | null
+          started_at?: string | null
+          status?: string
+          trigger_data?: Json | null
+          workflow_id: string
+        }
+        Update: {
+          actions_executed?: Json | null
+          agent_id?: string
+          completed_at?: string | null
+          condition_results?: Json | null
+          created_at?: string | null
+          current_step_index?: number | null
+          duration_ms?: number | null
+          error?: string | null
+          event_log_id?: string | null
+          id?: string
+          pipeline_steps?: Json | null
+          started_at?: string | null
+          status?: string
+          trigger_data?: Json | null
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'agent_skill_runs_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agent_skill_runs_skill_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'agent_workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      agent_workflows: {
         Row: {
           action_template: Json | null
-          actions: Json
+          actions: Json | null
           agent_id: string
-          conditions: Json
+          conditions: Json | null
           created_at: string
           description: string | null
-          execution_mode: string
+          execution_mode: string | null
           id: string
-          is_enabled: boolean
+          is_enabled: boolean | null
           last_run_at: string | null
           name: string
           run_count: number
@@ -203,14 +224,14 @@ export type Database = {
         }
         Insert: {
           action_template?: Json | null
-          actions?: Json
+          actions?: Json | null
           agent_id: string
-          conditions?: Json
+          conditions?: Json | null
           created_at?: string
           description?: string | null
-          execution_mode?: string
+          execution_mode?: string | null
           id?: string
-          is_enabled?: boolean
+          is_enabled?: boolean | null
           last_run_at?: string | null
           name: string
           run_count?: number
@@ -221,14 +242,14 @@ export type Database = {
         }
         Update: {
           action_template?: Json | null
-          actions?: Json
+          actions?: Json | null
           agent_id?: string
-          conditions?: Json
+          conditions?: Json | null
           created_at?: string
           description?: string | null
-          execution_mode?: string
+          execution_mode?: string | null
           id?: string
-          is_enabled?: boolean
+          is_enabled?: boolean | null
           last_run_at?: string | null
           name?: string
           run_count?: number
@@ -669,6 +690,75 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      trigger_subscriptions: {
+        Row: {
+          agent_id: string
+          agent_workflow_id: string
+          app_id: string
+          composio_trigger_id: string
+          created_at: string
+          event_count: number
+          field_mappings: Json | null
+          filters: Json | null
+          id: string
+          is_enabled: boolean
+          last_event_at: string | null
+          trigger_config: Json | null
+          trigger_slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          agent_workflow_id: string
+          app_id: string
+          composio_trigger_id: string
+          created_at?: string
+          event_count?: number
+          field_mappings?: Json | null
+          filters?: Json | null
+          id?: string
+          is_enabled?: boolean
+          last_event_at?: string | null
+          trigger_config?: Json | null
+          trigger_slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          agent_workflow_id?: string
+          app_id?: string
+          composio_trigger_id?: string
+          created_at?: string
+          event_count?: number
+          field_mappings?: Json | null
+          filters?: Json | null
+          id?: string
+          is_enabled?: boolean
+          last_event_at?: string | null
+          trigger_config?: Json | null
+          trigger_slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'trigger_subscriptions_agent_id_fkey'
+            columns: ['agent_id']
+            isOneToOne: false
+            referencedRelation: 'agents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'trigger_subscriptions_agent_workflow_id_fkey'
+            columns: ['agent_workflow_id']
+            isOneToOne: false
+            referencedRelation: 'agent_workflows'
+            referencedColumns: ['id']
+          },
+        ]
       }
       usage: {
         Row: {

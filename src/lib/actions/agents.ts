@@ -37,39 +37,7 @@ async function updateAgentConfig(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Fetch agent skills (used by React Query on the client)
-// ---------------------------------------------------------------------------
-
-export async function getAgentSkills(agentId: string) {
-  const supabase = await createServerClient()
-  const { data } = await supabase
-    .from('agent_skills')
-    .select(
-      'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
-    )
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending: true })
-
-  return (data ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description ?? null,
-    source: s.source ?? null,
-    last_run_at: s.last_run_at,
-    workflow_id: s.workflow_id ?? undefined,
-    workflow: s.workflow_id ? (s.workflows as { name: string; emoji: string } | null) : null,
-    action_template: s.action_template as Record<string, unknown> | null,
-    trigger_config: s.trigger_config as Record<string, unknown> | null,
-    conditions: Array.isArray(s.conditions) ? s.conditions : undefined,
-    actions: Array.isArray(s.actions) ? s.actions : undefined,
-    is_enabled: s.is_enabled ?? undefined,
-    execution_mode: s.execution_mode ?? undefined,
-    run_count: s.run_count ?? undefined,
-  }))
-}
-
-export type AgentSkillData = Awaited<ReturnType<typeof getAgentSkills>>[number]
+// Note: getAgentWorkflows and AgentWorkflowData are now in @/lib/actions/agent-workflows
 
 // ---------------------------------------------------------------------------
 // 1. createAgent

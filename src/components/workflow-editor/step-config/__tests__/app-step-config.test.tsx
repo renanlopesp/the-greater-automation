@@ -66,7 +66,7 @@ vi.mock('@/hooks/use-app-actions', () => ({
         ],
       },
       {
-        name: 'GITHUB_LIST_USER_REPOS',
+        name: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
         displayName: 'List Repositories',
         description: 'List user repositories',
         params: [],
@@ -101,7 +101,7 @@ vi.mock('@/lib/composio/modules', () => ({
           repo: {
             type: 'select',
             dataSource: {
-              action: 'GITHUB_LIST_USER_REPOS',
+              action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
               displayField: 'full_name',
               valueField: 'name',
             },
@@ -119,7 +119,7 @@ vi.mock('@/lib/composio/actions/categorize', () => ({
     if (actionName === 'GITHUB_CREATE_ISSUE') {
       return { category: 'Issue', actionType: 'create' }
     }
-    if (actionName === 'GITHUB_LIST_USER_REPOS') {
+    if (actionName === 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER') {
       return { category: 'User Repo', actionType: 'find' }
     }
     if (actionName === 'GITHUB_DELETE_BRANCH') {
@@ -443,7 +443,7 @@ describe('AppStepConfigForm', () => {
               type: 'select',
               dependsOn: ['owner'],
               dataSource: {
-                action: 'GITHUB_LIST_USER_REPOS',
+                action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
                 displayField: 'full_name',
                 valueField: 'name',
               },
@@ -480,7 +480,7 @@ describe('AppStepConfigForm', () => {
 
     expect(mockOnUpdate).toHaveBeenCalledWith({
       app_id: 'github',
-      action: 'GITHUB_LIST_USER_REPOS',
+      action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
       inputs: {},
     })
   })

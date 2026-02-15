@@ -27,16 +27,17 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const sixMonthsAgo = subMonths(new Date(), 6)
 
   const [
-    skillsResult,
+    workflowsResult,
     runsResult,
     recentRunsResult,
     connectionsResult,
-    skillRunsResult,
-    knowledgeSkillsResult,
+    workflowRunsResult,
+    skillsResult,
+    triggerSubsResult,
   ] = await Promise.all([
-    // Skills with workflow info + new columns
+    // Workflows (automations) with workflow info + new columns
     supabase
-      .from('agent_skills')
+      .from('agent_workflows')
       .select(
         'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
       )
@@ -64,22 +65,28 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     // User's app connections
     supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
 
-    // Skill runs
+    // Workflow runs
     supabase
-      .from('agent_skill_runs')
+      .from('agent_workflow_runs')
       .select(
-        'id, skill_id, status, trigger_data, actions_executed, error, duration_ms, created_at, agent_skills(name)'
+        'id, workflow_id, status, trigger_data, actions_executed, error, duration_ms, created_at, pipeline_steps, event_log_id, agent_workflows(name)'
       )
       .eq('agent_id', id)
       .order('created_at', { ascending: false })
       .limit(20),
 
-    // Knowledge skills
+    // Skills (knowledge)
     supabase
-      .from('agent_knowledge_skills')
-      .select('id, name, description, content, source, is_enabled')
+      .from('agent_skills')
+      .select('id, name, description, content, source, is_enabled, type, parameters, version')
       .eq('agent_id', id)
       .order('created_at', { ascending: true }),
+
+    // Trigger subscriptions
+    supabase
+      .from('trigger_subscriptions')
+      .select('id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count')
+      .eq('agent_id', id),
   ])
 
   // Build heatmap data
@@ -93,22 +100,22 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  // Transform skills for component (include both manual and dynamic skills)
-  const skills = (skillsResult.data ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description ?? null,
-    source: s.source ?? null,
-    last_run_at: s.last_run_at,
-    workflow_id: s.workflow_id ?? undefined,
-    workflow: s.workflow_id ? (s.workflows as { name: string; emoji: string } | null) : null,
-    action_template: s.action_template as Record<string, unknown> | null,
-    trigger_config: s.trigger_config as Record<string, unknown> | null,
-    conditions: Array.isArray(s.conditions) ? s.conditions : undefined,
-    actions: Array.isArray(s.actions) ? s.actions : undefined,
-    is_enabled: s.is_enabled ?? undefined,
-    execution_mode: s.execution_mode ?? undefined,
-    run_count: s.run_count ?? undefined,
+  // Transform workflows for component (include both manual and dynamic workflows)
+  const workflows = (workflowsResult.data ?? []).map((w) => ({
+    id: w.id,
+    name: w.name,
+    description: w.description ?? null,
+    source: w.source ?? null,
+    last_run_at: w.last_run_at,
+    workflow_id: w.workflow_id ?? undefined,
+    workflow: w.workflow_id ? (w.workflows as { name: string; emoji: string } | null) : null,
+    action_template: w.action_template as Record<string, unknown> | null,
+    trigger_config: w.trigger_config as Record<string, unknown> | null,
+    conditions: Array.isArray(w.conditions) ? w.conditions : undefined,
+    actions: Array.isArray(w.actions) ? w.actions : undefined,
+    is_enabled: w.is_enabled ?? undefined,
+    execution_mode: w.execution_mode ?? undefined,
+    run_count: w.run_count ?? undefined,
   }))
 
   // Transform app connections for component
@@ -128,27 +135,43 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     workflow: r.workflows as { name: string; emoji: string } | null,
   }))
 
-  // Transform skill runs for component
-  const skillRuns = (skillRunsResult.data ?? []).map((r) => ({
+  // Transform workflow runs for component
+  const workflowRuns = (workflowRunsResult.data ?? []).map((r) => ({
     id: r.id,
-    skill_id: r.skill_id,
+    workflow_id: r.workflow_id,
     status: r.status,
     trigger_data: r.trigger_data as Record<string, unknown> | null,
     actions_executed: Array.isArray(r.actions_executed) ? r.actions_executed : null,
     error: r.error,
     duration_ms: r.duration_ms,
-    created_at: r.created_at,
-    agent_skills: r.agent_skills as { name: string } | null,
+    created_at: r.created_at ?? new Date().toISOString(),
+    agent_workflows: r.agent_workflows as { name: string } | null,
+    pipeline_steps: Array.isArray(r.pipeline_steps) ? r.pipeline_steps : null,
+    event_log_id: r.event_log_id,
   }))
 
-  // Transform knowledge skills for component
-  const knowledgeSkills = (knowledgeSkillsResult.data ?? []).map((s) => ({
+  // Transform skills (knowledge) for component
+  const skills = (skillsResult.data ?? []).map((s) => ({
     id: s.id,
     name: s.name,
     description: s.description,
     content: s.content,
     source: s.source,
     is_enabled: s.is_enabled,
+    type: s.type,
+    parameters: s.parameters,
+    version: s.version,
+  }))
+
+  // Transform trigger subscriptions for component
+  const triggerSubscriptions = (triggerSubsResult.data ?? []).map((ts) => ({
+    id: ts.id,
+    agent_workflow_id: ts.agent_workflow_id,
+    trigger_slug: ts.trigger_slug,
+    app_id: ts.app_id,
+    is_enabled: ts.is_enabled,
+    last_event_at: ts.last_event_at,
+    event_count: ts.event_count,
   }))
 
   return (
@@ -183,12 +206,12 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           <AgentSidebar
             agentId={id}
             teamId={agent.team_id}
-            initialSkills={skills}
-            knowledgeSkills={knowledgeSkills}
+            initialWorkflows={workflows}
+            skills={skills}
             connectedApps={connectedApps}
             recentRuns={recentRuns}
-            skillRuns={skillRuns}
-            heatmapData={heatmapData}
+            workflowRuns={workflowRuns}
+            triggerSubscriptions={triggerSubscriptions}
           />
         </div>
       </header>

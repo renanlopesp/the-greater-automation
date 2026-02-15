@@ -74,10 +74,10 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
   const agentIds = (agents ?? []).map((a) => a.id)
   const workflowIds = (workflows ?? []).map((w) => w.id)
 
-  // Fetch skills, step counts, and last runs in parallel (all depend on IDs from above)
-  const [skillsResult, stepsResult, runsResult] = await Promise.all([
+  // Fetch workflows, step counts, and last runs in parallel (all depend on IDs from above)
+  const [workflowsResult, stepsResult, runsResult] = await Promise.all([
     agentIds.length > 0
-      ? supabase.from('agent_skills').select('agent_id, workflow_id').in('agent_id', agentIds)
+      ? supabase.from('agent_workflows').select('agent_id, workflow_id').in('agent_id', agentIds)
       : Promise.resolve({ data: null }),
     workflowIds.length > 0
       ? supabase.from('workflow_steps').select('workflow_id, type').in('workflow_id', workflowIds)
@@ -90,13 +90,13 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       : Promise.resolve({ data: null }),
   ])
 
-  // Build per-agent workflow ID sets from skills
+  // Build per-agent workflow ID sets from agent_workflows
   const agentWorkflowIds: Record<string, Set<string>> = {}
-  if (skillsResult.data) {
-    for (const s of skillsResult.data) {
-      if (s.workflow_id !== null) {
-        if (!agentWorkflowIds[s.agent_id]) agentWorkflowIds[s.agent_id] = new Set()
-        agentWorkflowIds[s.agent_id].add(s.workflow_id)
+  if (workflowsResult.data) {
+    for (const w of workflowsResult.data) {
+      if (w.workflow_id !== null) {
+        if (!agentWorkflowIds[w.agent_id]) agentWorkflowIds[w.agent_id] = new Set()
+        agentWorkflowIds[w.agent_id].add(w.workflow_id)
       }
     }
   }

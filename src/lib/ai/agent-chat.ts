@@ -45,22 +45,29 @@ export function buildAgentSystemPrompt(
   skills: AgentSkill[],
   connectedApps: ConnectedApp[],
   dynamicSkills?: AgentSkill[],
-  knowledgeSkills?: Array<{ name: string; content: string; is_enabled: boolean }>
+  knowledgeSkills?: Array<{
+    name: string
+    description: string | null
+    type: string | null
+    is_enabled: boolean
+  }>
 ): string {
   let prompt = `You are ${agent.name}.`
   if (agent.system_prompt) {
     prompt += `\n\n${agent.system_prompt}`
   }
 
-  // Knowledge skills
+  // Knowledge skills (progressive disclosure - metadata only)
   if (knowledgeSkills && knowledgeSkills.length > 0) {
     const enabledSkills = knowledgeSkills.filter((s) => s.is_enabled)
     if (enabledSkills.length > 0) {
       prompt += '\n\n## Your Knowledge & Skills\n'
       prompt +=
-        'The following skills define your specialized knowledge. Apply them when relevant:\n'
+        'The following skills define your specialized knowledge. Use SNEW_GET_SKILL_CONTENT to load full details when relevant to the conversation:\n'
       for (const skill of enabledSkills) {
-        prompt += `\n### ${skill.name}\n${skill.content}\n`
+        const typeLabel = skill.type === 'procedure' ? '[Procedure]' : '[Knowledge]'
+        const desc = skill.description ? ` - ${skill.description}` : ''
+        prompt += `\n- ${typeLabel} **${skill.name}**${desc}`
       }
     }
   }
@@ -105,6 +112,48 @@ export function buildAgentSystemPrompt(
     '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, or send a notification\n'
   prompt +=
     "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
+  prompt += '### App Event Triggers (Event-Driven Workflows)\n\n'
+  prompt +=
+    'When a user wants a workflow triggered by an external app event (e.g. "when a PR is opened", "when someone posts in Discord", "when an issue is created"):\n\n'
+  prompt += '1. Call SNEW_LIST_APP_CAPABILITIES with the app_id to see available **triggers**\n'
+  prompt +=
+    '2. Find the matching trigger slug (e.g. GITHUB_PULL_REQUEST_OPENED, DISCORD_NEW_MESSAGE)\n'
+  prompt += '3. Call SNEW_CREATE_WORKFLOW with:\n'
+  prompt += '   - trigger.type = "app_event"\n'
+  prompt += '   - trigger.trigger_slug = the trigger slug from step 2\n'
+  prompt += '   - trigger.trigger_app_id = the app ID (e.g. "github")\n'
+  prompt += '   - trigger.trigger_config = any app-specific config (optional)\n\n'
+  prompt += 'Example: "When a PR is opened on my repo, post a message in Discord"\n'
+  prompt +=
+    '→ trigger: { type: "app_event", trigger_slug: "GITHUB_PULL_REQUEST_OPENED", trigger_app_id: "github" }\n'
+  prompt +=
+    '→ actions: [{ type: "composio_action", action: "DISCORD_SEND_CHANNEL_MESSAGE", app_id: "discord", params: { channel_id: "...", message: "New PR: {{trigger.data.title}}" } }]\n\n'
+  prompt +=
+    "Note: Composio triggers create subscriptions that automatically listen for events. The workflow runs automatically when events occur — users don't need to set up webhooks manually.\n\n"
+  prompt += '### Claude Agent Steps (AI Analysis in Workflows)\n\n'
+  prompt +=
+    'You can add `claude_agent` steps to workflows for AI-powered analysis within a pipeline. '
+  prompt +=
+    'Unlike `ai_transform` (simple text generation), `claude_agent` supports tool calling and structured JSON output.\n\n'
+  prompt += 'When to use claude_agent:\n'
+  prompt += '- Code review analysis (with access to GitHub tools)\n'
+  prompt += '- Data transformation requiring reasoning\n'
+  prompt += '- Decision-making steps that need structured output\n'
+  prompt += '- Multi-step analysis using Composio tools\n\n'
+  prompt += 'Example: "Analyze a PR and post a review comment"\n'
+  prompt += '→ actions: [\n'
+  prompt +=
+    '  { type: "claude_agent", prompt: "Review the PR: {{trigger.data.title}}\\n\\nDescription: {{trigger.data.body}}", '
+  prompt +=
+    'output_key: "review", output_format: "json", tools: ["GITHUB_GET_PULL_REQUEST_DIFF"] },\n'
+  prompt += '  { type: "composio_action", action: "GITHUB_CREATE_COMMENT", app_id: "github", '
+  prompt +=
+    'params: { body: "## AI Review\\n{{prev.review.summary}}", issue_number: "{{trigger.data.number}}", owner: "...", repo: "..." } }\n'
+  prompt += ']\n\n'
+  prompt +=
+    'claude_agent config: prompt (required), output_key (required), output_format ("text" or "json"), '
+  prompt +=
+    'tools (array of Composio tool names), model (default: gpt-4o), timeout_ms (default: 300000)\n\n'
   prompt += '### How to Build a Workflow\n\n'
   prompt +=
     '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'
@@ -152,8 +201,11 @@ export function buildAgentSystemPrompt(
   prompt +=
     '5. Some apps have separate toolkits for different auth types (e.g. user OAuth vs bot). If the current toolkit lacks the needed action, suggest the alternative toolkit.\n\n'
   prompt += '### Knowledge Skill Tools\n\n'
-  prompt += '- SNEW_CREATE_SKILL — Create a new knowledge skill (embedded instruction/knowledge)\n'
-  prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills\n'
+  prompt += '- SNEW_CREATE_SKILL — Create a new knowledge or procedure skill (supports templates)\n'
+  prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills with metadata\n'
+  prompt += '- SNEW_UPDATE_SKILL — Update an existing skill (auto-increments version)\n'
+  prompt += '- SNEW_GET_SKILL_CONTENT — Load full skill content by ID or name (fuzzy match)\n'
+  prompt += '- SNEW_EXECUTE_SKILL — Execute a procedure skill with parameters\n'
   prompt += '- SNEW_DELETE_SKILL — Remove a knowledge skill\n'
 
   prompt += '\n\n## Instructions\n'

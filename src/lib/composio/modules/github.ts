@@ -9,15 +9,16 @@ export const githubModule: AppModule = {
         repo: {
           type: 'select',
           dataSource: {
-            action: 'GITHUB_LIST_USER_REPOS',
+            action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
             displayField: 'full_name',
             valueField: 'name',
+            params: { per_page: 100 },
           },
         },
         labels: {
           type: 'multi-select',
           dataSource: {
-            action: 'GITHUB_LIST_REPO_LABELS',
+            action: 'GITHUB_LIST_LABELS_FOR_A_REPOSITORY',
             displayField: 'name',
             valueField: 'name',
             params: {},
@@ -31,9 +32,10 @@ export const githubModule: AppModule = {
         repo: {
           type: 'select',
           dataSource: {
-            action: 'GITHUB_LIST_USER_REPOS',
+            action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
             displayField: 'full_name',
             valueField: 'name',
+            params: { per_page: 100 },
           },
         },
       },
@@ -43,9 +45,10 @@ export const githubModule: AppModule = {
         repo: {
           type: 'select',
           dataSource: {
-            action: 'GITHUB_LIST_USER_REPOS',
+            action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
             displayField: 'full_name',
             valueField: 'name',
+            params: { per_page: 100 },
           },
         },
       },
@@ -55,9 +58,10 @@ export const githubModule: AppModule = {
         repo: {
           type: 'select',
           dataSource: {
-            action: 'GITHUB_LIST_USER_REPOS',
+            action: 'GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER',
             displayField: 'full_name',
             valueField: 'name',
+            params: { per_page: 100 },
           },
         },
       },

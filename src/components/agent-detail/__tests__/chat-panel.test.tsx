@@ -100,8 +100,8 @@ vi.mock('ai', () => ({
   isToolUIPart: (p: any) => p.type === 'dynamic-tool' || p.type?.startsWith?.('tool-'),
 }))
 
-vi.mock('@/hooks/use-agent-skills', () => ({
-  useInvalidateAgentSkills: () => vi.fn(),
+vi.mock('@/hooks/use-agent-workflows', () => ({
+  useInvalidateAgentWorkflows: () => vi.fn(),
 }))
 
 vi.mock('@/hooks/use-agent-chat', () => ({
@@ -163,7 +163,7 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'user',
-            content: 'Hello',
+            parts: [{ type: 'text', text: 'Hello' }],
             createdAt: new Date(),
           },
         ],
@@ -179,7 +179,7 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'user',
-            content: 'Hello',
+            parts: [{ type: 'text', text: 'Hello' }],
             createdAt: new Date(),
           },
         ],
@@ -215,7 +215,6 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'user',
-            content: 'Hello world',
             parts: [{ type: 'text', text: 'Hello world' }],
             createdAt: new Date(),
           },
@@ -233,7 +232,6 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [{ type: 'text', text: 'Hi there!' }],
             parts: [{ type: 'text', text: 'Hi there!' }],
             createdAt: new Date(),
           },
@@ -252,21 +250,18 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'user',
-            content: 'First',
             parts: [{ type: 'text', text: 'First' }],
             createdAt: new Date(),
           },
           {
             id: 'msg-2',
             role: 'assistant',
-            content: [{ type: 'text', text: 'Second' }],
             parts: [{ type: 'text', text: 'Second' }],
             createdAt: new Date(),
           },
           {
             id: 'msg-3',
             role: 'user',
-            content: 'Third',
             parts: [{ type: 'text', text: 'Third' }],
             createdAt: new Date(),
           },
@@ -284,10 +279,6 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [
-              { type: 'reasoning', text: 'Thinking...' },
-              { type: 'text', text: 'Answer' },
-            ],
             parts: [
               { type: 'reasoning', text: 'Thinking...' },
               { type: 'text', text: 'Answer' },
@@ -308,14 +299,6 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [
-              {
-                type: 'tool-call',
-                toolCallId: 'call-1',
-                toolName: 'search',
-                args: { query: 'test' },
-              },
-            ],
             parts: [
               {
                 type: 'tool-search',
@@ -373,7 +356,7 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [], // No content yet
+            parts: [], // No content yet
             createdAt: new Date(),
           },
         ],
@@ -391,7 +374,6 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [{ type: 'text', text: 'Some text' }],
             parts: [{ type: 'text', text: 'Some text' }],
             createdAt: new Date(),
           },
@@ -409,7 +391,7 @@ describe('ChatPanel', () => {
           {
             id: 'msg-1',
             role: 'assistant',
-            content: [],
+            parts: [],
             createdAt: new Date(),
           },
         ],
