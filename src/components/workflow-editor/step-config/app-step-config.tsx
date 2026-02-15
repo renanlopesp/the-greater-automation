@@ -28,7 +28,6 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react'
-import { APP_INTEGRATIONS } from '@/lib/data/app-integrations'
 import { useAppConnections } from '@/hooks/use-app-connections'
 import { useAppActions } from '@/hooks/use-app-actions'
 import { useAppResources } from '@/hooks/use-app-resources'
@@ -370,12 +369,16 @@ export default function AppStepConfigForm({
     () => connectionsData?.connections ?? [],
     [connectionsData?.connections]
   )
+  const composioApps = useMemo(
+    () => connectionsData?.composioApps ?? [],
+    [connectionsData?.composioApps]
+  )
 
-  // Derive connected apps from connections
+  // Derive connected apps from connections + dynamic Composio catalog
   const connectedApps = useMemo(() => {
     const connectedIds = new Set(connections.map((c) => c.app_id))
-    return APP_INTEGRATIONS.filter((app) => connectedIds.has(app.id))
-  }, [connections])
+    return composioApps.filter((app) => connectedIds.has(app.id))
+  }, [connections, composioApps])
 
   // Fetch actions for selected app
   const { data: actions, isLoading: isLoadingActions } = useAppActions(config.app_id || null)
@@ -472,41 +475,52 @@ export default function AppStepConfigForm({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {connectedApps.map((app) => {
-              const iconSlug = app.iconSlug
-
-              return (
-                <button
-                  key={app.id}
-                  type="button"
-                  onClick={() => handleAppSelect(app.id)}
-                  className={cn(
-                    'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
-                    config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
-                  )}
-                >
-                  {iconSlug && !SIMPLEICONS_UNAVAILABLE.has(iconSlug) ? (
+            {connectedApps.map((app) => (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => handleAppSelect(app.id)}
+                className={cn(
+                  'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
+                  config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
+                )}
+              >
+                {app.logoUrl ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
                     <Image
-                      src={`https://cdn.simpleicons.org/${iconSlug}/black`}
+                      src={app.logoUrl}
                       alt={app.name}
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 shrink-0 dark:invert"
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
                       unoptimized
                     />
-                  ) : iconSlug === 'linkedin' ? (
-                    <Linkedin className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <div className="bg-muted flex h-5 w-5 items-center justify-center rounded text-[10px] font-medium">
-                      {app.name[0]}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{app.name}</div>
                   </div>
-                </button>
-              )
-            })}
+                ) : app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Image
+                      src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
+                      alt={app.name}
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
+                      unoptimized
+                    />
+                  </div>
+                ) : app.iconSlug === 'linkedin' ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Linkedin className="h-[18px] w-[18px] text-black" />
+                  </div>
+                ) : (
+                  <div className="bg-muted flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-medium">
+                    {app.name[0]}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{app.name}</div>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>

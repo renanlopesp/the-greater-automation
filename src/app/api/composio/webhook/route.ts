@@ -1,59 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, timingSafeEqual } from 'crypto'
-import { composioWebhookPayloadSchema } from '@/lib/composio/webhook-schema'
+import { getComposio } from '@/lib/composio/client'
 import { executePipeline } from '@/lib/workflows/pipeline-executor'
 import { executeVisualWorkflowSteps } from '@/lib/workflows/execute-visual-steps'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
 /**
- * Verify Composio webhook signature (Standard Webhooks / Svix format).
- * Headers: webhook-id, webhook-timestamp, webhook-signature
- * Signature: HMAC-SHA256 of "${id}.${timestamp}.${body}" with base64-decoded secret.
+ * Extract trigger fields from Composio webhook payload (handles V2 and V3 formats).
+ *
+ * V3 (current): { type: "composio.trigger.message", metadata: { trigger_slug, log_id, ... }, data }
+ * V2 (legacy):  { type: "<trigger_slug>", log_id, data }
  */
-function verifyWebhookSignature(
-  rawBody: string,
-  webhookId: string,
-  webhookTimestamp: string,
-  webhookSignature: string,
-  secret: string
-): boolean {
-  // Secret may have "whsec_" prefix — strip it before base64 decoding
-  const cleanSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret
-  // Try base64 decode; fall back to raw UTF-8 if it doesn't look like valid base64
-  const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(cleanSecret) && cleanSecret.length % 4 === 0
-  const secretBytes = isBase64
-    ? Buffer.from(cleanSecret, 'base64')
-    : Buffer.from(cleanSecret, 'utf-8')
+function extractPayloadFields(body: Record<string, unknown>): {
+  triggerSlug: string
+  eventLogId: string
+  triggerData: Record<string, unknown>
+  metadata: Record<string, unknown> | undefined
+} {
+  const metadata = body.metadata as Record<string, unknown> | undefined
 
-  // Verify timestamp is within 5 minutes to prevent replay attacks
-  const timestampSec = parseInt(webhookTimestamp, 10)
-  const nowSec = Math.floor(Date.now() / 1000)
-  if (Math.abs(nowSec - timestampSec) > 300) {
-    return false
-  }
-
-  // Compute expected signature
-  const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`
-  const expectedSignature = createHmac('sha256', secretBytes).update(signedContent).digest('base64')
-
-  // webhook-signature can have multiple signatures: "v1,<sig1> v1,<sig2>"
-  const signatures = webhookSignature.split(' ')
-  for (const sig of signatures) {
-    const [, sigValue] = sig.split(',')
-    if (!sigValue) continue
-    try {
-      const sigBuf = Buffer.from(sigValue, 'base64')
-      const expectedBuf = Buffer.from(expectedSignature, 'base64')
-      if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
-        return true
-      }
-    } catch {
-      continue
+  // V3: type is "composio.trigger.message", slug lives in metadata
+  if (body.type === 'composio.trigger.message' && metadata) {
+    return {
+      triggerSlug: (metadata.trigger_slug as string) ?? '',
+      eventLogId: (metadata.log_id as string) ?? (body.id as string) ?? '',
+      triggerData: (body.data as Record<string, unknown>) ?? {},
+      metadata,
     }
   }
 
-  return false
+  // V2 / legacy: type IS the trigger slug, log_id at top level
+  return {
+    triggerSlug: (body.type as string) ?? '',
+    eventLogId: (body.log_id as string) ?? '',
+    triggerData: (body.data as Record<string, unknown>) ?? {},
+    metadata,
+  }
 }
 
 /**
@@ -63,26 +45,20 @@ function verifyWebhookSignature(
  *   2. Visual editor workflows (workflow_triggers table with type='app')
  *
  * Contract: POST /api/composio/webhook
- * - Verifies webhook signature using COMPOSIO_TRIGGER_KEY
- * - Validates incoming payload with Zod schema
+ * - Verifies webhook signature using Composio SDK
+ * - Extracts trigger slug and data from V2/V3 payload
  * - Checks idempotency via event_log_id
  * - Looks up matching subscriptions in both systems
  * - Executes workflows for each match
- *
- * Responses:
- * - 200 { status: "ok", runs_created: N } - Success
- * - 200 { status: "no_subscription" } - No active subscription found
- * - 400 { error: "..." } - Validation error
- * - 401 { error: "..." } - Signature verification failed
- * - 500 { error: "Internal server error" } - Server error
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Verify webhook signature
+    // 1. Verify webhook signature using Composio SDK
     const webhookSecret = process.env.COMPOSIO_TRIGGER_KEY
     const rawBody = await request.text()
 
     if (webhookSecret) {
+      const composio = getComposio()
       const webhookId = request.headers.get('webhook-id')
       const webhookTimestamp = request.headers.get('webhook-timestamp')
       const webhookSignature = request.headers.get('webhook-signature')
@@ -91,32 +67,26 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing webhook signature headers' }, { status: 401 })
       }
 
-      if (
-        !verifyWebhookSignature(
-          rawBody,
-          webhookId,
-          webhookTimestamp,
-          webhookSignature,
-          webhookSecret
-        )
-      ) {
+      try {
+        await composio.triggers.verifyWebhook({
+          id: webhookId,
+          payload: rawBody,
+          signature: webhookSignature,
+          timestamp: webhookTimestamp,
+          secret: webhookSecret,
+        })
+      } catch {
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
       }
     }
 
-    // 2. Parse and validate payload
-    const body = JSON.parse(rawBody)
-    const parseResult = composioWebhookPayloadSchema.safeParse(body)
+    // 2. Parse payload (supports V2 and V3 formats)
+    const body = JSON.parse(rawBody) as Record<string, unknown>
+    const { triggerSlug, eventLogId, triggerData, metadata } = extractPayloadFields(body)
 
-    if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid webhook payload', details: parseResult.error.issues },
-        { status: 400 }
-      )
+    if (!triggerSlug) {
+      return NextResponse.json({ error: 'Missing trigger slug in payload' }, { status: 400 })
     }
-
-    const payload = parseResult.data
-    const { type: triggerSlug, log_id: eventLogId, data: triggerData } = payload
 
     // 3. Initialize service role client (bypasses RLS)
     const supabase = createServiceRoleClient()
@@ -141,18 +111,20 @@ export async function POST(request: NextRequest) {
     for (const subscription of subscriptions ?? []) {
       try {
         // Check idempotency
-        const { data: existingRun } = await supabase
-          .from('agent_workflow_runs')
-          .select('id')
-          .eq('event_log_id', eventLogId)
-          .eq('workflow_id', subscription.agent_workflow_id)
-          .single()
+        if (eventLogId) {
+          const { data: existingRun } = await supabase
+            .from('agent_workflow_runs')
+            .select('id')
+            .eq('event_log_id', eventLogId)
+            .eq('workflow_id', subscription.agent_workflow_id)
+            .single()
 
-        if (existingRun) {
-          console.log(
-            `Duplicate event ${eventLogId} for agent workflow ${subscription.agent_workflow_id}, skipping`
-          )
-          continue
+          if (existingRun) {
+            console.log(
+              `Duplicate event ${eventLogId} for agent workflow ${subscription.agent_workflow_id}, skipping`
+            )
+            continue
+          }
         }
 
         // Load the linked workflow
@@ -293,18 +265,20 @@ export async function POST(request: NextRequest) {
             }
 
             // Idempotency: check if this event already created a run for this workflow
-            const { data: dupeCheck } = await supabase
-              .from('workflow_runs')
-              .select('id')
-              .eq('workflow_id', vt.workflow_id)
-              .filter('trigger_data->>event_log_id', 'eq', eventLogId)
-              .limit(1)
+            if (eventLogId) {
+              const { data: dupeCheck } = await supabase
+                .from('workflow_runs')
+                .select('id')
+                .eq('workflow_id', vt.workflow_id)
+                .filter('trigger_data->>event_log_id', 'eq', eventLogId)
+                .limit(1)
 
-            if (dupeCheck && dupeCheck.length > 0) {
-              console.log(
-                `Duplicate event ${eventLogId} for visual workflow ${vt.workflow_id}, skipping`
-              )
-              continue
+              if (dupeCheck && dupeCheck.length > 0) {
+                console.log(
+                  `Duplicate event ${eventLogId} for visual workflow ${vt.workflow_id}, skipping`
+                )
+                continue
+              }
             }
 
             // Load steps to create run step records
@@ -329,7 +303,7 @@ export async function POST(request: NextRequest) {
                   ...triggerData,
                   event_log_id: eventLogId,
                   trigger_slug: triggerSlug,
-                  metadata: payload.metadata,
+                  metadata,
                 } as unknown as Json,
                 steps_used: 0,
                 ai_credits_used: 0,

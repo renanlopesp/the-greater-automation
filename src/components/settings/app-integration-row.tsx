@@ -2,13 +2,13 @@ import Image from 'next/image'
 import { Linkedin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import type { AppIntegration } from '@/lib/data/app-integrations'
+import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 
 // LinkedIn was removed from SimpleIcons — use Lucide fallback
 const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
 
 interface AppIntegrationRowProps {
-  app: AppIntegration
+  app: ComposioApp
   isConnected?: boolean
   accountLabel?: string | null
   onConnect: (appId: string) => void
@@ -25,19 +25,34 @@ export default function AppIntegrationRow({
   return (
     <div className="border-border flex items-center justify-between border-b px-4 py-3">
       <div className="flex items-center gap-3">
-        {app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
-          <Image
-            src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
-            alt={app.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 dark:invert"
-            unoptimized
-          />
+        {app.logoUrl ? (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-1 dark:bg-white/90">
+            <Image
+              src={app.logoUrl}
+              alt={app.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 object-contain"
+              unoptimized
+            />
+          </div>
+        ) : app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-1 dark:bg-white/90">
+            <Image
+              src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
+              alt={app.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 object-contain"
+              unoptimized
+            />
+          </div>
         ) : app.iconSlug === 'linkedin' ? (
-          <Linkedin className="h-7 w-7" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-1 dark:bg-white/90">
+            <Linkedin className="h-6 w-6 text-black" />
+          </div>
         ) : (
-          <div className="bg-muted flex h-7 w-7 items-center justify-center rounded text-xs font-medium">
+          <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium">
             {app.name[0]}
           </div>
         )}
@@ -59,12 +74,8 @@ export default function AppIntegrationRow({
             Disconnect
           </Button>
         ) : (
-          <Button
-            variant={app.authType === 'google' ? 'outline' : 'default'}
-            size="sm"
-            onClick={() => onConnect(app.id)}
-          >
-            {app.authType === 'google' ? 'Sign in with Google' : 'Connect'}
+          <Button variant="default" size="sm" onClick={() => onConnect(app.id)}>
+            Connect
           </Button>
         )}
       </div>

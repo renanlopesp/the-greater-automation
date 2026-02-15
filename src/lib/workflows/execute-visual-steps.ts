@@ -137,7 +137,10 @@ export async function executeVisualWorkflowSteps(
       try {
         switch (step.type) {
           case 'ai': {
-            const result = await executeAIStep(step.config as unknown as AIStepConfig)
+            const result = await executeAIStep(
+              step.config as unknown as AIStepConfig,
+              stepOutputs as Record<string, unknown>
+            )
             if (result.success) {
               stepOutput = {
                 content: result.content,

@@ -23,6 +23,26 @@ vi.mock('@/hooks/use-app-connections', () => ({
         },
       ],
       availableApps: [],
+      composioApps: [
+        {
+          id: 'github',
+          name: 'GitHub',
+          logoUrl: '',
+          iconSlug: 'github',
+          category: 'Development',
+          authType: 'oauth',
+          hasTriggers: true,
+        },
+        {
+          id: 'slack',
+          name: 'Slack',
+          logoUrl: '',
+          iconSlug: 'slack',
+          category: 'Communication',
+          authType: 'oauth',
+          hasTriggers: true,
+        },
+      ],
     },
     isLoading: false,
   }),
@@ -155,6 +175,26 @@ describe('AppStepConfigForm', () => {
           { id: '2', app_id: 'slack', account_label: 'myworkspace', created_at: '2026-01-01' },
         ],
         availableApps: [],
+        composioApps: [
+          {
+            id: 'github',
+            name: 'GitHub',
+            logoUrl: '',
+            iconSlug: 'github',
+            category: 'Development',
+            authType: 'oauth',
+            hasTriggers: true,
+          },
+          {
+            id: 'slack',
+            name: 'Slack',
+            logoUrl: '',
+            iconSlug: 'slack',
+            category: 'Communication',
+            authType: 'oauth',
+            hasTriggers: true,
+          },
+        ],
       },
       isLoading: false,
     })
@@ -184,6 +224,7 @@ describe('AppStepConfigForm', () => {
       data: {
         connections: [],
         availableApps: [],
+        composioApps: [],
       },
       isLoading: false,
     })
