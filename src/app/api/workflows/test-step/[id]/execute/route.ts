@@ -22,6 +22,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id: testResultId } = await params
   const supabase = await createServerClient()
 
+  const startTime = Date.now()
+
   try {
     // Verify authentication
     const {
@@ -47,8 +49,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (testResult.status !== 'running') {
       return NextResponse.json({ error: `Test is already ${testResult.status}` }, { status: 409 })
     }
-
-    const startTime = Date.now()
     let success: boolean
     let output: unknown
     let error: string | undefined
@@ -237,7 +237,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success, output, error, duration_ms })
   } catch (error) {
-    const duration_ms = Date.now() - Date.now()
+    const duration_ms = Date.now() - startTime
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
     // Mark test as failed

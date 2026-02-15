@@ -45,8 +45,16 @@ vi.mock('@/components/ai-elements/prompt-input', () => ({
   PromptInputTextarea: ({ placeholder, ...props }: any) => (
     <input data-testid="prompt-input-textarea" placeholder={placeholder} {...props} />
   ),
+  PromptInputHeader: ({ children }: any) => <div data-testid="prompt-input-header">{children}</div>,
   PromptInputFooter: ({ children }: any) => <div data-testid="prompt-input-footer">{children}</div>,
+  PromptInputTools: ({ children }: any) => <div data-testid="prompt-input-tools">{children}</div>,
+  PromptInputButton: ({ children, ...props }: any) => (
+    <button data-testid="prompt-input-button" {...props}>
+      {children}
+    </button>
+  ),
   PromptInputSubmit: (props: any) => <button data-testid="prompt-input-submit" {...props} />,
+  usePromptInputAttachments: () => ({ files: [], openFileDialog: vi.fn() }),
 }))
 
 vi.mock('@/components/ai-elements/reasoning', () => ({

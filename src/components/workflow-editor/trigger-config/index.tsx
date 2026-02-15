@@ -22,18 +22,6 @@ import { TableTriggerConfigForm } from './table-trigger-config'
 import { MCPTriggerConfigForm } from './mcp-trigger-config'
 import { AppTriggerConfigForm } from './app-trigger-config'
 
-export {
-  ManualTriggerConfigForm,
-  ScheduledTriggerConfigForm,
-  WebhookTriggerConfigForm,
-  FormTriggerConfigForm,
-  RSSTriggerConfigForm,
-  MailhookTriggerConfigForm,
-  TableTriggerConfigForm,
-  MCPTriggerConfigForm,
-  AppTriggerConfigForm,
-}
-
 interface TriggerConfigRouterProps {
   trigger: WorkflowTrigger
   onUpdate: (config: WorkflowTrigger['config']) => void

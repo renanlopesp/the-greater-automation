@@ -101,10 +101,14 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     loadHistory()
   }, [agentId, setMessages])
 
-  // Send message using v6 sendMessage API
+  // Send message using v6 sendMessage API (supports optional file attachments)
   const sendMessage = useCallback(
-    async (text: string) => {
-      await aiSendMessage({ text })
+    async (text: string, files?: import('ai').FileUIPart[]) => {
+      if (files && files.length > 0) {
+        await aiSendMessage({ text, files })
+      } else {
+        await aiSendMessage({ text })
+      }
     },
     [aiSendMessage]
   )

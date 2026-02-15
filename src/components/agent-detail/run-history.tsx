@@ -8,7 +8,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePipelineRunSteps } from '@/hooks/use-trigger-subscriptions'
 
-interface Run {
+export interface Run {
   id: string
   status: string
   steps_used: number
@@ -35,6 +35,71 @@ interface Run {
 
 interface RunHistoryProps {
   runs: Run[]
+}
+
+type PipelineStep = NonNullable<Run['pipeline_steps']>[number]
+
+function formatTriggerLabel(triggerData: Record<string, unknown> | null | undefined): string {
+  if (!triggerData) return 'Event'
+  const meta = triggerData.metadata as Record<string, unknown> | undefined
+  const slug = meta?.triggerSlug as string | undefined
+  if (!slug) return 'Event'
+  const parts = slug.split('_')
+  const app = parts[0]
+  const event = parts
+    .slice(1)
+    .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
+    .join(' ')
+  return `${app.charAt(0) + app.slice(1).toLowerCase()}: ${event}`
+}
+
+function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
+  return (
+    <div className="mb-3">
+      <p className="text-foreground mb-2 text-xs font-medium">
+        Pipeline Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
+      </p>
+      <div className="space-y-1">
+        {steps.map((step, idx) => (
+          <div
+            key={idx}
+            className="bg-background flex items-center gap-2 rounded border px-2 py-1.5"
+          >
+            <span
+              className={cn('h-2 w-2 flex-shrink-0 rounded-full', {
+                'bg-muted-foreground': step.status === 'pending',
+                'animate-pulse bg-blue-500': step.status === 'running',
+                'bg-green-500': step.status === 'completed',
+                'bg-red-500': step.status === 'failed',
+                'bg-muted': step.status === 'skipped',
+              })}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium">
+                Step {step.step_index + 1}: {step.action_type}
+              </p>
+              {step.error && <p className="text-destructive truncate text-[10px]">{step.error}</p>}
+            </div>
+            {step.duration_ms != null && (
+              <span className="text-muted-foreground flex-shrink-0 text-[10px]">
+                {step.duration_ms < 1000 ? '<1s' : `${Math.round(step.duration_ms / 1000)}s`}
+              </span>
+            )}
+            <span
+              className={cn('flex-shrink-0 text-[10px] font-medium', {
+                'text-muted-foreground': step.status === 'pending' || step.status === 'skipped',
+                'text-blue-600': step.status === 'running',
+                'text-green-600': step.status === 'completed',
+                'text-red-600': step.status === 'failed',
+              })}
+            >
+              {step.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function getStatusBadge(status: string) {
@@ -82,59 +147,8 @@ function formatDuration(startedAt: string, completedAt: string): string {
 // Wrapper component for real-time pipeline steps
 function PipelineStepsLive({ runId }: { runId: string }) {
   const { steps } = usePipelineRunSteps(runId)
-
   if (!steps || steps.length === 0) return null
-
-  return (
-    <div className="mb-3">
-      <p className="text-foreground mb-2 text-xs font-medium">
-        Pipeline Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
-      </p>
-      <div className="space-y-1">
-        {steps.map((step, idx) => (
-          <div
-            key={idx}
-            className="bg-background flex items-center gap-2 rounded border px-2 py-1.5"
-          >
-            {/* Status icon */}
-            <span
-              className={cn('h-2 w-2 flex-shrink-0 rounded-full', {
-                'bg-muted-foreground': step.status === 'pending',
-                'animate-pulse bg-blue-500': step.status === 'running',
-                'bg-green-500': step.status === 'completed',
-                'bg-red-500': step.status === 'failed',
-                'bg-muted': step.status === 'skipped',
-              })}
-            />
-            {/* Step info */}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">
-                Step {step.step_index + 1}: {step.action_type}
-              </p>
-              {step.error && <p className="text-destructive truncate text-[10px]">{step.error}</p>}
-            </div>
-            {/* Duration */}
-            {step.duration_ms != null && (
-              <span className="text-muted-foreground flex-shrink-0 text-[10px]">
-                {step.duration_ms < 1000 ? '<1s' : `${Math.round(step.duration_ms / 1000)}s`}
-              </span>
-            )}
-            {/* Status label */}
-            <span
-              className={cn('flex-shrink-0 text-[10px] font-medium', {
-                'text-muted-foreground': step.status === 'pending' || step.status === 'skipped',
-                'text-blue-600': step.status === 'running',
-                'text-green-600': step.status === 'completed',
-                'text-red-600': step.status === 'failed',
-              })}
-            >
-              {step.status}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <PipelineSteps steps={steps} />
 }
 
 export default function RunHistory({ runs }: RunHistoryProps) {
@@ -246,24 +260,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                     <p className="truncate text-sm font-medium">{name}</p>
                     {run.event_log_id && (
                       <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                        {(() => {
-                          const td = run.trigger_data
-                          if (!td) return 'Event'
-                          // Try to extract app/trigger info from trigger_data metadata
-                          const meta = td.metadata as Record<string, unknown> | undefined
-                          const slug = meta?.triggerSlug as string | undefined
-                          if (slug) {
-                            // Convert "GITHUB_PULL_REQUEST_OPENED" → "GitHub: Pull Request Opened"
-                            const parts = slug.split('_')
-                            const app = parts[0]
-                            const event = parts
-                              .slice(1)
-                              .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
-                              .join(' ')
-                            return `${app.charAt(0) + app.slice(1).toLowerCase()}: ${event}`
-                          }
-                          return 'Event'
-                        })()}
+                        {formatTriggerLabel(run.trigger_data)}
                       </Badge>
                     )}
                     {getStatusBadge(run.status)}
@@ -301,65 +298,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                     <PipelineStepsLive runId={run.id} />
                   ) : (
                     run.pipeline_steps &&
-                    run.pipeline_steps.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-foreground mb-2 text-xs font-medium">
-                          Pipeline Steps (
-                          {run.pipeline_steps.filter((s) => s.status === 'completed').length}/
-                          {run.pipeline_steps.length})
-                        </p>
-                        <div className="space-y-1">
-                          {run.pipeline_steps.map((step, idx) => (
-                            <div
-                              key={idx}
-                              className="bg-background flex items-center gap-2 rounded border px-2 py-1.5"
-                            >
-                              {/* Status icon */}
-                              <span
-                                className={cn('h-2 w-2 flex-shrink-0 rounded-full', {
-                                  'bg-muted-foreground': step.status === 'pending',
-                                  'animate-pulse bg-blue-500': step.status === 'running',
-                                  'bg-green-500': step.status === 'completed',
-                                  'bg-red-500': step.status === 'failed',
-                                  'bg-muted': step.status === 'skipped',
-                                })}
-                              />
-                              {/* Step info */}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-medium">
-                                  Step {step.step_index + 1}: {step.action_type}
-                                </p>
-                                {step.error && (
-                                  <p className="text-destructive truncate text-[10px]">
-                                    {step.error}
-                                  </p>
-                                )}
-                              </div>
-                              {/* Duration */}
-                              {step.duration_ms != null && (
-                                <span className="text-muted-foreground flex-shrink-0 text-[10px]">
-                                  {step.duration_ms < 1000
-                                    ? '<1s'
-                                    : `${Math.round(step.duration_ms / 1000)}s`}
-                                </span>
-                              )}
-                              {/* Status label */}
-                              <span
-                                className={cn('flex-shrink-0 text-[10px] font-medium', {
-                                  'text-muted-foreground':
-                                    step.status === 'pending' || step.status === 'skipped',
-                                  'text-blue-600': step.status === 'running',
-                                  'text-green-600': step.status === 'completed',
-                                  'text-red-600': step.status === 'failed',
-                                })}
-                              >
-                                {step.status}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
+                    run.pipeline_steps.length > 0 && <PipelineSteps steps={run.pipeline_steps} />
                   )}
                   {run.trigger_data && (
                     <div className="mb-3">

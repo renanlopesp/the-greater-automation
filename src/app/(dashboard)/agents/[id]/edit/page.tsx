@@ -15,17 +15,15 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
   const agent = await fetchAgent(supabase, id)
   if (!agent) notFound()
 
-  // Fetch workflows for this agent (to pre-select workflows)
-  const { data: workflows } = await supabase
-    .from('agent_workflows')
-    .select('workflow_id')
-    .eq('agent_id', id)
+  // Fetch agent workflows + team workflows in parallel (both depend on agent, independent of each other)
+  const [{ data: workflows }, teamWorkflows] = await Promise.all([
+    supabase.from('agent_workflows').select('workflow_id').eq('agent_id', id),
+    fetchTeamWorkflows(supabase, agent.team_id),
+  ])
 
   const workflowIds = (workflows ?? [])
     .map((w) => w.workflow_id)
-    .filter((id): id is string => id !== null)
-
-  const teamWorkflows = await fetchTeamWorkflows(supabase, agent.team_id)
+    .filter((wid): wid is string => wid !== null)
 
   return (
     <div className="mx-auto max-w-5xl p-6">

@@ -101,17 +101,21 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 
   if (runs && runs.length > 0) {
     const runIds = runs.map((r) => r.id)
-    // Delete grandchildren first
-    await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-    await supabase.from('human_approvals').delete().in('run_id', runIds)
+    // Delete grandchildren first (parallel — independent tables)
+    await Promise.all([
+      supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+      supabase.from('human_approvals').delete().in('run_id', runIds),
+    ])
   }
 
-  // 2. Delete direct children
-  await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
-  await supabase.from('agent_workflows').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)
+  // 2. Delete direct children (parallel — independent tables, grandchildren already gone)
+  await Promise.all([
+    supabase.from('step_test_results').delete().eq('workflow_id', workflowId),
+    supabase.from('agent_workflows').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_runs').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_steps').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId),
+  ])
 
   // 3. Delete the workflow (no children left, CASCADE is a no-op)
   const { error } = await supabase.from('workflows').delete().eq('id', workflowId)
@@ -168,18 +172,18 @@ export async function deleteAgent(agentId: string): Promise<ActionResult> {
  * - "My Workflow (copy 2)"  -> "My Workflow (copy 3)"
  * - "My Workflow (copy 42)" -> "My Workflow (copy 43)"
  */
-function generateCopyName(name: string): string {
-  const numberedCopyRegex = /^(.+)\s\(copy\s(\d+)\)$/
-  const simpleCopyRegex = /^(.+)\s\(copy\)$/
+const NUMBERED_COPY_REGEX = /^(.+)\s\(copy\s(\d+)\)$/
+const SIMPLE_COPY_REGEX = /^(.+)\s\(copy\)$/
 
-  const numberedMatch = name.match(numberedCopyRegex)
+function generateCopyName(name: string): string {
+  const numberedMatch = name.match(NUMBERED_COPY_REGEX)
   if (numberedMatch) {
     const baseName = numberedMatch[1]
     const currentNumber = parseInt(numberedMatch[2], 10)
     return `${baseName} (copy ${currentNumber + 1})`
   }
 
-  const simpleMatch = name.match(simpleCopyRegex)
+  const simpleMatch = name.match(SIMPLE_COPY_REGEX)
   if (simpleMatch) {
     return `${simpleMatch[1]} (copy 2)`
   }
@@ -264,11 +268,11 @@ export async function duplicateWorkflow(
       triggerConfig &&
       typeof triggerConfig === 'object'
     ) {
-      const { webhook_token, secret, encrypted_secret, ...rest } = triggerConfig as Record<
-        string,
-        unknown
-      >
-      triggerConfig = rest as typeof triggerConfig
+      const cleaned = { ...(triggerConfig as Record<string, unknown>) }
+      delete cleaned.webhook_token
+      delete cleaned.secret
+      delete cleaned.encrypted_secret
+      triggerConfig = cleaned as typeof triggerConfig
     }
 
     const { error: triggerInsertError } = await supabase.from('workflow_triggers').insert({
@@ -392,8 +396,12 @@ export async function bulkDeleteItems(
     return {}
   }
 
-  const workflowIds = items.filter((i) => i.type === 'workflow').map((i) => i.id)
-  const agentIds = items.filter((i) => i.type === 'agent').map((i) => i.id)
+  const workflowIds: string[] = []
+  const agentIds: string[] = []
+  for (const item of items) {
+    if (item.type === 'workflow') workflowIds.push(item.id)
+    else agentIds.push(item.id)
+  }
 
   const supabase = await createServerClient()
   const errors: string[] = []
@@ -408,15 +416,19 @@ export async function bulkDeleteItems(
 
     if (runs && runs.length > 0) {
       const runIds = runs.map((r) => r.id)
-      await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-      await supabase.from('human_approvals').delete().in('run_id', runIds)
+      await Promise.all([
+        supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+        supabase.from('human_approvals').delete().in('run_id', runIds),
+      ])
     }
 
-    await supabase.from('step_test_results').delete().in('workflow_id', workflowIds)
-    await supabase.from('agent_workflows').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_runs').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_steps').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds)
+    await Promise.all([
+      supabase.from('step_test_results').delete().in('workflow_id', workflowIds),
+      supabase.from('agent_workflows').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_runs').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_steps').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds),
+    ])
 
     const { error } = await supabase.from('workflows').delete().in('id', workflowIds)
 
@@ -434,9 +446,13 @@ export async function bulkDeleteItems(
       .in('agent_id', agentIds)
       .not('workflow_id', 'is', null)
 
-    const agentWorkflowIds = (
-      agentWorkflows?.map((w) => w.workflow_id).filter(Boolean) as string[] | undefined
-    )?.filter((id) => !workflowIds.includes(id)) // exclude already-deleted workflows
+    const deletedSet = new Set(workflowIds)
+    const agentWorkflowIds: string[] = []
+    if (agentWorkflows) {
+      for (const w of agentWorkflows) {
+        if (w.workflow_id && !deletedSet.has(w.workflow_id)) agentWorkflowIds.push(w.workflow_id)
+      }
+    }
 
     const { error } = await supabase.from('agents').delete().in('id', agentIds)
 
@@ -445,7 +461,7 @@ export async function bulkDeleteItems(
     }
 
     // Clean up orphaned workflows that were created by agent workflows
-    if (agentWorkflowIds && agentWorkflowIds.length > 0) {
+    if (agentWorkflowIds.length > 0) {
       await supabase.from('workflows').delete().in('id', agentWorkflowIds)
     }
   }
@@ -633,15 +649,19 @@ export async function deleteFolder(
 
         if (runs && runs.length > 0) {
           const runIds = runs.map((r) => r.id)
-          await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-          await supabase.from('human_approvals').delete().in('run_id', runIds)
+          await Promise.all([
+            supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+            supabase.from('human_approvals').delete().in('run_id', runIds),
+          ])
         }
 
-        await supabase.from('step_test_results').delete().in('workflow_id', wfIds)
-        await supabase.from('agent_workflows').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_runs').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_steps').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_triggers').delete().in('workflow_id', wfIds)
+        await Promise.all([
+          supabase.from('step_test_results').delete().in('workflow_id', wfIds),
+          supabase.from('agent_workflows').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_runs').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_steps').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_triggers').delete().in('workflow_id', wfIds),
+        ])
 
         const { error: deleteWorkflowsError } = await supabase
           .from('workflows')
@@ -654,9 +674,9 @@ export async function deleteFolder(
       }
     }
 
-    // Delete descendant folders (deepest first)
-    for (const id of descendantIds.reverse()) {
-      await supabase.from('folders').delete().eq('id', id)
+    // Delete descendant folders (single atomic query — Postgres handles FK order)
+    if (descendantIds.length > 0) {
+      await supabase.from('folders').delete().in('id', descendantIds)
     }
   }
 
@@ -1070,12 +1090,13 @@ export async function publishWorkflow(
           // Best-effort cleanup
         })
         // Remove composio_trigger_id from config
-        const { composio_trigger_id: _, ...restConfig } = config
+        const cleanedConfig = { ...config }
+        delete (cleanedConfig as Record<string, unknown>).composio_trigger_id
         await supabase
           .from('workflow_triggers')
           .update({
             config:
-              restConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
+              cleanedConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
           })
           .eq('id', trigger.id)
       }

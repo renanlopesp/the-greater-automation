@@ -46,12 +46,12 @@ export async function executeAIStep(
   // Interpolate context variables in prompt template
   let userPrompt = config.prompt_template
   if (context) {
-    Object.entries(context).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(context)) {
       const placeholder = `{{${key}}}`
       const serialized =
         typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
-      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), serialized)
-    })
+      userPrompt = userPrompt.replaceAll(placeholder, serialized)
+    }
 
     // Always append trigger data as context if available and not already interpolated
     if (context.trigger && !config.prompt_template.includes('{{trigger}}')) {

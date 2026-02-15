@@ -33,12 +33,11 @@ function resolveTemplate(
 ): string {
   return template.replace(/\{\{([\w.]+)\}\}/g, (match, path: string) => {
     if (path.startsWith('trigger.')) {
-      const fieldPath = path.slice(8) // Remove 'trigger.'
-      const value = getNestedValue(triggerData, fieldPath)
+      const value = getNestedValue(triggerData, path.slice(8))
       return value !== undefined ? String(value) : match
-    } else if (path.startsWith('prev.')) {
-      const fieldPath = path.slice(5) // Remove 'prev.'
-      const value = getNestedValue(previousOutputs, fieldPath)
+    }
+    if (path.startsWith('prev.')) {
+      const value = getNestedValue(previousOutputs, path.slice(5))
       return value !== undefined ? String(value) : match
     }
     return match
@@ -254,7 +253,7 @@ async function executeClaudeAgentStep(
   triggerData: Record<string, unknown>,
   previousOutputs: Record<string, unknown>,
   userId: string,
-  supabaseClient: SupabaseClient
+  ...[]: [SupabaseClient]
 ): Promise<ActionExecutionResult> {
   const startTime = Date.now()
 

@@ -3,8 +3,15 @@
 import type { UIMessage } from 'ai'
 import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
 import BoringAvatar from 'boring-avatars'
-import { CopyIcon, ThumbsDownIcon, ThumbsUpIcon, SquarePen } from 'lucide-react'
-import { useCallback } from 'react'
+import {
+  CopyIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  PaperclipIcon,
+  XIcon,
+  FileIcon,
+} from 'lucide-react'
+import { useCallback, useEffect } from 'react'
 
 import {
   Conversation,
@@ -22,19 +29,27 @@ import {
 import {
   PromptInput,
   PromptInputTextarea,
+  PromptInputHeader,
   PromptInputFooter,
+  PromptInputTools,
+  PromptInputButton,
   PromptInputSubmit,
+  usePromptInputAttachments,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
-// SaveSkillDialog removed - skills are now created via chat tool calling
-import { Button } from '@/components/ui/button'
 import { useAgentChat } from '@/hooks/use-agent-chat'
 import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
 import { getAgentPalette } from '@/lib/agent-palettes'
+
+// Module-level callback for cross-component new chat trigger (no useEffect needed)
+const _newChatState: { handler: (() => void) | null } = { handler: null }
+export function triggerNewChat() {
+  _newChatState.handler?.()
+}
 
 interface ChatPanelProps {
   agentId: string
@@ -59,13 +74,11 @@ function ChatMessageItem({
   message,
   agentName,
   agentPalette,
-  agentId,
   isStreaming,
 }: {
   message: UIMessage
   agentName: string
   agentPalette: string
-  agentId: string
   isStreaming: boolean
 }) {
   const isUser = message.role === 'user'
@@ -78,10 +91,6 @@ function ChatMessageItem({
   const toolParts = parts.filter(isToolUIPart)
 
   const textContent = textParts.map((p) => p.text).join('')
-
-  // Check if tool executions succeeded (for "Save as skill" button)
-  const completedTools = toolParts.filter((p) => p.state === 'output-available')
-  const hasCompletedTools = completedTools.length > 0
 
   return (
     <Message from={message.role}>
@@ -176,6 +185,53 @@ function ChatMessageItem({
   )
 }
 
+function AttachButton() {
+  const attachments = usePromptInputAttachments()
+  return (
+    <PromptInputButton tooltip="Attach files" onClick={() => attachments.openFileDialog()}>
+      <PaperclipIcon className="size-4" />
+    </PromptInputButton>
+  )
+}
+
+function AttachmentPreviews() {
+  const attachments = usePromptInputAttachments()
+  if (attachments.files.length === 0) return null
+
+  return (
+    <PromptInputHeader>
+      {attachments.files.map((file) => {
+        const isImage = file.mediaType?.startsWith('image/')
+        return (
+          <div
+            key={file.id}
+            className="bg-muted group relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
+          >
+            {isImage && file.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={file.url}
+                alt={file.filename ?? 'attachment'}
+                className="h-8 w-8 rounded object-cover"
+              />
+            ) : (
+              <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+            )}
+            <span className="max-w-[120px] truncate">{file.filename ?? 'file'}</span>
+            <button
+              type="button"
+              onClick={() => attachments.remove(file.id)}
+              className="text-muted-foreground hover:text-foreground -mr-1 shrink-0"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )
+      })}
+    </PromptInputHeader>
+  )
+}
+
 export default function ChatPanel({
   agentId,
   agentName,
@@ -197,6 +253,15 @@ export default function ChatPanel({
 
   const hasMessages = messages.length > 0
 
+  // Register handler so the header button can trigger new chat
+  // (legitimate side effect: callback registration, not data syncing)
+  useEffect(() => {
+    _newChatState.handler = startNewChat
+    return () => {
+      _newChatState.handler = null
+    }
+  }, [startNewChat])
+
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
       sendMessage(suggestion)
@@ -206,17 +271,21 @@ export default function ChatPanel({
 
   const handleSubmit = useCallback(
     (msg: PromptInputMessage) => {
-      if (msg.text.trim()) {
-        sendMessage(msg.text.trim())
+      if (msg.text.trim() || msg.files.length > 0) {
+        sendMessage(msg.text.trim(), msg.files.length > 0 ? msg.files : undefined)
       }
     },
     [sendMessage]
   )
 
   // Find the last assistant message to know which one is streaming
-  const lastAssistantIndex = [...messages].reverse().findIndex((m) => m.role === 'assistant')
-  const lastAssistantId =
-    lastAssistantIndex >= 0 ? messages[messages.length - 1 - lastAssistantIndex]?.id : null
+  let lastAssistantId: string | null = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'assistant') {
+      lastAssistantId = messages[i].id
+      break
+    }
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -246,7 +315,6 @@ export default function ChatPanel({
                     message={message}
                     agentName={agentName}
                     agentPalette={agentPalette}
-                    agentId={agentId}
                     isStreaming={isStreaming && message.id === lastAssistantId}
                   />
                 ))
@@ -277,21 +345,13 @@ export default function ChatPanel({
             </div>
           )}
 
-          <PromptInput onSubmit={handleSubmit}>
+          <PromptInput onSubmit={handleSubmit} multiple>
+            <AttachmentPreviews />
             <PromptInputTextarea placeholder={`Chat with ${agentName}...`} disabled={isLoading} />
             <PromptInputFooter>
-              {hasMessages && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground h-8 gap-1.5 text-xs"
-                  onClick={startNewChat}
-                  disabled={isLoading}
-                >
-                  <SquarePen className="h-3.5 w-3.5" />
-                  New chat
-                </Button>
-              )}
+              <PromptInputTools>
+                <AttachButton />
+              </PromptInputTools>
               <PromptInputSubmit status={status} onStop={stop} />
             </PromptInputFooter>
           </PromptInput>

@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -16,32 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WorkflowsList from '@/components/agent-detail/workflows-list'
 import SkillsList from '@/components/agent-detail/skills-list'
 import ConnectionIndicators from '@/components/agent-detail/connection-indicators'
-import RunHistory from '@/components/agent-detail/run-history'
+import RunHistory, { type Run } from '@/components/agent-detail/run-history'
 import { useAgentWorkflows } from '@/hooks/use-agent-workflows'
 import type { AgentWorkflowData } from '@/lib/actions/agent-workflows'
-
-type Run = {
-  id: string
-  status: string
-  steps_used: number
-  ai_credits_used: number
-  started_at: string
-  completed_at: string | null
-  workflow: { name: string; emoji: string } | null
-  trigger_data?: Record<string, unknown> | null
-  actions_executed?: unknown[] | null
-  error?: string | null
-  pipeline_steps?: Array<{
-    step_index: number
-    action_type: string
-    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
-    output?: Record<string, unknown>
-    error?: string
-    started_at?: string
-    completed_at?: string
-    duration_ms?: number
-  }> | null
-}
 
 interface AgentSidebarProps {
   agentId: string
@@ -62,28 +38,7 @@ interface AgentSidebarProps {
     app_id: string
     account_label: string | null
   }>
-  recentRuns: Array<{
-    id: string
-    status: string
-    steps_used: number
-    ai_credits_used: number
-    started_at: string
-    completed_at: string | null
-    workflow: { name: string; emoji: string } | null
-  }>
-  workflowRuns: Array<{
-    id: string
-    workflow_id: string
-    status: string
-    trigger_data: Record<string, unknown> | null
-    actions_executed: unknown[] | null
-    error: string | null
-    duration_ms: number | null
-    created_at: string
-    agent_workflows: { name: string } | null
-    pipeline_steps?: unknown[] | null
-    event_log_id?: string | null
-  }>
+  allRuns: Run[]
   triggerSubscriptions?: Array<{
     id: string
     agent_workflow_id: string
@@ -101,35 +56,10 @@ export default function AgentSidebar({
   initialWorkflows,
   skills,
   connectedApps,
-  recentRuns,
-  workflowRuns,
+  allRuns,
   triggerSubscriptions,
 }: AgentSidebarProps) {
   const { data: workflows = initialWorkflows } = useAgentWorkflows(agentId, initialWorkflows)
-  // Merge workflow runs and workflow runs into a single chronological list
-  const allRuns = useMemo(() => {
-    const normalizedWorkflowRuns = workflowRuns.map((wr) => ({
-      id: wr.id,
-      status: wr.status,
-      steps_used: 0,
-      ai_credits_used: 0,
-      started_at: wr.created_at,
-      completed_at: wr.duration_ms
-        ? new Date(new Date(wr.created_at).getTime() + wr.duration_ms).toISOString()
-        : null,
-      workflow: wr.agent_workflows ? { name: wr.agent_workflows.name, emoji: '\u26A1' } : null,
-      trigger_data: wr.trigger_data,
-      actions_executed: wr.actions_executed,
-      error: wr.error,
-      pipeline_steps: Array.isArray(wr.pipeline_steps)
-        ? (wr.pipeline_steps as Run['pipeline_steps'])
-        : null,
-    }))
-
-    return [...recentRuns, ...normalizedWorkflowRuns].sort(
-      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-    )
-  }, [recentRuns, workflowRuns])
 
   return (
     <Sheet>

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import {
@@ -22,7 +23,7 @@ export default async function DashboardPage({
 
   const { connected, error: connectionError } = await searchParams
 
-  // Get user's team
+  // Get user's team (fast — needed for routing)
   const { data: memberRows } = await supabase
     .from('team_members')
     .select('team_id')
@@ -37,6 +38,37 @@ export default async function DashboardPage({
       </div>
     )
   }
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col gap-6 p-6">
+          <div className="bg-muted h-10 w-48 animate-pulse rounded-lg" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="bg-muted h-[308px] animate-pulse rounded-2xl" />
+            ))}
+          </div>
+          <div className="bg-muted h-64 animate-pulse rounded-2xl" />
+        </div>
+      }
+    >
+      <DashboardData teamId={teamId} connectedApp={connected} connectionError={connectionError} />
+    </Suspense>
+  )
+}
+
+/** Async Server Component — heavy data queries streamed via Suspense */
+async function DashboardData({
+  teamId,
+  connectedApp,
+  connectionError,
+}: {
+  teamId: string
+  connectedApp?: string
+  connectionError?: string
+}) {
+  const supabase = await createServerClient()
 
   const [team, agents, workflows, runsToday] = await Promise.all([
     fetchTeam(supabase, teamId),
@@ -65,7 +97,7 @@ export default async function DashboardPage({
       initialWorkflows={workflows}
       runsToday={runsToday}
       teamId={teamId}
-      connectedApp={connected}
+      connectedApp={connectedApp}
       connectionError={connectionError}
     />
   )

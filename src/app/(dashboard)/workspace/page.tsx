@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import {
@@ -31,6 +32,24 @@ export default async function WorkspacePage() {
     )
   }
 
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col gap-4 p-6">
+          <div className="bg-muted h-10 w-40 animate-pulse rounded-lg" />
+          <div className="bg-muted h-96 animate-pulse rounded-2xl" />
+        </div>
+      }
+    >
+      <WorkspaceData teamId={teamId} userId={user.id} />
+    </Suspense>
+  )
+}
+
+/** Async Server Component — workspace items streamed via Suspense */
+async function WorkspaceData({ teamId, userId }: { teamId: string; userId: string }) {
+  const supabase = await createServerClient()
+
   const [items, teamMembers, folders] = await Promise.all([
     fetchWorkspaceItems(supabase, teamId),
     fetchTeamMembers(supabase, teamId),
@@ -44,7 +63,7 @@ export default async function WorkspacePage() {
       initialItems={items}
       teamId={teamId}
       teamMembers={teamMembers}
-      userId={user.id}
+      userId={userId}
       folders={folders}
       folderTree={folderTree}
     />
