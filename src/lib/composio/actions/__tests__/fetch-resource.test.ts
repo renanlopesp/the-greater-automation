@@ -370,6 +370,7 @@ describe('fetchAppResource', () => {
   })
 
   it('returns empty items on fetch error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
     mockFetch.mockRejectedValue(new Error('Network error'))
 
@@ -382,6 +383,7 @@ describe('fetchAppResource', () => {
   })
 
   it('handles non-Error exceptions', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-123' } } })
     mockFetch.mockRejectedValue('string error')
 

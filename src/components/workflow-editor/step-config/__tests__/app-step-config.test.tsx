@@ -149,9 +149,9 @@ vi.mock('@/lib/composio/actions/categorize', () => ({
   }),
 }))
 
-// Mock next/image
+// Mock next/image — filter Next.js-specific props to avoid DOM warnings
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => <img {...props} />,
+  default: ({ unoptimized: _u, ...props }: Record<string, unknown>) => <img {...props} />,
 }))
 
 describe('AppStepConfigForm', () => {

@@ -53,7 +53,9 @@ vi.mock('@/components/ai-elements/prompt-input', () => ({
       {children}
     </button>
   ),
-  PromptInputSubmit: (props: any) => <button data-testid="prompt-input-submit" {...props} />,
+  PromptInputSubmit: ({ onStop: _onStop, ...props }: any) => (
+    <button data-testid="prompt-input-submit" {...props} />
+  ),
   usePromptInputAttachments: () => ({ files: [], openFileDialog: vi.fn() }),
 }))
 

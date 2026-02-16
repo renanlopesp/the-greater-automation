@@ -72,13 +72,17 @@ describe('useAgentChat', () => {
   it('creates transport with correct API URL', async () => {
     const { useAgentChat } = await import('../use-agent-chat')
 
-    renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123'))
 
     expect(MockDefaultChatTransport).toHaveBeenCalledWith(
       expect.objectContaining({
         api: '/api/agents/agent-123/chat',
       })
     )
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 
   it('loads conversation history on mount', async () => {
@@ -165,6 +169,10 @@ describe('useAgentChat', () => {
     const { result } = renderHook(() => useAgentChat('agent-123'))
 
     expect(result.current.isStreaming).toBe(true)
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 
   it('isLoading derives from status - submitted', async () => {
@@ -181,6 +189,10 @@ describe('useAgentChat', () => {
     const { result } = renderHook(() => useAgentChat('agent-123'))
 
     expect(result.current.isLoading).toBe(true)
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 
   it('isLoading derives from status - streaming', async () => {
@@ -198,6 +210,10 @@ describe('useAgentChat', () => {
 
     expect(result.current.isLoading).toBe(true)
     expect(result.current.isStreaming).toBe(true)
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 
   it('sendMessage delegates to aiSendMessage', async () => {
@@ -229,6 +245,10 @@ describe('useAgentChat', () => {
     const { result } = renderHook(() => useAgentChat('agent-123'))
 
     expect(result.current.error).toBe('Network error')
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 
   it('error is null when chatError is null', async () => {
@@ -245,5 +265,9 @@ describe('useAgentChat', () => {
     const { result } = renderHook(() => useAgentChat('agent-123'))
 
     expect(result.current.error).toBe(null)
+
+    await waitFor(() => {
+      expect(result.current.isLoadingHistory).toBe(false)
+    })
   })
 })
