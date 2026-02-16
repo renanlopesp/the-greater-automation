@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, SlidersHorizontal } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -52,11 +52,10 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                 ))}
               </TabsList>
               <div className="flex-1" />
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Plus className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" asChild>
+                <Link href="/workspace">
+                  <Plus className="h-4 w-4" />
+                </Link>
               </Button>
             </div>
 
