@@ -334,9 +334,17 @@ export async function executeVisualWorkflowSteps(
                         .single()
                       if (!conn?.composio_connection_id)
                         throw new Error(`No ${ac.app_id} connection found`)
-                      const res = await getComposio().tools.execute(ac.action, {
+                      const composioClient = getComposio()
+                      const rawTools = await composioClient.tools.getRawComposioTools({
+                        toolkits: [ac.app_id],
+                        limit: 200,
+                      })
+                      const meta = rawTools.find((t) => t.slug === ac.action)
+                      const res = await composioClient.tools.execute(ac.action, {
                         connectedAccountId: conn.composio_connection_id,
+                        userId,
                         arguments: ac.inputs ?? {},
+                        ...(meta?.version ? { version: meta.version } : {}),
                       })
                       const ar = res as { successful?: boolean; data?: unknown; error?: string }
                       if (!ar.successful)
@@ -375,9 +383,20 @@ export async function executeVisualWorkflowSteps(
                 stepError = `No ${appConfig.app_id} connection found. Connect the app in Settings.`
               } else {
                 const composio = getComposio()
+
+                // Look up tool version (required for manual execution)
+                const tools = await composio.tools.getRawComposioTools({
+                  toolkits: [appConfig.app_id],
+                  limit: 200,
+                })
+                const toolMeta = tools.find((t) => t.slug === appConfig.action)
+                const version = toolMeta?.version
+
                 const result = await composio.tools.execute(appConfig.action, {
                   connectedAccountId: connection.composio_connection_id,
+                  userId,
                   arguments: appConfig.inputs ?? {},
+                  ...(version ? { version } : {}),
                 })
 
                 const appResult = result as {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { usePipelineRunSteps } from '@/hooks/use-trigger-subscriptions'
+import { useWorkflowRunSteps, type RunStep } from '@/hooks/use-trigger-subscriptions'
 
 export interface Run {
   id: string
@@ -17,27 +17,14 @@ export interface Run {
   completed_at: string | null
   workflow: { name: string; emoji: string } | null
   trigger_data?: Record<string, unknown> | null
-  actions_executed?: unknown[] | null
   error?: string | null
   event_log_id?: string | null
   trigger_type?: string | null
-  pipeline_steps?: Array<{
-    step_index: number
-    action_type: string
-    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
-    output?: Record<string, unknown>
-    error?: string
-    started_at?: string
-    completed_at?: string
-    duration_ms?: number
-  }> | null
 }
 
 interface RunHistoryProps {
   runs: Run[]
 }
-
-type PipelineStep = NonNullable<Run['pipeline_steps']>[number]
 
 function formatTriggerLabel(triggerData: Record<string, unknown> | null | undefined): string {
   if (!triggerData) return 'Event'
@@ -53,11 +40,11 @@ function formatTriggerLabel(triggerData: Record<string, unknown> | null | undefi
   return `${app.charAt(0) + app.slice(1).toLowerCase()}: ${event}`
 }
 
-function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
+function WorkflowSteps({ steps }: { steps: RunStep[] }) {
   return (
     <div className="mb-3">
       <p className="text-foreground mb-2 text-xs font-medium">
-        Pipeline Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
+        Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
       </p>
       <div className="space-y-1">
         {steps.map((step, idx) => (
@@ -72,11 +59,12 @@ function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
                 'bg-green-500': step.status === 'completed',
                 'bg-red-500': step.status === 'failed',
                 'bg-muted': step.status === 'skipped',
+                'animate-pulse bg-yellow-500': step.status === 'waiting_for_input',
               })}
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-medium">
-                Step {step.step_index + 1}: {step.action_type}
+                Step {step.step_index + 1}: {step.name}
               </p>
               {step.error && <p className="text-destructive truncate text-[10px]">{step.error}</p>}
             </div>
@@ -91,9 +79,10 @@ function PipelineSteps({ steps }: { steps: PipelineStep[] }) {
                 'text-blue-600': step.status === 'running',
                 'text-green-600': step.status === 'completed',
                 'text-red-600': step.status === 'failed',
+                'text-yellow-600': step.status === 'waiting_for_input',
               })}
             >
-              {step.status}
+              {step.status === 'waiting_for_input' ? 'waiting' : step.status}
             </span>
           </div>
         ))}
@@ -144,11 +133,11 @@ function formatDuration(startedAt: string, completedAt: string): string {
   return `${Math.round(diffMs / 3_600_000)}h`
 }
 
-// Wrapper component for real-time pipeline steps
-function PipelineStepsLive({ runId }: { runId: string }) {
-  const { steps } = usePipelineRunSteps(runId)
+// Wrapper component for real-time workflow steps
+function WorkflowStepsLive({ runId }: { runId: string }) {
+  const { steps } = useWorkflowRunSteps(runId)
   if (!steps || steps.length === 0) return null
-  return <PipelineSteps steps={steps} />
+  return <WorkflowSteps steps={steps} />
 }
 
 export default function RunHistory({ runs }: RunHistoryProps) {
@@ -293,36 +282,14 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                       </Button>
                     </div>
                   )}
-                  {/* Use real-time hook for running/pending runs, static data for completed/failed */}
-                  {run.status === 'running' || run.status === 'pending' ? (
-                    <PipelineStepsLive runId={run.id} />
-                  ) : (
-                    run.pipeline_steps &&
-                    run.pipeline_steps.length > 0 && <PipelineSteps steps={run.pipeline_steps} />
-                  )}
+                  {/* Show workflow steps — real-time for active runs, fetched for completed */}
+                  <WorkflowStepsLive runId={run.id} />
                   {run.trigger_data && (
                     <div className="mb-3">
                       <p className="text-foreground text-xs font-medium">Trigger data</p>
                       <pre className="bg-background text-muted-foreground mt-1 rounded border p-2 text-xs break-all whitespace-pre-wrap">
                         {JSON.stringify(run.trigger_data, null, 2)}
                       </pre>
-                    </div>
-                  )}
-                  {run.actions_executed && Array.isArray(run.actions_executed) && (
-                    <div className="mb-3">
-                      <p className="text-foreground text-xs font-medium">
-                        Actions executed ({run.actions_executed.length})
-                      </p>
-                      <div className="mt-1 space-y-1">
-                        {run.actions_executed.map((action: unknown, idx: number) => (
-                          <pre
-                            key={idx}
-                            className="bg-background text-muted-foreground rounded border p-2 text-xs break-all whitespace-pre-wrap"
-                          >
-                            {JSON.stringify(action, null, 2)}
-                          </pre>
-                        ))}
-                      </div>
                     </div>
                   )}
                   {run.steps_used > 0 && (
@@ -333,13 +300,9 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                       </p>
                     </div>
                   )}
-                  {!run.error &&
-                    !run.trigger_data &&
-                    !run.actions_executed?.length &&
-                    !run.steps_used &&
-                    !run.pipeline_steps?.length && (
-                      <p className="text-muted-foreground text-xs">No additional details</p>
-                    )}
+                  {!run.error && !run.trigger_data && !run.steps_used && (
+                    <p className="text-muted-foreground text-xs">No additional details</p>
+                  )}
                 </div>
               )}
             </div>

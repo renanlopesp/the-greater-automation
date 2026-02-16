@@ -26,22 +26,26 @@ export function useTriggerSubscriptions(agentId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Hook 2: usePipelineRunSteps(runId)
+// Hook 2: useWorkflowRunSteps(runId) — unified run step tracking
 // ---------------------------------------------------------------------------
 
-interface PipelineStep {
+export interface RunStep {
   step_index: number
   action_type: string
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+  name: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting_for_input'
   output?: Record<string, unknown>
-  error?: string
-  started_at?: string
-  completed_at?: string
-  duration_ms?: number
+  error?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  duration_ms?: number | null
 }
 
-export function usePipelineRunSteps(runId: string | null) {
-  const [steps, setSteps] = useState<PipelineStep[] | null>(null)
+/** @deprecated Use useWorkflowRunSteps instead */
+export const usePipelineRunSteps = useWorkflowRunSteps
+
+export function useWorkflowRunSteps(runId: string | null) {
+  const [steps, setSteps] = useState<RunStep[] | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
   useEffect(() => {
@@ -49,40 +53,89 @@ export function usePipelineRunSteps(runId: string | null) {
 
     const supabase = createBrowserClient()
 
-    // Initial fetch
-    Promise.resolve(
-      supabase.from('agent_workflow_runs').select('pipeline_steps, status').eq('id', runId).single()
-    )
-      .then(({ data }) => {
-        if (data) {
-          setSteps(
-            Array.isArray(data.pipeline_steps)
-              ? (data.pipeline_steps as unknown as PipelineStep[])
-              : null
-          )
-          setStatus(data.status)
-        }
-      })
-      .catch(() => {
-        // Ignore errors on initial fetch
-      })
+    // Fetch steps from workflow_run_steps (normalized table)
+    async function fetchSteps() {
+      const { data: runSteps } = await supabase
+        .from('workflow_run_steps')
+        .select(
+          'step_id, step_position, step_type, status, output, error, started_at, completed_at, duration_ms'
+        )
+        .eq('run_id', runId!)
+        .order('step_position', { ascending: true })
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`run-${runId}`)
+      if (runSteps && runSteps.length > 0) {
+        // Fetch step names from workflow_steps
+        const stepIds = runSteps.map((rs) => rs.step_id).filter(Boolean) as string[]
+        const stepNames: Record<string, string> = {}
+        if (stepIds.length > 0) {
+          const { data: wsData } = await supabase
+            .from('workflow_steps')
+            .select('id, name')
+            .in('id', stepIds)
+          for (const ws of wsData ?? []) {
+            stepNames[ws.id] = ws.name
+          }
+        }
+
+        setSteps(
+          runSteps.map((rs) => ({
+            step_index: rs.step_position,
+            action_type: rs.step_type,
+            name: (rs.step_id && stepNames[rs.step_id]) || `Step ${rs.step_position + 1}`,
+            status: rs.status as RunStep['status'],
+            output: rs.output as Record<string, unknown> | undefined,
+            error: rs.error,
+            started_at: rs.started_at,
+            completed_at: rs.completed_at,
+            duration_ms: rs.duration_ms,
+          }))
+        )
+      }
+
+      // Also fetch run status
+      const { data: run } = await supabase
+        .from('workflow_runs')
+        .select('status')
+        .eq('id', runId!)
+        .single()
+      if (run) setStatus(run.status)
+    }
+
+    fetchSteps().catch(() => {
+      // Ignore errors on initial fetch
+    })
+
+    // Subscribe to realtime updates on workflow_run_steps
+    const stepsChannel = supabase
+      .channel(`run-steps-${runId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'agent_workflow_runs',
+          table: 'workflow_run_steps',
+          filter: `run_id=eq.${runId}`,
+        },
+        () => {
+          // Re-fetch all steps on any step change (simple and correct)
+          fetchSteps().catch(() => {})
+        }
+      )
+      .subscribe()
+
+    // Subscribe to run status changes
+    const runChannel = supabase
+      .channel(`run-status-${runId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'workflow_runs',
           filter: `id=eq.${runId}`,
         },
         (payload) => {
           const newData = payload.new as Record<string, unknown>
-          if (Array.isArray(newData.pipeline_steps)) {
-            setSteps(newData.pipeline_steps as unknown as PipelineStep[])
-          }
           if (typeof newData.status === 'string') {
             setStatus(newData.status)
           }
@@ -91,9 +144,8 @@ export function usePipelineRunSteps(runId: string | null) {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel).catch(() => {
-        // Ignore cleanup errors
-      })
+      supabase.removeChannel(stepsChannel).catch(() => {})
+      supabase.removeChannel(runChannel).catch(() => {})
     }
   }, [runId])
 

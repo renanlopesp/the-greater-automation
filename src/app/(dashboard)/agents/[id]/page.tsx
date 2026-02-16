@@ -112,53 +112,40 @@ async function AgentSidebarData({
 }) {
   const supabase = await createServerClient()
 
-  const [
-    workflowsResult,
-    recentRunsResult,
-    connectionsResult,
-    workflowRunsResult,
-    skillsResult,
-    triggerSubsResult,
-  ] = await Promise.all([
-    supabase
-      .from('agent_workflows')
-      .select(
-        'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
-      )
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: true }),
+  const [workflowsResult, recentRunsResult, connectionsResult, skillsResult, triggerSubsResult] =
+    await Promise.all([
+      supabase
+        .from('agent_workflows')
+        .select(
+          'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
+        )
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: true }),
 
-    supabase
-      .from('workflow_runs')
-      .select(
-        'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
-      )
-      .eq('agent_id', agentId)
-      .order('started_at', { ascending: false })
-      .limit(20),
+      supabase
+        .from('workflow_runs')
+        .select(
+          'id, status, steps_used, ai_credits_used, started_at, completed_at, trigger_data, trigger_type, error, workflow_id, workflows(name, emoji)'
+        )
+        .eq('agent_id', agentId)
+        .order('started_at', { ascending: false })
+        .limit(20),
 
-    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
+      supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
 
-    supabase
-      .from('agent_workflow_runs')
-      .select(
-        'id, workflow_id, status, trigger_data, actions_executed, error, duration_ms, created_at, pipeline_steps, event_log_id, agent_workflows(name)'
-      )
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: false })
-      .limit(20),
+      supabase
+        .from('agent_skills')
+        .select('id, name, description, content, source, is_enabled, type, parameters, version')
+        .eq('agent_id', agentId)
+        .order('created_at', { ascending: true }),
 
-    supabase
-      .from('agent_skills')
-      .select('id, name, description, content, source, is_enabled, type, parameters, version')
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: true }),
-
-    supabase
-      .from('trigger_subscriptions')
-      .select('id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count')
-      .eq('agent_id', agentId),
-  ])
+      supabase
+        .from('trigger_subscriptions')
+        .select(
+          'id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count'
+        )
+        .eq('agent_id', agentId),
+    ])
 
   // Transform workflows
   const workflows = (workflowsResult.data ?? []).map((w) => ({
@@ -204,8 +191,8 @@ async function AgentSidebarData({
   const connectedApps =
     usedAppIds.size > 0 ? allConnections.filter((c) => usedAppIds.has(c.app_id)) : allConnections
 
-  // Merge & sort runs server-side — avoids duplicate serialization and client re-sort
-  const recentRuns = (recentRunsResult.data ?? []).map((r) => ({
+  // Transform runs — unified from workflow_runs (both agent and visual workflows)
+  const allRuns = (recentRunsResult.data ?? []).map((r) => ({
     id: r.id,
     status: r.status,
     steps_used: r.steps_used,
@@ -213,41 +200,13 @@ async function AgentSidebarData({
     started_at: r.started_at ?? '',
     completed_at: r.completed_at,
     workflow: r.workflows as { name: string; emoji: string } | null,
-  }))
-
-  const normalizedWorkflowRuns = (workflowRunsResult.data ?? []).map((r) => ({
-    id: r.id,
-    status: r.status,
-    steps_used: 0,
-    ai_credits_used: 0,
-    started_at: r.created_at ?? new Date().toISOString(),
-    completed_at: r.duration_ms
-      ? new Date(
-          new Date(r.created_at ?? new Date().toISOString()).getTime() + r.duration_ms
-        ).toISOString()
-      : null,
-    workflow: r.agent_workflows ? { name: r.agent_workflows.name, emoji: '\u26A1' } : null,
     trigger_data: r.trigger_data as Record<string, unknown> | null,
-    actions_executed: Array.isArray(r.actions_executed) ? r.actions_executed : null,
+    trigger_type: r.trigger_type,
     error: r.error,
-    pipeline_steps: Array.isArray(r.pipeline_steps)
-      ? (r.pipeline_steps as Array<{
-          step_index: number
-          action_type: string
-          status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
-          output?: Record<string, unknown>
-          error?: string
-          started_at?: string
-          completed_at?: string
-          duration_ms?: number
-        }>)
-      : null,
-    event_log_id: r.event_log_id,
+    event_log_id: (r.trigger_data as Record<string, unknown> | null)?.event_log_id as
+      | string
+      | undefined,
   }))
-
-  const allRuns = [...recentRuns, ...normalizedWorkflowRuns].sort(
-    (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-  )
 
   // Transform skills
   const skills = (skillsResult.data ?? []).map((s) => ({
