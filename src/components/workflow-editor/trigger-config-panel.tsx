@@ -4,7 +4,6 @@ import { RefreshCw } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getTriggerMeta } from '@/lib/workflow-editor/trigger-metadata'
 import { TriggerConfigRouter } from '@/components/workflow-editor/trigger-config'
@@ -47,7 +46,7 @@ export default function TriggerConfigPanel() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="scrollbar-visible min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
           <p className="text-muted-foreground text-sm">{meta?.description}</p>
           <Separator />
@@ -56,7 +55,7 @@ export default function TriggerConfigPanel() {
             onUpdate={(config) => setTrigger({ ...trigger, config })}
           />
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="flex items-center justify-end border-t px-4 py-3">
         <Button size="sm" onClick={closeTriggerConfig}>

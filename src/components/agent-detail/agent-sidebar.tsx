@@ -2,6 +2,7 @@
 
 import { SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
@@ -63,11 +64,16 @@ export default function AgentSidebar({
 
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon-sm">
-          <SlidersHorizontal className="h-4 w-4" />
-        </Button>
-      </SheetTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon-sm">
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+          </SheetTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Settings</TooltipContent>
+      </Tooltip>
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[50vw]">
         <SheetHeader className="shrink-0 border-b px-6 pt-6 pb-4">
           <SheetTitle>Agent Details</SheetTitle>

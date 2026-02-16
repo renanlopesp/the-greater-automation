@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
 import { isStepConfigComplete, TESTABLE_STEP_TYPES } from '@/lib/workflow-editor/step-defaults'
@@ -102,7 +101,7 @@ export default function StepConfigPanel() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="scrollbar-visible min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
           <p className="text-muted-foreground text-sm">{meta?.description}</p>
           <Separator />
@@ -163,7 +162,7 @@ export default function StepConfigPanel() {
             />
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {testStarted && (
         <div className="flex items-center gap-2 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950/20">

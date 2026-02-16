@@ -42,14 +42,49 @@ export default async function DashboardPage({
   return (
     <Suspense
       fallback={
-        <div className="flex flex-1 flex-col gap-6 p-6">
-          <div className="bg-muted h-10 w-48 animate-pulse rounded-lg" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <div key={i} className="bg-muted h-[308px] animate-pulse rounded-2xl" />
+        <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-12 pb-12">
+          {/* Page header */}
+          <div className="flex flex-col gap-1">
+            <div className="bg-muted h-8 w-40 animate-pulse rounded-lg" />
+            <div className="bg-muted h-4 w-72 animate-pulse rounded" />
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div
+                key={i}
+                className="bg-card border-border flex items-center gap-3 rounded-xl border p-4"
+              >
+                <div className="bg-muted h-9 w-9 animate-pulse rounded-lg" />
+                <div className="flex flex-col gap-1">
+                  <div className="bg-muted h-7 w-8 animate-pulse rounded" />
+                  <div className="bg-muted h-3 w-16 animate-pulse rounded" />
+                </div>
+              </div>
             ))}
           </div>
-          <div className="bg-muted h-64 animate-pulse rounded-2xl" />
+
+          {/* Agents section */}
+          <div className="flex flex-col gap-3">
+            <div className="bg-muted h-6 w-20 animate-pulse rounded" />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 2 }, (_, i) => (
+                <div key={i} className="bg-muted h-[308px] animate-pulse rounded-2xl" />
+              ))}
+            </div>
+          </div>
+
+          {/* Workflows section */}
+          <div className="flex flex-col gap-3">
+            <div className="bg-muted h-6 w-28 animate-pulse rounded" />
+            <div className="bg-muted h-9 w-80 animate-pulse rounded-lg" />
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="bg-muted h-12 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          </div>
         </div>
       }
     >

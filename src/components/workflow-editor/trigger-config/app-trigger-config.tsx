@@ -31,20 +31,41 @@ interface AvailableTrigger {
   config_schema: Record<string, unknown>
 }
 
+interface ConfigFieldInfo {
+  name: string
+  required: boolean
+  description?: string
+}
+
 /**
- * Extract required field names from a Composio trigger config schema.
+ * Extract config fields from a Composio trigger config schema,
+ * distinguishing required from optional.
  */
-function getRequiredConfigFields(schema: Record<string, unknown>): string[] {
-  if (Array.isArray(schema.required)) {
-    return schema.required.filter((r): r is string => typeof r === 'string')
-  }
+function getConfigFields(schema: Record<string, unknown>): ConfigFieldInfo[] {
+  const requiredSet = new Set(
+    Array.isArray(schema.required)
+      ? schema.required.filter((r): r is string => typeof r === 'string')
+      : []
+  )
+
   if (schema.properties && typeof schema.properties === 'object') {
-    return Object.keys(schema.properties as Record<string, unknown>)
+    const props = schema.properties as Record<string, Record<string, unknown>>
+    return Object.keys(props).map((key) => ({
+      name: key,
+      required: requiredSet.has(key),
+      description:
+        typeof props[key]?.description === 'string'
+          ? (props[key].description as string)
+          : undefined,
+    }))
   }
-  const fields: string[] = []
+
+  // Fallback: treat all top-level keys as fields (legacy schemas)
+  const fields: ConfigFieldInfo[] = []
   for (const [key, value] of Object.entries(schema)) {
+    if (key === 'required' || key === 'type') continue
     if (typeof value === 'string' || (typeof value === 'object' && value !== null)) {
-      fields.push(key)
+      fields.push({ name: key, required: requiredSet.has(key) })
     }
   }
   return fields
@@ -90,14 +111,17 @@ export function AppTriggerConfigForm({
     [triggers, config.event]
   )
   const configFields = useMemo(
-    () => (selectedTrigger ? getRequiredConfigFields(selectedTrigger.config_schema) : []),
+    () => (selectedTrigger ? getConfigFields(selectedTrigger.config_schema) : []),
     [selectedTrigger]
   )
+  const configFieldNames = useMemo(() => configFields.map((f) => f.name), [configFields])
 
-  const showRepoPicker = hasRepoFields(configFields)
+  const showRepoPicker = hasRepoFields(configFieldNames)
   const nonRepoFields = useMemo(
     () =>
-      showRepoPicker ? configFields.filter((f) => f !== 'owner' && f !== 'repo') : configFields,
+      showRepoPicker
+        ? configFields.filter((f) => f.name !== 'owner' && f.name !== 'repo')
+        : configFields,
     [configFields, showRepoPicker]
   )
 
@@ -294,7 +318,7 @@ export function AppTriggerConfigForm({
               </p>
             </div>
           ) : (
-            <div className="mt-1 flex max-h-[280px] flex-col gap-0.5 overflow-y-auto rounded-md border p-1">
+            <div className="scrollbar-visible mt-1 flex max-h-[280px] flex-col gap-0.5 overflow-y-scroll rounded-md border p-1">
               {triggersForApp.map((trigger) => (
                 <button
                   key={trigger.slug}
@@ -397,14 +421,21 @@ export function AppTriggerConfigForm({
 
           {/* Other config fields (non owner/repo) */}
           {nonRepoFields.map((field) => (
-            <div key={field}>
-              <Label className="text-muted-foreground mb-1 block text-xs capitalize">
-                {field.replace(/_/g, ' ')}
+            <div key={field.name}>
+              <Label className="text-muted-foreground mb-1 flex items-baseline gap-1 text-xs capitalize">
+                {field.name.replace(/_/g, ' ')}
+                {!field.required && (
+                  <span className="text-muted-foreground/60 text-[10px] normal-case">
+                    (optional)
+                  </span>
+                )}
               </Label>
               <Input
-                value={config.trigger_config?.[field] ?? ''}
-                onChange={(e) => updateTriggerConfig(field, e.target.value)}
-                placeholder={field}
+                value={config.trigger_config?.[field.name] ?? ''}
+                onChange={(e) => updateTriggerConfig(field.name, e.target.value)}
+                placeholder={
+                  field.description ?? (field.required ? field.name : `Leave empty for all`)
+                }
               />
             </div>
           ))}

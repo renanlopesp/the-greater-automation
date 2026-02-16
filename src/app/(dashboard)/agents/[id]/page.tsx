@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Pencil, ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
 import AgentStatus from '@/components/agent-detail/agent-status'
 import NewChatButton from '@/components/agent-detail/new-chat-button'
@@ -33,11 +34,16 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       {/* Compact agent header */}
       <header className="flex items-center justify-between border-b px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link href="/dashboard">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back to dashboard</TooltipContent>
+          </Tooltip>
           <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
@@ -52,16 +58,26 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
         <div className="flex items-center gap-1.5">
           <NewChatButton />
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href={`/agents/${id}/edit`}>
-              <Pencil className="h-4 w-4" />
-            </Link>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link href={`/agents/${id}/edit`}>
+                  <Pencil className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Edit agent</TooltipContent>
+          </Tooltip>
           <Suspense
             fallback={
-              <Button variant="ghost" size="icon-sm" disabled>
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" disabled>
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Settings</TooltipContent>
+              </Tooltip>
             }
           >
             <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import DashboardShell from '@/components/dashboard-shell'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
@@ -72,8 +73,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
 
   return (
-    <DashboardShell user={userData} team={team} usage={usage} defaultSidebarOpen={sidebarOpen}>
-      {children}
-    </DashboardShell>
+    <TooltipProvider>
+      <DashboardShell user={userData} team={team} usage={usage} defaultSidebarOpen={sidebarOpen}>
+        {children}
+      </DashboardShell>
+    </TooltipProvider>
   )
 }
