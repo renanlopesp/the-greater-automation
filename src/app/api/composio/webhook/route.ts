@@ -6,6 +6,27 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
 /**
+ * Recursively flatten an object into a key→value map.
+ * For nested objects, both the leaf key and the full dot-path are stored.
+ * e.g. { activity: { snippet: { channelId: "UCxxx" } } }
+ * → { "channelId": "UCxxx", "activity.snippet.channelId": "UCxxx" }
+ */
+function flattenObjectKeys(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      const nested = flattenObjectKeys(value as Record<string, unknown>, fullKey)
+      Object.assign(result, nested)
+    } else {
+      result[key] = value // leaf key (e.g. "channelId")
+      result[fullKey] = value // full path (e.g. "activity.snippet.channelId")
+    }
+  }
+  return result
+}
+
+/**
  * Extract trigger fields from Composio webhook payload (handles V2 and V3 formats).
  *
  * V3 (current): { type: "composio.trigger.message", metadata: { trigger_slug, log_id, ... }, data }
@@ -176,6 +197,38 @@ async function processAgentWorkflowSubscriptions(
       }
 
       const workflow = workflowData as unknown as import('@/lib/workflows/types').AgentWorkflowRow
+
+      // Apply trigger_config matching — ensure event data matches the subscription's config
+      // e.g. if trigger_config has channel_id: "UCxxx", only process events from that channel
+      const triggerConfig = subscription.trigger_config as Record<string, unknown> | null
+      if (
+        triggerConfig &&
+        typeof triggerConfig === 'object' &&
+        Object.keys(triggerConfig).length > 0
+      ) {
+        const eventDataFlat = flattenObjectKeys(triggerData)
+        let configMismatch = false
+
+        for (const [configKey, configValue] of Object.entries(triggerConfig)) {
+          if (configValue === null || configValue === undefined) continue
+          // Skip operational keys (not data-matching keys)
+          if (['interval', 'polling_interval', 'polling_frequency'].includes(configKey)) continue
+
+          // Try to find matching key in event data (snake_case → camelCase)
+          const camelKey = configKey.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+          const matchingValue = eventDataFlat[camelKey] ?? eventDataFlat[configKey]
+
+          if (matchingValue !== undefined && String(matchingValue) !== String(configValue)) {
+            console.log(
+              `Event ${eventLogId} filtered: ${configKey}=${matchingValue} != ${configValue} for subscription ${subscription.id}`
+            )
+            configMismatch = true
+            break
+          }
+        }
+
+        if (configMismatch) continue
+      }
 
       // Apply event filters
       const filters = subscription.filters as unknown as

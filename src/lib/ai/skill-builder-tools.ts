@@ -961,12 +961,42 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       }),
       execute: async (params: { skill_id: string }) => {
         const supabase = await createServerClient()
-        const { error } = await supabase
+
+        // 1. Load the agent_workflow to get the linked workflow_id
+        const { data: skill } = await supabase
           .from('agent_workflows')
-          .delete()
+          .select('id, workflow_id')
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
-        if (error) return { success: false, error: error.message }
+          .single()
+        if (!skill) return { success: false, error: 'Workflow not found' }
+
+        // 2. Delete Composio trigger subscription if one exists
+        const { data: subscriptions } = await supabase
+          .from('trigger_subscriptions')
+          .select('id, composio_trigger_id')
+          .eq('agent_workflow_id', skill.id)
+        if (subscriptions && subscriptions.length > 0) {
+          const { deleteTrigger } = await import('@/lib/composio/triggers')
+          for (const sub of subscriptions) {
+            if (sub.composio_trigger_id) {
+              try {
+                await deleteTrigger(sub.composio_trigger_id)
+              } catch {
+                // Best-effort — Composio trigger may already be gone
+              }
+            }
+          }
+          await supabase.from('trigger_subscriptions').delete().eq('agent_workflow_id', skill.id)
+        }
+
+        // 3. Delete DB records: agent_workflows, workflow_triggers, workflows
+        await supabase.from('agent_workflows').delete().eq('id', skill.id)
+        if (skill.workflow_id) {
+          await supabase.from('workflow_triggers').delete().eq('workflow_id', skill.workflow_id)
+          await supabase.from('workflows').delete().eq('id', skill.workflow_id)
+        }
+
         revalidatePath(`/agents/${agentId}`)
         return { success: true }
       },
