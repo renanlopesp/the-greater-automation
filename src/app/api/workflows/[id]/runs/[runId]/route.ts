@@ -42,10 +42,10 @@ export async function GET(
       return NextResponse.json({ error: 'Run not found' }, { status: 404 })
     }
 
-    // Get all step details for this run, joined with workflow_steps for names
+    // Get all step details for this run
     const { data: rawSteps, error: stepsError } = await supabase
       .from('workflow_run_steps')
-      .select('*, workflow_steps(name)')
+      .select('*')
       .eq('run_id', runId)
       .order('step_position', { ascending: true })
 
@@ -53,12 +53,25 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to load run steps' }, { status: 500 })
     }
 
-    // Map step_name from the joined workflow_steps
+    // Fetch step names from workflow_steps (no FK, so separate query)
+    const stepIds = (rawSteps ?? []).map((s) => s.step_id).filter(Boolean) as string[]
+    const stepNames: Record<string, string> = {}
+    if (stepIds.length > 0) {
+      const { data: wsData } = await supabase
+        .from('workflow_steps')
+        .select('id, name')
+        .in('id', stepIds)
+      for (const ws of wsData ?? []) {
+        stepNames[ws.id] = ws.name
+      }
+    }
+
+    // Map step_name from the lookup
     const steps = (rawSteps ?? []).map((s) => ({
       ...s,
       step_name:
-        (s.workflow_steps as unknown as { name: string } | null)?.name ??
-        s.step_type?.toUpperCase() ??
+        (s.step_id && stepNames[s.step_id]) ||
+        s.step_type?.toUpperCase() ||
         `Step ${s.step_position + 1}`,
     }))
 
