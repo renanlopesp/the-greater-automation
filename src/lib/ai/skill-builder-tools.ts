@@ -788,14 +788,19 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             revalidatePath(`/agents/${agentId}`)
             return result
           } catch (triggerError) {
-            // Workflow was created but trigger subscription failed
+            // Trigger subscription failed — rollback the workflow to avoid orphans
+            try {
+              await supabase.from('agent_workflows').delete().eq('id', skill.id)
+              await supabase.from('workflow_triggers').delete().eq('workflow_id', workflow.id)
+              await supabase.from('workflows').delete().eq('id', workflow.id)
+            } catch {
+              // Best-effort cleanup
+            }
             revalidatePath(`/agents/${agentId}`)
+            const errMsg = triggerError instanceof Error ? triggerError.message : 'Unknown error'
             return {
-              success: true,
-              skill_id: skill.id,
-              workflow_id: workflow.id,
-              name: skill.name,
-              trigger_warning: `Workflow created but trigger subscription failed: ${triggerError instanceof Error ? triggerError.message : 'Unknown error'}. You can retry by deleting and recreating the workflow.`,
+              success: false,
+              error: `Trigger subscription failed: ${errMsg}. The workflow was NOT saved — fix the trigger_config and try again.`,
             }
           }
         }
