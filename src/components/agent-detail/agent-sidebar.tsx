@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { SlidersHorizontal, Pencil } from 'lucide-react'
+import { SlidersHorizontal, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -75,16 +76,27 @@ export default function AgentSidebar({
         </TooltipTrigger>
         <TooltipContent>Settings</TooltipContent>
       </Tooltip>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[50vw]">
+      <SheetContent
+        showCloseButton={false}
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-[50vw]"
+      >
         <SheetHeader className="shrink-0 border-b px-6 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <SheetTitle>Agent Details</SheetTitle>
-            <Button variant="outline" size="sm" asChild className="gap-1.5">
-              <Link href={`/agents/${agentId}/edit`}>
-                <Pencil className="h-3.5 w-3.5" />
-                Edit agent
-              </Link>
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" asChild className="gap-1.5">
+                <Link href={`/agents/${agentId}/edit`}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit agent
+                </Link>
+              </Button>
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </SheetClose>
+            </div>
           </div>
           <SheetDescription className="sr-only">
             Skills, connected apps, and activity
