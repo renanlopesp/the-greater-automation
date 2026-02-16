@@ -1,200 +1,70 @@
-import { NextResponse } from 'next/server'
+import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import {
+  buildWorkflowAssistantPrompt,
+  suggestWorkflowTool,
+  type WorkflowAssistantContext,
+} from '@/lib/ai/workflow-assistant'
 
-interface AssistantRequest {
-  prompt: string
-  currentWorkflow: {
-    trigger: { type: string; config: Record<string, unknown> } | null
-    steps: { type: string; name: string; config: Record<string, unknown> }[]
-    name: string
+function getOpenAIProvider() {
+  const apiKey = process.env.OPEN_AI_API_KEY
+  if (!apiKey) {
+    throw new Error('OPEN_AI_API_KEY environment variable is required')
   }
+  return createOpenAI({ apiKey })
 }
 
-interface SuggestedWorkflow {
-  trigger: { type: string; config: Record<string, unknown> }
-  steps: { type: string; name: string; config: Record<string, unknown> }[]
-}
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: workflowId } = await params
 
-interface AssistantResponse {
-  message: string
-  suggestedWorkflow?: SuggestedWorkflow
-}
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<AssistantResponse>> {
-  await params
   try {
-    const body: AssistantRequest = await request.json()
-    const { prompt, currentWorkflow } = body
-
-    if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json({ message: 'Invalid prompt provided' }, { status: 400 })
+    const body = await request.json()
+    const { messages, workflowContext } = body as {
+      messages: UIMessage[]
+      workflowContext?: {
+        workflowName: string
+        trigger: WorkflowAssistantContext['trigger']
+        steps: WorkflowAssistantContext['steps']
+      }
     }
 
-    const lowerPrompt = prompt.toLowerCase()
-
-    // Meeting/briefing workflow
-    if (lowerPrompt.includes('meeting') || lowerPrompt.includes('briefing')) {
-      return NextResponse.json({
-        message:
-          "I can help you build a meeting briefing workflow! This workflow will run on a schedule, fetch relevant data via HTTP, and use AI to generate a summary. Here's a suggested structure:",
-        suggestedWorkflow: {
-          trigger: {
-            type: 'scheduled',
-            config: {
-              schedule: '0 9 * * 1-5',
-              timezone: 'UTC',
-            },
-          },
-          steps: [
-            {
-              type: 'http_request',
-              name: 'Fetch calendar events',
-              config: {
-                method: 'GET',
-                url: 'https://api.example.com/calendar/events',
-                headers: {},
-              },
-            },
-            {
-              type: 'ai',
-              name: 'Generate meeting briefing',
-              config: {
-                provider: 'openai',
-                model: 'gpt-4',
-                prompt:
-                  'Summarize these calendar events and create a briefing: {{step_1.response}}',
-              },
-            },
-            {
-              type: 'http_request',
-              name: 'Send briefing to Slack',
-              config: {
-                method: 'POST',
-                url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL',
-                headers: { 'Content-Type': 'application/json' },
-                body: { text: '{{step_2.output}}' },
-              },
-            },
-          ],
-        },
+    if (!messages || !Array.isArray(messages)) {
+      return new Response(JSON.stringify({ error: 'Messages array is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Email workflow
-    if (lowerPrompt.includes('email')) {
-      return NextResponse.json({
-        message:
-          "I can help you build an email assistant workflow! This workflow uses a webhook trigger to receive emails, processes them with AI, and sends responses. Here's a suggested structure:",
-        suggestedWorkflow: {
-          trigger: {
-            type: 'webhook',
-            config: {
-              method: 'POST',
-              authentication: 'none',
-            },
-          },
-          steps: [
-            {
-              type: 'ai',
-              name: 'Categorize and summarize email',
-              config: {
-                provider: 'openai',
-                model: 'gpt-4',
-                prompt:
-                  'Categorize this email and create a summary: {{trigger.body.email_content}}',
-              },
-            },
-            {
-              type: 'ai',
-              name: 'Draft response',
-              config: {
-                provider: 'openai',
-                model: 'gpt-4',
-                prompt: 'Draft a professional response to this email: {{step_1.output}}',
-              },
-            },
-            {
-              type: 'http_request',
-              name: 'Send via email API',
-              config: {
-                method: 'POST',
-                url: 'https://api.example.com/send-email',
-                headers: { 'Content-Type': 'application/json' },
-                body: { message: '{{step_2.output}}' },
-              },
-            },
-          ],
-        },
-      })
+    const context: WorkflowAssistantContext = {
+      workflowId,
+      workflowName: workflowContext?.workflowName ?? 'Untitled',
+      trigger: workflowContext?.trigger ?? null,
+      steps: workflowContext?.steps ?? [],
     }
 
-    // Scraping/monitoring workflow
-    if (lowerPrompt.includes('scrape') || lowerPrompt.includes('monitor')) {
-      return NextResponse.json({
-        message:
-          "I can help you build a web monitoring workflow! This workflow runs on a schedule, scrapes a website, and processes the data. Here's a suggested structure:",
-        suggestedWorkflow: {
-          trigger: {
-            type: 'scheduled',
-            config: {
-              schedule: '0 */4 * * *',
-              timezone: 'UTC',
-            },
-          },
-          steps: [
-            {
-              type: 'web_scraping',
-              name: 'Scrape target website',
-              config: {
-                url: 'https://example.com',
-                selector: '.content',
-                extractType: 'text',
-              },
-            },
-            {
-              type: 'ai',
-              name: 'Analyze scraped content',
-              config: {
-                provider: 'openai',
-                model: 'gpt-4',
-                prompt: 'Analyze this content for changes or insights: {{step_1.data}}',
-              },
-            },
-            {
-              type: 'conditional',
-              name: 'Check if action needed',
-              config: {
-                condition: '{{step_2.output.contains("alert")}}',
-              },
-            },
-          ],
-        },
-      })
-    }
+    const systemPrompt = buildWorkflowAssistantPrompt(context)
+    const provider = getOpenAIProvider()
 
-    // Default helpful message
-    return NextResponse.json({
-      message: `I'm your workflow assistant! I can help you:
+    // Convert UIMessage[] to model messages (same pattern as agent chat)
+    const modelMessages = await convertToModelMessages(messages)
 
-• Design workflows from scratch
-• Suggest triggers and steps based on your use case
-• Optimize existing workflows
-• Troubleshoot configuration issues
-
-Tell me what you're trying to automate, and I'll suggest a workflow structure. For example:
-- "Build a workflow to monitor competitor websites"
-- "Create an email automation for customer support"
-- "Set up daily briefings from my calendar"
-
-Current workflow: ${currentWorkflow.name} with ${currentWorkflow.steps.length} step(s)`,
+    const result = streamText({
+      model: provider.chat('gpt-4o'),
+      system: systemPrompt,
+      messages: modelMessages,
+      tools: {
+        SUGGEST_WORKFLOW: suggestWorkflowTool,
+      },
+      stopWhen: stepCountIs(3),
+      temperature: 0.7,
     })
+
+    return result.toUIMessageStreamResponse()
   } catch (error) {
-    console.error('Assistant API error:', error)
-    return NextResponse.json(
-      { message: 'An error occurred processing your request' },
-      { status: 500 }
-    )
+    console.error('Workflow assistant error:', error)
+    return new Response(JSON.stringify({ error: 'Failed to process assistant request' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }

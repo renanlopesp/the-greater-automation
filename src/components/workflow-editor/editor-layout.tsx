@@ -36,7 +36,7 @@ export default function EditorLayout({ assistantPanel, canvas, configPanel }: Ed
       <div
         className={cn(
           'flex-shrink-0 overflow-hidden border-r transition-[width] duration-300 ease-in-out',
-          isAssistantOpen && !isMobile ? 'w-[320px]' : 'w-0'
+          isAssistantOpen && !isMobile ? 'w-[440px] lg:w-[480px]' : 'w-0'
         )}
       >
         {isAssistantOpen && !isMobile && assistantPanel}

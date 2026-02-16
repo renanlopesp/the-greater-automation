@@ -94,7 +94,7 @@ export default function EditorShell() {
                 side={isMobile ? 'bottom' : 'left'}
                 className={cn(
                   'p-0',
-                  isMobile ? 'h-[80dvh] w-full sm:h-[70dvh]' : 'w-full sm:max-w-[360px]'
+                  isMobile ? 'h-[80dvh] w-full' : 'w-full sm:max-w-[440px] lg:max-w-[480px]'
                 )}
                 showCloseButton={false}
               >
