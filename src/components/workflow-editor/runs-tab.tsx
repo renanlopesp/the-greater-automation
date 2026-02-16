@@ -15,11 +15,13 @@ interface RunsTabProps {
   workflowId: string
 }
 
+const EMPTY_RUNS: ReturnType<typeof useWorkflowRuns>['data'] & unknown[] = []
+
 export default function RunsTab({ workflowId }: RunsTabProps) {
   const [detailRunId, setDetailRunId] = useState<string | null>(null)
   const { pendingRunId, setPendingRunId } = useWorkflowEditorStore()
 
-  const { data: runs = [], isLoading } = useWorkflowRuns(workflowId)
+  const { data: runs = EMPTY_RUNS, isLoading } = useWorkflowRuns(workflowId)
   const startRun = useStartWorkflowRun(workflowId)
 
   const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set())

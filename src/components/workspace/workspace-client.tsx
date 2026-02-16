@@ -388,9 +388,8 @@ export default function WorkspaceClient({
   const selectedIds = Object.keys(rowSelection)
   const selectedCount = selectedIds.length
   const selectedItems = useMemo(() => {
-    return selectedIds
-      .map((id) => flatData.find((item) => item.id === id))
-      .filter(Boolean) as WorkspaceItem[]
+    const itemsById = new Map(flatData.map((item) => [item.id, item]))
+    return selectedIds.map((id) => itemsById.get(id)).filter(Boolean) as WorkspaceItem[]
   }, [selectedIds, flatData])
 
   const handleBulkDelete = useCallback(() => {

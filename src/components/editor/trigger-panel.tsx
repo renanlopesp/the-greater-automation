@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import * as LucideIcons from 'lucide-react'
 import { AlertTriangle } from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Card } from '@/components/ui/card'
 import TriggerSelector from '@/components/workflow-editor/trigger-selector'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
@@ -18,11 +18,6 @@ export default function TriggerPanel() {
   const [selectorOpen, setSelectorOpen] = React.useState(false)
 
   const meta = getTriggerMeta(trigger?.type ?? 'manual')
-  const IconComponent = meta
-    ? (LucideIcons[meta.icon as keyof typeof LucideIcons] as React.ComponentType<{
-        className?: string
-      }>)
-    : null
 
   const title =
     trigger?.type === 'manual' || !trigger ? 'Start run manually' : (meta?.name ?? trigger.type)
@@ -52,7 +47,7 @@ export default function TriggerPanel() {
         >
           <div className="text-muted-foreground w-6 shrink-0 text-center text-sm">1</div>
           <div className="border-primary/25 bg-background flex h-9 w-9 items-center justify-center rounded-lg border">
-            {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
+            {meta && <DynamicIcon name={meta.icon} className="text-primary h-4 w-4" />}
           </div>
           <div className="flex-1 truncate text-sm font-medium">{title}</div>
           {!isComplete && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-yellow-500" />}

@@ -13,6 +13,8 @@ import type { DashboardTab, fetchWorkflows } from '@/lib/queries/dashboard'
 
 type Workflow = Awaited<ReturnType<typeof fetchWorkflows>>[number]
 
+const EMPTY_WORKFLOWS: Workflow[] = []
+
 interface WorkflowsSectionProps {
   initialWorkflows: Workflow[]
   teamId: string
@@ -27,7 +29,11 @@ const TABS: { value: DashboardTab; label: string }[] = [
 
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('recently-edited')
-  const { data: workflows = [], isPending } = useWorkflows(teamId, activeTab, initialWorkflows)
+  const { data: workflows = EMPTY_WORKFLOWS, isPending } = useWorkflows(
+    teamId,
+    activeTab,
+    initialWorkflows
+  )
   const workflowIds = useMemo(() => workflows.map((w) => w.id), [workflows])
   const { data: runStats } = useWorkflowRunStats(workflowIds)
 

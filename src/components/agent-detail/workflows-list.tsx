@@ -27,25 +27,29 @@ interface Workflow {
   run_count?: number
 }
 
+interface TriggerSubscription {
+  id: string
+  agent_workflow_id: string
+  trigger_slug: string
+  app_id: string
+  is_enabled: boolean
+  last_event_at: string | null
+  event_count: number
+}
+
 interface WorkflowsListProps {
   workflows: Workflow[]
   agentId: string
   teamId: string
-  triggerSubscriptions?: Array<{
-    id: string
-    agent_workflow_id: string
-    trigger_slug: string
-    app_id: string
-    is_enabled: boolean
-    last_event_at: string | null
-    event_count: number
-  }>
+  triggerSubscriptions?: TriggerSubscription[]
 }
+
+const EMPTY_SUBSCRIPTIONS: TriggerSubscription[] = []
 
 export default function WorkflowsList({
   workflows,
   agentId,
-  triggerSubscriptions = [],
+  triggerSubscriptions = EMPTY_SUBSCRIPTIONS,
 }: WorkflowsListProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const [isPending, startTransition] = useTransition()

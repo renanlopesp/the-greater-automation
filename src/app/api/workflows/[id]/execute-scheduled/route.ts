@@ -24,12 +24,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = createServiceClient()
 
   try {
-    // Load workflow
-    const { data: workflow, error: workflowError } = await supabase
-      .from('workflows')
-      .select('id, name, status')
-      .eq('id', workflowId)
-      .single()
+    // Load workflow, trigger, and steps in parallel (all independent)
+    const [
+      { data: workflow, error: workflowError },
+      { data: trigger },
+      { data: steps, error: stepsError },
+    ] = await Promise.all([
+      supabase.from('workflows').select('id, name, status').eq('id', workflowId).single(),
+      supabase
+        .from('workflow_triggers')
+        .select('config')
+        .eq('workflow_id', workflowId)
+        .eq('type', 'scheduled')
+        .single(),
+      supabase
+        .from('workflow_steps')
+        .select('id, position, type, name, config')
+        .eq('workflow_id', workflowId)
+        .order('position', { ascending: true }),
+    ])
 
     if (workflowError || !workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
@@ -38,14 +51,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (workflow.status !== 'published') {
       return NextResponse.json({ error: 'Workflow is not published' }, { status: 409 })
     }
-
-    // Load trigger to check time boundaries (starts_at / ends_at)
-    const { data: trigger } = await supabase
-      .from('workflow_triggers')
-      .select('config')
-      .eq('workflow_id', workflowId)
-      .eq('type', 'scheduled')
-      .single()
 
     if (trigger?.config) {
       const config = trigger.config as unknown as ScheduledTriggerConfig
@@ -58,13 +63,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ skipped: true, reason: 'After ends_at' })
       }
     }
-
-    // Load steps
-    const { data: steps, error: stepsError } = await supabase
-      .from('workflow_steps')
-      .select('id, position, type, name, config')
-      .eq('workflow_id', workflowId)
-      .order('position', { ascending: true })
 
     if (stepsError || !steps || steps.length === 0) {
       return NextResponse.json({ error: 'Workflow has no steps' }, { status: 400 })

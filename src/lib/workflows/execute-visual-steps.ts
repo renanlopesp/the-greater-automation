@@ -339,7 +339,8 @@ export async function executeVisualWorkflowSteps(
                         toolkits: [ac.app_id],
                         limit: 200,
                       })
-                      const meta = rawTools.find((t) => t.slug === ac.action)
+                      const rawToolsBySlug = new Map(rawTools.map((t) => [t.slug, t]))
+                      const meta = rawToolsBySlug.get(ac.action)
                       const res = await composioClient.tools.execute(ac.action, {
                         connectedAccountId: conn.composio_connection_id,
                         userId,
@@ -389,7 +390,8 @@ export async function executeVisualWorkflowSteps(
                   toolkits: [appConfig.app_id],
                   limit: 200,
                 })
-                const toolMeta = tools.find((t) => t.slug === appConfig.action)
+                const toolsBySlug = new Map(tools.map((t) => [t.slug, t]))
+                const toolMeta = toolsBySlug.get(appConfig.action)
                 const version = toolMeta?.version
 
                 const result = await composio.tools.execute(appConfig.action, {

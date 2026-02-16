@@ -20,8 +20,10 @@ interface TestsTabProps {
   workflowId: string
 }
 
+const EMPTY_RESULTS: ReturnType<typeof useTestResults>['data'] & unknown[] = []
+
 export default function TestsTab({ workflowId }: TestsTabProps) {
-  const { data: results = [], isLoading } = useTestResults(workflowId)
+  const { data: results = EMPTY_RESULTS, isLoading } = useTestResults(workflowId)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const toggleExpand = (id: string) => {

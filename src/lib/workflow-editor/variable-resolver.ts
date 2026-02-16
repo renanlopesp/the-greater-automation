@@ -47,18 +47,15 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
  * Returns array of variable paths like ['trigger.output', 'step_1.output']
  */
 export function extractVariables(template: string): string[] {
-  const variables: string[] = []
+  const variables = new Set<string>()
   const regex = /\{\{([^}]+)\}\}/g
   let match: RegExpExecArray | null
 
   while ((match = regex.exec(template)) !== null) {
-    const path = match[1].trim()
-    if (!variables.includes(path)) {
-      variables.push(path)
-    }
+    variables.add(match[1].trim())
   }
 
-  return variables
+  return Array.from(variables)
 }
 
 /**

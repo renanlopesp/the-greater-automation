@@ -111,7 +111,8 @@ async function executeComposioAction(
       toolkits: [config.app_id],
       limit: 200,
     })
-    const toolMeta = tools.find((t) => t.slug === config.action)
+    const toolsBySlug = new Map(tools.map((t) => [t.slug, t]))
+    const toolMeta = toolsBySlug.get(config.action)
     const version = toolMeta?.version
 
     // Execute via composio.tools.execute() — requires version + userId for manual execution

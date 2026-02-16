@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -32,11 +32,6 @@ export default function StepCard({
 }: StepCardProps) {
   const meta = getStepMeta(step.type)
   const complete = isStepConfigComplete(step)
-  const IconComponent = meta
-    ? (LucideIcons[meta.icon as keyof typeof LucideIcons] as React.ComponentType<{
-        className?: string
-      }>)
-    : null
 
   return (
     <Card
@@ -49,7 +44,7 @@ export default function StepCard({
       <CardContent className="flex items-center gap-3 px-5 py-4">
         <div className="text-muted-foreground w-6 shrink-0 text-center text-sm">{stepNumber}</div>
         <div className="border-primary/25 bg-background flex h-9 w-9 items-center justify-center rounded-lg border">
-          {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
+          {meta && <DynamicIcon name={meta.icon} className="text-primary h-4 w-4" />}
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">

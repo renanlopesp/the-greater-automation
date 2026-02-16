@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Trash2, Play, Loader2, CheckCircle2, FlaskConical } from 'lucide-react'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,11 +43,6 @@ export default function StepConfigPanel() {
   if (!selectedStep) return null
 
   const meta = getStepMeta(selectedStep.type)
-  const IconComponent = meta
-    ? (LucideIcons[meta.icon as keyof typeof LucideIcons] as React.ComponentType<{
-        className?: string
-      }>)
-    : null
 
   const isTestable = TESTABLE_STEP_TYPES.includes(selectedStep.type)
   const canTest = isStepConfigComplete(selectedStep) && !testStep.isPending
@@ -73,7 +68,7 @@ export default function StepConfigPanel() {
     <div className="flex h-full w-full flex-col border-l">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
-          {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
+          {meta && <DynamicIcon name={meta.icon} className="text-primary h-4 w-4" />}
         </div>
         <Input
           value={selectedStep.name}

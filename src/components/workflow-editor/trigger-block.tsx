@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, AlertTriangle } from 'lucide-react'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Card, CardContent } from '@/components/ui/card'
 import { getTriggerMeta } from '@/lib/workflow-editor/trigger-metadata'
 import { getTriggerSummary, isTriggerConfigComplete } from '@/lib/workflow-editor/trigger-defaults'
@@ -28,11 +28,6 @@ export default function TriggerBlock({ trigger, onAddTrigger, onClickTrigger }: 
   const meta = getTriggerMeta(trigger.type)
   const summary = getTriggerSummary(trigger)
   const isComplete = isTriggerConfigComplete(trigger)
-  const IconComponent = meta
-    ? (LucideIcons[meta.icon as keyof typeof LucideIcons] as React.ComponentType<{
-        className?: string
-      }>)
-    : null
 
   return (
     <Card
@@ -41,7 +36,7 @@ export default function TriggerBlock({ trigger, onAddTrigger, onClickTrigger }: 
     >
       <CardContent className="flex items-center gap-3 p-4">
         <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-          {IconComponent && <IconComponent className="text-primary h-5 w-5" />}
+          {meta && <DynamicIcon name={meta.icon} className="text-primary h-5 w-5" />}
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
