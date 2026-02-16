@@ -228,14 +228,40 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                   )
                 : null
 
+              // Build config details with descriptions so the LLM knows what values are required
+              const configDetails = t.config
+                ? Object.entries(t.config).map(([key, val]) => ({
+                    key,
+                    type:
+                      typeof val === 'object' &&
+                      val !== null &&
+                      'type' in (val as Record<string, unknown>)
+                        ? (val as Record<string, unknown>).type
+                        : 'string',
+                    description:
+                      typeof val === 'object' &&
+                      val !== null &&
+                      'description' in (val as Record<string, unknown>)
+                        ? (val as Record<string, unknown>).description
+                        : '',
+                    required: true,
+                  }))
+                : []
+
+              const configKeys = configDetails.map((c) => c.key)
+
               return {
                 trigger_name: t.slug,
                 display_name: t.name,
                 description: t.description?.slice(0, 120) || '',
-                config_params: t.config ? Object.keys(t.config) : [],
+                config_params: configKeys,
+                config_details: configDetails,
                 payload_fields: t.payload ? Object.keys(t.payload) : [],
                 sample_payload: samplePayload,
-                _trigger_hint: `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
+                _trigger_hint:
+                  configKeys.length > 0
+                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config with these fields: ${configKeys.join(', ')}. The user must provide values for these — NEVER leave trigger_config empty when config_params exist. Event data fields available via {{trigger.data.fieldName}} templates.`
+                    : `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
               }
             }
           )
@@ -294,7 +320,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 type: 'object',
                 additionalProperties: true,
                 description:
-                  'App-specific trigger configuration params — optional for app_event triggers',
+                  'App-specific trigger configuration params — REQUIRED when the trigger has config_params (from SNEW_LIST_APP_CAPABILITIES). For example, YouTube triggers require { channel_id: "UCxxxx" }. NEVER leave empty when config_params exist — ask the user for values.',
               },
               filters: {
                 type: 'array',

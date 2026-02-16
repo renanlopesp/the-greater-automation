@@ -122,7 +122,8 @@ export function buildAgentSystemPrompt(
   prompt += '   - trigger.type = "app_event"\n'
   prompt += '   - trigger.trigger_slug = the trigger slug from step 2\n'
   prompt += '   - trigger.trigger_app_id = the app ID (e.g. "github")\n'
-  prompt += '   - trigger.trigger_config = any app-specific config (optional)\n\n'
+  prompt +=
+    '   - trigger.trigger_config = app-specific config params (check config_details from SNEW_LIST_APP_CAPABILITIES — if the trigger has config_params like channel_id, repo, etc., you MUST include them in trigger_config. Ask the user for values you do not have.)\n\n'
   prompt += 'Example: "When a PR is opened on my repo, post a message in Discord"\n'
   prompt +=
     '→ trigger: { type: "app_event", trigger_slug: "GITHUB_PULL_REQUEST_OPENED", trigger_app_id: "github" }\n'
