@@ -442,6 +442,14 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             cron_expression: params.trigger.cron_expression || '0 9 * * *',
             timezone: params.trigger.timezone || 'America/Sao_Paulo',
           }
+        } else if (params.trigger.type === 'app_event') {
+          triggerType = 'app'
+          triggerConfig = {
+            app_id: params.trigger.trigger_app_id || '',
+            event: params.trigger.trigger_slug || '',
+            filters: {},
+            trigger_config: params.trigger.trigger_config || {},
+          }
         } else {
           triggerType = 'manual'
           triggerConfig = { run_inputs: [] }
