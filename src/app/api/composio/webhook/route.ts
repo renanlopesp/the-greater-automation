@@ -355,6 +355,14 @@ async function processVisualWorkflows(
 
         if (!workflow || workflow.status !== 'published') continue
 
+        // Skip workflows owned by agents — those are handled by processAgentWorkflowSubscriptions
+        const { data: agentLink } = await supabase
+          .from('agent_workflows')
+          .select('id')
+          .eq('workflow_id', vt.workflow_id)
+          .limit(1)
+        if (agentLink && agentLink.length > 0) continue
+
         // Idempotency check
         if (eventLogId) {
           const { data: dupeCheck } = await supabase
