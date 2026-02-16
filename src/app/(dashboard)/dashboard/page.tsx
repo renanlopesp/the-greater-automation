@@ -124,10 +124,11 @@ async function DashboardData({
           palette: a.palette,
           is_active: a.is_active,
         },
-        skills: a.skills.map((s) => ({
+        workflows: a.skills.map((s) => ({
           id: s.id,
           name: s.name,
         })),
+        skillCount: a.skillCount,
       }))}
       initialWorkflows={workflows}
       runsToday={runsToday}

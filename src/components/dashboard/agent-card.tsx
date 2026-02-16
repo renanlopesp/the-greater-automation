@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { getAgentPalette, getGlitchPalette } from '@/lib/agent-palettes'
 
@@ -23,10 +22,11 @@ export interface AgentCardProps {
     palette?: string | null
     is_active?: boolean | null
   }
-  skills: { id: string; name: string }[]
+  workflows: { id: string; name: string }[]
+  skillCount?: number
 }
 
-export default function AgentCard({ agent, skills }: AgentCardProps) {
+export default function AgentCard({ agent, workflows, skillCount = 0 }: AgentCardProps) {
   const [hovered, setHovered] = useState(false)
   const palette = getGlitchPalette(agent.palette)
 
@@ -77,18 +77,16 @@ export default function AgentCard({ agent, skills }: AgentCardProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent className="relative flex flex-wrap items-center justify-center gap-1 pt-0">
-            {!hovered || skills.length === 0 ? (
+          <CardContent className="relative flex items-center justify-center gap-2 pt-0">
+            <div className="flex items-center gap-2 rounded-md px-3 py-1 backdrop-blur-[5px]">
               <span className="text-muted-foreground text-xs">
-                {skills.length} {skills.length === 1 ? 'skill' : 'skills'}
+                {workflows.length} {workflows.length === 1 ? 'workflow' : 'workflows'}
               </span>
-            ) : (
-              skills.map((skill) => (
-                <Badge key={skill.id} variant="secondary" className="text-[10px]">
-                  {skill.name}
-                </Badge>
-              ))
-            )}
+              <span className="text-muted-foreground/40 text-xs">&middot;</span>
+              <span className="text-muted-foreground text-xs">
+                {skillCount} {skillCount === 1 ? 'skill' : 'skills'}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

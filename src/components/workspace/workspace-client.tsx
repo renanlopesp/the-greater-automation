@@ -526,6 +526,14 @@ export default function WorkspaceClient({
         <ViewToggle activeView={activeView} onViewChange={setActiveView} />
       </div>
 
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onDelete={handleBulkDelete}
+        onChangeStatus={handleBulkChangeStatus}
+        onMoveToFolder={handleBulkMoveToFolder}
+        isLoading={isBulkLoading}
+      />
+
       {activeView === 'graph' ? (
         <Suspense
           fallback={
@@ -572,14 +580,6 @@ export default function WorkspaceClient({
         onOpenChange={setSidebarFolderDialogOpen}
         teamId={teamId}
         parentId={currentFolderId}
-      />
-
-      <BulkActionBar
-        selectedCount={selectedCount}
-        onDelete={handleBulkDelete}
-        onChangeStatus={handleBulkChangeStatus}
-        onMoveToFolder={handleBulkMoveToFolder}
-        isLoading={isBulkLoading}
       />
 
       {/* Single delete dialog */}

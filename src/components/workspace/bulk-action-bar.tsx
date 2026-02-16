@@ -24,22 +24,25 @@ export function BulkActionBar({
   onMoveToFolder,
   isLoading,
 }: BulkActionBarProps) {
-  if (selectedCount === 0) return null
+  const hasSelection = selectedCount > 0
+  const disabled = !hasSelection || isLoading
 
   return (
-    <div className="bg-background sticky bottom-4 z-10 flex items-center gap-3 rounded-lg border px-4 py-3 shadow-md">
-      <span className="text-muted-foreground text-sm font-medium">{selectedCount} selected</span>
+    <div className="bg-muted/50 flex items-center gap-3 rounded-lg border px-4 py-2.5">
+      <span className="text-muted-foreground text-sm font-medium">
+        {hasSelection ? `${selectedCount} selected` : 'No selection'}
+      </span>
 
       <div className="bg-border h-4 w-px" />
 
-      <Button variant="destructive" size="sm" onClick={onDelete} disabled={isLoading}>
+      <Button variant="destructive" size="sm" onClick={onDelete} disabled={disabled}>
         <Trash2 className="h-4 w-4" />
         Delete selected
       </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isLoading}>
+          <Button variant="outline" size="sm" disabled={disabled}>
             Change status
             <ChevronDown className="h-4 w-4" />
           </Button>
@@ -53,7 +56,7 @@ export function BulkActionBar({
       </DropdownMenu>
 
       {onMoveToFolder && (
-        <Button variant="outline" size="sm" onClick={onMoveToFolder} disabled={isLoading}>
+        <Button variant="outline" size="sm" onClick={onMoveToFolder} disabled={disabled}>
           <FolderInput className="h-4 w-4" />
           Move to folder
         </Button>

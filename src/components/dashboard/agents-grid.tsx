@@ -13,7 +13,12 @@ export default function AgentsGrid({ agents }: AgentsGridProps) {
       <h3 className="text-lg font-semibold">Agents</h3>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {agents.map((a) => (
-          <AgentCard key={a.agent.id} agent={a.agent} skills={a.skills} />
+          <AgentCard
+            key={a.agent.id}
+            agent={a.agent}
+            workflows={a.workflows}
+            skillCount={a.skillCount}
+          />
         ))}
         <Link href="/agents/new">
           <Card className="border-border hover:border-muted-foreground/50 h-[280px] border-2 border-dashed bg-transparent shadow-none transition-colors">

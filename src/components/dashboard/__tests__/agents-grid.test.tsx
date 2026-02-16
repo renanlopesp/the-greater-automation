@@ -14,11 +14,11 @@ vi.mock('framer-motion', () => ({
 const mockAgents = [
   {
     agent: { id: 'a1', name: 'Support Agent', description: 'Handles tickets', avatar_url: null },
-    skills: [{ id: 's1', name: 'Email Triage' }],
+    workflows: [{ id: 's1', name: 'Email Triage' }],
   },
   {
     agent: { id: 'a2', name: 'Data Agent', description: 'Processes data', avatar_url: null },
-    skills: [],
+    workflows: [],
   },
 ]
 
@@ -39,10 +39,10 @@ describe('AgentsGrid', () => {
     expect(screen.getByText('Create new agent')).toBeInTheDocument()
   })
 
-  it('renders skill counts for agents', () => {
+  it('renders workflow counts for agents', () => {
     render(<AgentsGrid agents={mockAgents} />)
-    expect(screen.getByText('1 skill')).toBeInTheDocument()
-    expect(screen.getByText('0 skills')).toBeInTheDocument()
+    expect(screen.getByText('1 workflow')).toBeInTheDocument()
+    expect(screen.getByText('0 workflows')).toBeInTheDocument()
   })
 
   it('renders section heading', () => {

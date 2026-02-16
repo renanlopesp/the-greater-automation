@@ -39,7 +39,7 @@ export default function WorkspaceTable({
 
   return (
     <div
-      className="bg-background min-h-[calc(100dvh-260px)] overflow-hidden rounded-xl border shadow-xs"
+      className="bg-background min-h-[calc(100dvh-260px)] overflow-hidden rounded-xl"
       tabIndex={0}
       onKeyDown={onKeyDown}
       role="grid"
