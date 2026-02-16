@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
+import Image from 'next/image'
 import {
-  Bot,
   ChevronsUpDown,
   FolderKanban,
   LayoutDashboard,
@@ -90,11 +90,27 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
             <SidebarMenuButton size="lg" asChild tooltip="Home">
               <Link href="/dashboard">
                 <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Bot className="size-4" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 535 323"
+                    fill="none"
+                    className="size-4"
+                  >
+                    <path
+                      d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                      fill="currentColor"
+                    />
+                  </svg>
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Workflows</span>
-                  <span className="text-muted-foreground truncate text-xs">Platform</span>
+                  <span className="truncate font-semibold">Snew</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    Automation Platform
+                  </span>
                 </div>
               </Link>
             </SidebarMenuButton>
