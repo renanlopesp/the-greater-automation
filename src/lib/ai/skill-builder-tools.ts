@@ -13,6 +13,95 @@ type TriggerType = Database['public']['Enums']['trigger_type']
 type StepType = Database['public']['Enums']['step_type']
 
 // ---------------------------------------------------------------------------
+// flattenTriggerConfig — sanitize LLM-generated trigger configs
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert camelCase to snake_case.
+ * Composio's listTypes returns camelCase keys (e.g. "channelId") but
+ * triggers.create expects snake_case (e.g. "channel_id").
+ */
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+}
+
+/**
+ * Convert all keys in an object from camelCase to snake_case.
+ */
+function keysToSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(obj)) {
+    result[camelToSnake(key)] = val
+  }
+  return result
+}
+
+/**
+ * LLMs frequently copy Composio's trigger config JSON schema structure instead of
+ * passing flat key-value pairs. For example, the LLM sends:
+ *   { type: "object", title: "ActivityPayload", properties: "{\"channelId\":\"UCxxx\"}", ... }
+ * But Composio expects:
+ *   { channel_id: "UCxxx" }
+ *
+ * This function:
+ * 1. Detects schema-shaped configs and extracts the actual values
+ * 2. Converts camelCase keys to snake_case (Composio API convention)
+ */
+function flattenTriggerConfig(
+  config: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!config || Object.keys(config).length === 0) return {}
+
+  // Detect JSON schema shape: has "type": "object" plus "properties" or "title"
+  const looksLikeSchema = config.type === 'object' && ('properties' in config || 'title' in config)
+
+  if (!looksLikeSchema) {
+    // Already flat — just convert keys to snake_case
+    return keysToSnakeCase(config)
+  }
+
+  // Known JSON schema metadata keys — anything matching these is NOT real config
+  const schemaMetaKeys = new Set(['type', 'title', 'properties', 'required', 'description'])
+
+  // Try to extract values from "properties"
+  let properties = config.properties
+  if (typeof properties === 'string') {
+    try {
+      properties = JSON.parse(properties)
+    } catch {
+      // properties is a non-JSON string — it's garbage, not real config
+      // Fall through to non-schema key extraction below
+      properties = undefined
+    }
+  }
+
+  if (typeof properties === 'object' && properties !== null) {
+    const flat: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(properties as Record<string, unknown>)) {
+      // If val is a schema descriptor ({ type: "string", ... }), skip it
+      if (typeof val === 'object' && val !== null && 'type' in (val as Record<string, unknown>)) {
+        continue
+      }
+      // Otherwise it's an actual value the LLM embedded
+      flat[camelToSnake(key)] = val
+    }
+    if (Object.keys(flat).length > 0) return flat
+  }
+
+  // Check for non-schema keys that might contain real config values
+  const nonSchemaEntries: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(config)) {
+    if (!schemaMetaKeys.has(key)) {
+      nonSchemaEntries[camelToSnake(key)] = val
+    }
+  }
+  if (Object.keys(nonSchemaEntries).length > 0) return nonSchemaEntries
+
+  // All keys are schema metadata — this is garbage, return empty to trigger validation
+  return {}
+}
+
+// ---------------------------------------------------------------------------
 // JSON Schema definitions for tool parameters
 // ---------------------------------------------------------------------------
 
@@ -376,6 +465,53 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         actions: ActionParam[]
         execution_mode?: string
       }) => {
+        // Sanitize trigger_config: LLMs often pass JSON schema structure instead of flat values
+        if (params.trigger.trigger_config) {
+          params.trigger.trigger_config = flattenTriggerConfig(params.trigger.trigger_config)
+        }
+
+        // Validate: app_event triggers MUST have trigger_config with actual values
+        if (params.trigger.type === 'app_event') {
+          const tc = params.trigger.trigger_config
+          if (!tc || Object.keys(tc).length === 0) {
+            // Try to fetch required config fields from Composio for a helpful error
+            let requiredFields = 'the required config fields'
+            try {
+              const { listTriggers } = await import('@/lib/composio/triggers')
+              const triggers = await listTriggers(params.trigger.trigger_app_id || '')
+              const match = triggers.find((t) => t.trigger_name === params.trigger.trigger_slug)
+              if (match && match.config_params) {
+                // config_params is a JSON schema — extract field names from properties
+                const schema = match.config_params as Record<string, unknown>
+                const props = schema.properties as Record<string, unknown> | undefined
+                if (props && typeof props === 'object') {
+                  const keys = Object.keys(props)
+                  requiredFields = keys.map((k) => camelToSnake(k)).join(', ')
+                } else {
+                  // Fallback: use top-level keys minus JSON schema metadata
+                  const schemaKeys = new Set([
+                    'type',
+                    'title',
+                    'properties',
+                    'required',
+                    'description',
+                  ])
+                  const keys = Object.keys(schema).filter((k) => !schemaKeys.has(k))
+                  if (keys.length > 0) {
+                    requiredFields = keys.map((k) => camelToSnake(k)).join(', ')
+                  }
+                }
+              }
+            } catch {
+              // Ignore — use generic message
+            }
+            return {
+              success: false,
+              error: `app_event triggers REQUIRE trigger_config with actual values. You are missing: ${requiredFields}. Pass trigger_config as a flat object like { "channel_id": "UCxxxx" } — do NOT use filters for config params. Each trigger subscription monitors ONE channel/repo/resource, so create separate workflows per channel.`,
+            }
+          }
+        }
+
         // Validate composio_action params are not empty
         const emptyParamActions = params.actions.filter(
           (a) => a.type === 'composio_action' && (!a.params || Object.keys(a.params).length === 0)
@@ -747,6 +883,13 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           trigger_config?: Record<string, unknown>
         }
       }) => {
+        // Sanitize nested trigger_config: LLMs often pass JSON schema structure
+        if (params.trigger_config?.trigger_config) {
+          params.trigger_config.trigger_config = flattenTriggerConfig(
+            params.trigger_config.trigger_config
+          )
+        }
+
         const supabase = await createServerClient()
         const update: Record<string, unknown> = {}
         if (params.name) update.name = params.name
