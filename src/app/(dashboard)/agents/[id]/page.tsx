@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Pencil, ArrowLeft, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -57,17 +57,6 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex items-center gap-1.5">
-          <NewChatButton />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" asChild>
-                <Link href={`/agents/${id}/edit`}>
-                  <Pencil className="h-4 w-4" />
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Edit agent</TooltipContent>
-          </Tooltip>
           <Suspense
             fallback={
               <Tooltip>
@@ -82,6 +71,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           >
             <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
           </Suspense>
+          <NewChatButton />
         </div>
       </header>
 

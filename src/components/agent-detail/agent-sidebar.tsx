@@ -1,6 +1,7 @@
 'use client'
 
-import { SlidersHorizontal } from 'lucide-react'
+import Link from 'next/link'
+import { SlidersHorizontal, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -76,7 +77,15 @@ export default function AgentSidebar({
       </Tooltip>
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[50vw]">
         <SheetHeader className="shrink-0 border-b px-6 pt-6 pb-4">
-          <SheetTitle>Agent Details</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle>Agent Details</SheetTitle>
+            <Button variant="outline" size="sm" asChild className="gap-1.5">
+              <Link href={`/agents/${agentId}/edit`}>
+                <Pencil className="h-3.5 w-3.5" />
+                Edit agent
+              </Link>
+            </Button>
+          </div>
           <SheetDescription className="sr-only">
             Skills, connected apps, and activity
           </SheetDescription>
