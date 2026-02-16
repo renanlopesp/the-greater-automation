@@ -157,11 +157,13 @@ export function buildAgentSystemPrompt(
   prompt += '### How to Build a Workflow\n\n'
   prompt +=
     '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'
-  prompt += '2. **VERIFY**: Use SNEW_CHECK_CONNECTIONS to ensure required apps are connected\n'
   prompt +=
-    '3. **CHECK CAPABILITIES**: ALWAYS call SNEW_LIST_APP_CAPABILITIES for each app you plan to use. This returns both available **actions** (things you can do) and **triggers** (events you can listen for). NEVER invent or guess action names — only use slugs returned by this tool.\n'
+    '2. **CHECK EXISTING**: ALWAYS call SNEW_LIST_WORKFLOWS first to see if a similar workflow already exists. If one does, ask the user whether they want to UPDATE the existing workflow or CREATE a new one. NEVER create duplicate workflows — prefer updating existing ones with SNEW_UPDATE_WORKFLOW.\n'
+  prompt += '3. **VERIFY**: Use SNEW_CHECK_CONNECTIONS to ensure required apps are connected\n'
   prompt +=
-    '4. **MAP PARAMS**: For EVERY composio_action, you MUST map ALL required parameters. Read the `required_params` and `params` from SNEW_LIST_APP_CAPABILITIES output and map each one:\n'
+    '4. **CHECK CAPABILITIES**: ALWAYS call SNEW_LIST_APP_CAPABILITIES for each app you plan to use. This returns both available **actions** (things you can do) and **triggers** (events you can listen for). NEVER invent or guess action names — only use slugs returned by this tool.\n'
+  prompt +=
+    '5. **MAP PARAMS**: For EVERY composio_action, you MUST map ALL required parameters. Read the `required_params` and `params` from SNEW_LIST_APP_CAPABILITIES output and map each one:\n'
   prompt +=
     '   - For **webhook** triggers: use `{{trigger.field.path}}` to reference incoming payload fields — inspect the trigger schema to know what fields are available\n'
   prompt +=
@@ -170,19 +172,21 @@ export function buildAgentSystemPrompt(
   prompt +=
     "   - **NEVER guess or hardcode** context-dependent values (names, IDs, channels, repos, emails, etc.). If you don't know a value, ASK THE USER.\n"
   prompt +=
-    '5. **ASK WHEN UNSURE**: If any required parameter cannot be derived from the trigger data or a previous action output, you MUST ask the user before creating the workflow. Never assume names, identifiers, or targets.\n'
+    '6. **ASK WHEN UNSURE**: If any required parameter cannot be derived from the trigger data or a previous action output, you MUST ask the user before creating the workflow. Never assume names, identifiers, or targets.\n'
   prompt +=
-    '6. **SUMMARIZE**: Present a clear summary showing the parameter mapping: "Here\'s what I\'ll set up: WHEN [trigger] → IF [conditions] → THEN [actions with mapped params] in [mode] mode"\n'
+    '7. **SUMMARIZE**: Present a clear summary showing the parameter mapping: "Here\'s what I\'ll set up: WHEN [trigger] → IF [conditions] → THEN [actions with mapped params] in [mode] mode"\n'
   prompt +=
-    '7. **BUILD**: Call SNEW_CREATE_WORKFLOW with the full configuration including all mapped params\n'
-  prompt += '8. **TEST**: Offer to dry-run with SNEW_TEST_WORKFLOW using sample data\n\n'
+    '8. **BUILD**: Call SNEW_CREATE_WORKFLOW with the full configuration including all mapped params\n'
+  prompt += '9. **TEST**: Offer to dry-run with SNEW_TEST_WORKFLOW using sample data\n\n'
   prompt += '### Available Workflow Tools\n\n'
   prompt +=
     '- SNEW_LIST_APP_CAPABILITIES — **MUST call before using composio_action** to get real action names, triggers, required params, and param descriptions\n'
   prompt +=
-    '- SNEW_CREATE_WORKFLOW — Create a new automation rule (params must be fully mapped, action slugs are validated)\n'
-  prompt += '- SNEW_LIST_WORKFLOWS — See all current workflows\n'
-  prompt += '- SNEW_UPDATE_WORKFLOW — Modify an existing workflow\n'
+    '- SNEW_CREATE_WORKFLOW — Create a new automation rule (params must be fully mapped, action slugs are validated). ALWAYS check SNEW_LIST_WORKFLOWS first to avoid duplicates.\n'
+  prompt +=
+    '- SNEW_LIST_WORKFLOWS — **CALL THIS FIRST** before creating any workflow. Check if a similar workflow already exists and update it instead of creating duplicates.\n'
+  prompt +=
+    '- SNEW_UPDATE_WORKFLOW — Modify an existing workflow. Prefer this over creating a new one when a similar workflow exists.\n'
   prompt += '- SNEW_DELETE_WORKFLOW — Remove a workflow\n'
   prompt += '- SNEW_TEST_WORKFLOW — Dry-run with sample data\n'
   prompt +=

@@ -676,7 +676,8 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
     },
 
     SNEW_UPDATE_WORKFLOW: {
-      description: 'Update an existing workflow configuration.',
+      description:
+        'Update an existing workflow configuration. Prefer this over creating a new workflow when a similar one already exists.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -687,6 +688,20 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           execution_mode: { type: 'string', enum: ['auto', 'confirm', 'draft'] },
           conditions: { type: 'array', items: conditionJsonSchema },
           actions: { type: 'array', items: actionJsonSchema },
+          trigger_config: {
+            type: 'object',
+            description:
+              'Update the trigger configuration. Include type (manual, scheduled, webhook, app_event) and relevant fields (trigger_slug, trigger_app_id, trigger_config for app_event).',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['manual', 'scheduled', 'webhook', 'app_event'],
+              },
+              trigger_slug: { type: 'string' },
+              trigger_app_id: { type: 'string' },
+              trigger_config: { type: 'object', additionalProperties: true },
+            },
+          },
         },
         required: ['skill_id'],
       }),
@@ -698,6 +713,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         execution_mode?: string
         conditions?: ConditionParam[]
         actions?: ActionParam[]
+        trigger_config?: {
+          type?: string
+          trigger_slug?: string
+          trigger_app_id?: string
+          trigger_config?: Record<string, unknown>
+        }
       }) => {
         const supabase = await createServerClient()
         const update: Record<string, unknown> = {}
@@ -707,6 +728,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         if (params.execution_mode) update.execution_mode = params.execution_mode
         if (params.conditions) update.conditions = params.conditions
         if (params.actions) update.actions = buildActions(params.actions)
+        if (params.trigger_config) update.trigger_config = params.trigger_config
 
         const { error } = await supabase
           .from('agent_workflows')
@@ -714,6 +736,40 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
         if (error) return { success: false, error: error.message }
+
+        // If trigger_config changed and has a workflow_id, also update the workflow_triggers table
+        if (params.trigger_config) {
+          const { data: agentWorkflow } = await supabase
+            .from('agent_workflows')
+            .select('workflow_id')
+            .eq('id', params.skill_id)
+            .single()
+
+          if (agentWorkflow?.workflow_id) {
+            let triggerType: TriggerType = 'manual'
+            let triggerConfig: Record<string, unknown> = {}
+
+            if (params.trigger_config.type === 'app_event') {
+              triggerType = 'app'
+              triggerConfig = {
+                app_id: params.trigger_config.trigger_app_id || '',
+                event: params.trigger_config.trigger_slug || '',
+                filters: {},
+                trigger_config: params.trigger_config.trigger_config || {},
+              }
+            } else if (params.trigger_config.type === 'webhook') {
+              triggerType = 'webhook'
+            } else if (params.trigger_config.type === 'scheduled') {
+              triggerType = 'scheduled'
+            }
+
+            await supabase
+              .from('workflow_triggers')
+              .update({ type: triggerType, config: triggerConfig as unknown as Json })
+              .eq('workflow_id', agentWorkflow.workflow_id)
+          }
+        }
+
         revalidatePath(`/agents/${agentId}`)
         return { success: true }
       },
