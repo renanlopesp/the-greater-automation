@@ -182,7 +182,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                       <p className="truncate text-sm font-medium">Run {run.id.substring(0, 8)}</p>
                       {run.event_log_id && (
                         <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                          Event
+                          {formatTriggerLabel(run.trigger_data)}
                         </Badge>
                       )}
                       {getStatusBadge(run.status)}
@@ -263,6 +263,28 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
       </div>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatTriggerLabel(triggerData: Record<string, unknown> | null | undefined): string {
+  if (!triggerData) return 'Event'
+  // Try trigger_slug from our unified format first
+  const slug =
+    (triggerData.trigger_slug as string | undefined) ??
+    ((triggerData.metadata as Record<string, unknown> | undefined)?.trigger_slug as
+      | string
+      | undefined)
+  if (!slug) return 'Event'
+  const parts = slug.split('_')
+  const app = parts[0]
+  const event = parts
+    .slice(1)
+    .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
+    .join(' ')
+  return `${app.charAt(0) + app.slice(1).toLowerCase()}: ${event}`
 }
 
 // ---------------------------------------------------------------------------
