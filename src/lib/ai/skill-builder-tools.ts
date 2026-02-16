@@ -228,27 +228,28 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                   )
                 : null
 
-              // Build config details with descriptions so the LLM knows what values are required
+              // Build config details — extract simple key/type/description for LLM, NOT the raw JSON schema
               const configDetails = t.config
-                ? Object.entries(t.config).map(([key, val]) => ({
-                    key,
-                    type:
-                      typeof val === 'object' &&
-                      val !== null &&
-                      'type' in (val as Record<string, unknown>)
-                        ? (val as Record<string, unknown>).type
-                        : 'string',
-                    description:
-                      typeof val === 'object' &&
-                      val !== null &&
-                      'description' in (val as Record<string, unknown>)
-                        ? (val as Record<string, unknown>).description
-                        : '',
-                    required: true,
-                  }))
+                ? Object.entries(t.config).map(([key, val]) => {
+                    const schema =
+                      typeof val === 'object' && val !== null
+                        ? (val as Record<string, unknown>)
+                        : {}
+                    return {
+                      key,
+                      type: (schema.type as string) || 'string',
+                      description: (schema.description as string) || '',
+                      required: true,
+                    }
+                  })
                 : []
 
               const configKeys = configDetails.map((c) => c.key)
+              // Build an example showing the EXACT format: { key1: "user_value", key2: "user_value" }
+              const exampleConfig =
+                configKeys.length > 0
+                  ? `{ ${configKeys.map((k) => `${k}: "<user_provided_value>"`).join(', ')} }`
+                  : '{}'
 
               return {
                 trigger_name: t.slug,
@@ -260,7 +261,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 sample_payload: samplePayload,
                 _trigger_hint:
                   configKeys.length > 0
-                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config with these fields: ${configKeys.join(', ')}. The user must provide values for these — NEVER leave trigger_config empty when config_params exist. Event data fields available via {{trigger.data.fieldName}} templates.`
+                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config as a FLAT object with user-provided values like: ${exampleConfig}. Do NOT copy the schema — just pass the key-value pairs. NEVER leave trigger_config empty when config_params exist.`
                     : `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
               }
             }
@@ -320,7 +321,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 type: 'object',
                 additionalProperties: true,
                 description:
-                  'App-specific trigger configuration params — REQUIRED when the trigger has config_params (from SNEW_LIST_APP_CAPABILITIES). For example, YouTube triggers require { channel_id: "UCxxxx" }. NEVER leave empty when config_params exist — ask the user for values.',
+                  'App-specific trigger config — a FLAT key-value object, NOT a JSON schema. REQUIRED when config_params exist. Example: { "channelId": "UCxxxx" } for YouTube. Just pass the param name and the user-provided value. Do NOT include type/title/required/properties schema fields.',
               },
               filters: {
                 type: 'array',
