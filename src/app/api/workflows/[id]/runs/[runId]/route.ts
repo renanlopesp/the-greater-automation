@@ -42,16 +42,25 @@ export async function GET(
       return NextResponse.json({ error: 'Run not found' }, { status: 404 })
     }
 
-    // Get all step details for this run
-    const { data: steps, error: stepsError } = await supabase
+    // Get all step details for this run, joined with workflow_steps for names
+    const { data: rawSteps, error: stepsError } = await supabase
       .from('workflow_run_steps')
-      .select('*')
+      .select('*, workflow_steps(name)')
       .eq('run_id', runId)
       .order('step_position', { ascending: true })
 
     if (stepsError) {
       return NextResponse.json({ error: 'Failed to load run steps' }, { status: 500 })
     }
+
+    // Map step_name from the joined workflow_steps
+    const steps = (rawSteps ?? []).map((s) => ({
+      ...s,
+      step_name:
+        (s.workflow_steps as unknown as { name: string } | null)?.name ??
+        s.step_type?.toUpperCase() ??
+        `Step ${s.step_position + 1}`,
+    }))
 
     // Calculate summary statistics
     const totalSteps = steps?.length || 0

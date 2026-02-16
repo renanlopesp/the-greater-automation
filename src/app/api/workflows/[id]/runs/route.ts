@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { data: runs, error: runsError } = await supabase
       .from('workflow_runs')
       .select(
-        'id, status, trigger_type, steps_used, ai_credits_used, started_at, completed_at, created_at, error'
+        'id, status, trigger_type, trigger_data, steps_used, ai_credits_used, started_at, completed_at, created_at, error'
       )
       .eq('workflow_id', workflowId)
       .order('created_at', { ascending: false })

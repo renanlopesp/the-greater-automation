@@ -21,6 +21,13 @@ export interface RunSummary {
   }
 }
 
+/** Extended run info for list views — includes trigger data and error */
+export interface RunListItem extends RunSummary {
+  trigger_data: Record<string, unknown> | null
+  error: string | null
+  event_log_id: string | null
+}
+
 export interface RunStepDetail {
   id: string
   step_name: string
@@ -59,6 +66,8 @@ interface RunsListResponse {
     id: string
     status: string
     trigger_type: string
+    trigger_data: Record<string, unknown> | null
+    error: string | null
     started_at: string
     completed_at: string | null
     progress: {
@@ -120,7 +129,7 @@ interface RunDetailResponse {
  * Polls every 2s while any run is pending/running/waiting, stops when all are terminal.
  */
 export function useWorkflowRuns(workflowId: string) {
-  return useQuery<RunSummary[]>({
+  return useQuery<RunListItem[]>({
     queryKey: ['workflow-runs', workflowId],
     queryFn: async () => {
       const response = await fetch(`/api/workflows/${workflowId}/runs?limit=50&offset=0`)
@@ -134,6 +143,10 @@ export function useWorkflowRuns(workflowId: string) {
         started_at: run.started_at,
         completed_at: run.completed_at,
         trigger_type: run.trigger_type,
+        trigger_data: run.trigger_data ?? null,
+        error: run.error ?? null,
+        event_log_id:
+          ((run.trigger_data as Record<string, unknown> | null)?.event_log_id as string) ?? null,
         step_count: run.progress.total,
         steps_completed: run.progress.completed,
         progress: run.progress,
