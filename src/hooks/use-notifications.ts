@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createBrowserClient } from '@/lib/supabase/client'
 import {
   getNotifications,
   getUnreadCount,
@@ -11,9 +9,11 @@ import {
   type NotificationRow,
 } from '@/lib/actions/notifications'
 
+const POLL_INTERVAL = 30_000
+
 /**
- * Hook to fetch notifications with Supabase Realtime updates.
- * Automatically refetches when new notifications arrive via Realtime.
+ * Hook to fetch notifications with polling.
+ * Polls every 30s for new notifications. Pauses when the tab is inactive.
  */
 export function useNotifications(limit = 50) {
   const queryClient = useQueryClient()
@@ -25,46 +25,9 @@ export function useNotifications(limit = 50) {
       if (result.error) throw new Error(result.error)
       return result.notifications
     },
-    staleTime: 30_000,
+    staleTime: POLL_INTERVAL,
+    refetchInterval: POLL_INTERVAL,
   })
-
-  // Subscribe to Realtime for new notifications
-  useEffect(() => {
-    const supabase = createBrowserClient()
-
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          // Invalidate both notifications list and unread count
-          queryClient.invalidateQueries({ queryKey: ['notifications'] })
-          queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] })
-          queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [queryClient])
 
   const markAsRead = useMutation({
     mutationFn: async (notificationId: string) => {
@@ -111,7 +74,8 @@ export function useUnreadNotificationCount() {
       if (result.error) throw new Error(result.error)
       return result.count
     },
-    staleTime: 30_000,
+    staleTime: POLL_INTERVAL,
+    refetchInterval: POLL_INTERVAL,
   })
 
   return {

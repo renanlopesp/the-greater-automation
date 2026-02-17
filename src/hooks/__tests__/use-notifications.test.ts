@@ -37,17 +37,6 @@ vi.mock('@/lib/actions/notifications', () => ({
   markAllAsRead: vi.fn().mockResolvedValue({}),
 }))
 
-// Mock supabase client
-vi.mock('@/lib/supabase/client', () => ({
-  createBrowserClient: vi.fn().mockReturnValue({
-    channel: vi.fn().mockReturnValue({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-    }),
-    removeChannel: vi.fn(),
-  }),
-}))
-
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
