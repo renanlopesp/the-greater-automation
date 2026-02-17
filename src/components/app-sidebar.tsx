@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import Image from 'next/image'
 import {
+  Check,
   ChevronsUpDown,
   FolderKanban,
   LayoutDashboard,
@@ -39,13 +39,17 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import type { UsageData, UserData } from '@/types/navigation'
+import type { UsageData, UserData, TeamData } from '@/types/navigation'
+import { switchWorkspaceAction } from '@/lib/actions/workspace'
 
 interface AppSidebarProps {
   user: UserData
+  team: TeamData | null
+  userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
+  onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
 }
 
 function getInitials(name: string | null, email: string): string {
@@ -60,7 +64,14 @@ function getInitials(name: string | null, email: string): string {
   return email[0].toUpperCase()
 }
 
-export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: AppSidebarProps) {
+export default function AppSidebar({
+  user,
+  team,
+  userTeams,
+  onOpenCommandMenu,
+  onOpenSettings,
+  onSwitchWorkspace,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -69,6 +80,19 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
     const supabase = createBrowserClient()
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  function handleSwitchWorkspace(teamId: string) {
+    if (team?.id === teamId) return
+    const targetTeam = userTeams.find((t) => t.id === teamId)
+    if (onSwitchWorkspace) {
+      onSwitchWorkspace(targetTeam?.name ?? 'workspace', async () => {
+        await switchWorkspaceAction(teamId)
+        router.refresh()
+      })
+    } else {
+      switchWorkspaceAction(teamId).then(() => router.refresh())
+    }
   }
 
   const platformItems = [
@@ -87,33 +111,49 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="Home">
-              <Link href="/dashboard">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 535 323"
-                    fill="none"
-                    className="size-4"
-                  >
-                    <path
-                      d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Snew</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    Automation Platform
-                  </span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg" tooltip={team?.name ?? 'Select workspace'}>
+                  <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 535 323"
+                      fill="none"
+                      className="size-4"
+                    >
+                      <path
+                        d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                        fill="currentColor"
+                      />
+                      <path
+                        d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{team?.name ?? 'Snew'}</span>
+                    <span className="text-muted-foreground truncate text-xs">
+                      {team
+                        ? (userTeams.find((t) => t.id === team.id)?.role ?? 'member')
+                        : 'No workspace'}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-56 rounded-lg" side="bottom" align="start">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {userTeams.map((t) => (
+                  <DropdownMenuItem key={t.id} onClick={() => handleSwitchWorkspace(t.id)}>
+                    <span className="flex-1">{t.name}</span>
+                    <span className="text-muted-foreground text-xs capitalize">{t.role}</span>
+                    {team?.id === t.id && <Check className="ml-2 size-4" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

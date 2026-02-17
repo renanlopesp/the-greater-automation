@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { fetchRuns, fetchWorkflowList } from '@/lib/queries/runs'
 import RunsClient from '@/components/runs/runs-client'
+import { getActiveTeamId } from '@/lib/get-active-team'
 
 export default async function RunsPage() {
   const supabase = await createServerClient()
@@ -12,13 +13,8 @@ export default async function RunsPage() {
 
   if (!user) redirect('/login')
 
-  const { data: memberRows } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-
-  const teamId = memberRows?.[0]?.team_id
+  // Get user's active team (respects workspace switcher cookie)
+  const teamId = await getActiveTeamId(supabase, user.id)
   if (!teamId) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">

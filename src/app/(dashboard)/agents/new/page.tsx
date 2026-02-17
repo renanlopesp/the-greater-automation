@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { fetchTeamWorkflows } from '@/lib/queries/agents'
 import AgentForm from '@/components/agent-detail/agent-form'
+import { getActiveTeamId } from '@/lib/get-active-team'
 
 export default async function NewAgentPage() {
   const supabase = await createServerClient()
@@ -11,13 +12,8 @@ export default async function NewAgentPage() {
 
   if (!user) redirect('/login')
 
-  const { data: memberRows } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-
-  const teamId = memberRows?.[0]?.team_id
+  // Get user's active team (respects workspace switcher cookie)
+  const teamId = await getActiveTeamId(supabase, user.id)
   if (!teamId) redirect('/dashboard')
 
   const workflows = await fetchTeamWorkflows(supabase, teamId)

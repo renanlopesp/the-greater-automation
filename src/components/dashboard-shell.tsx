@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
@@ -16,13 +16,19 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { Bell } from 'lucide-react'
-import type { UsageData, UserData, TeamData } from '@/types/navigation'
+import { Bell, Loader2 } from 'lucide-react'
+import PendingInvitationsBanner from '@/components/settings/pending-invitations-banner'
+import type { UsageData, UserData, TeamData, TeamMember, TeamInvitation } from '@/types/navigation'
 
 interface DashboardShellProps {
   user: UserData
   team: TeamData | null
+  userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
+  members: TeamMember[]
+  invitations: TeamInvitation[]
+  pendingUserInvitations: (TeamInvitation & { teamName: string })[]
+  currentUserRole: 'owner' | 'admin' | 'member'
   defaultSidebarOpen?: boolean
   children: ReactNode
 }
@@ -56,12 +62,19 @@ function getPageTitle(pathname: string): string {
 export default function DashboardShell({
   user,
   team,
+  userTeams,
   usage,
+  members,
+  invitations,
+  pendingUserInvitations,
+  currentUserRole,
   defaultSidebarOpen = false,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [isSwitchingWorkspace, startWorkspaceTransition] = useTransition()
+  const [switchingToName, setSwitchingToName] = useState<string | null>(null)
   const currentTime = useCurrentTime()
   const pathname = usePathname()
 
@@ -70,9 +83,15 @@ export default function DashboardShell({
       <SidebarProvider defaultOpen={defaultSidebarOpen}>
         <AppSidebar
           user={user}
+          team={team}
+          userTeams={userTeams}
           usage={usage}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onSwitchWorkspace={(name, transition) => {
+            setSwitchingToName(name)
+            startWorkspaceTransition(transition)
+          }}
         />
         <SidebarInset>
           <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-30 flex h-10 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
@@ -98,7 +117,23 @@ export default function DashboardShell({
               )}
             </div>
           </header>
-          <div className="flex-1 overflow-auto">{children}</div>
+          <div className="relative flex-1 overflow-auto">
+            {isSwitchingWorkspace && (
+              <div className="bg-background/80 absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 backdrop-blur-sm transition-opacity">
+                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                <p className="text-muted-foreground text-sm">
+                  Switching to{' '}
+                  <span className="text-foreground font-medium">{switchingToName}</span>...
+                </p>
+              </div>
+            )}
+            {pendingUserInvitations.length > 0 && (
+              <div className="border-b px-4 py-3">
+                <PendingInvitationsBanner invitations={pendingUserInvitations} />
+              </div>
+            )}
+            {children}
+          </div>
         </SidebarInset>
         <CommandMenu
           teamId={team?.id ?? null}
@@ -124,14 +159,10 @@ export default function DashboardShell({
                 }
               : null
           }
-          members={[
-            {
-              id: user.id,
-              fullName: user.fullName ?? user.email,
-              email: user.email,
-              role: 'owner',
-            },
-          ]}
+          members={members}
+          invitations={invitations}
+          currentUserRole={currentUserRole}
+          currentUserId={user.id}
         />
       </SidebarProvider>
     </CommandMenuContext>

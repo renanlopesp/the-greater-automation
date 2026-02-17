@@ -2,6 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { accountSettingsSchema, workspaceSettingsSchema } from '@/lib/schemas/settings'
+import { getActiveTeamId } from '@/lib/get-active-team'
 
 export type SettingsActionResult = { error?: string; success?: boolean }
 
@@ -47,14 +48,8 @@ export async function updateWorkspaceAction(formData: FormData): Promise<Setting
     return { error: 'Not authenticated' }
   }
 
-  // Get user's team
-  const { data: memberRows } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-
-  const teamId = memberRows?.[0]?.team_id
+  // Get user's active team (respects workspace switcher cookie)
+  const teamId = await getActiveTeamId(supabase, user.id)
   if (!teamId) {
     return { error: 'No workspace found' }
   }
