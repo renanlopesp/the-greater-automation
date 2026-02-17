@@ -3,7 +3,6 @@
 import { Bell } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useNotifications, useUnreadNotificationCount } from '@/hooks/use-notifications'
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
@@ -33,12 +32,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
         <div className="relative">
           {children}
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs"
-            >
-              {unreadCount}
-            </Badge>
+            <span className="bg-destructive absolute top-0 right-0 h-2 w-2 rounded-full" />
           )}
         </div>
       </PopoverTrigger>
@@ -76,7 +70,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
             </div>
           ) : (
             <div className="space-y-2">
-              {notifications.map((notification) => (
+              {notifications.slice(0, 5).map((notification) => (
                 <button
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification.id, notification.read)}

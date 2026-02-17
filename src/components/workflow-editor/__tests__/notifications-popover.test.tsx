@@ -48,13 +48,13 @@ describe('NotificationsPopover', () => {
     expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument()
   })
 
-  it('shows unread badge when there are unread notifications', () => {
-    render(
+  it('shows unread dot indicator when there are unread notifications', () => {
+    const { container } = render(
       <NotificationsPopover>
         <button>Open</button>
       </NotificationsPopover>
     )
-    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(container.querySelector('.bg-destructive.rounded-full')).toBeInTheDocument()
   })
 
   it('renders without crashing when no unread', async () => {
