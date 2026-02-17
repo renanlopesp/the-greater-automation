@@ -1,0 +1,190 @@
+'use server'
+
+import { createServerClient } from '@/lib/supabase/server'
+
+// Types
+export type NotificationType =
+  | 'workflow_published'
+  | 'workflow_unpublished'
+  | 'workflow_run_completed'
+  | 'workflow_run_failed'
+  | 'workflow_run_approval_required'
+  | 'general'
+
+export interface NotificationRow {
+  id: string
+  user_id: string
+  team_id: string
+  workflow_id: string | null
+  type: NotificationType
+  title: string
+  message: string | null
+  read: boolean
+  created_at: string
+}
+
+export interface NotificationPreferencesRow {
+  id: string
+  user_id: string
+  email_enabled: boolean
+  failures_enabled: boolean
+  digest_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ─── Notifications CRUD ─────────────────────────────────────────────
+
+export async function getNotifications(limit = 50): Promise<{
+  notifications: NotificationRow[]
+  error?: string
+}> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { notifications: [], error: 'Not authenticated' }
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { notifications: [], error: error.message }
+  return { notifications: (data ?? []) as NotificationRow[] }
+}
+
+export async function getUnreadCount(): Promise<{ count: number; error?: string }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { count: 0, error: 'Not authenticated' }
+
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('read', false)
+
+  if (error) return { count: 0, error: error.message }
+  return { count: count ?? 0 }
+}
+
+export async function markAsRead(notificationId: string): Promise<{ error?: string }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId)
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function markAllAsRead(): Promise<{ error?: string }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', user.id)
+    .eq('read', false)
+
+  if (error) return { error: error.message }
+  return {}
+}
+
+export async function createNotification(params: {
+  userId: string
+  teamId: string
+  workflowId?: string
+  type: NotificationType
+  title: string
+  message?: string
+}): Promise<{ id?: string; error?: string }> {
+  const supabase = await createServerClient()
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: params.userId,
+      team_id: params.teamId,
+      workflow_id: params.workflowId ?? null,
+      type: params.type,
+      title: params.title,
+      message: params.message ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+  return { id: data?.id }
+}
+
+// ─── Notification Preferences ───────────────────────────────────────
+
+export async function getNotificationPreferences(): Promise<{
+  preferences: NotificationPreferencesRow | null
+  error?: string
+}> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { preferences: null, error: 'Not authenticated' }
+
+  const { data, error } = await supabase
+    .from('notification_preferences')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116 = no rows returned, which is fine (use defaults)
+    return { preferences: null, error: error.message }
+  }
+
+  return { preferences: (data as NotificationPreferencesRow) ?? null }
+}
+
+export async function updateNotificationPreferences(prefs: {
+  emailEnabled?: boolean
+  failuresEnabled?: boolean
+  digestEnabled?: boolean
+}): Promise<{ error?: string }> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (prefs.emailEnabled !== undefined) updateData.email_enabled = prefs.emailEnabled
+  if (prefs.failuresEnabled !== undefined) updateData.failures_enabled = prefs.failuresEnabled
+  if (prefs.digestEnabled !== undefined) updateData.digest_enabled = prefs.digestEnabled
+
+  // Upsert — create if not exists, update if exists
+  const { error } = await supabase.from('notification_preferences').upsert(
+    {
+      user_id: user.id,
+      ...updateData,
+    },
+    { onConflict: 'user_id' }
+  )
+
+  if (error) return { error: error.message }
+  return {}
+}

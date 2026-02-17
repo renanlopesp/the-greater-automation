@@ -6,6 +6,7 @@ import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
 import { SettingsDialog } from '@/components/settings'
 import { CommandMenuContext } from '@/lib/command-menu-context'
+import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -85,9 +86,11 @@ export default function DashboardShell({
               </BreadcrumbList>
             </Breadcrumb>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
-                <Bell className="h-4 w-4" />
-              </Button>
+              <NotificationsPopover>
+                <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
+                  <Bell className="h-4 w-4" />
+                </Button>
+              </NotificationsPopover>
               {currentTime && (
                 <span className="text-muted-foreground hidden text-sm md:inline">
                   {currentTime}

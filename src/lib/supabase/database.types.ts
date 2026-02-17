@@ -542,6 +542,87 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          digest_enabled: boolean
+          email_enabled: boolean
+          failures_enabled: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          digest_enabled?: boolean
+          email_enabled?: boolean
+          failures_enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          digest_enabled?: boolean
+          email_enabled?: boolean
+          failures_enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          read: boolean
+          team_id: string
+          title: string
+          type: Database['public']['Enums']['notification_type']
+          user_id: string
+          workflow_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean
+          team_id: string
+          title: string
+          type?: Database['public']['Enums']['notification_type']
+          user_id: string
+          workflow_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean
+          team_id?: string
+          title?: string
+          type?: Database['public']['Enums']['notification_type']
+          user_id?: string
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'notifications_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1091,6 +1172,13 @@ export type Database = {
     }
     Enums: {
       connection_status: 'connected' | 'disconnected' | 'error'
+      notification_type:
+        | 'workflow_published'
+        | 'workflow_unpublished'
+        | 'workflow_run_completed'
+        | 'workflow_run_failed'
+        | 'workflow_run_approval_required'
+        | 'general'
       run_status:
         | 'pending'
         | 'running'
@@ -1246,6 +1334,14 @@ export const Constants = {
   public: {
     Enums: {
       connection_status: ['connected', 'disconnected', 'error'],
+      notification_type: [
+        'workflow_published',
+        'workflow_unpublished',
+        'workflow_run_completed',
+        'workflow_run_failed',
+        'workflow_run_approval_required',
+        'general',
+      ],
       run_status: [
         'pending',
         'running',

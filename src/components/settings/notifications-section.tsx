@@ -1,36 +1,32 @@
 'use client'
 
-import { useState } from 'react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
+import { useNotificationPreferences } from '@/hooks/use-notification-preferences'
 
 const NOTIFICATION_OPTIONS = [
   {
-    id: 'email',
+    id: 'emailEnabled' as const,
     label: 'Email notifications',
     description: 'Receive email notifications for important updates',
   },
   {
-    id: 'failures',
+    id: 'failuresEnabled' as const,
     label: 'Workflow run failures',
     description: 'Get notified when a workflow run fails',
   },
   {
-    id: 'digest',
+    id: 'digestEnabled' as const,
     label: 'Weekly activity digest',
     description: 'Receive a weekly summary of your workspace activity',
   },
 ]
 
 export default function NotificationsSection() {
-  const [prefs, setPrefs] = useState<Record<string, boolean>>({
-    email: true,
-    failures: true,
-    digest: true,
-  })
+  const { preferences, isLoading, updatePreference } = useNotificationPreferences()
 
-  function handleToggle(id: string) {
-    setPrefs((prev) => ({ ...prev, [id]: !prev[id] }))
+  function handleToggle(id: 'emailEnabled' | 'failuresEnabled' | 'digestEnabled') {
+    updatePreference(id, !preferences[id])
     toast('Notification preference updated')
   }
 
@@ -45,7 +41,11 @@ export default function NotificationsSection() {
               <span className="text-sm font-medium">{opt.label}</span>
               <span className="text-muted-foreground text-sm">{opt.description}</span>
             </div>
-            <Switch checked={prefs[opt.id]} onCheckedChange={() => handleToggle(opt.id)} />
+            <Switch
+              checked={preferences[opt.id]}
+              onCheckedChange={() => handleToggle(opt.id)}
+              disabled={isLoading}
+            />
           </div>
         ))}
       </div>

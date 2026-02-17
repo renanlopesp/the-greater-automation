@@ -17,8 +17,29 @@ vi.mock('@tanstack/react-query', () => ({
     },
     isLoading: false,
   }),
+  useMutation: vi.fn().mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
   useQueryClient: vi.fn().mockReturnValue({
     invalidateQueries: vi.fn(),
+    cancelQueries: vi.fn(),
+    getQueryData: vi.fn(),
+    setQueryData: vi.fn(),
+  }),
+}))
+
+// Mock notification preferences hook
+vi.mock('@/hooks/use-notification-preferences', () => ({
+  useNotificationPreferences: vi.fn().mockReturnValue({
+    preferences: {
+      emailEnabled: true,
+      failuresEnabled: true,
+      digestEnabled: true,
+    },
+    isLoading: false,
+    updatePreference: vi.fn(),
+    isUpdating: false,
   }),
 }))
 

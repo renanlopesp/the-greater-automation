@@ -17,6 +17,7 @@ import {
   enableTrigger,
   deleteTrigger as deleteComposioTrigger,
 } from '@/lib/composio/triggers'
+import { createWorkflowNotification } from '@/lib/notifications/create-workflow-notification'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -1110,6 +1111,23 @@ export async function publishWorkflow(
 
   if (updateError) {
     return { error: updateError.message }
+  }
+
+  // Fire-and-forget notification for publish/unpublish
+  const { data: workflow } = await supabase
+    .from('workflows')
+    .select('name, team_id')
+    .eq('id', workflowId)
+    .single()
+
+  if (workflow) {
+    createWorkflowNotification({
+      userId: user.id,
+      teamId: workflow.team_id,
+      workflowId,
+      workflowName: workflow.name,
+      type: status === 'published' ? 'workflow_published' : 'workflow_unpublished',
+    }).catch(() => {})
   }
 
   revalidatePath('/workspace')

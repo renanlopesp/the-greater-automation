@@ -11,6 +11,7 @@ import {
 import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
 import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
 import { getComposio } from '@/lib/composio/client'
+import { createWorkflowNotification } from '@/lib/notifications/create-workflow-notification'
 import type {
   AIStepConfig,
   HTTPStepConfig,
@@ -456,6 +457,25 @@ export async function executeVisualWorkflowSteps(
             ai_credits_used: totalAICreditsUsed,
           })
           .eq('id', runId)
+
+        // Fire-and-forget notification for failed run
+        const { data: workflow } = await supabase
+          .from('workflows')
+          .select('name, team_id')
+          .eq('id', workflowId)
+          .single()
+
+        if (workflow) {
+          createWorkflowNotification({
+            userId,
+            teamId: workflow.team_id,
+            workflowId,
+            workflowName: workflow.name,
+            type: 'workflow_run_failed',
+            extraMessage: stepError || undefined,
+          }).catch(() => {})
+        }
+
         return { success: false, error: stepError ?? undefined }
       }
     }
@@ -471,9 +491,28 @@ export async function executeVisualWorkflowSteps(
       })
       .eq('id', runId)
 
+    // Fire-and-forget notification for completed run
+    const { data: workflow } = await supabase
+      .from('workflows')
+      .select('name, team_id')
+      .eq('id', workflowId)
+      .single()
+
+    if (workflow) {
+      createWorkflowNotification({
+        userId,
+        teamId: workflow.team_id,
+        workflowId,
+        workflowName: workflow.name,
+        type: 'workflow_run_completed',
+      }).catch(() => {})
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Error executing visual workflow run:', error)
+
+    const errorMessage = error instanceof Error ? error.message : 'Internal execution error'
 
     // Attempt to mark run as failed (ignore errors here)
     try {
@@ -482,9 +521,31 @@ export async function executeVisualWorkflowSteps(
         .update({
           status: 'failed',
           completed_at: new Date().toISOString(),
-          error: error instanceof Error ? error.message : 'Internal execution error',
+          error: errorMessage,
         })
         .eq('id', runId)
+    } catch {
+      // best-effort
+    }
+
+    // Fire-and-forget notification for unexpected error
+    try {
+      const { data: workflow } = await supabase
+        .from('workflows')
+        .select('name, team_id')
+        .eq('id', workflowId)
+        .single()
+
+      if (workflow) {
+        createWorkflowNotification({
+          userId,
+          teamId: workflow.team_id,
+          workflowId,
+          workflowName: workflow.name,
+          type: 'workflow_run_failed',
+          extraMessage: errorMessage,
+        }).catch(() => {})
+      }
     } catch {
       // best-effort
     }
