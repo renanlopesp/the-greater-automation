@@ -26,3 +26,23 @@ export interface TeamData {
   name: string
   slug: string
 }
+
+export interface TeamMember {
+  id: string
+  fullName: string
+  email: string
+  avatarUrl: string | null
+  role: 'owner' | 'admin' | 'member'
+  joinedAt: string
+}
+
+export interface TeamInvitation {
+  id: string
+  email: string
+  role: 'admin' | 'member'
+  invitedBy: string
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled'
+  expiresAt: string
+  createdAt: string
+  teamName?: string
+}

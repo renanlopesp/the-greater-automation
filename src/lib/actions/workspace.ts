@@ -1,5 +1,6 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -20,6 +21,21 @@ import {
 import { createWorkflowNotification } from '@/lib/notifications/create-workflow-notification'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
+
+// ---------------------------------------------------------------------------
+// 0. switchWorkspaceAction
+// ---------------------------------------------------------------------------
+
+export async function switchWorkspaceAction(teamId: string) {
+  const cookieStore = await cookies()
+  cookieStore.set('selected_team_id', teamId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    httpOnly: true,
+    sameSite: 'lax',
+  })
+  revalidatePath('/', 'layout')
+}
 
 // ---------------------------------------------------------------------------
 // 1. createWorkflow

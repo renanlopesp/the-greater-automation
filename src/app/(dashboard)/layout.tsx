@@ -3,6 +3,11 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import DashboardShell from '@/components/dashboard-shell'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import {
+  fetchTeamMembers,
+  fetchTeamInvitations,
+  fetchPendingInvitationsForUser,
+} from '@/lib/queries/members'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
@@ -15,25 +20,51 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login')
   }
 
-  // Fetch profile and team membership in parallel
+  // Fetch profile and all team memberships in parallel
   const [{ data: profile }, { data: memberRows }] = await Promise.all([
     supabase.from('profiles').select('id, email, full_name, avatar_url').eq('id', user.id).single(),
-    supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1),
+    supabase
+      .from('team_members')
+      .select('team_id, role')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
   ])
 
-  const firstMembership = memberRows?.[0]
+  // Determine active team from cookie or fallback to first membership
+  const cookieStore = await cookies()
+  const selectedTeamId = cookieStore.get('selected_team_id')?.value
 
-  // Fetch team and usage in parallel (both depend on teamId)
+  let activeTeamId = memberRows?.[0]?.team_id
+  if (selectedTeamId && memberRows?.some((m) => m.team_id === selectedTeamId)) {
+    activeTeamId = selectedTeamId
+  }
+
+  // Fetch team details for all memberships (for the switcher)
+  let userTeams: { id: string; name: string; role: string }[] = []
+  if (memberRows && memberRows.length > 0) {
+    const teamIds = memberRows.map((m) => m.team_id)
+    const { data: teamsData } = await supabase.from('teams').select('id, name').in('id', teamIds)
+
+    if (teamsData) {
+      userTeams = teamsData.map((t) => ({
+        id: t.id,
+        name: t.name,
+        role: memberRows.find((m) => m.team_id === t.id)?.role ?? 'member',
+      }))
+    }
+  }
+
+  // Fetch team and usage in parallel (both depend on activeTeamId)
   let team = null
   let usage = null
-  if (firstMembership) {
+  if (activeTeamId) {
     const now = new Date().toISOString()
     const [{ data: teamData }, { data: usageRows }] = await Promise.all([
-      supabase.from('teams').select('id, name, slug').eq('id', firstMembership.team_id).single(),
+      supabase.from('teams').select('id, name, slug').eq('id', activeTeamId).single(),
       supabase
         .from('usage')
         .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-        .eq('team_id', firstMembership.team_id)
+        .eq('team_id', activeTeamId)
         .lte('period_start', now)
         .gte('period_end', now)
         .order('period_start', { ascending: false })
@@ -55,6 +86,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  // Fetch team members and invitations
+  let members: Awaited<ReturnType<typeof fetchTeamMembers>> = []
+  let invitations: Awaited<ReturnType<typeof fetchTeamInvitations>> = []
+  let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
+
+  if (team) {
+    const [fetchedMembers, fetchedInvitations] = await Promise.all([
+      fetchTeamMembers(supabase, team.id),
+      fetchTeamInvitations(supabase, team.id),
+    ])
+    members = fetchedMembers
+    invitations = fetchedInvitations
+    const currentMember = fetchedMembers.find((m) => m.id === user.id)
+    if (currentMember) {
+      currentUserRole = currentMember.role
+    }
+  }
+
+  // Fetch pending invitations for the current user (invitations to join other teams)
+  const userEmail = profile?.email ?? user.email ?? ''
+  const pendingUserInvitations = userEmail
+    ? await fetchPendingInvitationsForUser(supabase, userEmail)
+    : []
+
   const userData = profile
     ? {
         id: profile.id,
@@ -69,12 +124,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: null,
       }
 
-  const cookieStore = await cookies()
   const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
 
   return (
     <TooltipProvider>
-      <DashboardShell user={userData} team={team} usage={usage} defaultSidebarOpen={sidebarOpen}>
+      <DashboardShell
+        user={userData}
+        team={team}
+        userTeams={userTeams}
+        usage={usage}
+        members={members}
+        invitations={invitations}
+        pendingUserInvitations={pendingUserInvitations}
+        currentUserRole={currentUserRole}
+        defaultSidebarOpen={sidebarOpen}
+      >
         {children}
       </DashboardShell>
     </TooltipProvider>

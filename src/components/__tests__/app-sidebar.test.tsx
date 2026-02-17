@@ -22,6 +22,11 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }))
 
+// Mock workspace action
+vi.mock('@/lib/actions/workspace', () => ({
+  switchWorkspaceAction: vi.fn(),
+}))
+
 const mockUser = {
   id: '123',
   email: 'test@example.com',
@@ -29,10 +34,19 @@ const mockUser = {
   avatarUrl: null,
 }
 
+const mockTeam = { id: 'team-1', name: 'Test Team', slug: 'test-team' }
+const mockUserTeams = [{ id: 'team-1', name: 'Test Team', role: 'owner' }]
+
 function renderSidebar(props = {}) {
   return render(
     <SidebarProvider>
-      <AppSidebar user={mockUser} usage={null} {...props} />
+      <AppSidebar
+        user={mockUser}
+        team={mockTeam}
+        userTeams={mockUserTeams}
+        usage={null}
+        {...props}
+      />
     </SidebarProvider>
   )
 }

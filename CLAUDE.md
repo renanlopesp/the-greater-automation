@@ -77,6 +77,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui, @supabase/ssr, TanStack React Query, Zod (024-team-members)
+- Supabase PostgreSQL (production: `djohaxwfketlsjurwqne`, test: `ejqumzvclfkbbzzdvmmi`) (024-team-members)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19 + `composio-core` ^0.6.3 (triggers API), `@ai-sdk/openai` (Claude agent steps), `@supabase/ssr` + `@supabase/supabase-js` (Realtime for progress), TanStack React Query (021-app-event-triggers)
 - Supabase PostgreSQL — new `trigger_subscriptions` table, extended `agent_workflows` and `agent_workflow_runs` (021-app-event-triggers)
 

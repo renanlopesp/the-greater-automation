@@ -9,6 +9,7 @@ import NotificationsSection from '@/components/settings/notifications-section'
 import GeneralSection from '@/components/settings/general-section'
 import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
+import type { TeamMember, TeamInvitation } from '@/types/navigation'
 
 interface SettingsDialogProps {
   open: boolean
@@ -22,7 +23,10 @@ interface SettingsDialogProps {
     aiCreditsUsed: number
     aiCreditsLimit: number
   } | null
-  members: { id: string; fullName: string; email: string; role: 'owner' | 'admin' | 'member' }[]
+  members: TeamMember[]
+  invitations: TeamInvitation[]
+  currentUserRole: 'owner' | 'admin' | 'member'
+  currentUserId: string
 }
 
 export default function SettingsDialog({
@@ -33,6 +37,9 @@ export default function SettingsDialog({
   team,
   usage,
   members,
+  invitations,
+  currentUserRole,
+  currentUserId,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
 
@@ -53,7 +60,14 @@ export default function SettingsDialog({
       case 'general':
         return <GeneralSection name={team?.name ?? ''} slug={team?.slug ?? ''} />
       case 'members':
-        return <MembersSection members={members} />
+        return (
+          <MembersSection
+            members={members}
+            invitations={invitations}
+            currentUserRole={currentUserRole}
+            currentUserId={currentUserId}
+          />
+        )
       case 'billing':
         return (
           <BillingSection
