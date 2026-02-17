@@ -17,7 +17,7 @@ import {
   Sun,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -181,6 +181,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip={user.fullName ?? user.email}>
                   <Avatar className="size-8 rounded-lg">
+                    <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? 'User'} />
                     <AvatarFallback className="rounded-lg">
                       {getInitials(user.fullName, user.email)}
                     </AvatarFallback>
@@ -196,6 +197,10 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="size-8 rounded-lg">
+                      <AvatarImage
+                        src={user.avatarUrl ?? undefined}
+                        alt={user.fullName ?? 'User'}
+                      />
                       <AvatarFallback className="rounded-lg">
                         {getInitials(user.fullName, user.email)}
                       </AvatarFallback>
