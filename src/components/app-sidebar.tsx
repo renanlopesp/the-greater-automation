@@ -180,9 +180,9 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip={user.fullName ?? user.email}>
-                  <Avatar className="size-8 rounded-lg">
+                  <Avatar className="size-8 rounded-full">
                     <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? 'User'} />
-                    <AvatarFallback className="rounded-lg">
+                    <AvatarFallback className="rounded-full">
                       {getInitials(user.fullName, user.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -196,12 +196,12 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
               <DropdownMenuContent side="right" align="end" className="min-w-56 rounded-lg">
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="size-8 rounded-lg">
+                    <Avatar className="size-8 rounded-full">
                       <AvatarImage
                         src={user.avatarUrl ?? undefined}
                         alt={user.fullName ?? 'User'}
                       />
-                      <AvatarFallback className="rounded-lg">
+                      <AvatarFallback className="rounded-full">
                         {getInitials(user.fullName, user.email)}
                       </AvatarFallback>
                     </Avatar>
