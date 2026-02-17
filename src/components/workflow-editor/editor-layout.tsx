@@ -1,7 +1,6 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -47,8 +46,22 @@ export default function EditorLayout({ assistantPanel, canvas, configPanel }: Ed
         <div className="flex w-10 flex-shrink-0 items-start justify-center border-r pt-4">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleAssistant}>
-                <Sparkles className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary h-8 w-8"
+                onClick={toggleAssistant}
+              >
+                <svg viewBox="0 0 535 323" fill="none" className="h-4 w-4">
+                  <path
+                    d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                    fill="currentColor"
+                  />
+                </svg>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Open Assistant</TooltipContent>

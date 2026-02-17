@@ -244,7 +244,7 @@ export default function AIAssistantPanel() {
       {/* Header */}
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Diamond className="text-primary h-5 w-5" />
-        <span className="flex-1 text-sm font-medium">Snew.app Assistant</span>
+        <span className="flex-1 text-sm font-medium">Snew Assistant</span>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleAssistant}>
           <PanelLeftClose className="h-4 w-4" />
         </Button>

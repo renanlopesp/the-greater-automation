@@ -2,11 +2,12 @@
 
 import { useSyncExternalStore } from 'react'
 import dynamic from 'next/dynamic'
-import { PencilLine, Layers, FlaskConical, Sparkles } from 'lucide-react'
+import { PencilLine, Layers, FlaskConical } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResizablePanelGroup, ResizablePanel } from '@/components/ui/resizable'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import EditorHeader from '@/components/editor/editor-header'
@@ -102,15 +103,28 @@ export default function EditorShell() {
               </SheetContent>
             </Sheet>
 
-            <Button
-              type="button"
-              onClick={toggleAssistant}
-              size="icon"
-              className="fixed bottom-6 left-6 z-50 h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white shadow-[0_24px_48px_-24px_rgba(37,99,235,0.9)] ring-1 ring-white/30 hover:opacity-95"
-              aria-label="Open assistant"
-            >
-              <Sparkles className="h-7 w-7" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleAssistant}
+                  className="bg-primary text-primary-foreground ring-primary/20 fixed bottom-6 left-6 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ring-1 transition-all hover:scale-105 hover:shadow-xl"
+                  aria-label="Open assistant"
+                >
+                  <svg viewBox="0 0 535 323" fill="none" style={{ width: '43%', height: '43%' }}>
+                    <path
+                      d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">AI Assistant</TooltipContent>
+            </Tooltip>
           </div>
         </TabsContent>
 
