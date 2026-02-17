@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { updateProfileAction } from '@/lib/actions/settings'
+import { uploadAvatarAction } from '@/lib/actions/avatar'
 import { accountSettingsSchema, type AccountSettingsValues } from '@/lib/schemas/settings'
+import AvatarCropDialog from '@/components/settings/avatar-crop-dialog'
 
 interface AccountSectionProps {
   fullName: string
@@ -20,7 +22,10 @@ interface AccountSectionProps {
 
 export default function AccountSection({ fullName, email, avatarUrl }: AccountSectionProps) {
   const [pending, setPending] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(avatarUrl)
+  const [cropDialogOpen, setCropDialogOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -47,8 +52,8 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('File must be less than 2MB')
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File must be less than 5MB')
       return
     }
 
@@ -57,8 +62,34 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
       return
     }
 
-    setPreviewUrl(URL.createObjectURL(file))
-    toast('Avatar upload coming soon')
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string)
+      setCropDialogOpen(true)
+    }
+    reader.readAsDataURL(file)
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  async function handleCropComplete(blob: Blob) {
+    setUploadingAvatar(true)
+
+    const formData = new FormData()
+    formData.set('avatar', blob, 'avatar.jpg')
+
+    const result = await uploadAvatarAction(formData)
+    setUploadingAvatar(false)
+
+    if (result.error) {
+      toast.error(result.error)
+    } else if (result.avatarUrl) {
+      setCurrentAvatarUrl(result.avatarUrl)
+      setCropDialogOpen(false)
+      setCropImageSrc(null)
+      toast.success('Avatar updated')
+    }
   }
 
   async function onSubmit(data: AccountSettingsValues) {
@@ -83,14 +114,14 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
       <div className="flex items-center gap-4">
         <button type="button" onClick={handleAvatarClick} className="rounded-full">
           <Avatar className="h-20 w-20 cursor-pointer">
-            <AvatarImage src={previewUrl ?? avatarUrl ?? undefined} />
+            <AvatarImage src={currentAvatarUrl ?? undefined} />
             <AvatarFallback className="text-lg">{initials}</AvatarFallback>
           </Avatar>
         </button>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/gif"
+          accept="image/png,image/jpeg,image/gif,image/webp"
           className="hidden"
           onChange={handleFileChange}
         />
@@ -114,6 +145,19 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
           {pending ? 'Saving...' : 'Save changes'}
         </Button>
       </form>
+
+      {cropImageSrc && (
+        <AvatarCropDialog
+          open={cropDialogOpen}
+          onOpenChange={(open) => {
+            setCropDialogOpen(open)
+            if (!open) setCropImageSrc(null)
+          }}
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          isSaving={uploadingAvatar}
+        />
+      )}
     </div>
   )
 }
