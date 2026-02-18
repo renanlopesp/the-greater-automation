@@ -8,6 +8,7 @@ import {
   type AgentSkill,
   type ConnectedApp,
 } from '@/lib/ai/agent-chat'
+import { tokensToCredits } from '@/lib/billing/credits'
 import { buildSkillBuilderTools } from '@/lib/ai/skill-builder-tools'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -179,15 +180,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       relayTools,
     })
 
-    // Persist assistant response after stream completes (non-blocking via after())
+    // Persist assistant response + track AI credits after stream completes (non-blocking via after())
     after(async () => {
       try {
-        const fullText = await result.text
+        const [fullText, usage] = await Promise.all([result.text, result.usage])
+
         if (fullText) {
           await supabase.from('agent_messages').insert({
             conversation_id: conversationId,
             role: 'assistant',
             content: fullText,
+          })
+        }
+
+        // Track AI credits usage for the agent's team
+        const credits = tokensToCredits(usage?.totalTokens ?? 0)
+        if (credits > 0 && agent.team_id) {
+          await supabase.rpc('increment_ai_credits', {
+            p_team_id: agent.team_id,
+            p_credits: credits,
           })
         }
       } finally {

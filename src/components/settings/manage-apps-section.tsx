@@ -6,15 +6,22 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import AppIntegrationRow from '@/components/settings/app-integration-row'
 import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 import { useAppConnections } from '@/hooks/use-app-connections'
 import { initiateAppConnection } from '@/lib/composio/actions/initiate-connection'
 import { disconnectApp } from '@/lib/composio/actions/disconnect-app'
 
-export default function ManageAppsSection() {
+interface ManageAppsSectionProps {
+  teamId?: string
+  planFeatures?: Record<string, boolean>
+}
+
+export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSectionProps) {
   const [query, setQuery] = useState('')
-  const { data, isLoading } = useAppConnections()
+  const hasWorkspaceFeature = planFeatures?.workspace_connections ?? false
+  const { data, isLoading, workspaceConnections } = useAppConnections(teamId, hasWorkspaceFeature)
   const queryClient = useQueryClient()
 
   const connections = useMemo(() => data?.connections ?? [], [data?.connections])
@@ -132,6 +139,32 @@ export default function ManageAppsSection() {
               />
             )
           })
+        )}
+        {workspaceConnections.length > 0 && (
+          <div className="mt-6 flex flex-col gap-3">
+            <h3 className="text-sm font-medium">Workspace connections</h3>
+            <p className="text-muted-foreground text-xs">
+              Apps connected by your team members. Connect your own account to use these
+              integrations.
+            </p>
+            {workspaceConnections.map((conn, i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={conn.user.avatarUrl ?? undefined} />
+                  <AvatarFallback className="text-xs">
+                    {conn.user.fullName?.[0]?.toUpperCase() ?? '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-1 flex-col">
+                  <span className="text-sm">{conn.appId}</span>
+                  <span className="text-muted-foreground text-xs">
+                    Connected by {conn.user.fullName ?? 'Unknown'}
+                    {conn.accountLabel ? ` · ${conn.accountLabel}` : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </ScrollArea>
     </div>

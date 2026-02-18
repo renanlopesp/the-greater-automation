@@ -4,6 +4,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
+import { getTeamPlan, hasFeature, canInviteMembers } from '@/lib/billing/feature-gate'
 
 export type MembersActionResult = { error?: string; success?: boolean }
 
@@ -55,6 +56,21 @@ export async function inviteMemberAction(formData: FormData): Promise<MembersAct
   // Verify caller is owner or admin
   if (!['owner', 'admin'].includes(info.role)) {
     return { error: 'Not authorized' }
+  }
+
+  // Plan check: verify the team's plan allows inviting members
+  const plan = await getTeamPlan(info.teamId)
+  if (!hasFeature(plan, 'invite_members')) {
+    return { error: 'Upgrade to Pro to invite team members' }
+  }
+
+  const { count: memberCount } = await supabase
+    .from('team_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('team_id', info.teamId)
+
+  if (!canInviteMembers(plan, memberCount ?? 0)) {
+    return { error: `Your plan allows up to ${plan.maxTeamMembers} team members` }
   }
 
   // Check if email is already a team member

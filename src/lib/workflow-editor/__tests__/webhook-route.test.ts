@@ -19,6 +19,15 @@ vi.mock('@/lib/workflow-editor/web-scraping-executor', () => ({
 }))
 vi.mock('@/lib/workflow-editor/utility-executor', () => ({ executeUtilityStep: vi.fn() }))
 vi.mock('@/lib/workflow-editor/sequence-executor', () => ({ executeSequenceStep: vi.fn() }))
+vi.mock('@/lib/billing/usage-check', () => ({
+  checkUsageLimits: vi.fn().mockResolvedValue({
+    allowed: true,
+    stepsUsed: 0,
+    stepsLimit: 1000,
+    aiCreditsUsed: 0,
+    aiCreditsLimit: 100,
+  }),
+}))
 
 import { handleWebhookRequest } from '@/lib/workflow-editor/webhook-executor'
 
