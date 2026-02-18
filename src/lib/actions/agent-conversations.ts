@@ -1,7 +1,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
-import { getLatestConversation, type AgentMessage } from '@/lib/queries/agent-conversations'
+import { getActiveConversation, type AgentMessage } from '@/lib/queries/agent-conversations'
 
 export interface ConversationHistoryResult {
   conversationId: string
@@ -18,5 +18,5 @@ export async function loadConversationHistory(
 
   if (!user) return null
 
-  return getLatestConversation(supabase, agentId, user.id)
+  return getActiveConversation(supabase, agentId)
 }

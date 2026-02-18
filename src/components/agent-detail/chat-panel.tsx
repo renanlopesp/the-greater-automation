@@ -41,6 +41,7 @@ import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-e
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAgentChat } from '@/hooks/use-agent-chat'
 import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
 import { getAgentPalette } from '@/lib/agent-palettes'
@@ -56,6 +57,7 @@ interface ChatPanelProps {
   agentName: string
   agentPalette: string
   conversationStarters: string[]
+  currentUserId: string
 }
 
 function AgentAvatar({ name, palette }: { name: string; palette: string }) {
@@ -75,13 +77,22 @@ function ChatMessageItem({
   agentName,
   agentPalette,
   isStreaming,
+  currentUserId,
 }: {
   message: UIMessage
   agentName: string
   agentPalette: string
   isStreaming: boolean
+  currentUserId: string
 }) {
   const isUser = message.role === 'user'
+
+  // Extract sender info from message metadata
+  const meta = message.metadata as Record<string, unknown> | undefined
+  const senderId = meta?.senderId as string | undefined
+  const senderName = meta?.senderName as string | undefined
+  const senderAvatar = meta?.senderAvatar as string | undefined
+  const isOwnMessage = !senderId || senderId === currentUserId
 
   // Separate parts by type using AI SDK type guards
   const parts = message.parts ?? []
@@ -92,13 +103,31 @@ function ChatMessageItem({
 
   const textContent = textParts.map((p) => p.text).join('')
 
+  // Other users' messages are displayed left-aligned (like assistant)
+  const messageFrom = isUser && !isOwnMessage ? 'assistant' : message.role
+
   return (
-    <Message from={message.role}>
+    <Message from={messageFrom}>
       {/* Agent avatar for assistant messages */}
       {!isUser && (
         <div className="mb-1 flex items-center gap-2">
           <AgentAvatar name={agentName} palette={agentPalette} />
           <span className="text-muted-foreground text-sm font-medium">{agentName}</span>
+        </div>
+      )}
+
+      {/* Other user's avatar and name for their messages */}
+      {isUser && !isOwnMessage && (
+        <div className="mb-1 flex items-center gap-2">
+          <Avatar className="size-7">
+            <AvatarImage src={senderAvatar ?? undefined} />
+            <AvatarFallback className="text-xs">
+              {senderName?.[0]?.toUpperCase() ?? '?'}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-muted-foreground text-sm font-medium">
+            {senderName ?? 'Team member'}
+          </span>
         </div>
       )}
 
@@ -177,8 +206,6 @@ function ChatMessageItem({
           <MessageAction tooltip="Dislike">
             <ThumbsDownIcon className="size-3.5" />
           </MessageAction>
-
-          {/* Skills are now created via chat tool calling (SNEW_CREATE_SKILL) */}
         </MessageActions>
       )}
     </Message>
@@ -237,6 +264,7 @@ export default function ChatPanel({
   agentName,
   agentPalette,
   conversationStarters,
+  currentUserId,
 }: ChatPanelProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const {
@@ -249,7 +277,7 @@ export default function ChatPanel({
     sendMessage,
     startNewChat,
     stop,
-  } = useAgentChat(agentId, { onSkillMutation: invalidateWorkflows })
+  } = useAgentChat(agentId, currentUserId, { onSkillMutation: invalidateWorkflows })
 
   const hasMessages = messages.length > 0
 
@@ -316,6 +344,7 @@ export default function ChatPanel({
                     agentName={agentName}
                     agentPalette={agentPalette}
                     isStreaming={isStreaming && message.id === lastAssistantId}
+                    currentUserId={currentUserId}
                   />
                 ))
             )}

@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
 import AgentStatus from '@/components/agent-detail/agent-status'
 import NewChatButton from '@/components/agent-detail/new-chat-button'
+import ChatHistoryButton from '@/components/agent-detail/chat-history-button'
+import PresenceIndicator from '@/components/agent-detail/presence-indicator'
 import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
 
@@ -15,7 +17,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createServerClient()
 
-  // Parallel: auth + agent fetch — no dependency between them
+  // Parallel: auth + agent fetch + profile fetch — no dependency between them
   const [
     {
       data: { user },
@@ -28,6 +30,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
   if (!user) redirect('/login')
   if (!agent) notFound()
+
+  // Fetch profile for presence indicator
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url')
+    .eq('id', user.id)
+    .single()
+
+  const currentUser = {
+    id: user.id,
+    fullName: profile?.full_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
+  }
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
@@ -57,6 +72,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex items-center gap-1.5">
+          <PresenceIndicator agentId={id} currentUser={currentUser} />
           <Suspense
             fallback={
               <Tooltip>
@@ -71,6 +87,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           >
             <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
           </Suspense>
+          <ChatHistoryButton agentId={id} />
           <NewChatButton />
         </div>
       </header>
@@ -85,6 +102,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             ? (agent.conversation_starters as string[])
             : []
         }
+        currentUserId={user.id}
       />
     </div>
   )

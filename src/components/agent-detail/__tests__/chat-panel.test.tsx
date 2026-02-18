@@ -125,6 +125,7 @@ const defaultProps = {
   agentName: 'Test Agent',
   agentPalette: 'blue',
   conversationStarters: ['Hello', 'Help me'],
+  currentUserId: 'user-1',
 }
 
 function mockChatState(overrides: Partial<ReturnType<typeof useAgentChat>> = {}) {
@@ -174,7 +175,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -190,7 +190,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -226,7 +225,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello world' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -243,7 +241,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Hi there!' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -261,19 +258,16 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'First' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-2',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Second' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-3',
             role: 'user',
             parts: [{ type: 'text', text: 'Third' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -293,7 +287,6 @@ describe('ChatPanel', () => {
               { type: 'reasoning', text: 'Thinking...' },
               { type: 'text', text: 'Answer' },
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -313,12 +306,11 @@ describe('ChatPanel', () => {
               {
                 type: 'tool-search',
                 toolCallId: 'call-1',
-                toolName: 'search',
-                state: 'call',
-                args: { query: 'test' },
-              },
+                state: 'output-available' as const,
+                input: { query: 'test' },
+                output: null,
+              } as any,
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -367,7 +359,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [], // No content yet
-            createdAt: new Date(),
           },
         ],
       })
@@ -385,7 +376,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Some text' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -402,7 +392,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [],
-            createdAt: new Date(),
           },
         ],
       })

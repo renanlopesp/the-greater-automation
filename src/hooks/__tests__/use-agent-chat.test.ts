@@ -26,12 +26,28 @@ const MockDefaultChatTransport = vi.fn().mockImplementation(function (
 
 vi.mock('ai', () => ({
   DefaultChatTransport: MockDefaultChatTransport,
+  isToolUIPart: vi.fn(() => false),
+  isTextUIPart: vi.fn(() => false),
+  isReasoningUIPart: vi.fn(() => false),
 }))
 
 const mockLoadConversationHistory = vi.fn()
 
 vi.mock('@/lib/actions/agent-conversations', () => ({
   loadConversationHistory: mockLoadConversationHistory,
+}))
+
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+}
+const mockSupabase = {
+  channel: vi.fn(() => mockChannel),
+  removeChannel: vi.fn(),
+}
+
+vi.mock('@/lib/supabase/client', () => ({
+  createBrowserClient: vi.fn(() => mockSupabase),
 }))
 
 describe('useAgentChat', () => {
@@ -55,7 +71,7 @@ describe('useAgentChat', () => {
 
   it('returns expected initial state', async () => {
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.messages).toEqual([])
     expect(result.current.isLoading).toBe(false)
@@ -72,7 +88,7 @@ describe('useAgentChat', () => {
   it('creates transport with correct API URL', async () => {
     const { useAgentChat } = await import('../use-agent-chat')
 
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(MockDefaultChatTransport).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -87,7 +103,7 @@ describe('useAgentChat', () => {
 
   it('loads conversation history on mount', async () => {
     const { useAgentChat } = await import('../use-agent-chat')
-    renderHook(() => useAgentChat('agent-123'))
+    renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     await waitFor(() => {
       expect(mockLoadConversationHistory).toHaveBeenCalledWith('agent-123')
@@ -107,7 +123,7 @@ describe('useAgentChat', () => {
     mockLoadConversationHistory.mockResolvedValue(mockHistory)
 
     const { useAgentChat } = await import('../use-agent-chat')
-    renderHook(() => useAgentChat('agent-123'))
+    renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     await waitFor(() => {
       expect(mockSetMessages).toHaveBeenCalledWith([
@@ -129,7 +145,7 @@ describe('useAgentChat', () => {
     mockLoadConversationHistory.mockResolvedValue(null)
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     await waitFor(() => {
       expect(result.current.isLoadingHistory).toBe(false)
@@ -145,7 +161,7 @@ describe('useAgentChat', () => {
     mockLoadConversationHistory.mockRejectedValue(error)
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     await waitFor(() => {
       expect(result.current.isLoadingHistory).toBe(false)
@@ -166,7 +182,7 @@ describe('useAgentChat', () => {
     })
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.isStreaming).toBe(true)
 
@@ -186,7 +202,7 @@ describe('useAgentChat', () => {
     })
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.isLoading).toBe(true)
 
@@ -206,7 +222,7 @@ describe('useAgentChat', () => {
     })
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.isLoading).toBe(true)
     expect(result.current.isStreaming).toBe(true)
@@ -218,7 +234,7 @@ describe('useAgentChat', () => {
 
   it('sendMessage delegates to aiSendMessage', async () => {
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     await waitFor(() => {
       expect(result.current.isLoadingHistory).toBe(false)
@@ -235,14 +251,15 @@ describe('useAgentChat', () => {
     mockUseChat.mockReturnValue({
       messages: [],
       status: 'ready',
-      error: { message: 'Network error' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      error: new Error('Network error') as any,
       sendMessage: mockSendMessage,
       setMessages: mockSetMessages,
       stop: mockStop,
     })
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.error).toBe('Network error')
 
@@ -262,7 +279,7 @@ describe('useAgentChat', () => {
     })
 
     const { useAgentChat } = await import('../use-agent-chat')
-    const { result } = renderHook(() => useAgentChat('agent-123'))
+    const { result } = renderHook(() => useAgentChat('agent-123', 'user-1'))
 
     expect(result.current.error).toBe(null)
 
