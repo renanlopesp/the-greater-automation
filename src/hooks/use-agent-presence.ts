@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@/lib/supabase/client'
-import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface PresenceUser {
   id: string
@@ -10,45 +9,40 @@ interface PresenceUser {
   avatarUrl: string | null
 }
 
-function extractUsers(channel: RealtimeChannel, currentUserId: string): PresenceUser[] {
-  const state = channel.presenceState<PresenceUser>()
-  const users: PresenceUser[] = []
-  const seen = new Set<string>()
-  for (const key of Object.keys(state)) {
-    for (const presence of state[key]) {
-      if (!seen.has(presence.id) && presence.id !== currentUserId) {
-        seen.add(presence.id)
-        users.push({
-          id: presence.id,
-          fullName: presence.fullName,
-          avatarUrl: presence.avatarUrl,
-        })
-      }
-    }
-  }
-  return users
-}
-
 export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
   const [activeUsers, setActiveUsers] = useState<PresenceUser[]>([])
-  const channelRef = useRef<RealtimeChannel | null>(null)
-
-  const syncState = useCallback(() => {
-    if (!channelRef.current) return
-    setActiveUsers(extractUsers(channelRef.current, currentUser.id))
-  }, [currentUser.id])
 
   useEffect(() => {
     const supabase = createBrowserClient()
     const channel = supabase.channel(`presence:agent:${agentId}`, {
       config: { presence: { key: currentUser.id } },
     })
-    channelRef.current = channel
+
+    function syncPresence() {
+      const state = channel.presenceState()
+      const users: PresenceUser[] = []
+      const seen = new Set<string>()
+      for (const key of Object.keys(state)) {
+        for (const p of state[key]) {
+          const payload = p as unknown as Record<string, unknown>
+          const id = payload.id as string | undefined
+          if (id && !seen.has(id) && id !== currentUser.id) {
+            seen.add(id)
+            users.push({
+              id,
+              fullName: (payload.fullName as string) ?? null,
+              avatarUrl: (payload.avatarUrl as string) ?? null,
+            })
+          }
+        }
+      }
+      setActiveUsers(users)
+    }
 
     channel
-      .on('presence', { event: 'sync' }, syncState)
-      .on('presence', { event: 'join' }, syncState)
-      .on('presence', { event: 'leave' }, syncState)
+      .on('presence', { event: 'sync' }, syncPresence)
+      .on('presence', { event: 'join' }, syncPresence)
+      .on('presence', { event: 'leave' }, syncPresence)
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
@@ -60,10 +54,9 @@ export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
       })
 
     return () => {
-      channelRef.current = null
       supabase.removeChannel(channel)
     }
-  }, [agentId, currentUser.id, currentUser.fullName, currentUser.avatarUrl, syncState])
+  }, [agentId, currentUser.id, currentUser.fullName, currentUser.avatarUrl])
 
   return { activeUsers }
 }
