@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { createBrowserClient } from '@/lib/supabase/client'
 import { loadConversationHistory } from '@/lib/actions/agent-conversations'
 
 const SKILL_MUTATING_TOOLS = [
@@ -14,22 +15,62 @@ const SKILL_MUTATING_TOOLS = [
   'SNEW_UPDATE_WORKFLOW',
 ]
 
-interface UseAgentChatOptions {
-  onSkillMutation?: () => void
+interface ServerMessage {
+  id: string
+  role: string
+  content: string
+  sender_id: string | null
+  sender_name: string | null
+  sender_avatar: string | null
 }
 
-export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
-  const historyLoadedRef = useRef(false)
-  const conversationIdRef = useRef<string | null>(null)
+interface UseAgentChatOptions {
+  onSkillMutation?: () => void
+  initialConversationId?: string | null
+  initialMessages?: ServerMessage[]
+}
+
+export function useAgentChat(
+  agentId: string,
+  currentUserId: string,
+  options?: UseAgentChatOptions
+) {
+  // Transform server messages to UIMessage format — computed once during init, not in useEffect
+  const [serverMessages] = useState<UIMessage[] | undefined>(() => {
+    if (!options?.initialMessages?.length) return undefined
+    return options.initialMessages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        parts: [{ type: 'text' as const, text: m.content }],
+        metadata: m.sender_id
+          ? {
+              senderId: m.sender_id,
+              senderName: m.sender_name,
+              senderAvatar: m.sender_avatar,
+            }
+          : undefined,
+      }))
+  })
+
+  const [conversationId, setConversationId] = useState<string | null>(
+    options?.initialConversationId ?? null
+  )
+  const conversationIdRef = useRef<string | null>(options?.initialConversationId ?? null)
   const onSkillMutationRef = useRef(options?.onSkillMutation)
-  onSkillMutationRef.current = options?.onSkillMutation
 
-  // Keep ref in sync with state so the transport body closure reads latest value
-  conversationIdRef.current = conversationId
+  // Sync refs after render — refs must not be written during render (React 19)
+  useEffect(() => {
+    conversationIdRef.current = conversationId
+  })
+  useEffect(() => {
+    onSkillMutationRef.current = options?.onSkillMutation
+  })
 
-  // Stable transport — recreated only when agentId changes
+  // Stable transport — recreated only when agentId changes.
+  // body() is called during fetch (not render), so reading the ref there is safe.
+  /* eslint-disable react-hooks/refs */
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -37,7 +78,6 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
         body: () => ({ conversationId: conversationIdRef.current }),
         fetch: async (url, fetchOptions) => {
           const response = await globalThis.fetch(url as string, fetchOptions as RequestInit)
-          // Capture conversation ID from response header
           const newConvId = response.headers.get('X-Conversation-Id')
           if (newConvId) setConversationId(newConvId)
           return response
@@ -45,6 +85,7 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
       }),
     [agentId]
   )
+  /* eslint-enable react-hooks/refs */
 
   // Detect completed skill-mutating tool calls and notify parent
   const onFinish = useCallback(({ message }: { message: UIMessage }) => {
@@ -61,7 +102,7 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     }
   }, [])
 
-  // Vercel AI SDK v6 useChat hook — expose raw UIMessages
+  // Vercel AI SDK v6 — initialMessages from server component (no useEffect needed)
   const {
     messages,
     status,
@@ -69,36 +110,104 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     sendMessage: aiSendMessage,
     setMessages,
     stop,
-  } = useChat({ transport, onFinish })
+  } = useChat({ transport, onFinish, messages: serverMessages })
 
-  // Load conversation history on mount
+  // Realtime subscription: new messages from other users
   useEffect(() => {
-    if (historyLoadedRef.current) return
-    historyLoadedRef.current = true
+    if (!conversationId) return
 
-    async function loadHistory() {
-      try {
-        setIsLoadingHistory(true)
-        const result = await loadConversationHistory(agentId)
-        if (result) {
-          setConversationId(result.conversationId)
-          const loaded: UIMessage[] = result.messages
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
-            .map((m) => ({
-              id: m.id,
-              role: m.role as 'user' | 'assistant',
-              parts: [{ type: 'text' as const, text: m.content }],
-            }))
-          setMessages(loaded)
+    const supabase = createBrowserClient()
+    const channel = supabase
+      .channel(`chat:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'agent_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as {
+            id: string
+            role: string
+            content: string
+            sender_id: string | null
+            created_at: string | null
+          }
+          // Only add messages from other users (our own messages are already in state)
+          if (newMsg.sender_id && newMsg.sender_id !== currentUserId) {
+            const uiMessage: UIMessage = {
+              id: newMsg.id,
+              role: newMsg.role as 'user' | 'assistant',
+              parts: [{ type: 'text', text: newMsg.content }],
+              metadata: {
+                senderId: newMsg.sender_id,
+              },
+            }
+            setMessages((prev) => [...prev, uiMessage])
+          }
         }
-      } catch (err) {
-        console.error('Failed to load conversation history:', err)
-      } finally {
-        setIsLoadingHistory(false)
-      }
-    }
+      )
+      .subscribe()
 
-    loadHistory()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversationId, currentUserId, setMessages])
+
+  // Realtime subscription: conversation changes (when another user starts a new chat)
+  // Note: loadConversationHistory is called inside the event callback (event-driven),
+  // not on render — this is a subscription handler, not a data-fetch-on-mount pattern.
+  useEffect(() => {
+    const supabase = createBrowserClient()
+    const channel = supabase
+      .channel(`conversations:agent:${agentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'agent_conversations',
+          filter: `agent_id=eq.${agentId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { id: string; is_active: boolean }
+          if (updated.is_active && updated.id !== conversationIdRef.current) {
+            // Another user activated a different conversation — reload via server action
+            setConversationId(null)
+            setMessages([])
+
+            loadConversationHistory(agentId)
+              .then((result) => {
+                if (result) {
+                  setConversationId(result.conversationId)
+                  const loaded: UIMessage[] = result.messages
+                    .filter((m) => m.role === 'user' || m.role === 'assistant')
+                    .map((m) => ({
+                      id: m.id,
+                      role: m.role as 'user' | 'assistant',
+                      parts: [{ type: 'text' as const, text: m.content }],
+                      metadata: m.sender_id
+                        ? {
+                            senderId: m.sender_id,
+                            senderName: m.sender_name,
+                            senderAvatar: m.sender_avatar,
+                          }
+                        : undefined,
+                    }))
+                  setMessages(loaded)
+                }
+              })
+              .catch((err) => console.error('Failed to reload conversation:', err))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [agentId, setMessages])
 
   // Send message using v6 sendMessage API (supports optional file attachments)
@@ -128,11 +237,11 @@ export function useAgentChat(agentId: string, options?: UseAgentChatOptions) {
     status,
     isLoading,
     isStreaming,
-    isLoadingHistory,
     error: chatError?.message ?? null,
     conversationId,
     sendMessage,
     startNewChat,
     stop,
+    setMessages,
   }
 }

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     { data: agent },
     { data: skillRows },
     { data: knowledgeSkillRows },
-    { data: appConnections },
+    { data: rpcConnections },
   ] = await Promise.all([
     supabase.from('agents').select('*').eq('id', agentId).single(),
     supabase.from('agent_workflows').select('*').eq('agent_id', agentId),
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from('agent_skills')
       .select('id, name, type, description, is_enabled')
       .eq('agent_id', agentId),
-    supabase.from('app_connections').select('app_id').eq('user_id', user.id),
+    supabase.rpc('get_agent_available_connections', { p_agent_id: agentId, p_user_id: user.id }),
   ])
 
   if (!agent) {
@@ -103,24 +103,42 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     is_enabled: s.is_enabled ?? true,
   }))
 
-  const connectedApps: ConnectedApp[] = (appConnections ?? []).map((conn) => ({
-    appId: conn.app_id,
-    actions: [],
-  }))
+  const rpcRows = (rpcConnections ?? []) as Array<{ app_id: string; is_own_connection: boolean }>
+  const ownConnections = rpcRows.filter((r) => r.is_own_connection)
+  const connectedApps: ConnectedApp[] = (ownConnections.length > 0 ? ownConnections : rpcRows).map(
+    (conn) => ({
+      appId: conn.app_id,
+      actions: [],
+    })
+  )
 
   // 5. Load or create conversation
   let conversationId = existingConvId
   if (!conversationId) {
-    const { data: conv } = await supabase
+    const { data: activeConv } = await supabase
       .from('agent_conversations')
-      .insert({
-        agent_id: agentId,
-        user_id: user.id,
-        title: userMessage.slice(0, 100),
-      })
       .select('id')
+      .eq('agent_id', agentId)
+      .eq('is_active', true)
+      .limit(1)
       .single()
-    conversationId = conv?.id
+
+    if (activeConv) {
+      conversationId = activeConv.id
+    } else {
+      const { data: conv } = await supabase
+        .from('agent_conversations')
+        .insert({
+          agent_id: agentId,
+          user_id: user.id,
+          created_by: user.id,
+          is_active: true,
+          title: userMessage.slice(0, 100),
+        })
+        .select('id')
+        .single()
+      conversationId = conv?.id
+    }
   }
 
   if (!conversationId) {
@@ -132,6 +150,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     conversation_id: conversationId,
     role: 'user',
     content: userMessage,
+    sender_id: user.id,
   })
 
   // 7. Build messages for the AI model

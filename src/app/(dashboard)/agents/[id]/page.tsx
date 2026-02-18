@@ -3,11 +3,14 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
+import { getActiveConversation } from '@/lib/queries/agent-conversations'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
 import AgentStatus from '@/components/agent-detail/agent-status'
 import NewChatButton from '@/components/agent-detail/new-chat-button'
+import ChatHistoryButton from '@/components/agent-detail/chat-history-button'
+import PresenceIndicator from '@/components/agent-detail/presence-indicator'
 import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
 
@@ -15,7 +18,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createServerClient()
 
-  // Parallel: auth + agent fetch — no dependency between them
+  // Parallel: auth + agent + profile + conversation — no dependency between them
   const [
     {
       data: { user },
@@ -28,6 +31,18 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
   if (!user) redirect('/login')
   if (!agent) notFound()
+
+  // Parallel: profile + conversation history (both depend on user/agent being resolved)
+  const [{ data: profile }, activeConversation] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
+    getActiveConversation(supabase, id),
+  ])
+
+  const currentUser = {
+    id: user.id,
+    fullName: profile?.full_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
+  }
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
@@ -57,6 +72,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="flex items-center gap-1.5">
+          <PresenceIndicator agentId={id} currentUser={currentUser} />
           <Suspense
             fallback={
               <Tooltip>
@@ -71,11 +87,12 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           >
             <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
           </Suspense>
+          <ChatHistoryButton agentId={id} />
           <NewChatButton />
         </div>
       </header>
 
-      {/* Chat takes all remaining space */}
+      {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
       <ChatPanel
         agentId={id}
         agentName={agent.name}
@@ -85,6 +102,9 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             ? (agent.conversation_starters as string[])
             : []
         }
+        currentUserId={user.id}
+        initialConversationId={activeConversation?.conversationId ?? null}
+        initialMessages={activeConversation?.messages ?? []}
       />
     </div>
   )
@@ -174,12 +194,18 @@ async function AgentSidebarData({
     if (ts.app_id) usedAppIds.add(ts.app_id)
   }
 
-  const allConnections = (connectionsResult.data ?? []).map((c) => ({
+  // Build connected apps: prefer DB records, fall back to derived used apps
+  const dbConnections = (connectionsResult.data ?? []).map((c) => ({
     app_id: c.app_id,
     account_label: c.account_label,
   }))
+  const filteredDbConnections =
+    usedAppIds.size > 0 ? dbConnections.filter((c) => usedAppIds.has(c.app_id)) : dbConnections
+  // If no DB connections, show apps derived from workflows/triggers/subscriptions
   const connectedApps =
-    usedAppIds.size > 0 ? allConnections.filter((c) => usedAppIds.has(c.app_id)) : allConnections
+    filteredDbConnections.length > 0
+      ? filteredDbConnections
+      : [...usedAppIds].map((appId) => ({ app_id: appId, account_label: null }))
 
   // Transform runs — unified from workflow_runs (both agent and visual workflows)
   const allRuns = (recentRunsResult.data ?? []).map((r) => ({

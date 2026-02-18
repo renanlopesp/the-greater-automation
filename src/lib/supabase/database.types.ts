@@ -12,26 +12,32 @@ export type Database = {
         Row: {
           agent_id: string
           created_at: string | null
+          created_by: string | null
           id: string
+          is_active: boolean
           title: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           agent_id: string
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          is_active?: boolean
           title?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           agent_id?: string
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          is_active?: boolean
           title?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -51,6 +57,7 @@ export type Database = {
           id: string
           metadata: Json | null
           role: string
+          sender_id: string | null
         }
         Insert: {
           content: string
@@ -59,6 +66,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           role: string
+          sender_id?: string | null
         }
         Update: {
           content?: string
@@ -67,6 +75,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           role?: string
+          sender_id?: string | null
         }
         Relationships: [
           {
@@ -1304,15 +1313,23 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_test_results: { Args: never; Returns: number }
+      get_agent_available_connections: {
+        Args: { p_agent_id: string; p_user_id: string }
+        Returns: {
+          app_id: string
+          connection_user_id: string
+          is_own_connection: boolean
+        }[]
+      }
       get_user_email: { Args: { user_uuid: string }; Returns: string }
       get_user_team_ids: { Args: { user_uuid: string }; Returns: string[] }
-      increment_ai_credits: {
-        Args: { p_team_id: string; p_credits: number }
-        Returns: undefined
-      }
       has_pending_invitation: {
         Args: { target_team_id: string; user_email: string }
         Returns: boolean
+      }
+      increment_ai_credits: {
+        Args: { p_credits: number; p_team_id: string }
+        Returns: undefined
       }
       interval_to_cron: {
         Args: { p_interval_unit: string; p_interval_value: number }

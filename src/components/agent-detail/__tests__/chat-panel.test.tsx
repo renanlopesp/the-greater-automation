@@ -53,9 +53,7 @@ vi.mock('@/components/ai-elements/prompt-input', () => ({
       {children}
     </button>
   ),
-  PromptInputSubmit: ({ onStop: _onStop, ...props }: any) => (
-    <button data-testid="prompt-input-submit" {...props} />
-  ),
+  PromptInputSubmit: (props: any) => <button data-testid="prompt-input-submit" {...props} />,
   usePromptInputAttachments: () => ({ files: [], openFileDialog: vi.fn() }),
 }))
 
@@ -125,6 +123,16 @@ const defaultProps = {
   agentName: 'Test Agent',
   agentPalette: 'blue',
   conversationStarters: ['Hello', 'Help me'],
+  currentUserId: 'user-1',
+  initialConversationId: null as string | null,
+  initialMessages: [] as {
+    id: string
+    role: string
+    content: string
+    sender_id: string | null
+    sender_name: string | null
+    sender_avatar: string | null
+  }[],
 }
 
 function mockChatState(overrides: Partial<ReturnType<typeof useAgentChat>> = {}) {
@@ -133,7 +141,6 @@ function mockChatState(overrides: Partial<ReturnType<typeof useAgentChat>> = {})
     status: 'ready' as any,
     isLoading: false,
     isStreaming: false,
-    isLoadingHistory: false,
     error: null,
     conversationId: null,
     sendMessage: vi.fn(),
@@ -174,7 +181,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -190,28 +196,9 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
-      render(<ChatPanel {...defaultProps} />)
-
-      expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Loading History', () => {
-    it('should show skeleton placeholders when loading history', () => {
-      mockChatState({ isLoadingHistory: true })
-      const { container } = render(<ChatPanel {...defaultProps} />)
-
-      // Should show skeleton divs with animate-pulse class
-      const skeletons = container.querySelectorAll('.animate-pulse')
-      expect(skeletons.length).toBeGreaterThan(0)
-    })
-
-    it('should not show empty state when loading history', () => {
-      mockChatState({ isLoadingHistory: true })
       render(<ChatPanel {...defaultProps} />)
 
       expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument()
@@ -226,7 +213,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello world' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -243,7 +229,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Hi there!' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -261,19 +246,16 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'First' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-2',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Second' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-3',
             role: 'user',
             parts: [{ type: 'text', text: 'Third' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -293,7 +275,6 @@ describe('ChatPanel', () => {
               { type: 'reasoning', text: 'Thinking...' },
               { type: 'text', text: 'Answer' },
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -313,12 +294,11 @@ describe('ChatPanel', () => {
               {
                 type: 'tool-search',
                 toolCallId: 'call-1',
-                toolName: 'search',
-                state: 'call',
-                args: { query: 'test' },
-              },
+                state: 'output-available' as const,
+                input: { query: 'test' },
+                output: null,
+              } as any,
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -367,7 +347,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [], // No content yet
-            createdAt: new Date(),
           },
         ],
       })
@@ -385,7 +364,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Some text' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -402,7 +380,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [],
-            createdAt: new Date(),
           },
         ],
       })
