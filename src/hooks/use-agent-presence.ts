@@ -13,12 +13,18 @@ interface PresenceUser {
  * Creates an external presence store for a given agent channel.
  * Side effects (channel creation, WebSocket subscription) are deferred
  * to the first `subscribe` call — keeping the factory itself pure.
+ *
+ * Cleanup uses a grace period (100ms) so that React Strict Mode's rapid
+ * subscribe → unsubscribe → subscribe cycle doesn't kill the WebSocket
+ * before it can connect. The Supabase browser client is a singleton, so
+ * tearing down the Realtime connection too early leaves it in a dead state.
  */
 function createPresenceStore(agentId: string, currentUser: PresenceUser) {
   let users: PresenceUser[] = []
   const listeners = new Set<() => void>()
   let initialized = false
   let cleanup: (() => void) | null = null
+  let cleanupTimer: ReturnType<typeof setTimeout> | null = null
 
   function init() {
     if (initialized) return
@@ -66,11 +72,7 @@ function createPresenceStore(agentId: string, currentUser: PresenceUser) {
         }
       })
 
-    // Retry for client-side navigation where WebSocket needs time to sync
-    const retryTimer = setTimeout(syncPresence, 2000)
-
     cleanup = () => {
-      clearTimeout(retryTimer)
       supabase.removeChannel(channel)
       initialized = false
       cleanup = null
@@ -79,12 +81,21 @@ function createPresenceStore(agentId: string, currentUser: PresenceUser) {
 
   return {
     subscribe(listener: () => void) {
+      // Cancel any pending teardown (Strict Mode re-subscribe)
+      if (cleanupTimer) {
+        clearTimeout(cleanupTimer)
+        cleanupTimer = null
+      }
       init()
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
         if (listeners.size === 0) {
-          cleanup?.()
+          // Grace period: allow Strict Mode to re-subscribe before tearing down
+          cleanupTimer = setTimeout(() => {
+            cleanupTimer = null
+            cleanup?.()
+          }, 200)
         }
       }
     },
@@ -97,12 +108,11 @@ function createPresenceStore(agentId: string, currentUser: PresenceUser) {
 const emptyUsers: PresenceUser[] = []
 
 export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
-  // Store is created once per mount (useState initializer is pure — side effects
-  // are deferred to subscribe, which runs during commit phase)
-  const [store] = useMemo(
-    () => [createPresenceStore(agentId, currentUser)],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only create on mount
-    []
+  const store = useMemo(
+    () => createPresenceStore(agentId, currentUser),
+    // Recreate store when agent or user changes (client-side navigation)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agentId, currentUser.id]
   )
 
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store])
