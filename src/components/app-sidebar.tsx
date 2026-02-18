@@ -39,7 +39,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import type { UsageData, UserData, TeamData } from '@/types/navigation'
+import type { UsageData, UserData, TeamData, PlanData } from '@/types/navigation'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
 
 interface AppSidebarProps {
@@ -47,6 +47,7 @@ interface AppSidebarProps {
   team: TeamData | null
   userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
+  planData?: PlanData | null
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
   onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
@@ -68,6 +69,7 @@ export default function AppSidebar({
   user,
   team,
   userTeams,
+  planData,
   onOpenCommandMenu,
   onOpenSettings,
   onSwitchWorkspace,
@@ -216,6 +218,19 @@ export default function AppSidebar({
               <span>Toggle theme</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {planData && planData.planId !== 'free' && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip={`${planData.planName} plan`}
+                onClick={() => onOpenSettings?.()}
+              >
+                <span className="bg-primary/10 text-primary flex size-4 shrink-0 items-center justify-center rounded text-[7px] leading-none font-bold">
+                  {planData.planId === 'enterprise' ? 'E' : 'P'}
+                </span>
+                <span>{planData.planName} plan</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>

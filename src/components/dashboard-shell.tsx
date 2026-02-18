@@ -95,6 +95,7 @@ export default function DashboardShell({
           team={team}
           userTeams={userTeams}
           usage={usage}
+          planData={planData}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onSwitchWorkspace={(name, transition) => {
