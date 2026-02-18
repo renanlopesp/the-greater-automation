@@ -46,3 +46,12 @@ export interface TeamInvitation {
   createdAt: string
   teamName?: string
 }
+
+export interface PlanData {
+  planId: 'free' | 'pro' | 'enterprise'
+  planName: string
+  features: Record<string, boolean>
+  maxTeamMembers: number
+  hasStripeSubscription: boolean
+  cancelAtPeriodEnd: boolean
+}

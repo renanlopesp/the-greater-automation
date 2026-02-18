@@ -18,7 +18,14 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Bell, Loader2 } from 'lucide-react'
 import PendingInvitationsBanner from '@/components/settings/pending-invitations-banner'
-import type { UsageData, UserData, TeamData, TeamMember, TeamInvitation } from '@/types/navigation'
+import type {
+  UsageData,
+  UserData,
+  TeamData,
+  TeamMember,
+  TeamInvitation,
+  PlanData,
+} from '@/types/navigation'
 
 interface DashboardShellProps {
   user: UserData
@@ -30,6 +37,7 @@ interface DashboardShellProps {
   pendingUserInvitations: (TeamInvitation & { teamName: string })[]
   currentUserRole: 'owner' | 'admin' | 'member'
   defaultSidebarOpen?: boolean
+  planData: PlanData | null
   children: ReactNode
 }
 
@@ -69,6 +77,7 @@ export default function DashboardShell({
   pendingUserInvitations,
   currentUserRole,
   defaultSidebarOpen = false,
+  planData,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
@@ -149,6 +158,7 @@ export default function DashboardShell({
             avatarUrl: user.avatarUrl,
           }}
           team={team ? { name: team.name, slug: team.slug } : null}
+          teamId={team?.id}
           usage={
             usage
               ? {
@@ -163,6 +173,7 @@ export default function DashboardShell({
           invitations={invitations}
           currentUserRole={currentUserRole}
           currentUserId={user.id}
+          planData={planData}
         />
       </SidebarProvider>
     </CommandMenuContext>

@@ -25,7 +25,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChevronDown, X } from 'lucide-react'
 import InviteMemberDialog from '@/components/settings/invite-member-dialog'
-import type { TeamMember, TeamInvitation } from '@/types/navigation'
+import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
 import {
   updateMemberRoleAction,
   removeMemberAction,
@@ -37,6 +37,7 @@ interface MembersSectionProps {
   invitations: TeamInvitation[]
   currentUserRole: 'owner' | 'admin' | 'member'
   currentUserId: string
+  planData: PlanData | null
 }
 
 const ROLE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
@@ -92,6 +93,7 @@ export default function MembersSection({
   invitations,
   currentUserRole,
   currentUserId,
+  planData,
 }: MembersSectionProps) {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -142,12 +144,42 @@ export default function MembersSection({
           <h2 className="text-lg font-semibold">Members</h2>
           <p className="text-muted-foreground text-sm">Manage who has access to this workspace</p>
         </div>
-        {canManage && (
-          <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
-            Invite member
-          </Button>
-        )}
+        {canManage &&
+          (planData?.planId === 'free' ? (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">Upgrade to invite members</span>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  toast('Upgrade to Pro to invite team members', {
+                    action: {
+                      label: 'View plans',
+                      onClick: () => {
+                        window.dispatchEvent(
+                          new CustomEvent('switch-settings-tab', { detail: 'billing' })
+                        )
+                      },
+                    },
+                  })
+                }}
+              >
+                Upgrade
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+              Invite member
+            </Button>
+          ))}
       </div>
+
+      {planData && members.length >= planData.maxTeamMembers && planData.planId !== 'free' && (
+        <div className="rounded-lg bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:bg-yellow-950/20 dark:text-yellow-200">
+          You&apos;ve reached your plan&apos;s limit of {planData.maxTeamMembers} members. Upgrade
+          for more seats.
+        </div>
+      )}
 
       {/* Members list */}
       <div className="flex flex-col">

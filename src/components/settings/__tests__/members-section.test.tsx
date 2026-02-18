@@ -78,6 +78,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -100,6 +101,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -115,6 +117,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -130,6 +133,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -145,6 +149,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -158,6 +163,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -171,6 +177,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="admin"
           currentUserId="user-2"
+          planData={null}
         />
       )
 
@@ -184,6 +191,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="member"
           currentUserId="user-3"
+          planData={null}
         />
       )
 
@@ -199,6 +207,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -221,6 +230,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -246,6 +256,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="admin"
           currentUserId="user-2"
+          planData={null}
         />
       )
 
@@ -272,6 +283,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="member"
           currentUserId="user-3"
+          planData={null}
         />
       )
 
@@ -299,6 +311,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -336,6 +349,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -362,6 +376,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -381,6 +396,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="admin"
           currentUserId="user-2"
+          planData={null}
         />
       )
 
@@ -400,6 +416,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="member"
           currentUserId="user-3"
+          planData={null}
         />
       )
 
@@ -419,6 +436,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="admin"
           currentUserId="user-2"
+          planData={null}
         />
       )
 
@@ -444,6 +462,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -475,6 +494,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -509,6 +529,7 @@ describe('MembersSection', () => {
           invitations={mockInvitations}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -525,6 +546,7 @@ describe('MembersSection', () => {
           invitations={mockInvitations}
           currentUserRole="admin"
           currentUserId="user-2"
+          planData={null}
         />
       )
 
@@ -538,6 +560,7 @@ describe('MembersSection', () => {
           invitations={mockInvitations}
           currentUserRole="member"
           currentUserId="user-3"
+          planData={null}
         />
       )
 
@@ -554,6 +577,7 @@ describe('MembersSection', () => {
           invitations={mockInvitations}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 
@@ -587,6 +611,7 @@ describe('MembersSection', () => {
           invitations={[]}
           currentUserRole="owner"
           currentUserId="user-1"
+          planData={null}
         />
       )
 

@@ -29,6 +29,19 @@ vi.mock('@/lib/get-active-team', () => ({
   getActiveTeamId: vi.fn().mockResolvedValue('team-1'),
 }))
 
+vi.mock('@/lib/billing/feature-gate', () => ({
+  getTeamPlan: vi.fn().mockResolvedValue({
+    planId: 'pro',
+    planName: 'Pro',
+    features: { invite_members: true, workspace_connections: true },
+    stepsLimit: 10000,
+    aiCreditsLimit: 1000,
+    maxTeamMembers: 10,
+  }),
+  hasFeature: vi.fn().mockReturnValue(true),
+  canInviteMembers: vi.fn().mockReturnValue(true),
+}))
+
 // Helper to create mock Supabase client with chainable query builder
 function createMockSupabase(overrides: Record<string, any> = {}) {
   const mockChain = {

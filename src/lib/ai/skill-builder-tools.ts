@@ -912,15 +912,74 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           .eq('agent_id', agentId)
         if (error) return { success: false, error: error.message }
 
-        // If trigger_config changed and has a workflow_id, also update the workflow_triggers table
-        if (params.trigger_config) {
-          const { data: agentWorkflow } = await supabase
-            .from('agent_workflows')
-            .select('workflow_id')
-            .eq('id', params.skill_id)
-            .single()
+        // Fetch the linked workflow_id for syncing to workflow tables
+        const { data: agentWorkflow } = await supabase
+          .from('agent_workflows')
+          .select('workflow_id')
+          .eq('id', params.skill_id)
+          .single()
 
-          if (agentWorkflow?.workflow_id) {
+        if (agentWorkflow?.workflow_id) {
+          // Sync name/description to the workflows table
+          if (params.name || params.description) {
+            const wfUpdate: Record<string, unknown> = {}
+            if (params.name) wfUpdate.name = params.name
+            if (params.description) wfUpdate.description = params.description
+            await supabase.from('workflows').update(wfUpdate).eq('id', agentWorkflow.workflow_id)
+          }
+
+          // Sync actions to workflow_steps table (delete + re-create)
+          if (params.actions) {
+            await supabase
+              .from('workflow_steps')
+              .delete()
+              .eq('workflow_id', agentWorkflow.workflow_id)
+
+            for (let i = 0; i < params.actions.length; i++) {
+              const action = params.actions[i]
+              let stepType: StepType
+              let stepName: string
+              let stepConfig: Record<string, unknown>
+
+              if (action.type === 'composio_action') {
+                stepType = 'app'
+                stepName = action.action || 'App Action'
+                stepConfig = {
+                  app_id: action.app_id || '',
+                  action: action.action || '',
+                  inputs: action.params || {},
+                }
+              } else if (action.type === 'ai_transform') {
+                stepType = 'ai'
+                stepName = `AI: ${action.output_key || 'transform'}`
+                stepConfig = {
+                  ai_action: 'transform',
+                  prompt_template: action.prompt || '',
+                  output_format: 'text',
+                  temperature: 0.3,
+                  max_tokens: 500,
+                }
+              } else {
+                stepType = 'utility'
+                stepName = `Notify: ${action.channel || 'internal'}`
+                stepConfig = {
+                  utility_type: 'format',
+                  format_template: action.message || '',
+                }
+              }
+
+              await supabase.from('workflow_steps').insert({
+                workflow_id: agentWorkflow.workflow_id,
+                position: i,
+                type: stepType,
+                name: stepName,
+                config: stepConfig as unknown as Json,
+              })
+            }
+          }
+
+          // Sync trigger_config to workflow_triggers table
+          if (params.trigger_config) {
             let triggerType: TriggerType = 'manual'
             let triggerConfig: Record<string, unknown> = {}
 

@@ -8,6 +8,7 @@ import {
   fetchTeamInvitations,
   fetchPendingInvitationsForUser,
 } from '@/lib/queries/members'
+import type { PlanData } from '@/types/navigation'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
@@ -57,10 +58,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Fetch team and usage in parallel (both depend on activeTeamId)
   let team = null
   let usage = null
+  let planData: PlanData | null = null
   if (activeTeamId) {
     const now = new Date().toISOString()
-    const [{ data: teamData }, { data: usageRows }] = await Promise.all([
-      supabase.from('teams').select('id, name, slug').eq('id', activeTeamId).single(),
+    const [{ data: teamData }, { data: usageRows }, { data: subscriptionRow }] = await Promise.all([
+      supabase
+        .from('teams')
+        .select('id, name, slug, plan_id, plans(id, name, features, max_team_members)')
+        .eq('id', activeTeamId)
+        .single(),
       supabase
         .from('usage')
         .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
@@ -69,10 +75,33 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .gte('period_end', now)
         .order('period_start', { ascending: false })
         .limit(1),
+      supabase
+        .from('subscriptions')
+        .select('stripe_subscription_id, cancel_at_period_end, status')
+        .eq('team_id', activeTeamId)
+        .single(),
     ])
 
     if (teamData) {
       team = { id: teamData.id, name: teamData.name, slug: teamData.slug }
+
+      const teamWithPlan = teamData as typeof teamData & {
+        plans: {
+          id: string
+          name: string
+          features: Record<string, boolean>
+          max_team_members: number
+        } | null
+      }
+      const planInfo = teamWithPlan.plans
+      planData = {
+        planId: (planInfo?.id ?? teamWithPlan.plan_id ?? 'free') as PlanData['planId'],
+        planName: planInfo?.name ?? 'Free',
+        features: (planInfo?.features ?? {}) as Record<string, boolean>,
+        maxTeamMembers: planInfo?.max_team_members ?? 1,
+        hasStripeSubscription: !!subscriptionRow?.stripe_subscription_id,
+        cancelAtPeriodEnd: subscriptionRow?.cancel_at_period_end ?? false,
+      }
     }
 
     const usageData = usageRows?.[0]
@@ -138,6 +167,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         pendingUserInvitations={pendingUserInvitations}
         currentUserRole={currentUserRole}
         defaultSidebarOpen={sidebarOpen}
+        planData={planData}
       >
         {children}
       </DashboardShell>

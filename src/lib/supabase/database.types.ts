@@ -623,6 +623,45 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          ai_credits_limit: number
+          created_at: string
+          description: string | null
+          features: Json
+          id: string
+          max_team_members: number
+          name: string
+          sort_order: number
+          steps_limit: number
+          stripe_product_id: string | null
+        }
+        Insert: {
+          ai_credits_limit?: number
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id: string
+          max_team_members?: number
+          name: string
+          sort_order?: number
+          steps_limit?: number
+          stripe_product_id?: string | null
+        }
+        Update: {
+          ai_credits_limit?: number
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          max_team_members?: number
+          name?: string
+          sort_order?: number
+          steps_limit?: number
+          stripe_product_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -709,6 +748,110 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'subscriptions_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'subscriptions_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: true
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      team_invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database['public']['Enums']['team_role']
+          status: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: Database['public']['Enums']['team_role']
+          status?: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database['public']['Enums']['team_role']
+          status?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'team_invitations_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       team_members: {
         Row: {
           created_at: string
@@ -751,6 +894,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          plan_id: string
           slug: string
           updated_at: string
         }
@@ -759,6 +903,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          plan_id?: string
           slug: string
           updated_at?: string
         }
@@ -767,10 +912,19 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          plan_id?: string
           slug?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'teams_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'plans'
+            referencedColumns: ['id']
+          },
+        ]
       }
       trigger_subscriptions: {
         Row: {
@@ -1150,9 +1304,23 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_test_results: { Args: never; Returns: number }
+      get_user_email: { Args: { user_uuid: string }; Returns: string }
+      get_user_team_ids: { Args: { user_uuid: string }; Returns: string[] }
+      increment_ai_credits: {
+        Args: { p_team_id: string; p_credits: number }
+        Returns: undefined
+      }
+      has_pending_invitation: {
+        Args: { target_team_id: string; user_email: string }
+        Returns: boolean
+      }
       interval_to_cron: {
         Args: { p_interval_unit: string; p_interval_value: number }
         Returns: string
+      }
+      is_team_admin_or_owner: {
+        Args: { target_team_id: string; user_uuid: string }
+        Returns: boolean
       }
       seed_demo_data: { Args: { user_uuid: string }; Returns: undefined }
       unschedule_cron_job: { Args: { job_name: string }; Returns: undefined }

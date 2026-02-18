@@ -9,7 +9,7 @@ import NotificationsSection from '@/components/settings/notifications-section'
 import GeneralSection from '@/components/settings/general-section'
 import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
-import type { TeamMember, TeamInvitation } from '@/types/navigation'
+import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
 
 interface SettingsDialogProps {
   open: boolean
@@ -17,6 +17,7 @@ interface SettingsDialogProps {
   defaultSection?: SettingsSection
   profile: { fullName: string; email: string; avatarUrl: string | null }
   team: { name: string; slug: string } | null
+  teamId?: string
   usage: {
     stepsUsed: number
     stepsLimit: number
@@ -27,6 +28,7 @@ interface SettingsDialogProps {
   invitations: TeamInvitation[]
   currentUserRole: 'owner' | 'admin' | 'member'
   currentUserId: string
+  planData: PlanData | null
 }
 
 export default function SettingsDialog({
@@ -35,11 +37,13 @@ export default function SettingsDialog({
   defaultSection = 'manage-apps',
   profile,
   team,
+  teamId,
   usage,
   members,
   invitations,
   currentUserRole,
   currentUserId,
+  planData,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
 
@@ -56,7 +60,7 @@ export default function SettingsDialog({
       case 'notifications':
         return <NotificationsSection />
       case 'manage-apps':
-        return <ManageAppsSection />
+        return <ManageAppsSection teamId={teamId} planFeatures={planData?.features} />
       case 'general':
         return <GeneralSection name={team?.name ?? ''} slug={team?.slug ?? ''} />
       case 'members':
@@ -66,15 +70,18 @@ export default function SettingsDialog({
             invitations={invitations}
             currentUserRole={currentUserRole}
             currentUserId={currentUserId}
+            planData={planData}
           />
         )
       case 'billing':
         return (
           <BillingSection
+            teamId={teamId}
             stepsUsed={usage?.stepsUsed ?? 0}
             stepsLimit={usage?.stepsLimit ?? 0}
             aiCreditsUsed={usage?.aiCreditsUsed ?? 0}
             aiCreditsLimit={usage?.aiCreditsLimit ?? 0}
+            planData={planData}
           />
         )
     }

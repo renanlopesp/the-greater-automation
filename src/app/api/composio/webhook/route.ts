@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getComposio } from '@/lib/composio/client'
 import { executeVisualWorkflowSteps } from '@/lib/workflows/execute-visual-steps'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { checkUsageLimits } from '@/lib/billing/usage-check'
 import type { Json } from '@/lib/supabase/database.types'
 
 /**
@@ -212,11 +213,20 @@ async function processWorkflows(
         // 3. Load the workflow and check status
         const { data: workflow } = await supabase
           .from('workflows')
-          .select('id, status, created_by, name')
+          .select('id, status, created_by, name, team_id')
           .eq('id', vt.workflow_id)
           .single()
 
         if (!workflow || workflow.status !== 'published') continue
+
+        // 3a. Usage limit check — soft-fail: skip execution but don't break the webhook response
+        const usageResult = await checkUsageLimits(workflow.team_id)
+        if (!usageResult.allowed) {
+          console.warn(
+            `[composio-webhook] Usage limit exceeded for team ${workflow.team_id}: ${usageResult.reason}`
+          )
+          continue
+        }
 
         // 4. Check if this is an agent-owned workflow (for agent_id and stats)
         const { data: agentLink } = await supabase

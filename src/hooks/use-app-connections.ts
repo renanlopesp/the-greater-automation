@@ -2,10 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
-import { getAppConnections } from '@/lib/composio/actions/get-app-connections'
+import {
+  getAppConnections,
+  getWorkspaceConnections,
+} from '@/lib/composio/actions/get-app-connections'
 import { getComposioApps } from '@/lib/composio/actions/get-composio-apps'
 import type { AvailableApp } from '@/lib/composio/actions/get-available-apps'
-import type { AppConnection } from '@/lib/composio/actions/get-app-connections'
+import type { AppConnection, WorkspaceConnection } from '@/lib/composio/actions/get-app-connections'
 import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 
 interface AppConnectionsData {
@@ -14,8 +17,8 @@ interface AppConnectionsData {
   composioApps: ComposioApp[]
 }
 
-export function useAppConnections() {
-  return useQuery({
+export function useAppConnections(teamId?: string, hasWorkspaceFeature?: boolean) {
+  const personalQuery = useQuery({
     queryKey: ['app-connections'],
     queryFn: async (): Promise<AppConnectionsData> => {
       const [connections, availableApps, composioApps] = await Promise.all([
@@ -27,4 +30,16 @@ export function useAppConnections() {
     },
     staleTime: 30_000,
   })
+
+  const workspaceQuery = useQuery({
+    queryKey: ['workspace-connections', teamId],
+    queryFn: () => getWorkspaceConnections(teamId!),
+    enabled: !!teamId && !!hasWorkspaceFeature,
+    staleTime: 30_000,
+  })
+
+  return {
+    ...personalQuery,
+    workspaceConnections: (workspaceQuery.data ?? []) as WorkspaceConnection[],
+  }
 }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import { executeAIStep } from '@/lib/ai/chat'
+import { tokensToCredits } from '@/lib/billing/credits'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
@@ -155,7 +156,7 @@ export async function executeVisualWorkflowSteps(
                   : null,
               }
               if (result.usage) {
-                totalAICreditsUsed += result.usage.total_tokens
+                totalAICreditsUsed += tokensToCredits(result.usage.total_tokens)
               }
             } else {
               stepStatus = 'failed'

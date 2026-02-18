@@ -1,6 +1,8 @@
 import type { WebhookTriggerConfig } from './trigger-defaults'
 import { decryptSecret } from '@/lib/crypto'
+import { checkUsageLimits } from '@/lib/billing/usage-check'
 import { executeAIStep } from '@/lib/ai/chat'
+import { tokensToCredits } from '@/lib/billing/credits'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
@@ -159,12 +161,18 @@ export async function handleWebhookRequest(
   // 5. Load workflow and verify it's published
   const { data: workflow } = await supabase
     .from('workflows')
-    .select('id, name, status')
+    .select('id, name, status, team_id')
     .eq('id', trigger.workflow_id)
     .single()
 
   if (!workflow || workflow.status !== 'published') {
     return { status: 404, body: { error: 'Webhook not found' } }
+  }
+
+  // 5a. Usage limit check
+  const usageResult = await checkUsageLimits(workflow.team_id)
+  if (!usageResult.allowed) {
+    return { status: 402, body: { error: usageResult.reason ?? 'Usage limit exceeded' } }
   }
 
   // 6. Load workflow steps ordered by position ascending
@@ -310,7 +318,7 @@ export async function executeWorkflowSteps(
                 : null,
             }
             if (result.usage) {
-              totalAICreditsUsed += result.usage.total_tokens
+              totalAICreditsUsed += tokensToCredits(result.usage.total_tokens)
             }
           } else {
             stepStatus = 'failed'
