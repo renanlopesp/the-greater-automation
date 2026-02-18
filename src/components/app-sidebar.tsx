@@ -224,7 +224,7 @@ export default function AppSidebar({
                 tooltip={`${planData.planName} plan`}
                 onClick={() => onOpenSettings?.()}
               >
-                <span className="bg-primary/10 text-primary flex size-4 shrink-0 items-center justify-center rounded text-[7px] leading-none font-bold">
+                <span className="bg-primary/10 text-primary flex size-4 shrink-0 items-center justify-center rounded text-[10px] leading-none font-bold">
                   {planData.planId === 'enterprise' ? 'E' : 'P'}
                 </span>
                 <span>{planData.planName} plan</span>
