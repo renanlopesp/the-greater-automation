@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
+import { getActiveConversation } from '@/lib/queries/agent-conversations'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
@@ -17,7 +18,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createServerClient()
 
-  // Parallel: auth + agent fetch + profile fetch — no dependency between them
+  // Parallel: auth + agent + profile + conversation — no dependency between them
   const [
     {
       data: { user },
@@ -31,12 +32,11 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   if (!user) redirect('/login')
   if (!agent) notFound()
 
-  // Fetch profile for presence indicator
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name, avatar_url')
-    .eq('id', user.id)
-    .single()
+  // Parallel: profile + conversation history (both depend on user/agent being resolved)
+  const [{ data: profile }, activeConversation] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
+    getActiveConversation(supabase, id),
+  ])
 
   const currentUser = {
     id: user.id,
@@ -92,7 +92,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         </div>
       </header>
 
-      {/* Chat takes all remaining space */}
+      {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
       <ChatPanel
         agentId={id}
         agentName={agent.name}
@@ -103,6 +103,8 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             : []
         }
         currentUserId={user.id}
+        initialConversationId={activeConversation?.conversationId ?? null}
+        initialMessages={activeConversation?.messages ?? []}
       />
     </div>
   )

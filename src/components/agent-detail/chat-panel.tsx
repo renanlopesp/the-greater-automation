@@ -58,6 +58,15 @@ interface ChatPanelProps {
   agentPalette: string
   conversationStarters: string[]
   currentUserId: string
+  initialConversationId: string | null
+  initialMessages: {
+    id: string
+    role: string
+    content: string
+    sender_id: string | null
+    sender_name: string | null
+    sender_avatar: string | null
+  }[]
 }
 
 function AgentAvatar({ name, palette }: { name: string; palette: string }) {
@@ -265,19 +274,16 @@ export default function ChatPanel({
   agentPalette,
   conversationStarters,
   currentUserId,
+  initialConversationId,
+  initialMessages,
 }: ChatPanelProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
-  const {
-    messages,
-    status,
-    isLoading,
-    isStreaming,
-    isLoadingHistory,
-    error,
-    sendMessage,
-    startNewChat,
-    stop,
-  } = useAgentChat(agentId, currentUserId, { onSkillMutation: invalidateWorkflows })
+  const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
+    useAgentChat(agentId, currentUserId, {
+      onSkillMutation: invalidateWorkflows,
+      initialConversationId,
+      initialMessages,
+    })
 
   const hasMessages = messages.length > 0
 
@@ -317,41 +323,30 @@ export default function ChatPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Loading history skeleton */}
-      {isLoadingHistory ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-2xl space-y-4">
-            <div className="bg-muted h-16 animate-pulse rounded-2xl" />
-            <div className="bg-muted h-12 animate-pulse rounded-2xl" />
-            <div className="bg-muted h-20 animate-pulse rounded-2xl" />
-          </div>
-        </div>
-      ) : (
-        <Conversation className="flex-1">
-          <ConversationContent className="mx-auto max-w-3xl">
-            {!hasMessages ? (
-              <ConversationEmptyState
-                title={`Chat with ${agentName}`}
-                description="Ask a question or pick a conversation starter below."
-              />
-            ) : (
-              messages
-                .filter((m) => m.role === 'user' || m.role === 'assistant')
-                .map((message) => (
-                  <ChatMessageItem
-                    key={message.id}
-                    message={message}
-                    agentName={agentName}
-                    agentPalette={agentPalette}
-                    isStreaming={isStreaming && message.id === lastAssistantId}
-                    currentUserId={currentUserId}
-                  />
-                ))
-            )}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-      )}
+      <Conversation className="flex-1">
+        <ConversationContent className="mx-auto max-w-3xl">
+          {!hasMessages ? (
+            <ConversationEmptyState
+              title={`Chat with ${agentName}`}
+              description="Ask a question or pick a conversation starter below."
+            />
+          ) : (
+            messages
+              .filter((m) => m.role === 'user' || m.role === 'assistant')
+              .map((message) => (
+                <ChatMessageItem
+                  key={message.id}
+                  message={message}
+                  agentName={agentName}
+                  agentPalette={agentPalette}
+                  isStreaming={isStreaming && message.id === lastAssistantId}
+                  currentUserId={currentUserId}
+                />
+              ))
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {/* Error banner */}
       {error && (

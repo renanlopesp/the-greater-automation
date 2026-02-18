@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { createBrowserClient } from '@/lib/supabase/client'
 
 interface PresenceUser {
@@ -9,10 +9,21 @@ interface PresenceUser {
   avatarUrl: string | null
 }
 
-export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
-  const [activeUsers, setActiveUsers] = useState<PresenceUser[]>([])
+/**
+ * Creates an external presence store for a given agent channel.
+ * Side effects (channel creation, WebSocket subscription) are deferred
+ * to the first `subscribe` call — keeping the factory itself pure.
+ */
+function createPresenceStore(agentId: string, currentUser: PresenceUser) {
+  let users: PresenceUser[] = []
+  const listeners = new Set<() => void>()
+  let initialized = false
+  let cleanup: (() => void) | null = null
 
-  useEffect(() => {
+  function init() {
+    if (initialized) return
+    initialized = true
+
     const supabase = createBrowserClient()
     const channel = supabase.channel(`presence:agent:${agentId}`, {
       config: { presence: { key: currentUser.id } },
@@ -20,7 +31,7 @@ export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
 
     function syncPresence() {
       const state = channel.presenceState()
-      const users: PresenceUser[] = []
+      const next: PresenceUser[] = []
       const seen = new Set<string>()
       for (const key of Object.keys(state)) {
         for (const p of state[key]) {
@@ -28,7 +39,7 @@ export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
           const id = payload.id as string | undefined
           if (id && !seen.has(id) && id !== currentUser.id) {
             seen.add(id)
-            users.push({
+            next.push({
               id,
               fullName: (payload.fullName as string) ?? null,
               avatarUrl: (payload.avatarUrl as string) ?? null,
@@ -36,7 +47,8 @@ export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
           }
         }
       }
-      setActiveUsers(users)
+      users = next
+      listeners.forEach((l) => l())
     }
 
     channel
@@ -50,13 +62,53 @@ export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
             fullName: currentUser.fullName,
             avatarUrl: currentUser.avatarUrl,
           })
+          syncPresence()
         }
       })
 
-    return () => {
+    // Retry for client-side navigation where WebSocket needs time to sync
+    const retryTimer = setTimeout(syncPresence, 2000)
+
+    cleanup = () => {
+      clearTimeout(retryTimer)
       supabase.removeChannel(channel)
+      initialized = false
+      cleanup = null
     }
-  }, [agentId, currentUser.id, currentUser.fullName, currentUser.avatarUrl])
+  }
+
+  return {
+    subscribe(listener: () => void) {
+      init()
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) {
+          cleanup?.()
+        }
+      }
+    },
+    getSnapshot() {
+      return users
+    },
+  }
+}
+
+const emptyUsers: PresenceUser[] = []
+
+export function useAgentPresence(agentId: string, currentUser: PresenceUser) {
+  // Store is created once per mount (useState initializer is pure — side effects
+  // are deferred to subscribe, which runs during commit phase)
+  const [store] = useMemo(
+    () => [createPresenceStore(agentId, currentUser)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only create on mount
+    []
+  )
+
+  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store])
+  const getSnapshot = useCallback(() => store.getSnapshot(), [store])
+
+  const activeUsers = useSyncExternalStore(subscribe, getSnapshot, () => emptyUsers)
 
   return { activeUsers }
 }
