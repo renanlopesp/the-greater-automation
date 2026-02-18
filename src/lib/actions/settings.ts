@@ -3,6 +3,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { accountSettingsSchema, workspaceSettingsSchema } from '@/lib/schemas/settings'
 import { getActiveTeamId } from '@/lib/get-active-team'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 export type SettingsActionResult = { error?: string; success?: boolean }
 
@@ -40,21 +41,17 @@ export async function updateWorkspaceAction(formData: FormData): Promise<Setting
     return { error: parsed.error.issues[0].message }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to edit workspace settings' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'Not authenticated' }
-  }
 
-  // Get user's active team (respects workspace switcher cookie)
-  const teamId = await getActiveTeamId(supabase, user.id)
-  if (!teamId) {
-    return { error: 'No workspace found' }
-  }
-
-  const { error } = await supabase.from('teams').update({ name: parsed.data.name }).eq('id', teamId)
+  const { error } = await supabase
+    .from('teams')
+    .update({ name: parsed.data.name })
+    .eq('id', info.teamId)
 
   if (error) {
     return { error: 'Failed to update workspace' }

@@ -10,6 +10,7 @@ import {
   deleteTrigger,
 } from '@/lib/composio/triggers'
 import type { Json } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult = { error?: string }
 
@@ -51,6 +52,11 @@ export interface CreateTriggerSubscriptionInput {
 }
 
 export async function createTriggerSubscription(params: CreateTriggerSubscriptionInput) {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -174,6 +180,11 @@ export async function toggleTriggerSubscription(
   subscriptionId: string,
   enabled: boolean
 ): Promise<{ success?: boolean } & ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -225,6 +236,11 @@ export async function toggleTriggerSubscription(
 export async function deleteTriggerSubscription(
   subscriptionId: string
 ): Promise<{ success?: boolean } & ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -270,6 +286,10 @@ export async function deleteTriggerSubscription(
 // ---------------------------------------------------------------------------
 
 export async function retryWorkflowRun(runId: string) {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to retry workflow runs' }
+
   const supabase = await createServerClient()
   const {
     data: { user },

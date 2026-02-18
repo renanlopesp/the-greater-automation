@@ -280,8 +280,13 @@ describe('MembersSection', () => {
       expect(screen.getByText('Admin')).toBeInTheDocument()
       expect(screen.getByText('Member')).toBeInTheDocument()
 
-      // Member has no manage permissions, so no buttons should appear (no invite, no remove, no role dropdowns)
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      // Member has no manage permissions, so no invite or remove buttons should appear
+      // Role badges are clickable (popover) but no chevron dropdown or X remove buttons
+      const buttons = screen.getAllByRole('button')
+      const manageButtons = buttons.filter(
+        (btn) => btn.querySelector('svg') // only chevron/X buttons have SVGs
+      )
+      expect(manageButtons.length).toBe(0)
     })
 
     it('owner can open role dropdown and change role', async () => {
@@ -398,8 +403,13 @@ describe('MembersSection', () => {
         />
       )
 
-      // Member has no permissions, so no buttons at all
-      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+      // Member has no manage permissions - no remove (X) buttons
+      // Role badges are clickable (popover) but no SVG-containing manage buttons
+      const buttons = screen.getAllByRole('button')
+      const removeButtons = buttons.filter(
+        (btn) => btn.querySelector('svg') // only chevron/X buttons have SVGs
+      )
+      expect(removeButtons.length).toBe(0)
     })
 
     it('cannot remove self', () => {

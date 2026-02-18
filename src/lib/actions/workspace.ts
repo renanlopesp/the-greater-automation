@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type WorkflowStatus = Database['public']['Enums']['workflow_status']
 type TriggerType = Database['public']['Enums']['trigger_type']
@@ -45,6 +46,11 @@ export async function createWorkflow(
   teamId: string,
   userId: string
 ): Promise<ActionResult<{ id: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create workflows', id: '' }
+
   const supabase = await createServerClient()
 
   const { data, error } = await supabase
@@ -79,6 +85,10 @@ export async function createWorkflow(
 // ---------------------------------------------------------------------------
 
 export async function deleteWorkflow(workflowId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete workflows' }
+
   const supabase = await createServerClient()
 
   // Verify user has access to this workflow (RLS enforces ownership)
@@ -150,6 +160,10 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 // ---------------------------------------------------------------------------
 
 export async function deleteAgent(agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete agents' }
+
   const supabase = await createServerClient()
 
   // Collect workflow IDs created by agent workflows before cascade deletes them
@@ -213,6 +227,11 @@ export async function duplicateWorkflow(
   teamId: string,
   userId: string
 ): Promise<ActionResult<{ id: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to duplicate workflows', id: '' }
+
   const supabase = await createServerClient()
 
   // Fetch the source workflow
@@ -319,6 +338,10 @@ export async function renameWorkflow(workflowId: string, name: string): Promise<
     return { error: 'Workflow name cannot be empty' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to edit workflows' }
+
   const supabase = await createServerClient()
 
   const { error } = await supabase
@@ -347,6 +370,11 @@ export async function createWorkflowFromTemplate(
   if (!template) {
     return { error: 'Template not found', id: '' }
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create workflows', id: '' }
 
   const supabase = await createServerClient()
 
@@ -412,6 +440,10 @@ export async function bulkDeleteItems(
   if (items.length === 0) {
     return {}
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete items' }
 
   const workflowIds: string[] = []
   const agentIds: string[] = []
@@ -503,6 +535,11 @@ export async function bulkToggleStatus(
     return {}
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to change workflow status' }
+
   const supabase = await createServerClient()
 
   const updatePayload: { status: WorkflowStatus; published_at: string | null } = {
@@ -536,6 +573,11 @@ export async function createFolder(
   if (trimmedName.length > 100) {
     return { error: 'Folder name must be 100 characters or less', id: '' }
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create folders', id: '' }
 
   const supabase = await createServerClient()
 
@@ -586,6 +628,10 @@ export async function renameFolder(folderId: string, name: string): Promise<Acti
     return { error: 'Folder name is required' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to edit folders' }
+
   const supabase = await createServerClient()
 
   const { error } = await supabase.from('folders').update({ name: trimmedName }).eq('id', folderId)
@@ -606,6 +652,10 @@ export async function deleteFolder(
   folderId: string,
   mode: 'move-to-root' | 'delete-all'
 ): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete folders' }
+
   const supabase = await createServerClient()
 
   if (mode === 'move-to-root') {
@@ -720,6 +770,10 @@ export async function moveToFolder(
     return { error: 'At least one item must be selected' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to move items' }
+
   const supabase = await createServerClient()
 
   // Validate target folder exists (if not moving to root)
@@ -790,6 +844,11 @@ export async function saveWorkflow(
     }>
   }
 ): Promise<ActionResult<{ savedAt: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', savedAt: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to edit workflows', savedAt: '' }
+
   const supabase = await createServerClient()
 
   const {
@@ -950,6 +1009,10 @@ export async function publishWorkflow(
   workflowId: string,
   status: WorkflowStatus
 ): Promise<ActionResult<{ webhookToken?: string; webhookSecret?: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to publish workflows' }
+
   const supabase = await createServerClient()
 
   const {

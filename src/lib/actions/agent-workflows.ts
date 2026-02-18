@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult = { error?: string }
 
@@ -52,6 +53,11 @@ export interface SaveWorkflowInput {
 }
 
 export async function addWorkflow(agentId: string, workflowId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -83,6 +89,11 @@ export async function addWorkflow(agentId: string, workflowId: string): Promise<
 }
 
 export async function removeWorkflow(workflowId: string, agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -128,6 +139,11 @@ function detectPlaceholder(key: string, value: unknown): string {
 }
 
 export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -195,6 +211,11 @@ export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promi
 }
 
 export async function deleteWorkflow(workflowId: string, agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to delete agent workflows' }
+
   const supabase = await createServerClient()
   const {
     data: { user },

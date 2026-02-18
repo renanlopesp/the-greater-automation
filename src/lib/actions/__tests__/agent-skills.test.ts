@@ -6,6 +6,18 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
+// Mock getUserTeamRole — returns owner by default
+vi.mock('@/lib/auth/require-role', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/auth/require-role')>('@/lib/auth/require-role')
+  return {
+    ...actual,
+    getUserTeamRole: vi
+      .fn()
+      .mockResolvedValue({ userId: 'user-123', teamId: 'team-1', role: 'owner' }),
+  }
+})
+
 // Mock Supabase client
 const mockSupabase = {
   auth: {
@@ -24,6 +36,18 @@ describe('agent-skills server actions', () => {
   })
 
   describe('createSkill', () => {
+    it('returns error when user role is member', async () => {
+      const { getUserTeamRole } = await import('@/lib/auth/require-role')
+      vi.mocked(getUserTeamRole).mockResolvedValueOnce({
+        userId: 'user-123',
+        teamId: 'team-1',
+        role: 'member',
+      })
+
+      const result = await createSkill('agent-456', 'Test Skill', 'Content')
+      expect(result).toEqual({ error: 'You do not have permission to manage agent skills' })
+    })
+
     it('creates a skill successfully', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: { id: 'user-123' } },
@@ -61,15 +85,13 @@ describe('agent-skills server actions', () => {
       })
     })
 
-    it('returns error when user is unauthorized', async () => {
-      mockSupabase.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      })
+    it('returns error when user is not authenticated', async () => {
+      const { getUserTeamRole } = await import('@/lib/auth/require-role')
+      vi.mocked(getUserTeamRole).mockResolvedValueOnce(null)
 
       const result = await createSkill('agent-456', 'Test Skill', 'Content')
 
-      expect(result).toEqual({ error: 'Unauthorized' })
+      expect(result).toEqual({ error: 'Not authenticated' })
       expect(mockSupabase.from).not.toHaveBeenCalled()
     })
 
@@ -181,17 +203,15 @@ describe('agent-skills server actions', () => {
       )
     })
 
-    it('returns error when user is unauthorized', async () => {
-      mockSupabase.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      })
+    it('returns error when user is not authenticated', async () => {
+      const { getUserTeamRole } = await import('@/lib/auth/require-role')
+      vi.mocked(getUserTeamRole).mockResolvedValueOnce(null)
 
       const result = await updateSkill('skill-789', 'agent-456', {
         name: 'Updated Skill',
       })
 
-      expect(result).toEqual({ error: 'Unauthorized' })
+      expect(result).toEqual({ error: 'Not authenticated' })
       expect(mockSupabase.from).not.toHaveBeenCalled()
     })
 
@@ -247,15 +267,13 @@ describe('agent-skills server actions', () => {
       expect(mockDelete).toHaveBeenCalled()
     })
 
-    it('returns error when user is unauthorized', async () => {
-      mockSupabase.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      })
+    it('returns error when user is not authenticated', async () => {
+      const { getUserTeamRole } = await import('@/lib/auth/require-role')
+      vi.mocked(getUserTeamRole).mockResolvedValueOnce(null)
 
       const result = await deleteSkill('skill-789', 'agent-456')
 
-      expect(result).toEqual({ error: 'Unauthorized' })
+      expect(result).toEqual({ error: 'Not authenticated' })
       expect(mockSupabase.from).not.toHaveBeenCalled()
     })
 
