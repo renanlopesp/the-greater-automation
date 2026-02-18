@@ -139,7 +139,7 @@ async function AgentSidebarData({
         .order('started_at', { ascending: false })
         .limit(20),
 
-      supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
+      supabase.rpc('get_agent_available_connections', { p_agent_id: agentId, p_user_id: userId }),
 
       supabase
         .from('agent_skills')
@@ -192,12 +192,16 @@ async function AgentSidebarData({
     if (ts.app_id) usedAppIds.add(ts.app_id)
   }
 
-  const allConnections = (connectionsResult.data ?? []).map((c) => ({
+  const rpcConnections = (connectionsResult.data ?? []) as Array<{
+    app_id: string
+    is_own_connection: boolean
+  }>
+  // Prefer user's own connections; fall back to team connections
+  const ownConnections = rpcConnections.filter((r) => r.is_own_connection)
+  const connectedApps = (ownConnections.length > 0 ? ownConnections : rpcConnections).map((c) => ({
     app_id: c.app_id,
-    account_label: c.account_label,
+    account_label: null,
   }))
-  const connectedApps =
-    usedAppIds.size > 0 ? allConnections.filter((c) => usedAppIds.has(c.app_id)) : allConnections
 
   // Transform runs — unified from workflow_runs (both agent and visual workflows)
   const allRuns = (recentRunsResult.data ?? []).map((r) => ({
