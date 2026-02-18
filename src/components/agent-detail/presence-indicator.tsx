@@ -19,7 +19,7 @@ export default function PresenceIndicator({ agentId, currentUser }: PresenceIndi
   if (activeUsers.length === 0) return null
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="mr-1.5 flex items-center gap-1">
       <div className="flex -space-x-1.5">
         {activeUsers.slice(0, 3).map((user) => (
           <Tooltip key={user.id}>

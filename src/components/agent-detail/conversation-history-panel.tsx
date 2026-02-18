@@ -44,14 +44,14 @@ export default function ConversationHistoryPanel({
         <SheetHeader>
           <SheetTitle>Chat History</SheetTitle>
         </SheetHeader>
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2 px-4">
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleNewChat}>
             <Plus className="size-4" />
             New Chat
           </Button>
         </div>
         <ScrollArea className="mt-4 h-[calc(100vh-10rem)]">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 px-4">
             {isLoading ? (
               <div className="space-y-3 py-4">
                 {[1, 2, 3].map((i) => (
@@ -74,8 +74,8 @@ export default function ConversationHistoryPanel({
                 >
                   <MessageSquare className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="line-clamp-2 text-sm font-medium">
                         {conv.title ?? 'Untitled conversation'}
                       </span>
                       {conv.isActive && (
