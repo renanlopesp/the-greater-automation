@@ -63,9 +63,7 @@ vi.mock('@/components/ai-elements/reasoning', () => ({
   ReasoningContent: ({ children }: any) => <div data-testid="reasoning-content">{children}</div>,
 }))
 
-vi.mock('@/components/ai-elements/shimmer', () => ({
-  Shimmer: ({ children }: any) => <div data-testid="shimmer">{children}</div>,
-}))
+// Shimmer is no longer directly used — Reasoning component handles the working indicator
 
 vi.mock('@/components/ai-elements/suggestion', () => ({
   Suggestion: ({ suggestion, ...props }: any) => (
@@ -339,7 +337,7 @@ describe('ChatPanel', () => {
   })
 
   describe('Streaming Indicator', () => {
-    it('should show shimmer "Thinking..." when streaming with no text content', () => {
+    it('should show reasoning indicator when streaming with no text content', () => {
       mockChatState({
         isStreaming: true,
         messages: [
@@ -352,11 +350,35 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      const shimmer = screen.getByTestId('shimmer')
-      expect(shimmer).toBeInTheDocument()
+      const reasoning = screen.getByTestId('reasoning')
+      expect(reasoning).toBeInTheDocument()
     })
 
-    it('should not show shimmer when streaming but has text content', () => {
+    it('should show reasoning indicator when streaming with tool parts but no text', () => {
+      mockChatState({
+        isStreaming: true,
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool-search',
+                toolCallId: 'call-1',
+                state: 'input-available' as const,
+                input: { query: 'test' },
+              } as any,
+            ],
+          },
+        ],
+      })
+      render(<ChatPanel {...defaultProps} />)
+
+      expect(screen.getByTestId('reasoning')).toBeInTheDocument()
+      expect(screen.getByTestId('tool')).toBeInTheDocument()
+    })
+
+    it('should not show reasoning indicator when streaming but has text content', () => {
       mockChatState({
         isStreaming: true,
         messages: [
@@ -369,10 +391,11 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('shimmer')).not.toBeInTheDocument()
+      // The reasoning for model thinking is separate — the working indicator should not show
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
 
-    it('should not show shimmer when not streaming', () => {
+    it('should not show reasoning indicator when not streaming', () => {
       mockChatState({
         isStreaming: false,
         messages: [
@@ -385,7 +408,7 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('shimmer')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
   })
 

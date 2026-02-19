@@ -72,11 +72,11 @@ export function buildAgentSystemPrompt(
     }
   }
 
-  // Connected apps (informational — tools are passed natively)
+  // Connected apps (authoritative — verified from DB, tools are passed natively)
   if (connectedApps.length > 0) {
-    prompt += '\n\n## Connected Apps\n'
+    prompt += '\n\n## Connected Apps (Verified)\n'
     prompt +=
-      'You have access to tools from the following connected apps. Use them when the user asks you to perform actions.\n'
+      'The following apps are ALREADY connected and verified. You can use their tools directly — do NOT ask the user to connect these apps again or call SNEW_CHECK_CONNECTIONS to re-verify them.\n'
     for (const app of connectedApps) {
       prompt += `\n- **${app.appId}**`
     }
@@ -160,7 +160,8 @@ export function buildAgentSystemPrompt(
     '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'
   prompt +=
     '2. **CHECK EXISTING**: ALWAYS call SNEW_LIST_WORKFLOWS first to see if a similar workflow already exists. If one does, ask the user whether they want to UPDATE the existing workflow or CREATE a new one. NEVER create duplicate workflows — prefer updating existing ones with SNEW_UPDATE_WORKFLOW.\n'
-  prompt += '3. **VERIFY**: Use SNEW_CHECK_CONNECTIONS to ensure required apps are connected\n'
+  prompt +=
+    '3. **VERIFY**: Check the "Connected Apps (Verified)" list above. Apps listed there are already connected — do NOT re-verify them. Only call SNEW_CHECK_CONNECTIONS for apps NOT in that list.\n'
   prompt +=
     '4. **CHECK CAPABILITIES**: ALWAYS call SNEW_LIST_APP_CAPABILITIES for each app you plan to use. This returns both available **actions** (things you can do) and **triggers** (events you can listen for). NEVER invent or guess action names — only use slugs returned by this tool.\n'
   prompt +=
@@ -195,8 +196,9 @@ export function buildAgentSystemPrompt(
   prompt += '### Authentication Awareness (CRITICAL)\n\n'
   prompt +=
     'Each app connection has an **auth_type** (OAuth, Bot, API Key, etc.) that determines what it can do. Different auth types grant different scopes and permissions — an OAuth user token may NOT support the same actions as a Bot token or API Key.\n\n'
-  prompt += '**Before creating any workflow, ALWAYS:**\n'
-  prompt += '1. Call SNEW_CHECK_CONNECTIONS to see the auth_type and scopes of each connection\n'
+  prompt += '**Before creating any workflow:**\n'
+  prompt +=
+    '1. Check the "Connected Apps (Verified)" list above FIRST. Apps listed there are confirmed connected — do NOT call SNEW_CHECK_CONNECTIONS for them. Only call SNEW_CHECK_CONNECTIONS for apps that are NOT in the verified list.\n'
   prompt +=
     '2. Call SNEW_LIST_APP_CAPABILITIES to see what actions and triggers are actually available for that app\n'
   prompt +=

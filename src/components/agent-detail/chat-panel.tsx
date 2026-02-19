@@ -38,7 +38,6 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
-import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -145,7 +144,7 @@ function ChatMessageItem({
           <p className="whitespace-pre-wrap">{textContent}</p>
         ) : (
           <>
-            {/* Reasoning parts */}
+            {/* Reasoning parts from model */}
             {reasoningParts.map((part, i) => (
               <Reasoning
                 key={`reasoning-${i}`}
@@ -155,6 +154,14 @@ function ChatMessageItem({
                 <ReasoningContent>{part.text}</ReasoningContent>
               </Reasoning>
             ))}
+
+            {/* Working indicator — shows when agent is processing but has no reasoning parts or text yet */}
+            {isStreaming && !textContent && reasoningParts.length === 0 && (
+              <Reasoning isStreaming={true}>
+                <ReasoningTrigger />
+                <ReasoningContent>{''}</ReasoningContent>
+              </Reasoning>
+            )}
 
             {/* Tool invocation parts */}
             {toolParts.map((part) => {
@@ -194,11 +201,6 @@ function ChatMessageItem({
 
             {/* Text response with markdown */}
             {textContent && <MessageResponse>{textContent}</MessageResponse>}
-
-            {/* Streaming indicator when no text yet */}
-            {isStreaming && !textContent && toolParts.length === 0 && (
-              <Shimmer as="p">Thinking...</Shimmer>
-            )}
           </>
         )}
       </MessageContent>

@@ -102,7 +102,7 @@ export default function AgentSidebar({
             Skills, connected apps, and activity
           </SheetDescription>
         </SheetHeader>
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:!overflow-x-hidden [&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:!min-w-0">
           <div className="space-y-6 p-6">
             <Tabs defaultValue="workflows" className="space-y-3">
               <TabsList className="h-8">

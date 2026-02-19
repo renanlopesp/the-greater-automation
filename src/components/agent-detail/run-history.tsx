@@ -194,7 +194,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
 
   return (
     <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
-      <div className="flex items-center gap-1.5 border-b px-4 py-2">
+      <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
         {['all', 'completed', 'failed', 'running'].map((status) => (
           <button
             key={status}
@@ -245,14 +245,19 @@ export default function RunHistory({ runs }: RunHistoryProps) {
                   <ChevronRight className="text-muted-foreground h-4 w-4 flex-shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{name}</p>
-                    {run.event_log_id && (
-                      <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                        {formatTriggerLabel(run.trigger_data)}
-                      </Badge>
-                    )}
-                    {getStatusBadge(run.status)}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{name}</p>
+                    <div className="flex flex-shrink-0 items-center gap-1.5">
+                      {run.event_log_id && (
+                        <Badge
+                          variant="secondary"
+                          className="px-1.5 py-0 text-[10px] whitespace-nowrap"
+                        >
+                          {formatTriggerLabel(run.trigger_data)}
+                        </Badge>
+                      )}
+                      {getStatusBadge(run.status)}
+                    </div>
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
