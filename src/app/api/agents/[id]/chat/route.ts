@@ -119,6 +119,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .from('agent_conversations')
       .select('id')
       .eq('agent_id', agentId)
+      .eq('user_id', user.id)
       .eq('is_active', true)
       .limit(1)
       .single()
