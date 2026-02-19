@@ -551,6 +551,41 @@ export type Database = {
           },
         ]
       }
+      message_feedback: {
+        Row: {
+          created_at: string
+          feedback: string
+          id: string
+          message_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feedback: string
+          id?: string
+          message_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feedback?: string
+          id?: string
+          message_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'message_feedback_message_id_fkey'
+            columns: ['message_id']
+            isOneToOne: false
+            referencedRelation: 'agent_messages'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
@@ -1316,6 +1351,7 @@ export type Database = {
       get_agent_available_connections: {
         Args: { p_agent_id: string; p_user_id: string }
         Returns: {
+          account_label: string
           app_id: string
           connection_user_id: string
           is_own_connection: boolean

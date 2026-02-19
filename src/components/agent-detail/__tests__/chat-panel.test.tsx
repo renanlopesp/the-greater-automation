@@ -114,6 +114,13 @@ vi.mock('@/hooks/use-agent-chat', () => ({
   useAgentChat: vi.fn(),
 }))
 
+vi.mock('@/hooks/use-message-feedback', () => ({
+  useMessageFeedback: () => ({
+    getFeedback: () => null,
+    toggleFeedback: vi.fn(),
+  }),
+}))
+
 const mockUseAgentChat = useAgentChat as ReturnType<typeof vi.fn>
 
 const defaultProps = {

@@ -43,6 +43,8 @@ import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/componen
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAgentChat } from '@/hooks/use-agent-chat'
 import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
+import { useMessageFeedback } from '@/hooks/use-message-feedback'
+import { cn } from '@/lib/utils'
 import { getAgentPalette } from '@/lib/agent-palettes'
 
 // Module-level callback for cross-component new chat trigger (no useEffect needed)
@@ -86,12 +88,16 @@ function ChatMessageItem({
   agentPalette,
   isStreaming,
   currentUserId,
+  feedback,
+  onFeedback,
 }: {
   message: UIMessage
   agentName: string
   agentPalette: string
   isStreaming: boolean
   currentUserId: string
+  feedback: 'like' | 'dislike' | null
+  onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void
 }) {
   const isUser = message.role === 'user'
 
@@ -211,11 +217,19 @@ function ChatMessageItem({
           <MessageAction tooltip="Copy" onClick={() => navigator.clipboard.writeText(textContent)}>
             <CopyIcon className="size-3.5" />
           </MessageAction>
-          <MessageAction tooltip="Like">
-            <ThumbsUpIcon className="size-3.5" />
+          <MessageAction
+            tooltip="Like"
+            onClick={() => onFeedback(message.id, 'like')}
+            className={cn(feedback === 'like' && 'text-green-600 dark:text-green-400')}
+          >
+            <ThumbsUpIcon className={cn('size-3.5', feedback === 'like' && 'fill-current')} />
           </MessageAction>
-          <MessageAction tooltip="Dislike">
-            <ThumbsDownIcon className="size-3.5" />
+          <MessageAction
+            tooltip="Dislike"
+            onClick={() => onFeedback(message.id, 'dislike')}
+            className={cn(feedback === 'dislike' && 'text-red-600 dark:text-red-400')}
+          >
+            <ThumbsDownIcon className={cn('size-3.5', feedback === 'dislike' && 'fill-current')} />
           </MessageAction>
         </MessageActions>
       )}
@@ -289,6 +303,10 @@ export default function ChatPanel({
 
   const hasMessages = messages.length > 0
 
+  // Message feedback (like/dislike)
+  const assistantMessageIds = messages.filter((m) => m.role === 'assistant').map((m) => m.id)
+  const { getFeedback, toggleFeedback } = useMessageFeedback(agentId, assistantMessageIds)
+
   // Register handler so the header button can trigger new chat
   // (legitimate side effect: callback registration, not data syncing)
   useEffect(() => {
@@ -343,6 +361,8 @@ export default function ChatPanel({
                   agentPalette={agentPalette}
                   isStreaming={isStreaming && message.id === lastAssistantId}
                   currentUserId={currentUserId}
+                  feedback={getFeedback(message.id)}
+                  onFeedback={toggleFeedback}
                 />
               ))
           )}
