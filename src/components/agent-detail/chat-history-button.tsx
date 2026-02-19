@@ -7,7 +7,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import ConversationHistoryPanel from './conversation-history-panel'
 import { triggerNewChat } from './chat-panel'
 
-export default function ChatHistoryButton({ agentId }: { agentId: string }) {
+export default function ChatHistoryButton({
+  agentId,
+  canDelete = false,
+}: {
+  agentId: string
+  canDelete?: boolean
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -31,6 +37,7 @@ export default function ChatHistoryButton({ agentId }: { agentId: string }) {
         onNewChat={() => {
           triggerNewChat()
         }}
+        canDelete={canDelete}
       />
     </>
   )

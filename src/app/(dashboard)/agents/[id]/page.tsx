@@ -32,11 +32,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   if (!user) redirect('/login')
   if (!agent) notFound()
 
-  // Parallel: profile + conversation history (both depend on user/agent being resolved)
-  const [{ data: profile }, activeConversation] = await Promise.all([
+  // Parallel: profile + conversation history + team role (all depend on user/agent being resolved)
+  const [{ data: profile }, activeConversation, { data: teamMember }] = await Promise.all([
     supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
     getActiveConversation(supabase, id),
+    supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', agent.team_id)
+      .eq('user_id', user.id)
+      .single(),
   ])
+
+  const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
 
   const currentUser = {
     id: user.id,
@@ -87,7 +95,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
           >
             <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
           </Suspense>
-          <ChatHistoryButton agentId={id} />
+          <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
           <NewChatButton />
         </div>
       </header>

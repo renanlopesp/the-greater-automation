@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { MessageSquare, Plus } from 'lucide-react'
+import { MessageSquare, Plus, Trash2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -15,6 +16,7 @@ interface ConversationHistoryPanelProps {
   onOpenChange: (open: boolean) => void
   onSelectConversation: (conversationId: string) => void
   onNewChat: () => void
+  canDelete?: boolean
 }
 
 export default function ConversationHistoryPanel({
@@ -23,14 +25,28 @@ export default function ConversationHistoryPanel({
   onOpenChange,
   onSelectConversation,
   onNewChat,
+  canDelete = false,
 }: ConversationHistoryPanelProps) {
-  const { conversations, isLoading, switchConversation, isSwitching } =
-    useConversationHistory(agentId)
+  const {
+    conversations,
+    isLoading,
+    switchConversation,
+    isSwitching,
+    deleteConversation,
+    isDeleting,
+  } = useConversationHistory(agentId)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   async function handleSelect(conversationId: string) {
+    if (confirmDeleteId) return
     await switchConversation(conversationId)
     onSelectConversation(conversationId)
     onOpenChange(false)
+  }
+
+  async function handleDelete(conversationId: string) {
+    await deleteConversation(conversationId)
+    setConfirmDeleteId(null)
   }
 
   function handleNewChat() {
@@ -62,59 +78,96 @@ export default function ConversationHistoryPanel({
               <p className="text-muted-foreground py-8 text-center text-sm">No conversations yet</p>
             ) : (
               conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  type="button"
-                  disabled={isSwitching}
-                  onClick={() => handleSelect(conv.id)}
-                  className={cn(
-                    'hover:bg-accent flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
-                    conv.isActive && 'bg-accent'
-                  )}
-                >
-                  <MessageSquare className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="line-clamp-2 text-sm font-medium">
-                        {conv.title ?? 'Untitled conversation'}
-                      </span>
-                      {conv.isActive && (
-                        <span className="bg-primary/10 text-primary shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
-                          Active
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
-                      {conv.updatedAt && (
-                        <span>
-                          {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: true })}
-                        </span>
-                      )}
-                      <span>·</span>
-                      <span>{conv.messageCount} messages</span>
-                    </div>
-                    {conv.participants.length > 0 && (
-                      <div className="mt-1.5 flex -space-x-1.5">
-                        {conv.participants.slice(0, 4).map((p) => (
-                          <Avatar
-                            key={p.id}
-                            className="size-5 border-2 border-white dark:border-zinc-900"
-                          >
-                            <AvatarImage src={p.avatarUrl ?? undefined} />
-                            <AvatarFallback className="text-[8px]">
-                              {p.fullName?.[0]?.toUpperCase() ?? '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                        {conv.participants.length > 4 && (
-                          <span className="text-muted-foreground ml-1 self-center text-[10px]">
-                            +{conv.participants.length - 4}
-                          </span>
-                        )}
+                <div key={conv.id} className="relative">
+                  {confirmDeleteId === conv.id ? (
+                    <div className="bg-destructive/5 flex items-center justify-between gap-2 rounded-lg border border-red-200 px-3 py-2.5 dark:border-red-900">
+                      <span className="text-sm">Delete this chat?</span>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          disabled={isDeleting}
+                          onClick={() => handleDelete(conv.id)}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Cancel
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                </button>
+                    </div>
+                  ) : (
+                    <div className="group flex">
+                      <button
+                        type="button"
+                        disabled={isSwitching}
+                        onClick={() => handleSelect(conv.id)}
+                        className={cn(
+                          'hover:bg-accent flex min-w-0 flex-1 items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                          conv.isActive && 'bg-accent'
+                        )}
+                      >
+                        <MessageSquare className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="line-clamp-2 text-sm font-medium">
+                              {conv.title ?? 'Untitled conversation'}
+                            </span>
+                            {conv.isActive && (
+                              <span className="bg-primary/10 text-primary shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
+                            {conv.updatedAt && (
+                              <span>
+                                {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: true })}
+                              </span>
+                            )}
+                            <span>·</span>
+                            <span>{conv.messageCount} messages</span>
+                          </div>
+                          {conv.participants.length > 0 && (
+                            <div className="mt-1.5 flex -space-x-1.5">
+                              {conv.participants.slice(0, 4).map((p) => (
+                                <Avatar
+                                  key={p.id}
+                                  className="size-5 border-2 border-white dark:border-zinc-900"
+                                >
+                                  <AvatarImage src={p.avatarUrl ?? undefined} />
+                                  <AvatarFallback className="text-[8px]">
+                                    {p.fullName?.[0]?.toUpperCase() ?? '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ))}
+                              {conv.participants.length > 4 && (
+                                <span className="text-muted-foreground ml-1 self-center text-[10px]">
+                                  +{conv.participants.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(conv.id)}
+                          className="text-muted-foreground hover:text-destructive flex shrink-0 items-center px-2 opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))
             )}
           </div>
