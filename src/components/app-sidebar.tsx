@@ -1,9 +1,11 @@
 'use client'
 
+import type React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
+  Bot,
   Check,
   ChevronsUpDown,
   FolderKanban,
@@ -103,7 +105,11 @@ export default function AppSidebar({
     { label: 'Runs', href: '/runs', icon: Play },
   ]
 
-  const toolItems = [
+  const toolItems: (
+    | { label: string; icon: React.ElementType; href: string; action?: never }
+    | { label: string; icon: React.ElementType; action: 'command-menu' | 'settings'; href?: never }
+  )[] = [
+    { label: 'Parent Agent', icon: Bot, href: '/snewclaw' },
     { label: 'Search', icon: Search, action: 'command-menu' as const },
     { label: 'Integrations', icon: Plug, action: 'settings' as const },
   ]
@@ -187,20 +193,35 @@ export default function AppSidebar({
           <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolItems.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton
-                    tooltip={item.label}
-                    onClick={() => {
-                      if (item.action === 'command-menu') onOpenCommandMenu?.()
-                      else if (item.action === 'settings') onOpenSettings?.()
-                    }}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {toolItems.map((item) =>
+                item.href ? (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(item.href)}
+                      tooltip={item.label}
+                    >
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                      tooltip={item.label}
+                      onClick={() => {
+                        if (item.action === 'command-menu') onOpenCommandMenu?.()
+                        else if (item.action === 'settings') onOpenSettings?.()
+                      }}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
