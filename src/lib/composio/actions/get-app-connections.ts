@@ -24,7 +24,6 @@ export interface WorkspaceConnection {
  * Fetches the current user's app connections.
  * 1. Check our DB (app_connections table)
  * 2. If empty, query Composio directly for the user's active connected accounts
- * 3. If still empty, query Composio for ALL project connected accounts (team sharing)
  */
 export async function getAppConnections(): Promise<AppConnection[]> {
   try {
@@ -54,39 +53,15 @@ export async function getAppConnections(): Promise<AppConnection[]> {
       (acc: { status: string }) => acc.status === 'ACTIVE'
     )
 
-    if (activeUserAccounts.length > 0) {
-      return activeUserAccounts.map(
-        (acc: { id: string; toolkit?: { slug?: string }; createdAt?: string }) => ({
-          id: acc.id,
-          app_id: acc.toolkit?.slug ?? 'unknown',
-          account_label: null,
-          created_at: acc.createdAt ?? new Date().toISOString(),
-          composio_connection_id: acc.id,
-        })
-      )
-    }
-
-    // 3. Fallback: query ALL project connected accounts (shared team connections)
-    const { items: allAccounts } = await composio.connectedAccounts.list({})
-    const activeAll = (allAccounts ?? []).filter(
-      (acc: { status: string }) => acc.status === 'ACTIVE'
-    )
-
-    // Deduplicate by app_id (one entry per app)
-    const seen = new Set<string>()
-    return activeAll
-      .map((acc: { id: string; toolkit?: { slug?: string }; createdAt?: string }) => ({
+    return activeUserAccounts.map(
+      (acc: { id: string; toolkit?: { slug?: string }; createdAt?: string }) => ({
         id: acc.id,
         app_id: acc.toolkit?.slug ?? 'unknown',
         account_label: null,
         created_at: acc.createdAt ?? new Date().toISOString(),
         composio_connection_id: acc.id,
-      }))
-      .filter((c: AppConnection) => {
-        if (seen.has(c.app_id)) return false
-        seen.add(c.app_id)
-        return true
       })
+    )
   } catch (error) {
     console.error('Failed to fetch app connections:', error)
     return []
