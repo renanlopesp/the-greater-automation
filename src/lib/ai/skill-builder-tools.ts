@@ -1105,45 +1105,74 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
     SNEW_CHECK_CONNECTIONS: {
       description:
-        'Check which apps the user has connected, including auth type (OAuth, Bot, API Key). Use this to verify required integrations are set up and have the right auth type before creating a workflow. Important: some actions/triggers require specific auth types (e.g. Discord channel polling needs a Bot token, not OAuth).',
+        'Check which apps are connected for this agent, including auth type (OAuth, Bot, API Key). Returns both your own connections and team connections from owners/admins. Use this to verify required integrations are set up and have the right auth type before creating a workflow. Important: some actions/triggers require specific auth types (e.g. Discord channel polling needs a Bot token, not OAuth).',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {},
       }),
       execute: async () => {
-        // Query Composio directly for real connected accounts with auth details
         try {
-          const composio = getComposio()
-          const { items } = await composio.connectedAccounts.list({ userIds: [userId] })
-          const activeAccounts = items
-            .filter((acc: { status: string }) => acc.status === 'ACTIVE')
-            .map(
-              (acc: {
-                id: string
+          const supabase = await createServerClient()
+
+          // Get all available connections for this agent (own + team owner/admin)
+          const { data: rpcConnections } = await supabase.rpc('get_agent_available_connections', {
+            p_agent_id: agentId,
+            p_user_id: userId,
+          })
+
+          const rpcRows = (rpcConnections ?? []) as Array<{
+            app_id: string
+            account_label: string | null
+            connection_user_id: string
+            is_own_connection: boolean
+          }>
+
+          // Try to enrich own connections with Composio auth details
+          const composioDetails: Record<string, { auth_type: string; scopes: string | null }> = {}
+          try {
+            const composio = getComposio()
+            const { items } = await composio.connectedAccounts.list({ userIds: [userId] })
+            for (const acc of items.filter((a: { status: string }) => a.status === 'ACTIVE')) {
+              const typed = acc as {
                 toolkit?: { slug?: string }
                 state?: { authScheme?: string }
                 data?: { scope?: string }
-              }) => ({
-                app_id: acc.toolkit?.slug || 'unknown',
-                connection_id: acc.id,
-                auth_type: acc.state?.authScheme || 'unknown',
-                scopes: acc.data?.scope || null,
-              })
-            )
+              }
+              const appId = typed.toolkit?.slug || 'unknown'
+              composioDetails[appId] = {
+                auth_type: typed.state?.authScheme || 'unknown',
+                scopes: typed.data?.scope || null,
+              }
+            }
+          } catch {
+            // Composio enrichment is optional
+          }
+
+          const connectedApps = rpcRows.map((row) => ({
+            app_id: row.app_id,
+            account_label: row.account_label,
+            is_own_connection: row.is_own_connection,
+            auth_type:
+              composioDetails[row.app_id]?.auth_type ||
+              (row.is_own_connection ? 'unknown' : 'managed_by_team'),
+            scopes: composioDetails[row.app_id]?.scopes || null,
+          }))
 
           return {
-            connected_apps: activeAccounts,
+            connected_apps: connectedApps,
             _hint:
-              'Check auth_type before creating workflows. OAuth user tokens have limited permissions (e.g. cannot read guild channel messages on Discord — need Bot token). Bot/API Key connections generally have broader access. If the auth type is wrong for your intended action, tell the user they need a different connection type.',
+              'Apps with is_own_connection=true are yours. Apps with is_own_connection=false are connected by a team owner/admin and available to this agent. Check auth_type before creating workflows. OAuth user tokens have limited permissions — Bot/API Key connections generally have broader access.',
           }
         } catch {
-          // Fallback to local DB
+          // Fallback to local DB — own connections only
           const supabase = await createServerClient()
           const { data: connections } = await supabase
             .from('app_connections')
             .select('app_id, account_label')
             .eq('user_id', userId)
-          return { connected_apps: connections || [] }
+          return {
+            connected_apps: (connections || []).map((c) => ({ ...c, is_own_connection: true })),
+          }
         }
       },
     },
