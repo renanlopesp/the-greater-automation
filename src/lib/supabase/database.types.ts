@@ -298,6 +298,7 @@ export type Database = {
           model: string | null
           name: string
           palette: string
+          snewclaw_instance_id: string | null
           status: string | null
           system_prompt: string | null
           team_id: string
@@ -317,6 +318,7 @@ export type Database = {
           model?: string | null
           name: string
           palette?: string
+          snewclaw_instance_id?: string | null
           status?: string | null
           system_prompt?: string | null
           team_id: string
@@ -336,6 +338,7 @@ export type Database = {
           model?: string | null
           name?: string
           palette?: string
+          snewclaw_instance_id?: string | null
           status?: string | null
           system_prompt?: string | null
           team_id?: string
@@ -348,6 +351,13 @@ export type Database = {
             columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'agents_snewclaw_instance_id_fkey'
+            columns: ['snewclaw_instance_id']
+            isOneToOne: false
+            referencedRelation: 'snewclaw_instances'
             referencedColumns: ['id']
           },
           {
@@ -674,8 +684,10 @@ export type Database = {
           description: string | null
           features: Json
           id: string
+          max_snewclaw_instances: number
           max_team_members: number
           name: string
+          snewclaw_idle_timeout_minutes: number
           sort_order: number
           steps_limit: number
           stripe_product_id: string | null
@@ -686,8 +698,10 @@ export type Database = {
           description?: string | null
           features?: Json
           id: string
+          max_snewclaw_instances?: number
           max_team_members?: number
           name: string
+          snewclaw_idle_timeout_minutes?: number
           sort_order?: number
           steps_limit?: number
           stripe_product_id?: string | null
@@ -698,8 +712,10 @@ export type Database = {
           description?: string | null
           features?: Json
           id?: string
+          max_snewclaw_instances?: number
           max_team_members?: number
           name?: string
+          snewclaw_idle_timeout_minutes?: number
           sort_order?: number
           steps_limit?: number
           stripe_product_id?: string | null
@@ -730,6 +746,206 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      snewclaw_commands: {
+        Row: {
+          command: string
+          created_at: string
+          id: string
+          instance_id: string
+          payload: Json
+          result: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          command: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          command?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'snewclaw_commands_instance_id_fkey'
+            columns: ['instance_id']
+            isOneToOne: false
+            referencedRelation: 'snewclaw_instances'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      snewclaw_events: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          instance_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          instance_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          instance_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'snewclaw_events_instance_id_fkey'
+            columns: ['instance_id']
+            isOneToOne: false
+            referencedRelation: 'snewclaw_instances'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      snewclaw_instances: {
+        Row: {
+          config: Json
+          consecutive_failures: number
+          created_at: string
+          error_message: string | null
+          fly_machine_id: string | null
+          fly_volume_id: string | null
+          id: string
+          last_activity_at: string | null
+          last_health_check_at: string | null
+          region: string
+          status: string
+          team_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          error_message?: string | null
+          fly_machine_id?: string | null
+          fly_volume_id?: string | null
+          id?: string
+          last_activity_at?: string | null
+          last_health_check_at?: string | null
+          region?: string
+          status?: string
+          team_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          consecutive_failures?: number
+          created_at?: string
+          error_message?: string | null
+          fly_machine_id?: string | null
+          fly_volume_id?: string | null
+          id?: string
+          last_activity_at?: string | null
+          last_health_check_at?: string | null
+          region?: string
+          status?: string
+          team_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'snewclaw_instances_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      snewclaw_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          instance_id: string
+          metadata: Json | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          metadata?: Json | null
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          metadata?: Json | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'snewclaw_messages_instance_id_fkey'
+            columns: ['instance_id']
+            isOneToOne: false
+            referencedRelation: 'snewclaw_instances'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      snewclaw_secrets: {
+        Row: {
+          created_at: string
+          encrypted_value: string
+          id: string
+          iv: string
+          key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_value: string
+          id?: string
+          iv: string
+          key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_value?: string
+          id?: string
+          iv?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
