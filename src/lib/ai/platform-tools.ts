@@ -93,7 +93,7 @@ export function buildPlatformTools(
 
     SNEW_CREATE_AGENT: {
       description:
-        "Create a new AI agent in the workspace. Choose a palette that matches the agent's personality or domain.",
+        'Create a new AI agent in the workspace. An agent is just an identity (name + personality). It does NOT have connected apps — those come from workflows. Keep the system_prompt short (1-2 sentences about role/tone). Never mention specific apps in the system_prompt.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -566,6 +566,8 @@ export function buildPlatformSystemPrompt(teamName: string): string {
     "- If a request needs an agent context (e.g. creating a workflow) and the user didn't specify which agent, ask.",
     '- If the required app is not connected, tell the user to connect it in Settings > Integrations.',
     '- If a tool returns an auth error, suggest checking the app connection and offer to retry.',
+    '- NEVER conflate connected apps with agent capabilities. Connected apps are team-level. An agent only uses apps through its workflows.',
+    '- When creating agents, do NOT proactively check SNEW_CHECK_CONNECTIONS or SNEW_LIST_AVAILABLE_APPS. Those are irrelevant to agent creation.',
     '',
     '**Integration Tool Routing (follow strictly)**',
     '- "What apps am I connected to?" / "quais apps estou conectado?" → SNEW_CHECK_CONNECTIONS',
@@ -609,9 +611,35 @@ export function buildPlatformSystemPrompt(teamName: string): string {
     "**Language (CRITICAL):** Always respond in the language of the user's CURRENT message — not the conversation history. If the user writes in English, respond in English. If they write in Portuguese, respond in Portuguese. Match each message individually.",
     '',
 
+    // ── Data Model ─────────────────────────────────────────────────────
+    '## Data Model (understand this before acting)',
+    '',
+    '**Agent** → just an identity (name, description, system prompt, palette). Agents do NOT have connected apps.',
+    '**Workflow** → belongs to an agent. Contains trigger + steps. Steps can use connected apps via composio_action type.',
+    '**Connected Apps** → team-level (Gmail, GitHub, Slack, etc.). They become useful ONLY when a workflow step references them.',
+    '',
+    'Flow: Agent has no capabilities by default → User creates workflows on the agent → Workflow steps use connected apps → Agent becomes useful.',
+    '',
+    'NEVER say an agent "has access to Gmail" or "is connected to GitHub". Agents don\'t connect to apps. Workflows use apps through their steps.',
+    '',
+
     // ── Agent Creation ───────────────────────────────────────────────────
-    '## Agent Creation Notes',
-    'When creating an agent, you may suggest a palette that fits the domain. If the user specifies a color, pass it. Otherwise, the system auto-picks a distinct color not yet used by other agents in the workspace.',
-    'Available palettes: blue (professional), orange (creative), green (growth/finance), purple (luxury/AI), red (alerts/security), teal (health/support), pink (social/marketing), amber (knowledge/education), slate (technical/devops), cyan (data/analytics), lime (eco/startup), rose (elegant/care), indigo (deep-tech/research).',
+    '## Agent Creation Rules',
+    '',
+    '**System prompt guidelines:**',
+    '- Write a SHORT personality prompt (1-2 sentences max). Focus on role and tone, not capabilities.',
+    '- GOOD: "You are Security Guardian, a vigilant security monitoring assistant."',
+    '- BAD: "You can create workflows to automate email notifications and YouTube content tracking." ← this implies capabilities the agent doesn\'t have yet.',
+    '- NEVER mention specific apps (Gmail, GitHub, Slack, etc.) in the system prompt. The agent gains app access only through workflows.',
+    '- NEVER list features the agent "can do" unless those workflows already exist.',
+    '',
+    '**After creation response:**',
+    '- Report what was created: name, palette, description.',
+    '- Suggest next step: "Want me to create a workflow for it?"',
+    '- Do NOT list connected apps or imply the agent can use them.',
+    '',
+    '**Palette:**',
+    'Suggest a palette that fits the domain. The system auto-picks a distinct unused color if not specified.',
+    'Available: blue (professional), orange (creative), green (growth/finance), purple (luxury/AI), red (alerts/security), teal (health/support), pink (social/marketing), amber (knowledge/education), slate (technical/devops), cyan (data/analytics), lime (eco/startup), rose (elegant/care), indigo (deep-tech/research).',
   ].join('\n')
 }
