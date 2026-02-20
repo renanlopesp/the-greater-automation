@@ -61,7 +61,7 @@ export async function POST(
   // Send to OpenClaw via exec
   let chatResponse: Awaited<ReturnType<typeof sendChatMessage>>
   try {
-    chatResponse = await sendChatMessage(instance.fly_machine_id, content, sessionId, 30)
+    chatResponse = await sendChatMessage(instance.fly_machine_id, content, sessionId, 45)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Chat failed'
     console.error('[snewclaw/chat] sendChatMessage error:', message)

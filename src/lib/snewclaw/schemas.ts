@@ -43,6 +43,20 @@ export const configPatchSchema = z.object({
   config: z.record(z.string(), z.unknown()),
 })
 
+export const channelAddSchema = z.object({
+  channel: z.enum(['telegram', 'discord', 'whatsapp', 'signal']),
+  token: z.string().min(1, 'Token is required'),
+})
+
+export const channelRemoveSchema = z.object({
+  channel: z.enum(['telegram', 'discord', 'whatsapp', 'signal']),
+})
+
+export const pairingApproveSchema = z.object({
+  channel: z.enum(['telegram', 'discord', 'whatsapp', 'signal']),
+  code: z.string().min(1, 'Pairing code is required'),
+})
+
 export type ProvisionRequest = z.infer<typeof provisionRequestSchema>
 export type ChatMessage = z.infer<typeof chatMessageSchema>
 export type SecretsUpdate = z.infer<typeof secretsUpdateSchema>

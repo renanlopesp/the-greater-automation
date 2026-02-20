@@ -1,12 +1,30 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Send, Loader2, Bot, User } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Bot, CopyIcon, Loader2, Plus } from 'lucide-react'
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation'
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+  MessageActions,
+  MessageAction,
+} from '@/components/ai-elements/message'
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from '@/components/ai-elements/prompt-input'
 
 type MessageMetadata = {
   model?: string
@@ -28,28 +46,14 @@ type InstanceStatus = {
   status: string
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
-
 export default function SnewclawChatPage() {
   const [instance, setInstance] = useState<InstanceStatus | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, scrollToBottom])
 
   useEffect(() => {
     async function load() {
@@ -57,7 +61,6 @@ export default function SnewclawChatPage() {
       setError(null)
 
       try {
-        // Fetch instance status (the route determines instance from user session)
         const statusRes = await fetch('/api/snewclaw/status')
         if (!statusRes.ok) {
           setError('Could not load agent status')
@@ -72,7 +75,6 @@ export default function SnewclawChatPage() {
           return
         }
 
-        // Load chat history
         const historyRes = await fetch(`/api/snewclaw/${statusData.id}/chat`)
         if (historyRes.ok) {
           const historyData = (await historyRes.json()) as { messages: ChatMessage[] }
@@ -88,69 +90,69 @@ export default function SnewclawChatPage() {
     void load()
   }, [])
 
-  async function handleSend() {
-    if (!input.trim() || !instance || isSending) return
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (!content.trim() || !instance || isSending) return
 
-    const content = input.trim()
-    setInput('')
-    setIsSending(true)
-    setSendError(null)
+      setIsSending(true)
+      setSendError(null)
 
-    const optimisticMsg: ChatMessage = {
-      id: `optimistic-${Date.now()}`,
-      role: 'user',
-      content,
-      metadata: null,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, optimisticMsg])
+      const optimisticMsg: ChatMessage = {
+        id: `optimistic-${Date.now()}`,
+        role: 'user',
+        content,
+        metadata: null,
+        created_at: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, optimisticMsg])
 
-    try {
-      const res = await fetch(`/api/snewclaw/${instance.id}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, ...(sessionId ? { sessionId } : {}) }),
-      })
+      try {
+        const res = await fetch(`/api/snewclaw/${instance.id}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, ...(sessionId ? { sessionId } : {}) }),
+        })
 
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({ error: 'Send failed' }))) as {
-          error?: string
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({ error: 'Send failed' }))) as {
+            error?: string
+          }
+          setSendError(data.error ?? 'Send failed')
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id))
+          return
         }
-        setSendError(data.error ?? 'Send failed')
-        // Remove optimistic message on failure
+
+        const data = (await res.json()) as {
+          sessionId: string
+          userMessage: ChatMessage
+          assistantMessage: ChatMessage
+        }
+        if (data.sessionId) {
+          setSessionId(data.sessionId)
+        }
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== optimisticMsg.id),
+          data.userMessage,
+          data.assistantMessage,
+        ])
+      } catch (err) {
+        setSendError(err instanceof Error ? err.message : 'Send failed')
         setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id))
-        return
+      } finally {
+        setIsSending(false)
       }
+    },
+    [instance, isSending, sessionId]
+  )
 
-      const data = (await res.json()) as {
-        sessionId: string
-        userMessage: ChatMessage
-        assistantMessage: ChatMessage
+  const handleSubmit = useCallback(
+    (msg: PromptInputMessage) => {
+      if (msg.text.trim()) {
+        void handleSend(msg.text.trim())
       }
-      // Persist session ID for conversation continuity
-      if (data.sessionId) {
-        setSessionId(data.sessionId)
-      }
-      // Replace optimistic with real user msg + add assistant msg
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== optimisticMsg.id),
-        data.userMessage,
-        data.assistantMessage,
-      ])
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : 'Send failed')
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id))
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void handleSend()
-    }
-  }
+    },
+    [handleSend]
+  )
 
   if (isLoading) {
     return (
@@ -178,7 +180,7 @@ export default function SnewclawChatPage() {
             <p className="text-muted-foreground text-sm">
               Your agent is currently{' '}
               <span className="font-medium">{instance?.status ?? 'unavailable'}</span>. Start it
-              from the Parent Agent page before chatting.
+              from the Snew Agent page before chatting.
             </p>
           </CardContent>
         </Card>
@@ -186,125 +188,131 @@ export default function SnewclawChatPage() {
     )
   }
 
+  const hasMessages = messages.filter((m) => m.role === 'user' || m.role === 'assistant').length > 0
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border flex items-center gap-3 border-b px-6 py-4">
-        <div className="bg-primary/10 flex size-8 items-center justify-center rounded-full">
-          <Bot className="text-primary size-4" />
+      <div className="border-border flex items-center justify-between border-b px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 flex size-8 items-center justify-center rounded-full">
+            <Bot className="text-primary size-4" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Snew Agent</p>
+            <p className="text-muted-foreground text-xs">Running</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium">Parent Agent</p>
-          <p className="text-muted-foreground text-xs">Running</p>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSessionId(null)
+            setMessages([])
+            setSendError(null)
+          }}
+        >
+          <Plus className="mr-1.5 size-3.5" />
+          New Chat
+        </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
-        {messages.length === 0 && (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-muted-foreground text-sm">
-              Send a message to start the conversation
-            </p>
-          </div>
-        )}
-
-        {messages
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((msg) => (
-            <div
-              key={msg.id}
-              className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : 'flex-row')}
-            >
-              <div
-                className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-full',
-                  msg.role === 'user' ? 'bg-primary' : 'bg-muted'
-                )}
-              >
-                {msg.role === 'user' ? (
-                  <User className="text-primary-foreground size-4" />
-                ) : (
-                  <Bot className="text-muted-foreground size-4" />
-                )}
-              </div>
-
-              <div
-                className={cn(
-                  'flex max-w-[75%] flex-col gap-1',
-                  msg.role === 'user' ? 'items-end' : 'items-start'
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="px-1.5 py-0 text-xs">
-                    {msg.role}
-                  </Badge>
-                  <span className="text-muted-foreground text-xs">
-                    {formatTime(msg.created_at)}
-                  </span>
-                </div>
-
-                <div
-                  className={cn(
-                    'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-foreground'
+      <Conversation className="flex-1">
+        <ConversationContent className="mx-auto max-w-3xl">
+          {!hasMessages ? (
+            <ConversationEmptyState
+              icon={<Bot className="size-10" />}
+              title="Chat with your Snew Agent"
+              description="Send a message to start the conversation"
+            />
+          ) : (
+            messages
+              .filter((m) => m.role === 'user' || m.role === 'assistant')
+              .map((msg) => (
+                <Message key={msg.id} from={msg.role === 'user' ? 'user' : 'assistant'}>
+                  {msg.role === 'assistant' && (
+                    <div className="mb-1 flex items-center gap-2">
+                      <div className="bg-primary/10 flex size-7 items-center justify-center rounded-full">
+                        <Bot className="text-primary size-3.5" />
+                      </div>
+                      <span className="text-muted-foreground text-sm font-medium">Snew Agent</span>
+                    </div>
                   )}
-                >
-                  {msg.content}
+
+                  <MessageContent>
+                    {msg.role === 'user' ? (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    ) : (
+                      <MessageResponse>{msg.content}</MessageResponse>
+                    )}
+                  </MessageContent>
+
+                  {/* Metadata for assistant messages */}
+                  {msg.role === 'assistant' && msg.metadata && (
+                    <div className="text-muted-foreground flex flex-wrap gap-2 px-1 text-xs">
+                      {msg.metadata.model && <span>{String(msg.metadata.model)}</span>}
+                      {msg.metadata.tokens != null && (
+                        <span>{String(msg.metadata.tokens)} tokens</span>
+                      )}
+                      {msg.metadata.durationMs != null && (
+                        <span>{(Number(msg.metadata.durationMs) / 1000).toFixed(1)}s</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Copy action for assistant messages */}
+                  {msg.role === 'assistant' && msg.content && (
+                    <MessageActions>
+                      <MessageAction
+                        tooltip="Copy"
+                        onClick={() => navigator.clipboard.writeText(msg.content)}
+                      >
+                        <CopyIcon className="size-3.5" />
+                      </MessageAction>
+                    </MessageActions>
+                  )}
+                </Message>
+              ))
+          )}
+
+          {/* Typing indicator */}
+          {isSending && (
+            <Message from="assistant">
+              <div className="mb-1 flex items-center gap-2">
+                <div className="bg-primary/10 flex size-7 items-center justify-center rounded-full">
+                  <Bot className="text-primary size-3.5" />
                 </div>
-
-                {msg.role === 'assistant' && msg.metadata && (
-                  <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
-                    {msg.metadata.model && <span>{String(msg.metadata.model)}</span>}
-                    {msg.metadata.tokens != null && (
-                      <span>{String(msg.metadata.tokens)} tokens</span>
-                    )}
-                    {msg.metadata.durationMs != null && (
-                      <span>{(Number(msg.metadata.durationMs) / 1000).toFixed(1)}s</span>
-                    )}
-                  </div>
-                )}
+                <span className="text-muted-foreground text-sm font-medium">Snew Agent</span>
               </div>
-            </div>
-          ))}
-
-        {isSending && (
-          <div className="flex gap-3">
-            <div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
-              <Bot className="text-muted-foreground size-4" />
-            </div>
-            <div className="bg-muted flex items-center gap-1 rounded-2xl px-4 py-2.5">
-              <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
-              <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
-              <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
-      </div>
+              <MessageContent>
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
+                  <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
+                  <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {/* Input */}
-      <div className="border-border border-t px-6 py-4">
-        {sendError && <p className="text-destructive mb-2 text-xs">{sendError}</p>}
-        <div className="flex gap-3">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Message your agent…"
-            disabled={isSending}
-            className="flex-1"
-          />
-          <Button
-            onClick={() => void handleSend()}
-            disabled={!input.trim() || isSending}
-            size="icon"
-          >
-            {isSending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+      <div className="bg-background border-t px-4 py-3">
+        <div className="mx-auto max-w-3xl">
+          {sendError && (
+            <div className="border-destructive/20 bg-destructive/10 text-destructive mb-2 rounded-lg border px-3 py-2 text-sm">
+              {sendError}
+            </div>
+          )}
+          <PromptInput onSubmit={handleSubmit}>
+            <PromptInputTextarea placeholder="Message your agent..." disabled={isSending} />
+            <PromptInputFooter>
+              <div />
+              <PromptInputSubmit disabled={isSending} status={isSending ? 'submitted' : 'ready'} />
+            </PromptInputFooter>
+          </PromptInput>
         </div>
       </div>
     </div>

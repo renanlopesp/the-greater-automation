@@ -41,7 +41,35 @@ const PERMISSIONS = [
   { key: 'messaging', label: 'Messaging', description: 'Send messages and notifications' },
 ] as const
 
+const CHANNELS = [
+  {
+    key: 'telegram',
+    label: 'Telegram',
+    description: 'Connect a Telegram bot',
+    placeholder: '123456789:ABCdefGHI...',
+  },
+  {
+    key: 'discord',
+    label: 'Discord',
+    description: 'Connect a Discord bot',
+    placeholder: 'Bot token from Discord Developer Portal',
+  },
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    description: 'Connect via WhatsApp Business API',
+    placeholder: 'WhatsApp Business API token',
+  },
+  {
+    key: 'signal',
+    label: 'Signal',
+    description: 'Connect via Signal',
+    placeholder: 'Signal API token',
+  },
+] as const
+
 type PermissionKey = (typeof PERMISSIONS)[number]['key']
+type ChannelKey = (typeof CHANNELS)[number]['key']
 
 type LLMConfig = {
   provider: Provider
@@ -51,13 +79,14 @@ type LLMConfig = {
 }
 
 type Permissions = Record<PermissionKey, boolean>
+type ChannelTokens = Partial<Record<ChannelKey, string>>
 
 type ProgressStep = {
   label: string
   status: 'pending' | 'running' | 'done' | 'error'
 }
 
-const STEPS = ['LLM Configuration', 'Permissions', 'Review & Provision'] as const
+const STEPS = ['LLM Configuration', 'Permissions', 'Channels', 'Review & Provision'] as const
 
 export default function SnewclawSetupPage() {
   const router = useRouter()
@@ -78,6 +107,8 @@ export default function SnewclawSetupPage() {
     messaging: false,
   })
 
+  const [channels, setChannels] = useState<ChannelTokens>({})
+
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([])
   const [isProvisioning, setIsProvisioning] = useState(false)
   const [provisionError, setProvisionError] = useState<string | null>(null)
@@ -90,18 +121,37 @@ export default function SnewclawSetupPage() {
     setPermissions((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
+  function setChannelToken(key: ChannelKey, value: string) {
+    setChannels((prev) => {
+      if (!value) {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      }
+      return { ...prev, [key]: value }
+    })
+  }
+
+  const configuredChannels = Object.entries(channels).filter(([, v]) => v && v.trim())
+
   async function handleProvision() {
     setIsProvisioning(true)
     setProvisionError(null)
     setProgressSteps([])
 
     try {
+      const messaging: Record<string, string> = {}
+      for (const [key, val] of configuredChannels) {
+        messaging[key] = val as string
+      }
+
       const response = await fetch('/api/snewclaw/provision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           llm: { ...llm, baseUrl: llm.baseUrl || undefined },
           permissions,
+          ...(configuredChannels.length > 0 ? { messaging } : {}),
         }),
       })
 
@@ -143,7 +193,6 @@ export default function SnewclawSetupPage() {
             } else {
               const label = event.step.replace(/_/g, ' ')
               setProgressSteps((prev) => {
-                // Mark previous steps as done
                 const updated = prev.map((s) => ({
                   ...s,
                   status: 'done' as const,
@@ -166,7 +215,7 @@ export default function SnewclawSetupPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-8 px-6 pt-12 pb-12">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Set up your Parent Agent</h1>
+        <h1 className="text-2xl font-semibold">Set up your Snew Agent</h1>
         <p className="text-muted-foreground text-sm">Configure and deploy your personal AI agent</p>
       </div>
 
@@ -313,8 +362,43 @@ export default function SnewclawSetupPage() {
         </Card>
       )}
 
-      {/* Step 3: Review & Provision */}
+      {/* Step 3: Channels */}
       {step === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Channels</CardTitle>
+            <CardDescription>
+              Connect messaging channels to your agent (optional — you can add these later)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {CHANNELS.map(({ key, label, description, placeholder }) => (
+              <div key={key} className="flex flex-col gap-2">
+                <Label htmlFor={`channel-${key}`}>{label}</Label>
+                <p className="text-muted-foreground text-xs">{description}</p>
+                <Input
+                  id={`channel-${key}`}
+                  type="password"
+                  placeholder={placeholder}
+                  value={channels[key] ?? ''}
+                  onChange={(e) => setChannelToken(key, e.target.value)}
+                />
+              </div>
+            ))}
+          </CardContent>
+          <CardFooter className="justify-between">
+            <Button variant="outline" onClick={() => setStep(1)}>
+              Back
+            </Button>
+            <Button onClick={() => setStep(3)}>
+              {configuredChannels.length > 0 ? 'Next' : 'Skip'}
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 4: Review & Provision */}
+      {step === 3 && (
         <Card>
           <CardHeader>
             <CardTitle>Review & Provision</CardTitle>
@@ -355,6 +439,20 @@ export default function SnewclawSetupPage() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Channels</p>
+              <div className="flex flex-wrap gap-2">
+                {configuredChannels.map(([key]) => (
+                  <Badge key={key} variant="secondary" className="capitalize">
+                    {key}
+                  </Badge>
+                ))}
+                {configuredChannels.length === 0 && (
+                  <p className="text-muted-foreground text-sm">No channels configured</p>
+                )}
+              </div>
+            </div>
+
             {progressSteps.length > 0 && (
               <div className="flex flex-col gap-2">
                 <p className="text-sm font-medium">Deployment Progress</p>
@@ -388,7 +486,7 @@ export default function SnewclawSetupPage() {
             {provisionError && <p className="text-destructive text-sm">{provisionError}</p>}
           </CardContent>
           <CardFooter className="justify-between">
-            <Button variant="outline" onClick={() => setStep(1)} disabled={isProvisioning}>
+            <Button variant="outline" onClick={() => setStep(2)} disabled={isProvisioning}>
               Back
             </Button>
             <Button onClick={handleProvision} disabled={isProvisioning}>

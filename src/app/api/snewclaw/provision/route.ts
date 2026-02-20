@@ -10,15 +10,14 @@ import {
   destroyMachine,
   waitForState,
   setupInstance,
+  enableChannelPlugins,
+  writeChannelConfig,
+  restartMachine,
+  execCommand,
+  type ChannelType,
 } from '@/lib/snewclaw/fly-client'
 
-import crypto from 'node:crypto'
-
-const IMAGE = 'registry.fly.io/snew-snewclaw:latest'
-
-function generateGatewayPassword(): string {
-  return crypto.randomBytes(16).toString('hex')
-}
+const IMAGE = `registry.fly.io/${process.env.FLY_APP_NAME ?? 'snew-pro-agent'}:latest`
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const { llm, region } = parsed.data
+  const { llm, messaging, region } = parsed.data
 
   // Get user's team_id
   const { data: membership } = await supabase
@@ -112,10 +111,8 @@ export async function POST(request: NextRequest) {
 
         // Step 4: Build machine config
         send({ step: 'building_config', progress: 35 })
-        const gatewayPassword = generateGatewayPassword()
         const envVars: Record<string, string> = {
           [secretKey]: llm.apiKey,
-          OPENCLAW_GATEWAY_PASSWORD: gatewayPassword,
         }
         if (llm.baseUrl) {
           envVars['OPENAI_BASE_URL'] = llm.baseUrl
@@ -144,7 +141,54 @@ export async function POST(request: NextRequest) {
         send({ step: 'setting_up_instance', progress: 80 })
         await setupInstance(machineId, llm.provider, llm.model)
 
-        // Step 8: Update DB row to running
+        // Step 8: Configure channels (if any)
+        // Step 8: Configure channels (if any)
+        // Write plugin AND channel config directly to JSON file (no gateway
+        // needed). The gateway boots with everything already configured.
+        // No waitForGateway or addChannel CLI — pure file writes + restart.
+        const channelEntries = Object.entries(messaging ?? {}).filter(
+          ([, token]) => token && token.trim()
+        )
+        if (channelEntries.length > 0) {
+          const channelTypes = channelEntries.map(([ch]) => ch as ChannelType)
+
+          send({ step: 'configuring_channels', progress: 85 })
+          // Enable plugins in config
+          await enableChannelPlugins(machineId, channelTypes)
+          // Write channel config (bot tokens, dmPolicy, etc.)
+          await writeChannelConfig(
+            machineId,
+            channelEntries.map(([ch, token]) => ({
+              channel: ch as ChannelType,
+              token: token as string,
+            }))
+          )
+          await execCommand(machineId, ['chown', '-R', '1000:1000', '/data'], 15)
+
+          // Single restart — gateway boots with plugins + channels ready
+          send({ step: 'restarting_gateway', progress: 90 })
+          await restartMachine(machineId)
+
+          await serviceSupabase
+            .from('snewclaw_instances')
+            .update({
+              config: {
+                llm: {
+                  provider: llm.provider,
+                  model: llm.model,
+                  ...(llm.baseUrl ? { baseUrl: llm.baseUrl } : {}),
+                },
+                channels: channelEntries.map(([ch]) => ch),
+              },
+            })
+            .eq('id', instanceId)
+        }
+
+        // Final permission fix — exec runs as root, gateway runs as node:1000.
+        // The gateway creates /data/identity/ on first boot; ensure node owns everything.
+        await execCommand(machineId, ['chown', '-R', '1000:1000', '/data'], 15)
+
+        // Step 9: Update DB row to running
         send({ step: 'finalizing', progress: 95 })
         await serviceSupabase
           .from('snewclaw_instances')

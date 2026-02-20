@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Bot, ExternalLink, MapPin, Calendar, Activity, Cpu } from 'lucide-react'
 import SnewclawActions from './_components/snewclaw-actions'
+import SnewclawSecrets from './_components/snewclaw-secrets'
 
 type SnewclawInstance = {
   id: string
@@ -70,7 +71,7 @@ export default async function SnewclawPage() {
         </div>
         <Card className="w-full">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Parent Agent</CardTitle>
+            <CardTitle className="text-2xl">Snew Agent</CardTitle>
             <CardDescription className="text-base">
               Deploy your own AI agent instance — a persistent, containerized agent that runs on
               your behalf, handles long-running tasks, and connects to your tools and services.
@@ -91,7 +92,7 @@ export default async function SnewclawPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 pt-12 pb-12">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Parent Agent</h1>
+        <h1 className="text-2xl font-semibold">Snew Agent</h1>
         <p className="text-muted-foreground text-sm">Your personal containerized AI agent</p>
       </div>
 
@@ -152,6 +153,18 @@ export default async function SnewclawPage() {
           </div>
         </CardContent>
       </Card>
+
+      {inst.status === 'running' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Environment Variables</CardTitle>
+            <CardDescription>Manage environment variables for your agent instance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SnewclawSecrets instanceId={inst.id} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

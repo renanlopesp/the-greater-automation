@@ -109,7 +109,7 @@ export default function AppSidebar({
     | { label: string; icon: React.ElementType; href: string; action?: never }
     | { label: string; icon: React.ElementType; action: 'command-menu' | 'settings'; href?: never }
   )[] = [
-    { label: 'Parent Agent', icon: Bot, href: '/snewclaw' },
+    { label: 'Snew Agent', icon: Bot, href: '/snewclaw' },
     { label: 'Search', icon: Search, action: 'command-menu' as const },
     { label: 'Integrations', icon: Plug, action: 'settings' as const },
   ]
