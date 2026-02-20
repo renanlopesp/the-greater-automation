@@ -1,4 +1,4 @@
-import { streamText, stepCountIs, type ToolSet } from 'ai'
+import { streamText, generateText, stepCountIs, type ToolSet } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getComposioSession } from '@/lib/composio/composio-session'
 
@@ -304,6 +304,107 @@ export async function runAgentChat(options: AgentChatOptions) {
   })
 
   return result
+}
+
+// ---------------------------------------------------------------------------
+// runAgentChatSync — non-streaming variant for messaging channels
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the agent chat synchronously (non-streaming).
+ * Uses generateText() instead of streamText() — returns the full response.
+ * Designed for messaging channels (Telegram, WhatsApp) that don't support streaming.
+ */
+export async function runAgentChatSync(
+  options: AgentChatOptions
+): Promise<{ text: string; usage: { totalTokens: number } }> {
+  const { userId, agent, messages, systemPrompt, relayTools } = options
+
+  // Get Composio tools for this user's connected apps
+  const session = await getComposioSession(userId)
+  const composioTools = await session.tools()
+
+  // Merge Relay virtual tools with Composio tools
+  const allTools = relayTools ? { ...composioTools, ...relayTools } : composioTools
+
+  const toolNames = Object.keys(allTools)
+  console.log(
+    `[agent-chat-sync] Tools: ${toolNames.length} for user ${userId} — ${toolNames.join(', ')}`
+  )
+
+  const provider = getOpenAIProvider()
+  const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
+
+  console.log(`[agent-chat-sync] Using model: ${modelId}`)
+
+  const hasTools = Object.keys(allTools).length > 0
+  const result = await generateText({
+    model: provider.chat(modelId),
+    system: systemPrompt,
+    messages,
+    ...(hasTools
+      ? { tools: allTools as Parameters<typeof generateText>[0]['tools'], maxSteps: 10 }
+      : {}),
+    temperature: agent.temperature ?? 0.7,
+    maxOutputTokens: agent.max_tokens ?? 4096,
+  })
+
+  console.log(
+    `[agent-chat-sync] Result: text=${result.text?.length ?? 0} chars, steps=${result.steps?.length ?? 0}, finishReason=${result.finishReason}`
+  )
+
+  let text = result.text
+  let totalTokens = result.usage?.totalTokens ?? 0
+
+  // If the model executed tools but didn't produce a final text response,
+  // make a follow-up call WITHOUT tools to force a natural-language summary.
+  if (!text && result.steps && result.steps.length > 0) {
+    // Build a summary of what tools did for the follow-up prompt
+    const toolSummaries: string[] = []
+    for (const step of result.steps) {
+      if (step.toolResults) {
+        for (const tr of step.toolResults) {
+          toolSummaries.push(
+            `Tool ${tr.toolName} returned: ${JSON.stringify(tr.output).slice(0, 1000)}`
+          )
+        }
+      }
+    }
+
+    if (toolSummaries.length > 0) {
+      console.log(
+        `[agent-chat-sync] No text after ${result.steps.length} steps — running follow-up for summary`
+      )
+
+      const followUp = await generateText({
+        model: provider.chat(modelId),
+        system: systemPrompt,
+        messages: [
+          ...messages,
+          {
+            role: 'user' as const,
+            content: [
+              'You just executed tools. Here are the results:',
+              ...toolSummaries,
+              '',
+              'Now write a short, friendly response to the user summarizing what happened.',
+              'Follow the Response Format rules from your system prompt. Never return raw JSON.',
+            ].join('\n'),
+          },
+        ],
+        temperature: agent.temperature ?? 0.7,
+        maxOutputTokens: 512,
+      })
+
+      text = followUp.text
+      totalTokens += followUp.usage?.totalTokens ?? 0
+    }
+  }
+
+  return {
+    text: text || '',
+    usage: { totalTokens },
+  }
 }
 
 // ---------------------------------------------------------------------------

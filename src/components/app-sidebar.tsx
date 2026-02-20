@@ -9,6 +9,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Moon,
   Play,
   Plug,
@@ -101,6 +102,7 @@ export default function AppSidebar({
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Workspace', href: '/workspace', icon: FolderKanban },
     { label: 'Runs', href: '/runs', icon: Play },
+    { label: 'Messaging', href: '/messaging', icon: MessageCircle },
   ]
 
   const toolItems = [

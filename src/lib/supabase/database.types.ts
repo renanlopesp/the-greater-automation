@@ -586,6 +586,63 @@ export type Database = {
           },
         ]
       }
+      messaging_links: {
+        Row: {
+          channel_type: string
+          conversation_id: string | null
+          created_at: string | null
+          external_chat_id: string
+          external_username: string | null
+          id: string
+          is_verified: boolean
+          team_id: string
+          user_id: string
+          verification_code: string | null
+          verification_expires_at: string | null
+        }
+        Insert: {
+          channel_type?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          external_chat_id: string
+          external_username?: string | null
+          id?: string
+          is_verified?: boolean
+          team_id: string
+          user_id: string
+          verification_code?: string | null
+          verification_expires_at?: string | null
+        }
+        Update: {
+          channel_type?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          external_chat_id?: string
+          external_username?: string | null
+          id?: string
+          is_verified?: boolean
+          team_id?: string
+          user_id?: string
+          verification_code?: string | null
+          verification_expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'messaging_links_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'agent_conversations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'messaging_links_team_id_fkey'
+            columns: ['team_id']
+            isOneToOne: false
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
