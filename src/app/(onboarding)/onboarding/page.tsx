@@ -76,7 +76,7 @@ export default function OnboardingPage() {
 
     if (step === 'telegram') {
       // Complete onboarding
-      router.push('/home')
+      router.push('/workspace')
       return
     }
 
@@ -87,7 +87,7 @@ export default function OnboardingPage() {
   }
 
   const finishOnboarding = () => {
-    router.push('/home')
+    router.push('/workspace')
   }
 
   return (

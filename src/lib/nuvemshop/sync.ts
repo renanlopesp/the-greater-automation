@@ -50,7 +50,7 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
           const { sendMessage } = await import('@/lib/messaging/telegram')
           await sendMessage(
             link.external_chat_id,
-            '⚠️ Sua conexão com a Nuvemshop foi desconectada. O token de acesso expirou ou foi revogado. Reconecte em /home.'
+            '⚠️ Sua conexão com a Nuvemshop foi desconectada. O token de acesso expirou ou foi revogado. Reconecte em /workspace.'
           )
         }
       }

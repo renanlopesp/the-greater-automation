@@ -120,6 +120,35 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
+  // Fetch store data for settings dialog
+  let storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null = null
+  if (activeTeamId) {
+    const { data: storeRow } = await supabase
+      .from('stores')
+      .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+      .eq('team_id', activeTeamId)
+      .single()
+    if (storeRow) {
+      storeData = {
+        id: storeRow.id,
+        name: storeRow.name,
+        segment: storeRow.segment,
+        platform: storeRow.platform ?? null,
+        platform_store_id: storeRow.platform_store_id ?? null,
+        last_sync_at: storeRow.last_sync_at ?? null,
+        settings: (storeRow.settings ?? null) as Record<string, unknown> | null,
+      }
+    }
+  }
+
   // Fetch team members and invitations
   let members: Awaited<ReturnType<typeof fetchTeamMembers>> = []
   let invitations: Awaited<ReturnType<typeof fetchTeamInvitations>> = []
@@ -173,6 +202,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         currentUserRole={currentUserRole}
         defaultSidebarOpen={sidebarOpen}
         planData={planData}
+        storeData={storeData}
       >
         {children}
       </DashboardShell>

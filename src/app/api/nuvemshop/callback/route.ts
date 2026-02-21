@@ -13,14 +13,14 @@ export async function GET(request: NextRequest) {
   const stateParam = request.nextUrl.searchParams.get('state')
 
   if (!code || !stateParam) {
-    return NextResponse.redirect(new URL('/home?error=missing_params', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=missing_params', request.url))
   }
 
   let state: { team_id: string; redirect_uri: string }
   try {
     state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
   } catch {
-    return NextResponse.redirect(new URL('/home?error=invalid_state', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=invalid_state', request.url))
   }
 
   try {
@@ -62,10 +62,10 @@ export async function GET(request: NextRequest) {
       registerWebhooks(client, store.id, origin, serviceSupabase).catch(console.error)
     }
 
-    return NextResponse.redirect(new URL(state.redirect_uri || '/home', request.url))
+    return NextResponse.redirect(new URL(state.redirect_uri || '/workspace', request.url))
   } catch (error) {
     console.error('[nuvemshop/callback] OAuth error:', error)
-    return NextResponse.redirect(new URL('/home?error=oauth_failed', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=oauth_failed', request.url))
   }
 }
 

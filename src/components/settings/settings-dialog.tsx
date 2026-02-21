@@ -9,6 +9,7 @@ import NotificationsSection from '@/components/settings/notifications-section'
 import GeneralSection from '@/components/settings/general-section'
 import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
+import StoreSection from '@/components/settings/store-section'
 import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
 
 interface SettingsDialogProps {
@@ -29,6 +30,15 @@ interface SettingsDialogProps {
   currentUserRole: 'owner' | 'admin' | 'member'
   currentUserId: string
   planData: PlanData | null
+  storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null
 }
 
 export default function SettingsDialog({
@@ -44,6 +54,7 @@ export default function SettingsDialog({
   currentUserRole,
   currentUserId,
   planData,
+  storeData,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
 
@@ -84,6 +95,8 @@ export default function SettingsDialog({
             planData={planData}
           />
         )
+      case 'store':
+        return <StoreSection storeData={storeData} teamId={teamId} />
     }
   }
 

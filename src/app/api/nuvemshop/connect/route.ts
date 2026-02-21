@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
 
-  const redirectUri = request.nextUrl.searchParams.get('redirect_uri') || '/home'
+  const redirectUri = request.nextUrl.searchParams.get('redirect_uri') || '/workspace'
 
   const state = Buffer.from(
     JSON.stringify({
