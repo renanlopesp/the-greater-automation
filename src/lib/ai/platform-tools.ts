@@ -3,6 +3,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
 import type { Json } from '@/lib/supabase/database.types'
+import { buildRetailTools } from '@/lib/ai/retail-tools'
 
 type SupabaseClient =
   | Awaited<ReturnType<typeof createServerClient>>
@@ -141,7 +142,8 @@ function generateStarterSkills(
 export function buildPlatformTools(
   userId: string,
   teamId: string,
-  supabaseClient?: SupabaseClient
+  supabaseClient?: SupabaseClient,
+  storeId?: string
 ) {
   const ownerUserId = userId
   const getClient = async () => supabaseClient ?? (await createServerClient())
@@ -669,6 +671,8 @@ export function buildPlatformTools(
         return { runs: data ?? [], count: data?.length ?? 0 }
       },
     },
+    // Merge retail tools when store exists
+    ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient) : {}),
   }
 }
 
@@ -676,7 +680,15 @@ export function buildPlatformTools(
  * System prompt for the Snew platform assistant (Telegram).
  * Layered personality inspired by OpenClaw's SOUL.md / IDENTITY.md / AGENTS.md pattern.
  */
-export function buildPlatformSystemPrompt(teamName: string): string {
+export function buildPlatformSystemPrompt(
+  teamName: string,
+  retailContext?: {
+    storeName: string
+    segment: string
+    platform: string | null
+    hasProducts: boolean
+  }
+): string {
   return [
     // ── Identity ──────────────────────────────────────────────────────────
     '## Identity',
@@ -815,5 +827,38 @@ export function buildPlatformSystemPrompt(teamName: string): string {
     '**Palette:**',
     'Suggest a palette that fits the domain. The system auto-picks a distinct unused color if not specified.',
     'Available: blue (professional), orange (creative), green (growth/finance), purple (luxury/AI), red (alerts/security), teal (health/support), pink (social/marketing), amber (knowledge/education), slate (technical/devops), cyan (data/analytics), lime (eco/startup), rose (elegant/care), indigo (deep-tech/research).',
+
+    // ── Retail Context (when store exists) ────────────────────────────
+    ...(retailContext
+      ? [
+          '',
+          '## Retail Context',
+          '',
+          `You are the AI assistant for **${retailContext.storeName}**, a ${retailContext.segment} store.`,
+          retailContext.platform
+            ? `The store is connected to **${retailContext.platform}** for product and order sync.`
+            : 'The store has no online platform connected yet.',
+          '',
+          '**Retail Capabilities**',
+          '- Use STORE_QUERY_STOCK to check product stock levels',
+          '- Use STORE_QUERY_SALES to get sales summaries',
+          '- Use STORE_LIST_ORDERS to list recent orders',
+          '- Use STORE_UPDATE_ALERT to configure stock alert thresholds',
+          '- Use STORE_TRIGGER_SYNC to manually sync products from the connected platform',
+          '',
+          '**Retail Tool Routing (follow strictly)**',
+          '- "como tá meu estoque?" / "stock levels" → STORE_QUERY_STOCK',
+          '- "quanto vendi hoje?" / "sales today" → STORE_QUERY_SALES',
+          '- "pedidos recentes" / "recent orders" → STORE_LIST_ORDERS',
+          '- "muda o alerta de estoque pra 10" / "set stock alert" → STORE_UPDATE_ALERT',
+          '- "sincroniza meus produtos" / "sync products" → STORE_TRIGGER_SYNC',
+          '',
+          retailContext.hasProducts
+            ? 'The store has synced products. Use STORE_ tools to answer stock and sales questions with real data.'
+            : 'The store has no synced products yet. If the user asks about stock or sales, suggest connecting their platform or triggering a sync.',
+          '',
+          '**IMPORTANT**: For retail queries, ALWAYS use the STORE_ tools. Do NOT use SNEW_ tools for stock, sales, or order questions. SNEW_ tools manage agents/workflows/skills. STORE_ tools query retail data.',
+        ]
+      : []),
   ].join('\n')
 }

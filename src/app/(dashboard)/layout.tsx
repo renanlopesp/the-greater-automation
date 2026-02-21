@@ -64,7 +64,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const [{ data: teamData }, { data: usageRows }, { data: subscriptionRow }] = await Promise.all([
       supabase
         .from('teams')
-        .select('id, name, slug, plan_id, plans(id, name, features, max_team_members)')
+        .select('id, name, slug, plan_id, has_store, plans(id, name, features, max_team_members)')
         .eq('id', activeTeamId)
         .single(),
       supabase
@@ -83,6 +83,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ])
 
     if (teamData) {
+      // Redirect to onboarding if team doesn't have a store yet
+      if (!teamData.has_store) {
+        redirect('/onboarding')
+      }
+
       team = { id: teamData.id, name: teamData.name, slug: teamData.slug }
 
       const teamWithPlan = teamData as typeof teamData & {

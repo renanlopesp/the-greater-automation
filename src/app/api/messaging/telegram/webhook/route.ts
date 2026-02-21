@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Activate the link
-    await supabase
+    const { data: updatedLink } = await supabase
       .from('messaging_links')
       .update({
         external_chat_id: chatId,
@@ -104,11 +104,35 @@ export async function POST(request: NextRequest) {
         verification_expires_at: null,
       })
       .eq('id', link.id)
+      .select('team_id')
+      .single()
 
-    await sendMessage(
-      chatId,
+    // Check if team has a store for personalized welcome
+    let welcomeMessage =
       'Account linked successfully! You now have full access to your workspace. Try asking me to list your agents or workflows.'
-    )
+
+    if (updatedLink?.team_id) {
+      const { data: store } = await supabase
+        .from('stores')
+        .select('name, segment')
+        .eq('team_id', updatedLink.team_id)
+        .single()
+
+      if (store) {
+        welcomeMessage = [
+          `Conta vinculada! Sou o Snew, seu assistente para a **${store.name}**.`,
+          '',
+          'Posso te ajudar com:',
+          '- "Como tá meu estoque?" — consultar produtos',
+          '- "Quanto vendi hoje?" — resumo de vendas',
+          '- "Pedidos recentes" — listar pedidos',
+          '',
+          'Experimente agora!',
+        ].join('\n')
+      }
+    }
+
+    await sendMessage(chatId, welcomeMessage)
     return NextResponse.json({ ok: true })
   }
 
@@ -165,6 +189,22 @@ async function processMessage(
     .single()
 
   const teamName = team?.name ?? 'Your workspace'
+
+  // 6b. Fetch store data for retail context (if store exists)
+  const { data: store } = await supabase
+    .from('stores')
+    .select('id, name, segment, platform, platform_access_token')
+    .eq('team_id', link.team_id)
+    .single()
+
+  const hasProducts = store
+    ? ((
+        await supabase
+          .from('store_products')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id)
+      ).count ?? 0) > 0
+    : false
 
   // 7. Find or create conversation (not tied to any specific agent)
   let conversationId = link.conversation_id
@@ -236,8 +276,18 @@ async function processMessage(
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
   // 10. Build platform tools + system prompt (pass service role client — no auth cookies in webhook)
-  const platformTools = buildPlatformTools(link.user_id, link.team_id, supabase)
-  const systemPrompt = buildPlatformSystemPrompt(teamName)
+  const platformTools = buildPlatformTools(link.user_id, link.team_id, supabase, store?.id)
+  const systemPrompt = buildPlatformSystemPrompt(
+    teamName,
+    store
+      ? {
+          storeName: store.name,
+          segment: store.segment,
+          platform: store.platform,
+          hasProducts,
+        }
+      : undefined
+  )
 
   // 11. Run AI (non-streaming) with platform identity
   const result = await runAgentChatSync({
