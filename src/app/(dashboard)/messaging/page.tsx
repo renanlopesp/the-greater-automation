@@ -50,12 +50,23 @@ export default function MessagingPage() {
   // Poll for verification while code is shown
   useEffect(() => {
     if (!code) return
+    let failures = 0
     const interval = setInterval(async () => {
-      const res = await fetch('/api/messaging/link')
-      const data = (await res.json()) as LinkStatus
-      if (data.status === 'linked') {
-        setLinkStatus(data)
-        setCode(null)
+      try {
+        const res = await fetch('/api/messaging/link')
+        if (!res.ok) throw new Error('Poll failed')
+        const data = (await res.json()) as LinkStatus
+        failures = 0 // reset on success
+        if (data.status === 'linked') {
+          setLinkStatus(data)
+          setCode(null)
+        }
+      } catch {
+        failures++
+        if (failures >= 5) {
+          clearInterval(interval)
+          setError('Verification polling failed. Please refresh the page.')
+        }
       }
     }, 3000)
     return () => clearInterval(interval)
@@ -85,8 +96,13 @@ export default function MessagingPage() {
 
   async function handleUnlink() {
     setIsUnlinking(true)
+    setError(null)
     try {
-      await fetch('/api/messaging/link', { method: 'DELETE' })
+      const res = await fetch('/api/messaging/link', { method: 'DELETE' })
+      if (!res.ok) {
+        setError('Failed to unlink')
+        return
+      }
       setLinkStatus({ status: 'not_linked' })
       setCode(null)
     } catch {

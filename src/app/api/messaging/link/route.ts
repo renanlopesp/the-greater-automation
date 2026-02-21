@@ -28,6 +28,24 @@ export async function POST() {
     return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
   }
 
+  // Check if user already has a verified link — warn before overwriting
+  const { data: existingLink } = await supabase
+    .from('messaging_links')
+    .select('id, is_verified, external_username')
+    .eq('user_id', user.id)
+    .eq('channel_type', 'telegram')
+    .single()
+
+  if (existingLink?.is_verified) {
+    return NextResponse.json(
+      {
+        error: 'already_linked',
+        message: `Your Telegram (@${existingLink.external_username ?? 'unknown'}) is already linked. Unlink first to generate a new code.`,
+      },
+      { status: 409 }
+    )
+  }
+
   const code = generateCode()
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 min
 

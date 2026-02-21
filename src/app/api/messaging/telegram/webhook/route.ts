@@ -5,7 +5,7 @@ import { runAgentChatSync } from '@/lib/ai/agent-chat'
 import { buildPlatformTools, buildPlatformSystemPrompt } from '@/lib/ai/platform-tools'
 import { tokensToCredits } from '@/lib/billing/credits'
 
-const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 
 /**
  * Telegram Bot webhook handler.
@@ -13,13 +13,23 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
  * It has access to the full workspace: agents, workflows, skills, integrations.
  */
 export async function POST(request: NextRequest) {
-  // 1. Verify webhook secret
+  // 1. Verify webhook secret — fail closed when not configured
+  if (!WEBHOOK_SECRET) {
+    console.error('[telegram/webhook] TELEGRAM_WEBHOOK_SECRET is not set — rejecting all requests')
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
+
   const secretHeader = request.headers.get('x-telegram-bot-api-secret-token')
-  if (WEBHOOK_SECRET && secretHeader !== WEBHOOK_SECRET) {
+  if (secretHeader !== WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const update = (await request.json()) as TelegramUpdate
+  let update: TelegramUpdate
+  try {
+    update = (await request.json()) as TelegramUpdate
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   // Only handle text messages
   if (!update.message?.text || !update.message.from) {
@@ -264,6 +274,6 @@ async function processMessage(
     })
   }
 
-  // 14. Send response back to Telegram
-  await sendMessage(chatId, assistantText)
+  // 14. Send response back to Telegram (with Markdown for bold/italic/code)
+  await sendMessage(chatId, assistantText, 'Markdown')
 }

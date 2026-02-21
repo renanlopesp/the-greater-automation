@@ -304,8 +304,9 @@ export function buildPlatformTools(
         // Auto-create 2-3 starter knowledge skills based on the agent's domain
         const starterSkills = generateStarterSkills(params.name, params.description)
         const createdSkills: string[] = []
+        const failedSkills: string[] = []
         for (const skill of starterSkills) {
-          const { data: skillData } = await supabase
+          const { data: skillData, error: skillError } = await supabase
             .from('agent_skills')
             .insert({
               agent_id: data.id,
@@ -320,6 +321,7 @@ export function buildPlatformTools(
             .select('name')
             .single()
           if (skillData) createdSkills.push(skillData.name)
+          else if (skillError) failedSkills.push(skill.name)
         }
 
         return {
@@ -328,6 +330,9 @@ export function buildPlatformTools(
           name: data.name,
           palette: data.palette,
           starter_skills: createdSkills,
+          ...(failedSkills.length > 0 && {
+            starter_skills_warning: `Failed to create: ${failedSkills.join(', ')}`,
+          }),
         }
       },
     },
@@ -355,12 +360,13 @@ export function buildPlatformTools(
         } else {
           // Get all agents for this team, then filter workflows
           const { data: agents } = await supabase.from('agents').select('id').eq('team_id', teamId)
-          if (agents && agents.length > 0) {
-            query = query.in(
-              'agent_id',
-              agents.map((a) => a.id)
-            )
+          if (!agents || agents.length === 0) {
+            return { workflows: [], count: 0 }
           }
+          query = query.in(
+            'agent_id',
+            agents.map((a) => a.id)
+          )
         }
 
         const { data, error } = await query
@@ -464,7 +470,14 @@ export function buildPlatformTools(
             .from('app_connections')
             .select('app_id, account_label')
             .eq('user_id', userId)
-          return { connected_apps: data ?? [], count: data?.length ?? 0 }
+          return {
+            connected_apps: (data ?? []).map((c) => ({
+              app_id: c.app_id,
+              auth_type: null as string | null,
+            })),
+            count: data?.length ?? 0,
+            _warning: 'auth_type unavailable — connection details loaded from local cache',
+          }
         }
       },
     },
@@ -588,14 +601,17 @@ export function buildPlatformTools(
       execute: async (params: { workflow_id: string; input_data?: Record<string, unknown> }) => {
         const supabase = await getClient()
 
-        // Verify the workflow belongs to this team
+        // Verify the workflow belongs to this team via its agent
         const { data: workflow } = await supabase
           .from('agent_workflows')
-          .select('id, name, agent_id, is_enabled, trigger_config, conditions, actions')
+          .select(
+            'id, name, agent_id, is_enabled, trigger_config, conditions, actions, agents!inner(team_id)'
+          )
           .eq('id', params.workflow_id)
+          .eq('agents.team_id', teamId)
           .single()
 
-        if (!workflow) return { error: 'Workflow not found' }
+        if (!workflow) return { error: 'Workflow not found or does not belong to this workspace' }
         if (!workflow.is_enabled) return { error: 'Workflow is disabled' }
 
         // Create a run record
@@ -635,12 +651,17 @@ export function buildPlatformTools(
         const supabase = await getClient()
         let query = supabase
           .from('agent_workflow_runs')
-          .select('id, agent_workflow_id, status, trigger_data, started_at, completed_at, error')
+          .select(
+            'id, workflow_id, agent_id, status, trigger_data, started_at, completed_at, error'
+          )
           .order('started_at', { ascending: false })
           .limit(params.limit ?? 10)
 
+        if (params.agent_id) {
+          query = query.eq('agent_id', params.agent_id)
+        }
         if (params.workflow_id) {
-          query = query.eq('agent_workflow_id', params.workflow_id)
+          query = query.eq('workflow_id', params.workflow_id)
         }
 
         const { data, error } = await query
