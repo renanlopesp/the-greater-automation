@@ -190,7 +190,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
 
     STORE_UPDATE_ALERT: {
       description:
-        'Update stock alert threshold. Can set global default or per-product threshold. Use when user says "muda o alerta pra X unidades".',
+        'Update stock alert threshold or order notification settings. Use when user says "muda o alerta pra X unidades", "para de notificar pedidos", or "ativa notificação de pedidos".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -199,11 +199,53 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
             type: 'string',
             description: 'Optional: specific product to update (searches by name)',
           },
+          order_notifications: {
+            type: 'boolean',
+            description:
+              'Enable or disable Telegram notifications for new orders. true = enabled, false = disabled.',
+          },
         },
-        required: ['threshold'],
       }),
-      execute: async (params: { threshold: number; product_name?: string }) => {
+      execute: async (params: {
+        threshold?: number
+        product_name?: string
+        order_notifications?: boolean
+      }) => {
         const supabase = getClient()
+
+        // Handle order notification toggle
+        if (params.order_notifications !== undefined) {
+          const { data: store } = await supabase
+            .from('stores')
+            .select('settings')
+            .eq('id', storeId)
+            .single()
+
+          const currentSettings = (store?.settings as Record<string, unknown> | null) ?? {}
+          const { error } = await supabase
+            .from('stores')
+            .update({
+              settings: {
+                ...currentSettings,
+                order_notifications_enabled: params.order_notifications,
+              },
+            })
+            .eq('id', storeId)
+
+          if (error) return { error: error.message }
+          return {
+            success: true,
+            message: params.order_notifications
+              ? 'Notificações de novos pedidos ativadas.'
+              : 'Notificações de novos pedidos desativadas.',
+          }
+        }
+
+        if (!params.threshold && params.threshold !== 0) {
+          return {
+            error: 'Informe o threshold ou se deseja ativar/desativar notificações de pedidos.',
+          }
+        }
 
         if (params.product_name) {
           // Find the product
@@ -250,6 +292,70 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
         return {
           success: true,
           message: `Alerta global atualizado para ${params.threshold} unidades`,
+        }
+      },
+    },
+
+    STORE_UPDATE_SCHEDULE: {
+      description:
+        'Update the daily sales summary schedule. Use when user says "manda resumo às 20h", "quero receber resumo às 9 horas", "desativa o resumo diário", or similar.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          time: {
+            type: 'string',
+            description:
+              'Time for the daily summary in BRT, e.g. "21:00", "9", "08:30". Only the hour is used.',
+          },
+          enabled: {
+            type: 'boolean',
+            description: 'Enable or disable the daily summary (default: true)',
+          },
+        },
+        required: ['time'],
+      }),
+      execute: async (params: { time: string; enabled?: boolean }) => {
+        const supabase = getClient()
+
+        // Parse hour from time string (e.g. "21:00", "21", "9h")
+        const hourMatch = params.time.match(/^(\d{1,2})/)
+        if (!hourMatch) {
+          return { error: 'Horário inválido. Use um formato como "21:00" ou "9".' }
+        }
+        const hour = parseInt(hourMatch[1], 10)
+        if (hour < 0 || hour > 23) {
+          return { error: 'Horário inválido. Deve ser entre 0 e 23.' }
+        }
+
+        // Fetch current settings to merge
+        const { data: store } = await supabase
+          .from('stores')
+          .select('settings')
+          .eq('id', storeId)
+          .single()
+
+        const currentSettings = (store?.settings as Record<string, unknown> | null) ?? {}
+        const enabled = params.enabled !== false // Default true
+
+        const { error } = await supabase
+          .from('stores')
+          .update({
+            settings: {
+              ...currentSettings,
+              daily_summary_hour: hour,
+              daily_summary_enabled: enabled,
+            },
+          })
+          .eq('id', storeId)
+
+        if (error) return { error: error.message }
+
+        const hourFormatted = String(hour).padStart(2, '0') + ':00'
+        return {
+          success: true,
+          message: enabled
+            ? `Resumo diário configurado para ${hourFormatted} (horário de Brasília).`
+            : 'Resumo diário desativado.',
         }
       },
     },

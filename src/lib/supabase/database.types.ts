@@ -1255,28 +1255,31 @@ export type Database = {
       }
       store_stock_alerts: {
         Row: {
+          cooldown_minutes: number
           created_at: string
           id: string
           is_enabled: boolean
-          last_alerted_at: string | null
+          last_triggered_at: string | null
           product_id: string | null
           store_id: string
           threshold: number
         }
         Insert: {
+          cooldown_minutes?: number
           created_at?: string
           id?: string
           is_enabled?: boolean
-          last_alerted_at?: string | null
+          last_triggered_at?: string | null
           product_id?: string | null
           store_id: string
           threshold?: number
         }
         Update: {
+          cooldown_minutes?: number
           created_at?: string
           id?: string
           is_enabled?: boolean
-          last_alerted_at?: string | null
+          last_triggered_at?: string | null
           product_id?: string | null
           store_id?: string
           threshold?: number
@@ -1311,6 +1314,7 @@ export type Database = {
           platform_url: string | null
           priorities: string[]
           segment: string
+          settings: Json
           team_id: string
           updated_at: string
         }
@@ -1326,6 +1330,7 @@ export type Database = {
           platform_url?: string | null
           priorities?: string[]
           segment: string
+          settings?: Json
           team_id: string
           updated_at?: string
         }
@@ -1341,6 +1346,7 @@ export type Database = {
           platform_url?: string | null
           priorities?: string[]
           segment?: string
+          settings?: Json
           team_id?: string
           updated_at?: string
         }

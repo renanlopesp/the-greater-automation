@@ -116,6 +116,19 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
     })
   }
 
+  // 4b. Set default daily summary schedule if resumo_de_vendas is a priority
+  if (input.priorities.includes('resumo_de_vendas')) {
+    await supabase
+      .from('stores')
+      .update({
+        settings: {
+          daily_summary_hour: 21,
+          daily_summary_enabled: true,
+        },
+      })
+      .eq('id', store.id)
+  }
+
   // 5. Set has_store=true on the team
   await supabase.from('teams').update({ has_store: true }).eq('id', input.teamId)
 
