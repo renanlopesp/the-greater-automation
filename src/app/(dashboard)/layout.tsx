@@ -137,12 +137,34 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .eq('team_id', activeTeamId)
       .single()
     if (storeRow) {
+      let platformStoreId = storeRow.platform_store_id ?? null
+
+      // If platform_store_id is missing but there's an active Composio connection for the platform,
+      // use the composio_connection_id as fallback (e.g. Shopify connected via Composio OAuth)
+      if (!platformStoreId && storeRow.platform) {
+        const { data: appConn } = await supabase
+          .from('app_connections')
+          .select('composio_connection_id')
+          .eq('team_id', activeTeamId)
+          .eq('app_id', storeRow.platform)
+          .limit(1)
+          .single()
+        if (appConn?.composio_connection_id) {
+          platformStoreId = appConn.composio_connection_id
+          // Backfill the store record so future loads are instant
+          await supabase
+            .from('stores')
+            .update({ platform_store_id: platformStoreId })
+            .eq('id', storeRow.id)
+        }
+      }
+
       storeData = {
         id: storeRow.id,
         name: storeRow.name,
         segment: storeRow.segment,
         platform: storeRow.platform ?? null,
-        platform_store_id: storeRow.platform_store_id ?? null,
+        platform_store_id: platformStoreId,
         last_sync_at: storeRow.last_sync_at ?? null,
         settings: (storeRow.settings ?? null) as Record<string, unknown> | null,
       }

@@ -28,15 +28,17 @@ export async function PATCH(request: NextRequest) {
   const body = (await request.json()) as {
     name?: string
     segment?: string
+    platform?: string
     default_threshold?: number
     settings?: Record<string, unknown>
   }
 
-  // Update store info (name, segment)
-  if (body.name !== undefined || body.segment !== undefined) {
+  // Update store info (name, segment, platform)
+  if (body.name !== undefined || body.segment !== undefined || body.platform !== undefined) {
     const updates: Record<string, string> = {}
     if (body.name !== undefined) updates.name = body.name
     if (body.segment !== undefined) updates.segment = body.segment
+    if (body.platform !== undefined) updates.platform = body.platform
     await serviceClient.from('stores').update(updates).eq('id', store.id)
   }
 
@@ -57,9 +59,9 @@ export async function PATCH(request: NextRequest) {
   if (body.settings) {
     const currentSettings = (store.settings ?? {}) as Record<string, unknown>
     const newSettings = { ...currentSettings, ...body.settings }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await serviceClient
       .from('stores')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .update({ settings: newSettings as any })
       .eq('id', store.id)
   }
@@ -67,6 +69,7 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(_request: NextRequest) {
   const supabase = await createServerClient()
   const {

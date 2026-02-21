@@ -89,7 +89,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.redirect(`${siteUrl}/dashboard?connected=${pending.appId}`)
+    // If the connected app is a known e-commerce platform, update the store record too
+    const ecommercePlatforms = ['shopify', 'mercadolivre']
+    if (ecommercePlatforms.includes(pending.appId)) {
+      await supabase
+        .from('stores')
+        .update({
+          platform: pending.appId,
+          platform_store_id: pending.connectedAccountId,
+        })
+        .eq('team_id', teamMember.team_id)
+    }
+
+    return NextResponse.redirect(`${siteUrl}/workspace?connected=${pending.appId}`)
   } catch (error) {
     console.error('App callback error:', error)
     return NextResponse.redirect(`${siteUrl}/dashboard?error=oauth_failed`)

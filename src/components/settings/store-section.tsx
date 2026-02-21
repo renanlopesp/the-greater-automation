@@ -14,6 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { initiateAppConnection } from '@/lib/composio/actions/initiate-connection'
+
+const PLATFORM_LABELS: Record<string, string> = {
+  nuvemshop: 'Nuvemshop',
+  shopify: 'Shopify',
+  mercadolivre: 'Mercado Livre',
+  manual: 'Manual',
+}
 
 const SEGMENTS = [
   { value: 'roupas', label: 'Roupas e Moda' },
@@ -49,11 +57,22 @@ interface StoreSectionProps {
   teamId?: string
 }
 
+const PLATFORM_OPTIONS = [
+  { value: 'nuvemshop', label: 'Nuvemshop' },
+  { value: 'shopify', label: 'Shopify' },
+  { value: 'mercadolivre', label: 'Mercado Livre' },
+  { value: 'manual', label: 'Sem loja online' },
+]
+
 export default function StoreSection({ storeData }: StoreSectionProps) {
   // Store info form
   const [storeName, setStoreName] = useState(storeData?.name ?? '')
   const [segment, setSegment] = useState(storeData?.segment ?? '')
   const [savingInfo, setSavingInfo] = useState(false)
+
+  // Platform
+  const [platform, setPlatform] = useState(storeData?.platform ?? 'manual')
+  const [savingPlatform, setSavingPlatform] = useState(false)
 
   // Alert settings
   const [threshold, setThreshold] = useState(5)
@@ -68,6 +87,10 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
   const [summaryHour, setSummaryHour] = useState(String(settings.daily_summary_hour ?? 21))
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [shopifySubdomain, setShopifySubdomain] = useState('')
+
+  const isConnected = !!storeData?.platform_store_id
 
   if (!storeData) {
     return (
@@ -151,6 +174,40 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
     }
   }
 
+  const savePlatform = async (value: string) => {
+    setPlatform(value)
+    setSavingPlatform(true)
+    try {
+      const res = await fetch('/api/store/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: value }),
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+      toast.success('Plataforma atualizada')
+    } catch {
+      toast.error('Erro ao salvar plataforma')
+    } finally {
+      setSavingPlatform(false)
+    }
+  }
+
+  const connectViaComposio = async (appId: string, connectionData?: Record<string, unknown>) => {
+    setConnecting(true)
+    try {
+      const result = await initiateAppConnection(appId, undefined, connectionData)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      window.location.href = result.redirectUrl
+    } catch {
+      toast.error('Erro ao conectar plataforma')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-8 p-6">
       <h2 className="text-lg font-semibold">Loja</h2>
@@ -188,11 +245,13 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
       {/* Platform Connection */}
       <div className="flex max-w-md flex-col gap-4">
         <h3 className="text-sm font-medium">Plataforma</h3>
-        {storeData.platform && storeData.platform_store_id ? (
+        {isConnected ? (
           <div className="flex flex-col gap-3">
             <div className="bg-muted/50 flex items-center justify-between rounded-lg p-3">
               <div>
-                <p className="text-sm font-medium capitalize">{storeData.platform} conectada</p>
+                <p className="text-sm font-medium">
+                  {PLATFORM_LABELS[storeData.platform!] ?? storeData.platform} conectada
+                </p>
                 <p className="text-muted-foreground text-xs">
                   ID: {storeData.platform_store_id}
                   {storeData.last_sync_at && (
@@ -201,22 +260,85 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={triggerSync} disabled={syncing}>
+            {storeData.platform === 'nuvemshop' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={triggerSync}
+                disabled={syncing}
+              >
                 {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
               </Button>
-            </div>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            <p className="text-muted-foreground text-sm">Nenhuma plataforma conectada.</p>
-            <Button variant="outline" className="w-fit" asChild>
-              <a href="/api/nuvemshop/connect?redirect_uri=/workspace">
-                <ExternalLink className="h-4 w-4" />
-                Conectar Nuvemshop
-              </a>
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <Label>Plataforma de e-commerce</Label>
+              <Select value={platform} onValueChange={savePlatform} disabled={savingPlatform}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione sua plataforma" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATFORM_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {platform === 'nuvemshop' && (
+              <Button variant="outline" className="w-fit" asChild>
+                <a href="/api/nuvemshop/connect?redirect_uri=/workspace">
+                  <ExternalLink className="h-4 w-4" />
+                  Conectar Nuvemshop
+                </a>
+              </Button>
+            )}
+            {platform === 'shopify' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="shopify-subdomain">Subdomínio da loja Shopify</Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="shopify-subdomain"
+                      placeholder="minha-loja"
+                      value={shopifySubdomain}
+                      onChange={(e) => setShopifySubdomain(e.target.value.trim())}
+                      className="w-48"
+                    />
+                    <span className="text-muted-foreground text-xs">.myshopify.com</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-fit"
+                  onClick={() => connectViaComposio('shopify', { subdomain: shopifySubdomain })}
+                  disabled={connecting || !shopifySubdomain}
+                >
+                  {connecting ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-4 w-4" />
+                  )}
+                  {connecting ? 'Conectando...' : 'Conectar Shopify'}
+                </Button>
+              </div>
+            )}
+            {platform === 'mercadolivre' && (
+              <p className="text-muted-foreground text-xs">
+                A integração com o Mercado Livre ainda não está disponível. Em breve você poderá
+                conectar sua conta.
+              </p>
+            )}
+            {platform === 'manual' && (
+              <p className="text-muted-foreground text-xs">
+                Sem loja online conectada. Você pode gerenciar seus produtos manualmente.
+              </p>
+            )}
           </div>
         )}
       </div>
