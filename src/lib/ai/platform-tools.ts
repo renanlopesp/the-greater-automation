@@ -8,6 +8,127 @@ type SupabaseClient =
   | Awaited<ReturnType<typeof createServerClient>>
   | ReturnType<typeof createServiceRoleClient>
 
+/** Domain keyword → starter skills mapping */
+const DOMAIN_SKILLS: Record<string, { name: string; description: string; content: string }[]> = {
+  marketing: [
+    {
+      name: 'Brand Tone Guide',
+      description: 'Guidelines for consistent brand voice across channels',
+      content:
+        'Brand Voice Principles:\n\n1. Be conversational but professional — write like a knowledgeable friend, not a corporate press release.\n2. Lead with value — every message should answer "why should I care?"\n3. Use active voice and strong verbs. Avoid passive constructions.\n4. Keep sentences short (under 20 words). One idea per sentence.\n5. Match tone to channel: LinkedIn (professional), Twitter/X (punchy), Instagram (visual storytelling), Email (personal).\n6. Avoid jargon unless the audience expects it. When in doubt, simplify.\n7. Every piece of content should have a clear CTA (call to action).',
+    },
+    {
+      name: 'Social Media Best Practices',
+      description: 'Platform-specific tips for engagement and reach',
+      content:
+        'Social Media Playbook:\n\n**Posting Cadence**: 3-5x/week on LinkedIn, 1-2x/day on Twitter/X, 4-7x/week on Instagram.\n\n**Content Mix**: 40% educational, 30% engaging (polls, questions), 20% promotional, 10% behind-the-scenes.\n\n**Engagement Rules**: Reply to comments within 2 hours. Ask follow-up questions. Never delete negative feedback — address it publicly.\n\n**Hashtags**: Use 3-5 relevant hashtags on LinkedIn, 1-2 on Twitter/X, up to 10 on Instagram. Research trending tags weekly.\n\n**Visuals**: Every post needs a visual. Carousel posts get 3x engagement on LinkedIn. Short video (<60s) outperforms static images.',
+    },
+  ],
+  security: [
+    {
+      name: 'Security Alert Triage',
+      description: 'How to classify and prioritize security alerts',
+      content:
+        'Alert Triage Framework:\n\n**P0 (Critical)**: Active breach, data exfiltration, ransomware. Response: immediate. Escalate to on-call lead within 5 minutes.\n\n**P1 (High)**: Unauthorized access attempt, privilege escalation, suspicious admin activity. Response: within 1 hour.\n\n**P2 (Medium)**: Failed login spikes, new unknown service detected, certificate expiring <7 days. Response: within 4 hours.\n\n**P3 (Low)**: Policy violations, outdated dependencies, informational alerts. Response: next business day.\n\n**Triage Steps**: 1. Identify scope (what systems?). 2. Assess impact (data at risk?). 3. Check if known/expected. 4. Document in incident log. 5. Escalate per priority level.',
+    },
+    {
+      name: 'Incident Response Playbook',
+      description: 'Step-by-step procedures for handling security incidents',
+      content:
+        'Incident Response Steps:\n\n1. **Detect & Identify**: Confirm the alert is real. Gather initial evidence (logs, timestamps, affected systems).\n2. **Contain**: Isolate affected systems. Revoke compromised credentials. Block malicious IPs.\n3. **Investigate**: Determine root cause, attack vector, and blast radius. Timeline reconstruction.\n4. **Eradicate**: Remove malware, patch vulnerabilities, close attack vector.\n5. **Recover**: Restore from clean backups. Monitor for recurrence. Gradually restore access.\n6. **Post-Mortem**: Document timeline, root cause, what worked, what failed. Update runbooks. Share lessons learned.',
+    },
+  ],
+  devops: [
+    {
+      name: 'Deployment Checklist',
+      description: 'Pre and post deployment verification steps',
+      content:
+        'Deployment Checklist:\n\n**Pre-Deploy**: 1. All tests passing (unit, integration, e2e). 2. Code reviewed and approved. 3. Database migrations tested on staging. 4. Environment variables verified. 5. Rollback plan documented. 6. Monitoring dashboards open.\n\n**Deploy**: 1. Deploy to staging first. 2. Run smoke tests. 3. Check error rates and latency. 4. Deploy to production (canary → full). 5. Monitor for 15 minutes.\n\n**Post-Deploy**: 1. Verify key user flows. 2. Check error rates vs baseline. 3. Confirm no performance regression. 4. Update deployment log. 5. Notify team in Slack.',
+    },
+    {
+      name: 'Monitoring & Alerting Guide',
+      description: 'Key metrics and thresholds for infrastructure monitoring',
+      content:
+        'Monitoring Essentials:\n\n**System Metrics**: CPU (alert >85%), Memory (alert >90%), Disk (alert >80%), Network I/O.\n\n**Application Metrics**: Response time p50/p95/p99, Error rate (alert >1%), Request throughput, Active connections.\n\n**Database Metrics**: Query latency, Connection pool usage, Replication lag, Slow queries (>1s).\n\n**Business Metrics**: Active users, Transaction success rate, API usage by endpoint.\n\n**Alert Rules**: Use escalation chains. P0: PagerDuty + Slack. P1: Slack + email. P2: Slack only. Suppress duplicate alerts within 5min window. Review alert fatigue monthly — silence noisy alerts.',
+    },
+  ],
+  analytics: [
+    {
+      name: 'Data Quality Checklist',
+      description: 'Steps to validate data accuracy and completeness',
+      content:
+        'Data Quality Framework:\n\n1. **Completeness**: Check for NULL rates on key columns. Flag if >5% missing.\n2. **Accuracy**: Cross-reference with source systems. Sample 100 records for manual validation.\n3. **Consistency**: Same metric should match across dashboards. Check join keys for orphan records.\n4. **Timeliness**: Data should be fresh within SLA (real-time: <5min, daily: by 8am UTC).\n5. **Uniqueness**: Check for duplicate records. Validate primary keys are unique.\n6. **Schema Changes**: Monitor for unexpected column additions/removals. Alert on type changes.',
+    },
+    {
+      name: 'Reporting Best Practices',
+      description: 'Guidelines for clear and actionable data reporting',
+      content:
+        'Reporting Guidelines:\n\n**Structure**: Lead with insight, not data. Start with "so what?" then show supporting numbers.\n\n**Visualization**: Use bar charts for comparisons, line charts for trends, tables for exact values. Never use pie charts for >5 categories.\n\n**Context**: Always include time period, comparison (vs last period/target), and sample size.\n\n**Actionability**: Every report should answer: What happened? Why? What should we do?\n\n**Distribution**: Daily metrics in Slack. Weekly deep-dives via email. Monthly reviews in deck format.',
+    },
+  ],
+  support: [
+    {
+      name: 'Ticket Triage Guide',
+      description: 'How to classify and route support tickets',
+      content:
+        'Ticket Triage:\n\n**Priority Levels**: P0 (service down, all users affected) → respond in 15min. P1 (major feature broken) → 1 hour. P2 (minor issue, workaround exists) → 4 hours. P3 (feature request, question) → 24 hours.\n\n**Routing**: Billing → Finance team. Bug reports → Engineering. How-to questions → Knowledge base first, then support. Account access → Security team.\n\n**First Response**: Acknowledge within SLA. Summarize the issue back. Set expectations for resolution time. Never say "works for me" — reproduce first.',
+    },
+    {
+      name: 'Customer Communication Templates',
+      description: 'Response templates for common support scenarios',
+      content:
+        'Communication Templates:\n\n**Acknowledgment**: "Thanks for reaching out. I can see [restate issue]. I\'m looking into this now and will update you within [timeframe]."\n\n**Escalation**: "This needs specialized attention. I\'ve escalated to [team] with all the details. You\'ll hear from them within [timeframe]."\n\n**Resolution**: "Good news — [issue] is resolved. [Brief explanation of what happened and fix]. Let me know if you see any other issues."\n\n**Known Issue**: "This is a known issue our team is working on. Current ETA: [date]. I\'ll update you when it\'s fixed."',
+    },
+  ],
+}
+
+/** Generate starter skills by matching keywords in name/description to domain templates */
+function generateStarterSkills(
+  name: string,
+  description?: string
+): { name: string; description: string; content: string }[] {
+  const text = `${name} ${description ?? ''}`.toLowerCase()
+
+  const domainMatches: Array<{ domain: string; score: number }> = []
+  const keywords: Record<string, string[]> = {
+    marketing: ['marketing', 'brand', 'social media', 'content', 'campaign', 'storytelling', 'seo'],
+    security: ['security', 'cyber', 'threat', 'alert', 'incident', 'vulnerability', 'guardian'],
+    devops: [
+      'devops',
+      'infrastructure',
+      'deploy',
+      'server',
+      'monitor',
+      'ci/cd',
+      'kubernetes',
+      'docker',
+    ],
+    analytics: ['analytics', 'data', 'report', 'metric', 'dashboard', 'insight', 'crunch'],
+    support: ['support', 'customer', 'help desk', 'ticket', 'service', 'care'],
+  }
+
+  for (const [domain, words] of Object.entries(keywords)) {
+    const score = words.filter((w) => text.includes(w)).length
+    if (score > 0) domainMatches.push({ domain, score })
+  }
+
+  // Sort by score descending, pick best match
+  domainMatches.sort((a, b) => b.score - a.score)
+  const bestDomain = domainMatches[0]?.domain
+  if (bestDomain && DOMAIN_SKILLS[bestDomain]) {
+    return DOMAIN_SKILLS[bestDomain]
+  }
+
+  // Fallback: generic starter skills
+  return [
+    {
+      name: 'Getting Started',
+      description: `Quick reference for ${name}`,
+      content: `Quick Reference for ${name}:\n\n1. This agent is designed for: ${description ?? 'general assistance'}.\n2. Add workflows to give this agent real automation capabilities.\n3. Connect apps in Settings > Integrations to enable app-specific actions.\n4. Create procedure skills to teach this agent step-by-step processes.\n5. Create knowledge skills to give this agent domain expertise.`,
+    },
+  ]
+}
+
 /**
  * Platform-level tools for the Snew Telegram assistant.
  * Unlike buildSkillBuilderTools (scoped to one agent), these tools operate
@@ -179,7 +300,35 @@ export function buildPlatformTools(
           .select('id, name, palette')
           .single()
         if (error) return { error: error.message }
-        return { success: true, agent_id: data.id, name: data.name, palette: data.palette }
+
+        // Auto-create 2-3 starter knowledge skills based on the agent's domain
+        const starterSkills = generateStarterSkills(params.name, params.description)
+        const createdSkills: string[] = []
+        for (const skill of starterSkills) {
+          const { data: skillData } = await supabase
+            .from('agent_skills')
+            .insert({
+              agent_id: data.id,
+              name: skill.name,
+              description: skill.description,
+              content: skill.content,
+              type: 'knowledge',
+              version: 1,
+              metadata: {},
+              source: 'chat',
+            })
+            .select('name')
+            .single()
+          if (skillData) createdSkills.push(skillData.name)
+        }
+
+        return {
+          success: true,
+          agent_id: data.id,
+          name: data.name,
+          palette: data.palette,
+          starter_skills: createdSkills,
+        }
       },
     },
 
