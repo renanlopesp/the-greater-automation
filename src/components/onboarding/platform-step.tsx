@@ -3,7 +3,12 @@
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PLATFORMS, PLATFORM_LABELS, type Platform } from '@/lib/retail/segment-skills'
+import {
+  PLATFORMS,
+  PLATFORM_LABELS,
+  PLATFORM_AVAILABLE,
+  type Platform,
+} from '@/lib/retail/segment-skills'
 
 interface PlatformStepProps {
   platform: Platform | null
@@ -28,30 +33,39 @@ export function PlatformStep({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Onde fica sua loja online?</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Where is your online store?</h2>
         <p className="text-muted-foreground">
-          Conectamos com sua plataforma para sincronizar produtos e pedidos.
+          We connect to your platform to sync products and orders.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {PLATFORMS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onPlatformChange(p)}
-            className={cn(
-              'hover:bg-accent flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
-              platform === p && 'border-primary bg-accent'
-            )}
-          >
-            <span className="text-2xl">{PLATFORM_ICONS[p]}</span>
-            <span className="text-sm font-medium">{PLATFORM_LABELS[p]}</span>
-          </button>
-        ))}
+        {PLATFORMS.map((p) => {
+          const available = PLATFORM_AVAILABLE[p]
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => available && onPlatformChange(p)}
+              disabled={!available}
+              className={cn(
+                'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
+                available && 'hover:bg-accent',
+                !available && 'cursor-not-allowed opacity-50',
+                platform === p && available && 'border-primary bg-accent'
+              )}
+            >
+              <span className="text-2xl">{PLATFORM_ICONS[p]}</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{PLATFORM_LABELS[p]}</span>
+                {!available && <span className="text-muted-foreground text-xs">Coming soon</span>}
+              </div>
+            </button>
+          )
+        })}
       </div>
       {platform && platform !== 'manual' && (
         <div className="space-y-2">
-          <Label htmlFor="platform-url">URL da sua loja</Label>
+          <Label htmlFor="platform-url">Your store URL</Label>
           <Input
             id="platform-url"
             placeholder={`Ex: https://minhaloja.${platform === 'nuvemshop' ? 'nuvemshop.com.br' : platform === 'shopify' ? 'myshopify.com' : 'mercadolivre.com.br'}`}

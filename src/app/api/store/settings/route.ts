@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import type { Json } from '@/lib/supabase/database.types'
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createServerClient()
@@ -31,6 +32,7 @@ export async function PATCH(request: NextRequest) {
     platform?: string
     default_threshold?: number
     settings?: Record<string, unknown>
+    agent_notifications?: { daily_summary_enabled: boolean; report_hour: number }
   }
 
   // Update store info (name, segment, platform)
@@ -64,6 +66,36 @@ export async function PATCH(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .update({ settings: newSettings as any })
       .eq('id', store.id)
+  }
+
+  // Update Sales Analyst agent's notification_settings when daily summary settings change
+  if (body.agent_notifications) {
+    const { daily_summary_enabled, report_hour } = body.agent_notifications
+
+    // Find the Sales Analyst agent (name contains "Sales" or role is "caixa")
+    const { data: agents } = await serviceClient
+      .from('agents')
+      .select('id, name, notification_settings')
+      .eq('team_id', member.team_id)
+
+    const salesAgent = agents?.find(
+      (a) => a.name.toLowerCase().includes('sales') || a.name.toLowerCase().includes('caixa')
+    )
+
+    if (salesAgent) {
+      const currentNotifSettings =
+        (salesAgent.notification_settings as Record<string, unknown>) ?? {}
+      await serviceClient
+        .from('agents')
+        .update({
+          notification_settings: {
+            ...currentNotifSettings,
+            telegram_enabled: daily_summary_enabled,
+            report_hour,
+          } as unknown as Json,
+        })
+        .eq('id', salesAgent.id)
+    }
   }
 
   return NextResponse.json({ ok: true })

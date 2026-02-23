@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, ExternalLink, RefreshCw } from 'lucide-react'
+import { Loader2, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,13 +24,13 @@ const PLATFORM_LABELS: Record<string, string> = {
 }
 
 const SEGMENTS = [
-  { value: 'roupas', label: 'Roupas e Moda' },
-  { value: 'eletronicos', label: 'Eletrônicos' },
-  { value: 'alimentos', label: 'Alimentos e Bebidas' },
-  { value: 'cosmeticos', label: 'Cosméticos e Beleza' },
-  { value: 'casa_decoracao', label: 'Casa e Decoração' },
-  { value: 'esportes', label: 'Esportes e Fitness' },
-  { value: 'brinquedos', label: 'Brinquedos e Games' },
+  { value: 'roupas', label: 'Clothing & Accessories' },
+  { value: 'eletronicos', label: 'Electronics' },
+  { value: 'alimentos', label: 'Food & Beverages' },
+  { value: 'cosmeticos', label: 'Cosmetics & Beauty' },
+  { value: 'casa_decoracao', label: 'Home & Decor' },
+  { value: 'esportes', label: 'Sports & Fitness' },
+  { value: 'brinquedos', label: 'Toys & Games' },
   { value: 'pet', label: 'Pet Shop' },
 ]
 
@@ -58,10 +58,10 @@ interface StoreSectionProps {
 }
 
 const PLATFORM_OPTIONS = [
-  { value: 'nuvemshop', label: 'Nuvemshop' },
-  { value: 'shopify', label: 'Shopify' },
-  { value: 'mercadolivre', label: 'Mercado Livre' },
-  { value: 'manual', label: 'Sem loja online' },
+  { value: 'shopify', label: 'Shopify', available: true },
+  { value: 'nuvemshop', label: 'Nuvemshop', available: false },
+  { value: 'mercadolivre', label: 'Mercado Livre', available: false },
+  { value: 'manual', label: 'No online store', available: true },
 ]
 
 export default function StoreSection({ storeData }: StoreSectionProps) {
@@ -86,18 +86,19 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
   const [dailySummary, setDailySummary] = useState(settings.daily_summary_enabled !== false)
   const [summaryHour, setSummaryHour] = useState(String(settings.daily_summary_hour ?? 21))
   const [savingNotifications, setSavingNotifications] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [shopifySubdomain, setShopifySubdomain] = useState('')
+  const [changingPlatform, setChangingPlatform] = useState(false)
 
-  const isConnected = !!storeData?.platform_store_id
+  const isConnected =
+    !changingPlatform && (!!storeData?.platform_store_id || storeData?.platform === 'manual')
 
   if (!storeData) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-6">
-        <h2 className="text-lg font-semibold">Loja</h2>
+        <h2 className="text-lg font-semibold">Store</h2>
         <p className="text-muted-foreground text-sm">
-          Nenhuma loja configurada. Complete o onboarding para começar.
+          No store configured. Complete onboarding to get started.
         </p>
       </div>
     )
@@ -111,10 +112,10 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: storeName, segment }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      toast.success('Dados da loja atualizados')
+      if (!res.ok) throw new Error('Failed to save')
+      toast.success('Store info updated')
     } catch {
-      toast.error('Erro ao salvar dados da loja')
+      toast.error('Failed to save store info')
     } finally {
       setSavingInfo(false)
     }
@@ -128,10 +129,10 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ default_threshold: threshold }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      toast.success('Alertas atualizados')
+      if (!res.ok) throw new Error('Failed to save')
+      toast.success('Alerts updated')
     } catch {
-      toast.error('Erro ao salvar alertas')
+      toast.error('Failed to save alerts')
     } finally {
       setSavingAlerts(false)
     }
@@ -149,28 +150,19 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
             daily_summary_enabled: dailySummary,
             daily_summary_hour: parseInt(summaryHour),
           },
+          // Also update Sales Analyst agent's notification_settings
+          agent_notifications: {
+            daily_summary_enabled: dailySummary,
+            report_hour: parseInt(summaryHour),
+          },
         }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      toast.success('Preferências atualizadas')
+      if (!res.ok) throw new Error('Failed to save')
+      toast.success('Preferences updated')
     } catch {
-      toast.error('Erro ao salvar preferências')
+      toast.error('Failed to save preferences')
     } finally {
       setSavingNotifications(false)
-    }
-  }
-
-  const triggerSync = async () => {
-    setSyncing(true)
-    try {
-      const res = await fetch('/api/nuvemshop/sync', { method: 'POST' })
-      if (!res.ok) throw new Error('Erro ao sincronizar')
-      const data = (await res.json()) as { products_synced?: number }
-      toast.success(`Sincronização concluída: ${data.products_synced ?? 0} produtos`)
-    } catch {
-      toast.error('Erro ao sincronizar produtos')
-    } finally {
-      setSyncing(false)
     }
   }
 
@@ -183,10 +175,10 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: value }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar')
-      toast.success('Plataforma atualizada')
+      if (!res.ok) throw new Error('Failed to save')
+      toast.success('Platform updated')
     } catch {
-      toast.error('Erro ao salvar plataforma')
+      toast.error('Failed to save platform')
     } finally {
       setSavingPlatform(false)
     }
@@ -202,7 +194,7 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
       }
       window.location.href = result.redirectUrl
     } catch {
-      toast.error('Erro ao conectar plataforma')
+      toast.error('Failed to connect platform')
     } finally {
       setConnecting(false)
     }
@@ -210,20 +202,20 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-6">
-      <h2 className="text-lg font-semibold">Loja</h2>
+      <h2 className="text-lg font-semibold">Store</h2>
 
       {/* Store Info */}
       <div className="flex max-w-md flex-col gap-4">
-        <h3 className="text-sm font-medium">Dados da loja</h3>
+        <h3 className="text-sm font-medium">Store info</h3>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="store-name">Nome da loja</Label>
+          <Label htmlFor="store-name">Store name</Label>
           <Input id="store-name" value={storeName} onChange={(e) => setStoreName(e.target.value)} />
         </div>
         <div className="flex flex-col gap-2">
-          <Label>Segmento</Label>
+          <Label>Segment</Label>
           <Select value={segment} onValueChange={setSegment}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecione o segmento" />
+              <SelectValue placeholder="Select segment" />
             </SelectTrigger>
             <SelectContent>
               {SEGMENTS.map((s) => (
@@ -236,7 +228,7 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
         </div>
         <Button onClick={saveStoreInfo} className="w-fit" disabled={savingInfo}>
           {savingInfo && <Loader2 className="animate-spin" />}
-          {savingInfo ? 'Salvando...' : 'Salvar'}
+          {savingInfo ? 'Saving...' : 'Save'}
         </Button>
       </div>
 
@@ -244,68 +236,74 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
 
       {/* Platform Connection */}
       <div className="flex max-w-md flex-col gap-4">
-        <h3 className="text-sm font-medium">Plataforma</h3>
+        <h3 className="text-sm font-medium">Platform</h3>
         {isConnected ? (
           <div className="flex flex-col gap-3">
             <div className="bg-muted/50 flex items-center justify-between rounded-lg p-3">
               <div>
-                <p className="text-sm font-medium">
-                  {PLATFORM_LABELS[storeData.platform!] ?? storeData.platform} conectada
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  ID: {storeData.platform_store_id}
-                  {storeData.last_sync_at && (
-                    <> · Última sync: {new Date(storeData.last_sync_at).toLocaleString('pt-BR')}</>
-                  )}
-                </p>
+                {storeData.platform === 'manual' ? (
+                  <>
+                    <p className="text-sm font-medium">Manual mode</p>
+                    <p className="text-muted-foreground text-xs">
+                      No online store connected. You can manage your products manually.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">
+                      {PLATFORM_LABELS[storeData.platform!] ?? storeData.platform} connected
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      ID: {storeData.platform_store_id}
+                      {storeData.last_sync_at && (
+                        <> · Last sync: {new Date(storeData.last_sync_at).toLocaleString()}</>
+                      )}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
-            {storeData.platform === 'nuvemshop' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={triggerSync}
-                disabled={syncing}
-              >
-                {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {syncing ? 'Sincronizando...' : 'Sincronizar agora'}
-              </Button>
-            )}
+            {/* Sync button placeholder for future platform sync */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground w-fit text-xs"
+              onClick={() => setChangingPlatform(true)}
+            >
+              Change platform
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2">
-              <Label>Plataforma de e-commerce</Label>
+              <Label>E-commerce platform</Label>
               <Select value={platform} onValueChange={savePlatform} disabled={savingPlatform}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione sua plataforma" />
+                  <SelectValue placeholder="Select your platform" />
                 </SelectTrigger>
                 <SelectContent>
                   {PLATFORM_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
+                    <SelectItem key={p.value} value={p.value} disabled={!p.available}>
                       {p.label}
+                      {!p.available && (
+                        <span className="text-muted-foreground ml-2 text-xs">(Coming soon)</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             {platform === 'nuvemshop' && (
-              <Button variant="outline" className="w-fit" asChild>
-                <a href="/api/nuvemshop/connect?redirect_uri=/workspace">
-                  <ExternalLink className="h-4 w-4" />
-                  Conectar Nuvemshop
-                </a>
-              </Button>
+              <p className="text-muted-foreground text-xs">Nuvemshop integration is coming soon.</p>
             )}
             {platform === 'shopify' && (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="shopify-subdomain">Subdomínio da loja Shopify</Label>
+                  <Label htmlFor="shopify-subdomain">Shopify store subdomain</Label>
                   <div className="flex items-center gap-1">
                     <Input
                       id="shopify-subdomain"
-                      placeholder="minha-loja"
+                      placeholder="my-store"
                       value={shopifySubdomain}
                       onChange={(e) => setShopifySubdomain(e.target.value.trim())}
                       className="w-48"
@@ -324,19 +322,19 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
                   ) : (
                     <ExternalLink className="h-4 w-4" />
                   )}
-                  {connecting ? 'Conectando...' : 'Conectar Shopify'}
+                  {connecting ? 'Connecting...' : 'Connect Shopify'}
                 </Button>
               </div>
             )}
             {platform === 'mercadolivre' && (
               <p className="text-muted-foreground text-xs">
-                A integração com o Mercado Livre ainda não está disponível. Em breve você poderá
-                conectar sua conta.
+                Mercado Livre integration is not yet available. You&apos;ll be able to connect your
+                account soon.
               </p>
             )}
             {platform === 'manual' && (
               <p className="text-muted-foreground text-xs">
-                Sem loja online conectada. Você pode gerenciar seus produtos manualmente.
+                No online store connected. You can manage your products manually.
               </p>
             )}
           </div>
@@ -347,9 +345,9 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
 
       {/* Alert Settings */}
       <div className="flex max-w-md flex-col gap-4">
-        <h3 className="text-sm font-medium">Alertas de estoque</h3>
+        <h3 className="text-sm font-medium">Stock alerts</h3>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="threshold">Limite global de estoque baixo</Label>
+          <Label htmlFor="threshold">Global low stock threshold</Label>
           <Input
             id="threshold"
             type="number"
@@ -360,12 +358,12 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
             className="w-24"
           />
           <p className="text-muted-foreground text-xs">
-            Você receberá um alerta quando o estoque ficar abaixo desse valor.
+            You&apos;ll receive an alert when stock falls below this value.
           </p>
         </div>
         <Button onClick={saveAlerts} className="w-fit" disabled={savingAlerts}>
           {savingAlerts && <Loader2 className="animate-spin" />}
-          {savingAlerts ? 'Salvando...' : 'Salvar'}
+          {savingAlerts ? 'Saving...' : 'Save'}
         </Button>
       </div>
 
@@ -373,24 +371,26 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
 
       {/* Notification Preferences */}
       <div className="flex max-w-md flex-col gap-4">
-        <h3 className="text-sm font-medium">Notificações Telegram</h3>
+        <h3 className="text-sm font-medium">Telegram notifications</h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm">Novos pedidos</p>
-            <p className="text-muted-foreground text-xs">Notificação instantânea de cada pedido</p>
+            <p className="text-sm">New orders</p>
+            <p className="text-muted-foreground text-xs">Instant notification for each order</p>
           </div>
           <Switch checked={orderNotifications} onCheckedChange={setOrderNotifications} />
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm">Resumo diário de vendas</p>
-            <p className="text-muted-foreground text-xs">Resumo automático das vendas do dia</p>
+            <p className="text-sm">Daily sales summary</p>
+            <p className="text-muted-foreground text-xs">
+              Automatic summary of the day&apos;s sales
+            </p>
           </div>
           <Switch checked={dailySummary} onCheckedChange={setDailySummary} />
         </div>
         {dailySummary && (
           <div className="flex flex-col gap-2">
-            <Label>Horário do resumo</Label>
+            <Label>Summary time</Label>
             <Select value={summaryHour} onValueChange={setSummaryHour}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -407,7 +407,7 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
         )}
         <Button onClick={saveNotifications} className="w-fit" disabled={savingNotifications}>
           {savingNotifications && <Loader2 className="animate-spin" />}
-          {savingNotifications ? 'Salvando...' : 'Salvar'}
+          {savingNotifications ? 'Saving...' : 'Save'}
         </Button>
       </div>
     </div>

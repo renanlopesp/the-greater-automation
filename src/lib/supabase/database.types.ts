@@ -297,6 +297,7 @@ export type Database = {
           max_tokens: number | null
           model: string | null
           name: string
+          notification_settings: Json
           palette: string
           snewclaw_instance_id: string | null
           status: string | null
@@ -317,6 +318,7 @@ export type Database = {
           max_tokens?: number | null
           model?: string | null
           name: string
+          notification_settings?: Json
           palette?: string
           snewclaw_instance_id?: string | null
           status?: string | null
@@ -337,6 +339,7 @@ export type Database = {
           max_tokens?: number | null
           model?: string | null
           name?: string
+          notification_settings?: Json
           palette?: string
           snewclaw_instance_id?: string | null
           status?: string | null

@@ -180,12 +180,12 @@ async function sendPriceChangeAlert(
     .single()
   if (!link?.external_chat_id) return
 
-  const lines = ['🏷️ *Alerta de Preço — Concorrência*', '']
+  const lines = ['🏷️ *Price Alert — Competitor*', '']
 
   for (const change of changes) {
     const arrow = change.old_price && change.new_price < change.old_price ? '📉' : '📈'
-    const oldStr = change.old_price ? `R$ ${change.old_price.toFixed(2)}` : '—'
-    lines.push(`${arrow} *${change.product_name}*: ${oldStr} → R$ ${change.new_price.toFixed(2)}`)
+    const oldStr = change.old_price ? `$${change.old_price.toFixed(2)}` : '—'
+    lines.push(`${arrow} *${change.product_name}*: ${oldStr} → $${change.new_price.toFixed(2)}`)
   }
 
   await sendMessage(link.external_chat_id as string, lines.join('\n'), 'Markdown')

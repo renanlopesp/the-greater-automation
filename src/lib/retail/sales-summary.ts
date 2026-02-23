@@ -86,26 +86,27 @@ export async function buildSalesSummary(storeId: string, date?: string): Promise
 }
 
 /**
- * Format sales summary as a Telegram message in PT-BR.
+ * Format sales summary as a Telegram message.
  */
 export function formatSalesSummaryMessage(storeName: string, summary: SalesSummary): string {
+  const fmt = (v: number) => formatCurrency(v, summary.currency)
   const lines: string[] = [
-    `📊 *Resumo de Vendas — ${storeName}*`,
-    `📅 ${formatDatePtBr(summary.date)}`,
+    `📊 *Sales Summary — ${storeName}*`,
+    `📅 ${formatDate(summary.date)}`,
     '',
   ]
 
   if (summary.ordersCount === 0) {
-    lines.push('Nenhuma venda registrada hoje.')
+    lines.push('No sales recorded today.')
   } else {
-    lines.push(`🛒 *${summary.ordersCount}* pedido${summary.ordersCount > 1 ? 's' : ''}`)
-    lines.push(`💰 *R$ ${summary.revenue.toFixed(2)}* em receita`)
+    lines.push(`🛒 *${summary.ordersCount}* order${summary.ordersCount > 1 ? 's' : ''}`)
+    lines.push(`💰 *${fmt(summary.revenue)}* in revenue`)
 
     if (summary.topProducts.length > 0) {
       lines.push('')
-      lines.push('*Top produtos:*')
+      lines.push('*Top products:*')
       for (const product of summary.topProducts) {
-        lines.push(`• ${product.name} — ${product.quantity}x (R$ ${product.revenue.toFixed(2)})`)
+        lines.push(`• ${product.name} — ${product.quantity}x (${fmt(product.revenue)})`)
       }
     }
   }
@@ -116,16 +117,22 @@ export function formatSalesSummaryMessage(storeName: string, summary: SalesSumma
     const arrow = change > 0 ? '📈' : change < 0 ? '📉' : '➡️'
     const sign = change > 0 ? '+' : ''
     lines.push(
-      `${arrow} ${sign}${change.toFixed(1)}% vs. ontem (R$ ${summary.comparison.revenue.toFixed(2)})`
+      `${arrow} ${sign}${change.toFixed(1)}% vs. yesterday (${fmt(summary.comparison.revenue)})`
     )
   }
 
   return lines.join('\n')
 }
 
-function formatDatePtBr(dateStr: string): string {
+function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00Z')
-  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+function formatCurrency(value: number, currency: string): string {
+  if (currency === 'BRL') return `R$ ${value.toFixed(2)}`
+  if (currency === 'USD') return `$ ${value.toFixed(2)}`
+  return `${currency} ${value.toFixed(2)}`
 }
 
 /**

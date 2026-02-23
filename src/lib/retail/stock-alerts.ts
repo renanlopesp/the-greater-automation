@@ -120,21 +120,20 @@ async function sendStockAlert(
 
   if (!link?.external_chat_id) return
 
-  // Format message in PT-BR
-  const lines: string[] = ['⚠️ *Alerta de Estoque Baixo*', '']
+  const lines: string[] = ['⚠️ *Low Stock Alert*', '']
 
   for (const product of products.slice(0, 10)) {
     const skuInfo = product.sku ? ` (${product.sku})` : ''
     lines.push(
-      `• *${product.name}*${skuInfo} — ${product.stock_quantity} un. (limite: ${product.threshold})`
+      `• *${product.name}*${skuInfo} — ${product.stock_quantity} units (threshold: ${product.threshold})`
     )
   }
 
   if (products.length > 10) {
-    lines.push(`\n...e mais ${products.length - 10} produtos com estoque baixo.`)
+    lines.push(`\n...and ${products.length - 10} more products with low stock.`)
   }
 
-  lines.push('', 'Reponha o estoque ou ajuste os limites com: "muda o alerta de estoque pra X"')
+  lines.push('', 'Restock or adjust thresholds with: "set stock alert to X"')
 
   await sendMessage(link.external_chat_id as string, lines.join('\n'), 'Markdown')
 }

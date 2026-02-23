@@ -241,14 +241,15 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
           return {
             success: true,
             message: params.order_notifications
-              ? 'Notificações de novos pedidos ativadas.'
-              : 'Notificações de novos pedidos desativadas.',
+              ? 'New order notifications enabled.'
+              : 'New order notifications disabled.',
           }
         }
 
         if (!params.threshold && params.threshold !== 0) {
           return {
-            error: 'Informe o threshold ou se deseja ativar/desativar notificações de pedidos.',
+            error:
+              'Please provide a threshold or specify whether to enable/disable order notifications.',
           }
         }
 
@@ -262,7 +263,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
             .limit(1)
             .single()
 
-          if (!product) return { error: `Produto "${params.product_name}" não encontrado` }
+          if (!product) return { error: `Product "${params.product_name}" not found` }
 
           // Upsert per-product alert
           const { error } = await supabase.from('store_stock_alerts').upsert(
@@ -278,7 +279,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
           if (error) return { error: error.message }
           return {
             success: true,
-            message: `Alerta de ${product.name} atualizado para ${params.threshold} unidades`,
+            message: `Alert for ${product.name} updated to ${params.threshold} units`,
           }
         }
 
@@ -296,7 +297,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
         if (error) return { error: error.message }
         return {
           success: true,
-          message: `Alerta global atualizado para ${params.threshold} unidades`,
+          message: `Global alert updated to ${params.threshold} units`,
         }
       },
     },
@@ -325,11 +326,11 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
         // Parse hour from time string (e.g. "21:00", "21", "9h")
         const hourMatch = params.time.match(/^(\d{1,2})/)
         if (!hourMatch) {
-          return { error: 'Horário inválido. Use um formato como "21:00" ou "9".' }
+          return { error: 'Invalid time. Use a format like "21:00" or "9".' }
         }
         const hour = parseInt(hourMatch[1], 10)
         if (hour < 0 || hour > 23) {
-          return { error: 'Horário inválido. Deve ser entre 0 e 23.' }
+          return { error: 'Invalid time. Must be between 0 and 23.' }
         }
 
         // Fetch current settings to merge
@@ -359,8 +360,8 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
         return {
           success: true,
           message: enabled
-            ? `Resumo diário configurado para ${hourFormatted} (horário de Brasília).`
-            : 'Resumo diário desativado.',
+            ? `Daily summary scheduled for ${hourFormatted} (BRT).`
+            : 'Daily summary disabled.',
         }
       },
     },
@@ -381,8 +382,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
 
         if (!store?.platform_access_token || !store?.platform_store_id) {
           return {
-            error:
-              'Sua loja não está conectada a uma plataforma. Conecte pelo painel em Configurações.',
+            error: 'Your store is not connected to a platform. Connect it in Settings.',
           }
         }
 
@@ -404,10 +404,10 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
 
           return {
             success: true,
-            message: 'Sincronização iniciada. Os produtos serão atualizados em alguns segundos.',
+            message: 'Sync started. Products will be updated shortly.',
           }
         } catch {
-          return { error: 'Falha ao iniciar sincronização. Tente novamente.' }
+          return { error: 'Failed to start sync. Please try again.' }
         }
       },
     },
@@ -436,11 +436,11 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
           const active = all.filter((m) => m.is_active)
           return {
             success: true,
-            message: `Monitor criado para *${params.product_name}*. Você será notificado quando o preço mudar. Você tem ${active.length} monitor(es) ativo(s) no total.`,
+            message: `Monitor created for *${params.product_name}*. You'll be notified when the price changes. You have ${active.length} active monitor(s) total.`,
           }
         } catch (err) {
           return {
-            error: `Falha ao criar monitor: ${err instanceof Error ? err.message : String(err)}`,
+            error: `Failed to create monitor: ${err instanceof Error ? err.message : String(err)}`,
           }
         }
       },
@@ -465,7 +465,7 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
       execute: async (params: { monitor_id?: string; product_name?: string }) => {
         if (params.monitor_id) {
           await deactivatePriceMonitor(params.monitor_id)
-          return { success: true, message: 'Monitor desativado com sucesso.' }
+          return { success: true, message: 'Monitor deactivated successfully.' }
         }
 
         const monitors = await listPriceMonitors(storeId)
@@ -476,21 +476,21 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
           const match = active.find((m) => m.product_name.toLowerCase().includes(lower))
           if (!match) {
             return {
-              error: `Nenhum monitor ativo encontrado para "${params.product_name}".`,
+              error: `No active monitor found for "${params.product_name}".`,
               active_monitors: active.map((m) => ({ id: m.id, product: m.product_name })),
             }
           }
           await deactivatePriceMonitor(match.id)
-          return { success: true, message: `Monitor de *${match.product_name}* desativado.` }
+          return { success: true, message: `Monitor for *${match.product_name}* deactivated.` }
         }
 
         // Neither provided — list active monitors so user can pick
         if (active.length === 0) {
-          return { message: 'Nenhum monitor de preço ativo no momento.' }
+          return { message: 'No active price monitors at the moment.' }
         }
 
         return {
-          message: 'Qual monitor você deseja desativar? Monitores ativos:',
+          message: 'Which monitor would you like to deactivate? Active monitors:',
           active_monitors: active.map((m) => ({
             id: m.id,
             product: m.product_name,

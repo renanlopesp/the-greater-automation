@@ -11,31 +11,37 @@ export interface OrderData {
 }
 
 /**
- * Format order notification message in PT-BR.
+ * Format order notification message.
  */
 export function formatOrderNotification(storeName: string, order: OrderData): string {
   const lines: string[] = [
-    `🛍️ *Novo Pedido — ${storeName}*`,
+    `🛍️ *New Order — ${storeName}*`,
     '',
-    `📋 Pedido *#${order.order_number}*`,
+    `📋 Order *#${order.order_number}*`,
     `👤 ${order.customer_name}`,
-    `💰 *R$ ${order.total.toFixed(2)}*`,
+    `💰 *${formatCurrency(order.total, order.currency)}*`,
     '',
   ]
 
   if (order.items.length > 0) {
-    lines.push('*Itens:*')
+    lines.push('*Items:*')
     for (const item of order.items.slice(0, 5)) {
       lines.push(
-        `• ${item.name} × ${item.quantity} — R$ ${(item.price * item.quantity).toFixed(2)}`
+        `• ${item.name} × ${item.quantity} — ${formatCurrency(item.price * item.quantity, order.currency)}`
       )
     }
     if (order.items.length > 5) {
-      lines.push(`...e mais ${order.items.length - 5} itens`)
+      lines.push(`...and ${order.items.length - 5} more items`)
     }
   }
 
   return lines.join('\n')
+}
+
+function formatCurrency(value: number, currency: string): string {
+  if (currency === 'BRL') return `R$ ${value.toFixed(2)}`
+  if (currency === 'USD') return `$ ${value.toFixed(2)}`
+  return `${currency} ${value.toFixed(2)}`
 }
 
 /**
