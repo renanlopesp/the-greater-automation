@@ -9,6 +9,7 @@ export type SettingsSection =
   | 'general'
   | 'members'
   | 'billing'
+  | 'store'
 
 interface SettingsSidebarProps {
   activeSection: SettingsSection
@@ -27,6 +28,7 @@ const SECTIONS: { group: string; items: { id: SettingsSection; label: string }[]
   {
     group: 'WORKSPACE',
     items: [
+      { id: 'store', label: 'Store' },
       { id: 'general', label: 'General' },
       { id: 'members', label: 'Members' },
       { id: 'billing', label: 'Billing' },

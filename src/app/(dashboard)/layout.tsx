@@ -64,7 +64,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const [{ data: teamData }, { data: usageRows }, { data: subscriptionRow }] = await Promise.all([
       supabase
         .from('teams')
-        .select('id, name, slug, plan_id, plans(id, name, features, max_team_members)')
+        .select('id, name, slug, plan_id, has_store, plans(id, name, features, max_team_members)')
         .eq('id', activeTeamId)
         .single(),
       supabase
@@ -83,6 +83,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ])
 
     if (teamData) {
+      // Redirect to onboarding if team doesn't have a store yet
+      if (!teamData.has_store) {
+        redirect('/onboarding')
+      }
+
       team = { id: teamData.id, name: teamData.name, slug: teamData.slug }
 
       const teamWithPlan = teamData as typeof teamData & {
@@ -111,6 +116,57 @@ export default async function DashboardLayout({ children }: { children: React.Re
         stepsLimit: usageData.steps_limit,
         aiCreditsUsed: usageData.ai_credits_used,
         aiCreditsLimit: usageData.ai_credits_limit,
+      }
+    }
+  }
+
+  // Fetch store data for settings dialog
+  let storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null = null
+  if (activeTeamId) {
+    const { data: storeRow } = await supabase
+      .from('stores')
+      .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+      .eq('team_id', activeTeamId)
+      .single()
+    if (storeRow) {
+      let platformStoreId = storeRow.platform_store_id ?? null
+
+      // If platform_store_id is missing but there's an active Composio connection for the platform,
+      // use the composio_connection_id as fallback (e.g. Shopify connected via Composio OAuth)
+      if (!platformStoreId && storeRow.platform) {
+        const { data: appConn } = await supabase
+          .from('app_connections')
+          .select('composio_connection_id')
+          .eq('team_id', activeTeamId)
+          .eq('app_id', storeRow.platform)
+          .limit(1)
+          .single()
+        if (appConn?.composio_connection_id) {
+          platformStoreId = appConn.composio_connection_id
+          // Backfill the store record so future loads are instant
+          await supabase
+            .from('stores')
+            .update({ platform_store_id: platformStoreId })
+            .eq('id', storeRow.id)
+        }
+      }
+
+      storeData = {
+        id: storeRow.id,
+        name: storeRow.name,
+        segment: storeRow.segment,
+        platform: storeRow.platform ?? null,
+        platform_store_id: platformStoreId,
+        last_sync_at: storeRow.last_sync_at ?? null,
+        settings: (storeRow.settings ?? null) as Record<string, unknown> | null,
       }
     }
   }
@@ -168,6 +224,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         currentUserRole={currentUserRole}
         defaultSidebarOpen={sidebarOpen}
         planData={planData}
+        storeData={storeData}
       >
         {children}
       </DashboardShell>

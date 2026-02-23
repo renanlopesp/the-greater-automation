@@ -38,6 +38,15 @@ interface DashboardShellProps {
   currentUserRole: 'owner' | 'admin' | 'member'
   defaultSidebarOpen?: boolean
   planData: PlanData | null
+  storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null
   children: ReactNode
 }
 
@@ -78,6 +87,7 @@ export default function DashboardShell({
   currentUserRole,
   defaultSidebarOpen = false,
   planData,
+  storeData,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
@@ -175,6 +185,7 @@ export default function DashboardShell({
           currentUserRole={currentUserRole}
           currentUserId={user.id}
           planData={planData}
+          storeData={storeData}
         />
       </SidebarProvider>
     </CommandMenuContext>
