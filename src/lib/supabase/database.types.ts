@@ -1544,6 +1544,53 @@ export type Database = {
           },
         ]
       }
+      telegram_message_queue: {
+        Row: {
+          attempts: number
+          chat_id: string
+          created_at: string | null
+          error: string | null
+          id: string
+          link_id: string | null
+          message_text: string
+          processed_at: string | null
+          status: string
+          username: string | null
+        }
+        Insert: {
+          attempts?: number
+          chat_id: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          link_id?: string | null
+          message_text: string
+          processed_at?: string | null
+          status?: string
+          username?: string | null
+        }
+        Update: {
+          attempts?: number
+          chat_id?: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          link_id?: string | null
+          message_text?: string
+          processed_at?: string | null
+          status?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'telegram_message_queue_link_id_fkey'
+            columns: ['link_id']
+            isOneToOne: false
+            referencedRelation: 'messaging_links'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       trigger_subscriptions: {
         Row: {
           agent_id: string
