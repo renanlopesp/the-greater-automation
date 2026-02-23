@@ -207,13 +207,13 @@ async function AgentSidebarData({
     app_id: c.app_id,
     account_label: c.account_label,
   }))
-  const filteredDbConnections =
-    usedAppIds.size > 0 ? dbConnections.filter((c) => usedAppIds.has(c.app_id)) : dbConnections
-  // If no DB connections, show apps derived from workflows/triggers/subscriptions
+  // Only show connections for apps actually used by this agent's workflows/triggers
   const connectedApps =
-    filteredDbConnections.length > 0
-      ? filteredDbConnections
-      : [...usedAppIds].map((appId) => ({ app_id: appId, account_label: null }))
+    usedAppIds.size > 0
+      ? dbConnections.filter((c) => usedAppIds.has(c.app_id)).length > 0
+        ? dbConnections.filter((c) => usedAppIds.has(c.app_id))
+        : [...usedAppIds].map((appId) => ({ app_id: appId, account_label: null }))
+      : []
 
   // Transform runs — unified from workflow_runs (both agent and visual workflows)
   const allRuns = (recentRunsResult.data ?? []).map((r) => ({

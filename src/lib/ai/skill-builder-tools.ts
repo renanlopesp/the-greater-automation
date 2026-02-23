@@ -305,17 +305,36 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
               config?: Record<string, unknown>
               payload?: Record<string, unknown>
             }) => {
-              // Build lightweight sample payload (top 10 fields, truncate nested objects)
-              const samplePayload = t.payload
-                ? Object.fromEntries(
-                    Object.entries(t.payload)
-                      .slice(0, 10)
-                      .map(([key, val]) => [
-                        key,
-                        typeof val === 'object' && val !== null ? '(object)' : val,
-                      ])
-                  )
-                : null
+              // Build sample payload with dot-paths so the AI knows the exact template paths
+              // e.g. { "activity.snippet.title": "string", "activity.contentDetails.upload.videoId": "string" }
+              const flattenPayload = (
+                obj: Record<string, unknown>,
+                prefix = ''
+              ): Record<string, string> => {
+                const result: Record<string, string> = {}
+                let count = 0
+                for (const [key, val] of Object.entries(obj)) {
+                  if (count >= 30) break // cap total fields
+                  const path = prefix ? `${prefix}.${key}` : key
+                  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    const nested = flattenPayload(val as Record<string, unknown>, path)
+                    for (const [nk, nv] of Object.entries(nested)) {
+                      if (count >= 30) break
+                      result[nk] = nv
+                      count++
+                    }
+                  } else {
+                    result[path] = Array.isArray(val)
+                      ? 'array'
+                      : typeof val === 'string'
+                        ? val.slice(0, 40)
+                        : String(val ?? 'unknown')
+                    count++
+                  }
+                }
+                return result
+              }
+              const samplePayload = t.payload ? flattenPayload(t.payload) : null
 
               // Build config details — extract simple key/type/description for LLM, NOT the raw JSON schema
               const configDetails = t.config
@@ -346,12 +365,12 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 description: t.description?.slice(0, 120) || '',
                 config_params: configKeys,
                 config_details: configDetails,
-                payload_fields: t.payload ? Object.keys(t.payload) : [],
+                payload_fields: samplePayload ? Object.keys(samplePayload) : [],
                 sample_payload: samplePayload,
                 _trigger_hint:
                   configKeys.length > 0
-                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config as a FLAT object with user-provided values like: ${exampleConfig}. Do NOT copy the schema — just pass the key-value pairs. NEVER leave trigger_config empty when config_params exist.`
-                    : `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
+                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config as a FLAT object with user-provided values like: ${exampleConfig}. Do NOT copy the schema — just pass the key-value pairs. NEVER leave trigger_config empty when config_params exist. For action params, use {{trigger.<path>}} where <path> is an EXACT dot-path from sample_payload.`
+                    : `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Use the sample_payload keys as template paths: {{trigger.<path>}} where <path> is the EXACT dot-path from sample_payload. NEVER guess field paths — only use paths shown in sample_payload.`,
               }
             }
           )
@@ -363,7 +382,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             triggers_count: triggers.length,
             triggers,
             _hint:
-              'Use action names from "actions" for composio_action steps. Use trigger names from "triggers" for event-driven workflows (Composio polls for events automatically). You MUST populate the params object with ALL required_params. Use {{trigger.field.path}} for webhook data, {{prev.key}} for previous action output, or ask the user for values you cannot derive from the trigger payload.',
+              'Use action names from "actions" for composio_action steps. Use trigger names from "triggers" for event-driven workflows (Composio polls for events automatically). You MUST populate the params object with ALL required_params. Use {{trigger.<exact_path>}} where <exact_path> is a dot-path from the trigger\'s sample_payload (e.g., {{trigger.activity.snippet.title}}). NEVER invent paths like {{trigger.data.X}} — always use the exact paths shown in sample_payload. Use {{prev.key}} for previous action output, or ask the user for values you cannot derive.',
           }
         } catch (error) {
           return {
