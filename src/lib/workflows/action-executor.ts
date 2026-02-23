@@ -272,7 +272,11 @@ async function executeClaudeAgentStep(
     if (config.tools && config.tools.length > 0) {
       try {
         const { getComposioSession } = await import('@/lib/composio/composio-session')
-        const session = await getComposioSession(userId)
+        // Derive toolkit names from tool slugs (e.g. GITHUB_GET_PR → 'github')
+        const toolkitIds = [
+          ...new Set(config.tools.map((t: string) => t.split('_')[0].toLowerCase())),
+        ]
+        const session = await getComposioSession(userId, toolkitIds)
         const allTools = await session.tools()
 
         // Filter to only the requested tools

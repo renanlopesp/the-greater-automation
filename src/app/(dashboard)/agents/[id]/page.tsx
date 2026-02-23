@@ -13,6 +13,7 @@ import ChatHistoryButton from '@/components/agent-detail/chat-history-button'
 import PresenceIndicator from '@/components/agent-detail/presence-indicator'
 import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
+import SetupChecklist, { type SetupStep } from '@/components/agent-detail/setup-checklist'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -32,8 +33,15 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   if (!user) redirect('/login')
   if (!agent) notFound()
 
-  // Parallel: profile + conversation history + team role (all depend on user/agent being resolved)
-  const [{ data: profile }, activeConversation, { data: teamMember }] = await Promise.all([
+  // Parallel: profile + conversation history + team role + setup data (all depend on user/agent being resolved)
+  const [
+    { data: profile },
+    activeConversation,
+    { data: teamMember },
+    { data: storeData },
+    { data: messagingLink },
+    { count: skillCount },
+  ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
     getActiveConversation(supabase, id),
     supabase
@@ -42,9 +50,19 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       .eq('team_id', agent.team_id)
       .eq('user_id', user.id)
       .single(),
+    supabase
+      .from('stores')
+      .select('id, platform, platform_store_id, settings')
+      .eq('team_id', agent.team_id)
+      .single(),
+    supabase.from('messaging_links').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+    supabase.from('agent_skills').select('id', { count: 'exact', head: true }).eq('agent_id', id),
   ])
 
   const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
+
+  // Build setup checklist based on agent role
+  const setupSteps = buildSetupSteps(agent, storeData, messagingLink, skillCount ?? 0)
 
   const currentUser = {
     id: user.id,
@@ -100,6 +118,9 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         </div>
       </header>
 
+      {/* Setup checklist — shown when agent has incomplete setup steps */}
+      {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
+
       {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
       <ChatPanel
         agentId={id}
@@ -116,6 +137,97 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       />
     </div>
   )
+}
+
+/**
+ * Builds setup checklist steps based on the agent's system_prompt (which encodes role)
+ * and the current store/messaging configuration.
+ */
+function buildSetupSteps(
+  agent: { name: string; system_prompt: string | null },
+  storeData: {
+    platform: string | null
+    platform_store_id: string | null
+    settings: unknown
+  } | null,
+  messagingLink: { id: string } | null,
+  skillCount: number
+): SetupStep[] {
+  // "manual" platform means no online store — nothing to connect
+  const hasPlatform = storeData?.platform === 'manual' || !!storeData?.platform_store_id
+  const hasTelegram = !!messagingLink
+  const settings = (
+    typeof storeData?.settings === 'object' && storeData?.settings !== null
+      ? storeData.settings
+      : {}
+  ) as Record<string, unknown>
+
+  const connectPlatform: SetupStep = {
+    label: 'Connect e-commerce platform',
+    completed: hasPlatform,
+    action: { label: 'Connect', href: '/workspace?settings=store' },
+  }
+  const connectTelegram: SetupStep = {
+    label: 'Connect Telegram',
+    completed: hasTelegram,
+    action: { label: 'Connect', href: '/workspace?settings=store' },
+  }
+
+  // Determine role from agent name (set during provisioning)
+  const name = agent.name.toLowerCase()
+
+  if (name.includes('stock manager')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Set stock alert threshold',
+        completed: !!settings.stock_alerts_configured || hasPlatform,
+        action: { label: 'Configure', href: '/workspace?settings=store' },
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('price monitor')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Add competitor URLs to monitor',
+        completed: skillCount >= 2,
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('sales analyst')) {
+    const steps = [
+      connectPlatform,
+      connectTelegram,
+      {
+        label: 'Configure daily summary time',
+        completed: !!settings.daily_summary_enabled,
+        action: { label: 'Configure', href: '/workspace?settings=store' },
+      },
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('customer service')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Add FAQ or knowledge content',
+        completed: skillCount >= 2,
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  // Non-retail agents or unknown roles — no checklist
+  return []
 }
 
 /** Async Server Component — sidebar data fetched independently, streamed via Suspense */
@@ -183,7 +295,7 @@ async function AgentSidebarData({
     run_count: w.run_count ?? undefined,
   }))
 
-  // Derive which app_ids this agent uses
+  // Derive which app_ids this agent uses (from workflows + store platform)
   const usedAppIds = new Set<string>()
   for (const w of workflowsResult.data ?? []) {
     const tc = w.trigger_config as Record<string, unknown> | null
@@ -202,12 +314,23 @@ async function AgentSidebarData({
     if (ts.app_id) usedAppIds.add(ts.app_id)
   }
 
+  // Also include the team's store platform (e.g. Shopify connected via Composio)
+  const { data: storeRow } = await supabase
+    .from('stores')
+    .select('platform, platform_store_id')
+    .eq('team_id', teamId)
+    .limit(1)
+    .maybeSingle()
+  if (storeRow?.platform && storeRow.platform !== 'manual' && storeRow.platform_store_id) {
+    usedAppIds.add(storeRow.platform)
+  }
+
   // Build connected apps: prefer DB records, fall back to derived used apps
   const dbConnections = (connectionsResult.data ?? []).map((c) => ({
     app_id: c.app_id,
     account_label: c.account_label,
   }))
-  // Only show connections for apps actually used by this agent's workflows/triggers
+  // Show connections for apps used by this agent's workflows/triggers or store platform
   const connectedApps =
     usedAppIds.size > 0
       ? dbConnections.filter((c) => usedAppIds.has(c.app_id)).length > 0

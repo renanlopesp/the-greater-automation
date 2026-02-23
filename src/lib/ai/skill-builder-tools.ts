@@ -244,8 +244,13 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
 // compatibility. zodSchema() does not work with Zod v4.
 // ---------------------------------------------------------------------------
 
-export function buildSkillBuilderTools(agentId: string, userId: string, teamId: string) {
-  return {
+export function buildSkillBuilderTools(
+  agentId: string,
+  userId: string,
+  teamId: string,
+  toolMode: 'full' | 'chat' = 'full'
+) {
+  const allTools = {
     SNEW_LIST_APP_CAPABILITIES: {
       description:
         'List available Composio actions AND triggers for an app (e.g. github, slack, discord). ALWAYS call this before creating a workflow with composio_action to get the correct action names and required parameters. Never guess action names. Triggers are events the app can listen for (e.g. new message, new issue).',
@@ -1585,4 +1590,19 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       },
     },
   }
+
+  // In 'chat' mode, exclude heavy workflow-builder tools to reduce token count.
+  // Keeps: skill management tools + read-only workflow/connection listing.
+  if (toolMode === 'chat') {
+    const excluded = new Set([
+      'SNEW_LIST_APP_CAPABILITIES',
+      'SNEW_CREATE_WORKFLOW',
+      'SNEW_UPDATE_WORKFLOW',
+      'SNEW_DELETE_WORKFLOW',
+      'SNEW_TEST_WORKFLOW',
+    ])
+    return Object.fromEntries(Object.entries(allTools).filter(([name]) => !excluded.has(name)))
+  }
+
+  return allTools
 }

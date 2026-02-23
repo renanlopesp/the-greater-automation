@@ -23,8 +23,8 @@ export function SegmentStep({ value, onChange }: SegmentStepProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Qual o segmento da sua loja?</h2>
-        <p className="text-muted-foreground">Isso ajuda a personalizar seus agentes e alertas.</p>
+        <h2 className="text-2xl font-bold tracking-tight">What&apos;s your store segment?</h2>
+        <p className="text-muted-foreground">This helps personalize your agents and alerts.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {SEGMENTS.map((segment) => (

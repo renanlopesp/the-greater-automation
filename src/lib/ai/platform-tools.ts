@@ -672,7 +672,7 @@ export function buildPlatformTools(
       },
     },
     // Merge retail tools when store exists
-    ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient) : {}),
+    ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient, ownerUserId) : {}),
   }
 }
 

@@ -77,6 +77,8 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, @supabase/ssr, Vercel AI SDK, TanStack React Query, Zod (027-retail-pivot)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui, @supabase/ssr, TanStack React Query, Zod (024-team-members)
 - Supabase PostgreSQL (production: `djohaxwfketlsjurwqne`, test: `ejqumzvclfkbbzzdvmmi`) (024-team-members)
 

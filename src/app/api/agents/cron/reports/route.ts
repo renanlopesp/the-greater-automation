@@ -7,6 +7,9 @@ import {
   generateSalesReport,
 } from '@/lib/retail/agent-reports'
 
+// Allow up to 60s for multiple DB queries + Telegram sends per agent.
+export const maxDuration = 60
+
 /**
  * Hourly cron endpoint for per-agent Telegram reports.
  * Called by pg_cron every hour. Checks each agent's notification_settings
