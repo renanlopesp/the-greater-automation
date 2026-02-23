@@ -175,22 +175,83 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }))
   }
 
-  // 8. Build Relay virtual tools for skill management
-  const relayTools = buildSkillBuilderTools(agentId, user.id, agent.team_id)
+  // 8. Determine which Composio apps this agent explicitly uses in workflows
+  const agentAppIds = new Set<string>()
+  for (const s of skillRows ?? []) {
+    if (Array.isArray(s.actions)) {
+      for (const a of s.actions as Array<Record<string, unknown>>) {
+        if (a.type === 'composio_action' && typeof a.app_id === 'string') {
+          agentAppIds.add(a.app_id)
+        }
+      }
+    }
+    const tc = s.trigger_config as Record<string, unknown> | null
+    if (tc?.type === 'app_event' && typeof tc.app_id === 'string') {
+      agentAppIds.add(tc.app_id)
+    }
+  }
+  const hasComposioWorkflows = agentAppIds.size > 0
 
-  // 9. Build system prompt
+  // 8b. If the team's store has a connected platform, always include it so agents
+  //     can interact with the store (create products, manage orders, etc.)
+  let storePlatform: string | null = null
+  if (agent.team_id) {
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('platform, platform_store_id')
+      .eq('team_id', agent.team_id)
+      .limit(1)
+      .single()
+
+    if (store?.platform && store.platform !== 'manual' && store.platform_store_id) {
+      storePlatform = store.platform
+      agentAppIds.add(store.platform)
+    }
+  }
+
+  const hasComposioApps = agentAppIds.size > 0
+
+  // 8c. Build connected account map for Composio session (custom auth configs need explicit IDs)
+  let connectedAccountMap: Record<string, string> | undefined
+  if (hasComposioApps) {
+    const { data: connRows } = await supabase
+      .from('app_connections')
+      .select('app_id, composio_connection_id')
+      .eq('user_id', user.id)
+      .in('app_id', [...agentAppIds])
+    if (connRows && connRows.length > 0) {
+      connectedAccountMap = {}
+      for (const row of connRows) {
+        if (row.composio_connection_id) {
+          connectedAccountMap[row.app_id] = row.composio_connection_id
+        }
+      }
+    }
+  }
+
+  // 9. Build Relay virtual tools for skill management
+  // In 'chat' mode (no Composio workflows), exclude heavy workflow-builder tools to reduce tokens
+  const relayTools = buildSkillBuilderTools(
+    agentId,
+    user.id,
+    agent.team_id,
+    hasComposioWorkflows ? 'full' : 'chat'
+  )
+
+  // 10. Build system prompt
   const systemPrompt = buildAgentSystemPrompt(
     agentConfig,
     staticSkills,
     connectedApps,
     dynamicSkills,
-    knowledgeSkills
+    knowledgeSkills,
+    hasComposioWorkflows
   )
 
-  // 10. Update agent status to 'running'
+  // 11. Update agent status to 'running'
   await supabase.from('agents').update({ status: 'running' }).eq('id', agentId)
 
-  // 11. Run agent chat with Vercel AI SDK + Composio tools
+  // 12. Run agent chat with Vercel AI SDK + Composio tools
   try {
     const result = await runAgentChat({
       userId: user.id,
@@ -198,6 +259,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       messages: modelMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
       systemPrompt,
       relayTools,
+      connectedAppIds: hasComposioApps ? [...agentAppIds] : undefined,
+      connectedAccountMap,
     })
 
     // Persist assistant response + track AI credits after stream completes (non-blocking via after())

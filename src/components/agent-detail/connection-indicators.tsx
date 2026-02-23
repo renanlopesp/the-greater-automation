@@ -20,6 +20,9 @@ const APP_ICONS: Record<string, string> = {
   google_calendar: '📅',
   zoom: '🎥',
   dropbox: '📦',
+  shopify: '🛒',
+  nuvemshop: '☁️',
+  mercadolivre: '🤝',
 }
 
 function formatAppName(appId: string): string {

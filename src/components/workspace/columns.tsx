@@ -111,12 +111,18 @@ function InlineRenameCell({
     )
   }
 
+  // Standalone automations link to the agent page, not the workflow editor
+  const href =
+    workflow.is_automation && workflow.agent_id
+      ? `/agents/${workflow.agent_id}`
+      : `/workflows/${workflow.id}/edit`
+
   return (
     <Link
-      href={`/workflows/${workflow.id}/edit`}
+      href={href}
       className="flex max-w-[300px] items-center gap-2 truncate"
       onDoubleClick={(e) => {
-        if (onRename) {
+        if (onRename && !workflow.is_automation) {
           e.preventDefault()
           setEditValue(workflow.name)
           setIsEditing(true)
@@ -225,6 +231,11 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 />
               </div>
               <span className="text-sm font-semibold">{agent.name}</span>
+              {agent.workflows.length > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  {agent.workflows.length} workflow{agent.workflows.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           )
         }
@@ -404,23 +415,33 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {item.type === 'workflow' ? (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/workflows/${item.id}/edit`}>Edit</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
-                      Move to folder
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </>
+                  (item as WorkspaceWorkflow).is_automation ? (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/agents/${(item as WorkspaceWorkflow).agent_id}`}>
+                          Open agent
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/workflows/${item.id}/edit`}>Edit</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
+                        Move to folder
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )
                 ) : (
                   <>
                     <DropdownMenuItem asChild>

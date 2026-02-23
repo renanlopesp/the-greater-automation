@@ -5,6 +5,8 @@ import {
   listPriceMonitors,
   deactivatePriceMonitor,
 } from '@/lib/retail/price-monitors'
+import { getComposio } from '@/lib/composio/client'
+import type { Json } from '@/lib/supabase/database.types'
 
 type SupabaseClient = ReturnType<typeof createServiceRoleClient>
 
@@ -12,7 +14,12 @@ type SupabaseClient = ReturnType<typeof createServiceRoleClient>
  * Retail-specific tools for stores.
  * Added to the Telegram bot's tool set when the team has a store.
  */
-export function buildRetailTools(storeId: string, teamId: string, supabaseClient?: SupabaseClient) {
+export function buildRetailTools(
+  storeId: string,
+  teamId: string,
+  supabaseClient?: SupabaseClient,
+  userId?: string
+) {
   const getClient = () => supabaseClient ?? createServiceRoleClient()
 
   return {
@@ -368,46 +375,36 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
 
     STORE_TRIGGER_SYNC: {
       description:
-        'Trigger a manual product sync from the connected platform (Nuvemshop, etc). Use when user says "sincroniza meus produtos" or "atualiza o estoque".',
+        'Trigger a manual product sync from the connected e-commerce platform (Shopify, etc). Use when user says "sincroniza meus produtos", "atualiza o estoque", or "sync products".',
       inputSchema: jsonSchema({ type: 'object', properties: {} }),
       execute: async () => {
         const supabase = getClient()
 
-        // Check if store has platform credentials
+        // Check if store has a connected platform
         const { data: store } = await supabase
           .from('stores')
-          .select('platform, platform_access_token, platform_store_id')
+          .select('platform, platform_store_id, team_id')
           .eq('id', storeId)
           .single()
 
-        if (!store?.platform_access_token || !store?.platform_store_id) {
+        if (!store?.platform || store.platform === 'manual') {
           return {
-            error: 'Your store is not connected to a platform. Connect it in Settings.',
+            error: 'No e-commerce platform connected. Connect one in Settings > Store.',
           }
         }
 
-        // Trigger sync via API (fire and forget — the API handles the actual sync)
-        try {
-          const baseUrl =
-            process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-              ? `https://${process.env.VERCEL_URL}`
-              : 'http://localhost:3000'
-
-          await fetch(`${baseUrl}/api/nuvemshop/sync`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-service-key': process.env.INTERNAL_SERVICE_KEY || '',
-            },
-            body: JSON.stringify({ store_id: storeId }),
-          })
-
+        if (!store.platform_store_id) {
           return {
-            success: true,
-            message: 'Sync started. Products will be updated shortly.',
+            error: `${store.platform} is selected but not fully connected. Go to Settings > Store to complete the connection.`,
           }
-        } catch {
-          return { error: 'Failed to start sync. Please try again.' }
+        }
+
+        if (store.platform === 'shopify') {
+          return await syncShopifyProducts(supabase, storeId, store.platform_store_id, userId)
+        }
+
+        return {
+          error: `Sync is not yet supported for ${store.platform}. Only Shopify is currently available.`,
         }
       },
     },
@@ -500,6 +497,124 @@ export function buildRetailTools(storeId: string, teamId: string, supabaseClient
         }
       },
     },
+  }
+}
+
+/**
+ * Sync products from Shopify via Composio into store_products.
+ */
+async function syncShopifyProducts(
+  supabase: SupabaseClient,
+  storeId: string,
+  connectedAccountId: string,
+  ownerUserId?: string
+): Promise<{
+  success?: boolean
+  message?: string
+  error?: string
+  products?: Array<{ name: string; sku?: string; price: number; stock: number; published: boolean }>
+  total?: number
+}> {
+  try {
+    const composio = getComposio()
+    const slug = 'SHOPIFY_GET_PRODUCTS'
+
+    // Look up tool version (required for manual execution)
+    const tools = await composio.tools.getRawComposioTools({
+      toolkits: ['shopify'],
+      limit: 300,
+    })
+    const toolMeta = tools.find((t) => t.slug === slug)
+
+    const result = (await composio.tools.execute(slug, {
+      connectedAccountId,
+      ...(ownerUserId ? { userId: ownerUserId } : {}),
+      arguments: { limit: '250' },
+      ...(toolMeta?.version ? { version: toolMeta.version } : {}),
+    })) as { successful?: boolean; data?: Record<string, unknown>; error?: string }
+
+    if (!result.successful) {
+      return { error: result.error || 'Failed to fetch products from Shopify.' }
+    }
+
+    // Parse products from Composio response
+    const data = result.data ?? {}
+    const rawProducts = (data.products ?? data.items ?? data.data ?? []) as Array<
+      Record<string, unknown>
+    >
+
+    if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
+      return { success: true, message: 'Shopify returned 0 products. Your store may be empty.' }
+    }
+
+    // Upsert into store_products
+    let synced = 0
+    for (const p of rawProducts) {
+      const externalId = String(p.id ?? p.product_id ?? '')
+      if (!externalId) continue
+
+      const variants = Array.isArray(p.variants) ? p.variants : []
+      const firstVariant = (variants[0] ?? {}) as Record<string, unknown>
+      const totalStock = variants.reduce(
+        (sum: number, v: Record<string, unknown>) => sum + (Number(v.inventory_quantity) || 0),
+        0
+      )
+
+      const { error } = await supabase.from('store_products').upsert(
+        {
+          store_id: storeId,
+          external_id: externalId,
+          name: String(p.title ?? p.name ?? 'Unnamed'),
+          sku: String(firstVariant.sku ?? p.sku ?? ''),
+          price: Number(firstVariant.price ?? p.price ?? 0),
+          stock_quantity: totalStock,
+          variants: variants.map((v: Record<string, unknown>) => ({
+            name: v.title,
+            sku: v.sku,
+            price: Number(v.price ?? 0),
+            stock: Number(v.inventory_quantity ?? 0),
+          })) as unknown as Json,
+          images: (Array.isArray(p.images)
+            ? (p.images as Array<Record<string, unknown>>).map((img) => String(img.src ?? ''))
+            : []) as string[],
+          is_published: p.status === 'active' || p.published_at != null,
+        },
+        { onConflict: 'store_id,external_id' }
+      )
+
+      if (!error) synced++
+    }
+
+    // Update last_sync_at
+    await supabase
+      .from('stores')
+      .update({ last_sync_at: new Date().toISOString() })
+      .eq('id', storeId)
+
+    // Return product summary so the AI can present the results immediately
+    const { data: syncedProducts } = await supabase
+      .from('store_products')
+      .select('name, sku, price, stock_quantity, is_published')
+      .eq('store_id', storeId)
+      .order('name')
+      .limit(20)
+
+    return {
+      success: true,
+      message: `Synced ${synced} products from Shopify.`,
+      products: (syncedProducts ?? []).map((p) => ({
+        name: p.name,
+        sku: p.sku || undefined,
+        price: Number(p.price ?? 0),
+        stock: p.stock_quantity,
+        published: p.is_published,
+      })),
+      total: synced,
+    }
+  } catch (err) {
+    return {
+      error: `Sync failed: ${err instanceof Error ? err.message : String(err)}`,
+    }
   }
 }
 
