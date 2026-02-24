@@ -90,7 +90,7 @@ export async function getAppActions(appId: string): Promise<ComposioAppAction[]>
     const composio = getComposio()
 
     // Fetch tools (actions) for this app using V2 SDK
-    const tools = await composio.tools.getRawComposioTools({ toolkits: [appId], limit: 200 })
+    const tools = await composio.tools.getRawComposioTools({ toolkits: [appId], limit: 500 })
 
     if (!tools || tools.length === 0) {
       console.error(`No actions found for app: ${appId}`)

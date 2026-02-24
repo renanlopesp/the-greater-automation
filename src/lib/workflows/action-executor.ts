@@ -109,7 +109,7 @@ async function executeComposioAction(
     const composio = getComposio()
     const tools = await composio.tools.getRawComposioTools({
       toolkits: [config.app_id],
-      limit: 200,
+      limit: 500,
     })
     const toolsBySlug = new Map(tools.map((t) => [t.slug, t]))
     const toolMeta = toolsBySlug.get(config.action)

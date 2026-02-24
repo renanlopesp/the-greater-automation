@@ -6,7 +6,8 @@ import { tokensToCredits } from '@/lib/billing/credits'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
 import { executeWebScrapingStep } from '@/lib/workflow-editor/web-scraping-executor'
-import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
+import { executeUtilityStep, resolveTemplate } from '@/lib/workflow-editor/utility-executor'
+import { sendMessage } from '@/lib/messaging/telegram'
 import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
 import type {
   AIStepConfig,
@@ -304,7 +305,10 @@ export async function executeWorkflowSteps(
     try {
       switch (step.type) {
         case 'ai': {
-          const result = await executeAIStep(step.config as unknown as AIStepConfig)
+          const result = await executeAIStep(
+            step.config as unknown as AIStepConfig,
+            stepOutputs as Record<string, unknown>
+          )
           if (result.success) {
             stepOutput = {
               content: result.content,
@@ -369,15 +373,60 @@ export async function executeWorkflowSteps(
           break
         }
         case 'utility': {
-          try {
-            const result = executeUtilityStep(
-              step.config as unknown as UtilityStepConfig,
+          const utilConfig = step.config as unknown as UtilityStepConfig
+          if (utilConfig.utility_type === 'send_telegram') {
+            // send_telegram needs I/O — handled here instead of in pure utility-executor
+            const template = utilConfig.telegram_template ?? ''
+            const resolvedMessage = resolveTemplate(
+              template,
               stepOutputs as Record<string, unknown>
             )
-            stepOutput = result as unknown as typeof stepOutput
-          } catch (err) {
-            stepStatus = 'failed'
-            stepError = err instanceof Error ? err.message : 'Utility step failed'
+
+            // Look up team_id from workflow
+            const { data: wf } = await supabase
+              .from('workflows')
+              .select('team_id')
+              .eq('id', workflowId)
+              .single()
+
+            if (!wf?.team_id) {
+              throw new Error('Cannot determine workflow team for Telegram delivery')
+            }
+
+            // Find verified Telegram link for this team
+            const { data: link } = await supabase
+              .from('messaging_links')
+              .select('external_chat_id')
+              .eq('team_id', wf.team_id)
+              .eq('channel_type', 'telegram')
+              .eq('is_verified', true)
+              .single()
+
+            if (!link?.external_chat_id) {
+              throw new Error(
+                'No verified Telegram link found for this team. Link your Telegram first.'
+              )
+            }
+
+            await sendMessage(
+              link.external_chat_id,
+              resolvedMessage,
+              utilConfig.telegram_parse_mode
+            )
+
+            stepOutput = {
+              sent: true,
+              chat_id: link.external_chat_id,
+              message: resolvedMessage,
+            } as unknown as typeof stepOutput
+          } else {
+            try {
+              const result = executeUtilityStep(utilConfig, stepOutputs as Record<string, unknown>)
+              stepOutput = result as unknown as typeof stepOutput
+            } catch (err) {
+              stepStatus = 'failed'
+              stepError = err instanceof Error ? err.message : 'Utility step failed'
+            }
           }
           break
         }
@@ -414,7 +463,10 @@ export async function executeWorkflowSteps(
               async (type, cfg, ctx) => {
                 switch (type) {
                   case 'ai':
-                    return executeAIStep(cfg as unknown as AIStepConfig)
+                    return executeAIStep(
+                      cfg as unknown as AIStepConfig,
+                      ctx as Record<string, unknown>
+                    )
                   case 'http':
                     return executeHTTPStep(cfg as unknown as HTTPStepConfig)
                   case 'flow_control':
@@ -482,9 +534,18 @@ export async function executeWorkflowSteps(
               ? appConfig.action
               : `${appConfig.app_id.toUpperCase()}_${appConfig.action.toUpperCase()}`
 
+          // Look up tool version (required for manual execution)
+          const tools = await composio.tools.getRawComposioTools({
+            toolkits: [appConfig.app_id],
+            limit: 500,
+          })
+          const toolMeta = tools.find((t) => t.slug === actionName)
+
           const result = await composio.tools.execute(actionName, {
             connectedAccountId: connection.composio_connection_id,
+            userId: wf.created_by,
             arguments: appConfig.inputs as Record<string, unknown>,
+            ...(toolMeta?.version ? { version: toolMeta.version } : {}),
           })
 
           const appResult = result as {
@@ -528,7 +589,7 @@ export async function executeWorkflowSteps(
       .eq('step_id', step.id)
 
     if (stepOutput) {
-      stepOutputs[`step_${step.position + 1}`] = { output: stepOutput }
+      stepOutputs[`step_${step.position + 2}`] = { output: stepOutput }
     }
 
     if (stepStatus === 'failed') {

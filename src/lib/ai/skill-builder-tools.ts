@@ -271,7 +271,7 @@ export function buildSkillBuilderTools(
 
           // Query both tools (actions) and trigger types in parallel
           const [tools, triggerTypesResult] = await Promise.all([
-            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 200 }),
+            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 500 }),
             composio.triggers.listTypes({ toolkits: [params.app_id] }).catch(() => ({ items: [] })),
           ])
 
@@ -563,7 +563,7 @@ export function buildSkillBuilderTools(
             try {
               const tools = await composio.tools.getRawComposioTools({
                 toolkits: [appId],
-                limit: 200,
+                limit: 500,
               })
               for (const t of tools) {
                 allSlugs.add((t as { slug: string }).slug)

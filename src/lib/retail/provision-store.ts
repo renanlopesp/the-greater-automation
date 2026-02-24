@@ -126,7 +126,14 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
   }
 
   // 3b. Create pre-built workflows based on selected priorities
-  await provisionWorkflows(supabase, input.priorities, agentsByRole)
+  await provisionWorkflows(
+    supabase,
+    input.priorities,
+    agentsByRole,
+    input.teamId,
+    input.userId,
+    input.platform
+  )
 
   // 4. Create default global stock alert (threshold=5)
   if (input.priorities.includes('controle_de_estoque')) {
@@ -163,111 +170,274 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
 
 /**
  * Creates pre-built workflows for agents based on the user's selected priorities.
+ *
+ * Each workflow follows a 3-step pipeline:
+ *   1. App step — fetches real data from Shopify via Composio
+ *   2. AI step — formats the raw data into a readable Telegram message
+ *   3. Send Telegram step — delivers the formatted message
+ *
+ * All workflows use scheduled (cron) triggers so they run automatically.
+ * Only created for Shopify-connected stores (Nuvemshop uses direct API, not Composio).
  */
 async function provisionWorkflows(
   supabase: ReturnType<typeof createServiceRoleClient>,
   priorities: Priority[],
-  agentsByRole: Record<string, string>
+  agentsByRole: Record<string, string>,
+  teamId: string,
+  userId: string,
+  platform: Platform
 ) {
-  const workflows: Array<{
-    agent_id: string
+  // Only provision automated workflows for Shopify (uses Composio app steps)
+  if (platform !== 'shopify') return
+
+  type StepType =
+    | 'http'
+    | 'human_in_loop'
+    | 'app'
+    | 'ai'
+    | 'flow_control'
+    | 'web_scraping'
+    | 'utility'
+    | 'sequence'
+  type WorkflowDef = {
+    agentId: string
     name: string
+    emoji: string
     description: string
-    is_enabled: boolean
-    trigger_config: Record<string, unknown>
-    actions: Array<Record<string, unknown>>
-  }> = []
+    cronExpression: string
+    steps: Array<{ type: StepType; name: string; config: Record<string, unknown> }>
+  }
 
-  // Stock Manager: Low Stock Alert
+  const CRON_TZ = 'America/Sao_Paulo'
+  const defs: WorkflowDef[] = []
+
+  // 1. Low Stock Alert (estoquista) — every 6 hours
   if (priorities.includes('controle_de_estoque') && agentsByRole.estoquista) {
-    workflows.push({
-      agent_id: agentsByRole.estoquista,
+    defs.push({
+      agentId: agentsByRole.estoquista,
       name: 'Low Stock Alert',
-      description: 'Sends a Telegram alert when a product falls below the stock threshold.',
-      is_enabled: true,
-      trigger_config: { type: 'stock_below_threshold' },
-      actions: [
+      emoji: '⚠️',
+      description: 'Checks Shopify products every 6 hours and alerts on low stock via Telegram.',
+      cronExpression: '0 */6 * * *',
+      steps: [
         {
-          type: 'send_telegram',
+          type: 'app',
+          name: 'Fetch Shopify Products',
+          config: { app_id: 'shopify', action: 'SHOPIFY_GET_PRODUCTS', inputs: { limit: '250' } },
+        },
+        {
+          type: 'ai',
+          name: 'Analyze Stock Levels',
           config: {
-            template:
-              'Low stock alert: {{product_name}} has {{current_stock}} units (threshold: {{threshold}})',
+            ai_action: 'transform',
+            prompt_template:
+              'You are a stock management assistant for a retail store. Analyze the following Shopify product inventory data and identify products with LOW STOCK (5 units or fewer across all variants).\n\nFormat the result as a concise Telegram message in Portuguese (BR) using Markdown formatting. Use emojis for visual clarity.\n\nIf products have low stock, list them with: product name, current stock quantity, and a ⚠️ warning.\nIf NO products have low stock, respond with: "✅ Estoque OK — nenhum produto com estoque baixo."\n\nProduct data:\n{{step_2}}',
+            output_format: 'text',
+            temperature: 0.3,
+            max_tokens: 1000,
+          },
+        },
+        {
+          type: 'utility',
+          name: 'Send Telegram Alert',
+          config: {
+            utility_type: 'send_telegram',
+            telegram_template: '{{step_3.output.content}}',
+            telegram_parse_mode: 'Markdown',
           },
         },
       ],
     })
   }
 
-  // Price Monitor: Daily Price Check
+  // 2. Price Change Alert (vigia_de_preco) — daily at 9 AM
   if (priorities.includes('monitorar_concorrencia') && agentsByRole.vigia_de_preco) {
-    workflows.push({
-      agent_id: agentsByRole.vigia_de_preco,
+    defs.push({
+      agentId: agentsByRole.vigia_de_preco,
       name: 'Price Change Alert',
-      description: 'Checks competitor prices daily and sends a Telegram summary of changes.',
-      is_enabled: true,
-      trigger_config: { type: 'scheduled_daily' },
-      actions: [
+      emoji: '📊',
+      description: 'Fetches Shopify product prices daily and reports notable changes via Telegram.',
+      cronExpression: '0 9 * * *',
+      steps: [
         {
-          type: 'send_telegram',
+          type: 'app',
+          name: 'Fetch Shopify Products',
+          config: { app_id: 'shopify', action: 'SHOPIFY_GET_PRODUCTS', inputs: { limit: '250' } },
+        },
+        {
+          type: 'ai',
+          name: 'Analyze Prices',
           config: {
-            template: 'Daily competitor price report for {{date}}',
+            ai_action: 'transform',
+            prompt_template:
+              'You are a price monitoring assistant for a retail store. Analyze the following Shopify product data and create a price analysis report.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. List the top 10 products by price (highest first) with their current prices in R$. Highlight any products that might need price review.\n\nUse 📊 emoji in the header.\n\nProduct data:\n{{step_2}}',
+            output_format: 'text',
+            temperature: 0.3,
+            max_tokens: 1000,
+          },
+        },
+        {
+          type: 'utility',
+          name: 'Send Telegram Report',
+          config: {
+            utility_type: 'send_telegram',
+            telegram_template: '{{step_3.output.content}}',
+            telegram_parse_mode: 'Markdown',
           },
         },
       ],
     })
   }
 
-  // Sales Analyst: Daily Sales Summary
+  // 3. Daily Sales Summary (caixa) — daily at 9 PM
   if (priorities.includes('resumo_de_vendas') && agentsByRole.caixa) {
-    workflows.push({
-      agent_id: agentsByRole.caixa,
+    defs.push({
+      agentId: agentsByRole.caixa,
       name: 'Daily Sales Summary',
-      description: 'Generates and sends a daily sales report via Telegram at the configured hour.',
-      is_enabled: true,
-      trigger_config: { type: 'scheduled_daily' },
-      actions: [
+      emoji: '📈',
+      description: 'Fetches Shopify orders daily at 9 PM and sends a sales summary via Telegram.',
+      cronExpression: '0 21 * * *',
+      steps: [
         {
-          type: 'send_telegram',
+          type: 'app',
+          name: 'Fetch Shopify Orders',
+          config: { app_id: 'shopify', action: 'SHOPIFY_GET_ORDERS', inputs: {} },
+        },
+        {
+          type: 'ai',
+          name: 'Summarize Sales',
           config: {
-            template: 'Daily sales summary for {{date}}',
+            ai_action: 'summarize',
+            prompt_template:
+              'You are a sales analyst for a retail store. Analyze the following Shopify orders data and create a daily sales summary.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. Include:\n- Total number of orders today\n- Total revenue in R$\n- Top selling products (name and quantity)\n- Payment status breakdown\n\nUse 📈 emoji in the header. If no orders today, say "📈 Sem pedidos hoje."\n\nOrders data:\n{{step_2}}',
+            output_format: 'text',
+            temperature: 0.3,
+            max_tokens: 1000,
+          },
+        },
+        {
+          type: 'utility',
+          name: 'Send Telegram Summary',
+          config: {
+            utility_type: 'send_telegram',
+            telegram_template: '{{step_3.output.content}}',
+            telegram_parse_mode: 'Markdown',
           },
         },
       ],
     })
   }
 
-  // Sales Analyst: New Order Notification
+  // 4. New Order Notification (caixa) — every hour
   if (priorities.includes('alertas_de_pedidos') && agentsByRole.caixa) {
-    workflows.push({
-      agent_id: agentsByRole.caixa,
+    defs.push({
+      agentId: agentsByRole.caixa,
       name: 'New Order Notification',
-      description: 'Sends an instant Telegram notification when a new order is placed.',
-      is_enabled: true,
-      trigger_config: { type: 'new_order' },
-      actions: [
+      emoji: '🛒',
+      description: 'Checks Shopify for new orders every hour and notifies via Telegram.',
+      cronExpression: '0 * * * *',
+      steps: [
         {
-          type: 'send_telegram',
+          type: 'app',
+          name: 'Fetch Recent Orders',
+          config: { app_id: 'shopify', action: 'SHOPIFY_GET_ORDERS', inputs: {} },
+        },
+        {
+          type: 'ai',
+          name: 'Check New Orders',
           config: {
-            template: 'New order #{{order_id}}: {{item_count}} items — {{total}}',
+            ai_action: 'transform',
+            prompt_template:
+              'You are an order notification assistant for a retail store. Analyze the following Shopify orders data and identify any NEW orders placed in the last hour.\n\nFormat each new order as a Telegram notification in Portuguese (BR) using Markdown. Include: order number, customer name, items ordered, total value in R$.\n\nUse 🛒 emoji in the header. If no new orders in the last hour, say "🛒 Sem novos pedidos na última hora."\n\nOrders data:\n{{step_2}}',
+            output_format: 'text',
+            temperature: 0.2,
+            max_tokens: 500,
+          },
+        },
+        {
+          type: 'utility',
+          name: 'Send Telegram Notification',
+          config: {
+            utility_type: 'send_telegram',
+            telegram_template: '{{step_3.output.content}}',
+            telegram_parse_mode: 'Markdown',
           },
         },
       ],
     })
   }
 
-  // Batch insert all workflows
-  for (const wf of workflows) {
-    const { error } = await supabase.from('agent_workflows').insert({
-      agent_id: wf.agent_id,
-      name: wf.name,
-      description: wf.description,
-      is_enabled: wf.is_enabled,
-      trigger_config: wf.trigger_config as unknown as Json,
-      actions: wf.actions as unknown as Json,
-      source: 'manual',
+  for (const def of defs) {
+    const triggerConfig = {
+      schedule_type: 'cron',
+      cron_expression: def.cronExpression,
+      timezone: CRON_TZ,
+    }
+
+    // 1. Create the workflow record
+    const { data: wf, error: wfError } = await supabase
+      .from('workflows')
+      .insert({
+        team_id: teamId,
+        created_by: userId,
+        name: def.name,
+        emoji: def.emoji,
+        status: 'published',
+      })
+      .select('id')
+      .single()
+
+    if (wfError || !wf) {
+      console.error(`[provision-store] Failed to create workflow "${def.name}":`, wfError?.message)
+      continue
+    }
+
+    // 2. Create scheduled trigger (pg_cron auto-registered by trg_manage_scheduled_cron)
+    const { error: triggerError } = await supabase.from('workflow_triggers').insert({
+      workflow_id: wf.id,
+      type: 'scheduled' as const,
+      config: triggerConfig as unknown as Json,
     })
-    if (error) {
-      console.error(`[provision-store] Failed to create workflow "${wf.name}":`, error.message)
+    if (triggerError) {
+      console.error(
+        `[provision-store] Failed to create trigger for "${def.name}":`,
+        triggerError.message
+      )
+    }
+
+    // 3. Create 3-step pipeline: app → ai → send_telegram
+    for (const [i, step] of def.steps.entries()) {
+      const { error: stepError } = await supabase.from('workflow_steps').insert({
+        workflow_id: wf.id,
+        position: i,
+        type: step.type,
+        name: step.name,
+        config: step.config as unknown as Json,
+      })
+      if (stepError) {
+        console.error(
+          `[provision-store] Failed to create step "${step.name}" for "${def.name}":`,
+          stepError.message
+        )
+      }
+    }
+
+    // 4. Link to agent via agent_workflows
+    const { error: linkError } = await supabase.from('agent_workflows').insert({
+      agent_id: def.agentId,
+      workflow_id: wf.id,
+      name: def.name,
+      description: def.description,
+      is_enabled: true,
+      source: 'provision',
+      trigger_config: triggerConfig as unknown as Json,
+      actions: [] as unknown as Json,
+    })
+    if (linkError) {
+      console.error(
+        `[provision-store] Failed to link workflow "${def.name}" to agent:`,
+        linkError.message
+      )
     }
   }
 }
