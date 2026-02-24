@@ -5,6 +5,13 @@ import type { Json } from '@/lib/supabase/database.types'
 
 type SupabaseClient = ReturnType<typeof createServiceRoleClient>
 
+function normalizeAccents(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
 /**
  * Retail-specific tools for stores.
  * Added to the Telegram bot's tool set when the team has a store.
@@ -13,7 +20,8 @@ export function buildRetailTools(
   storeId: string,
   teamId: string,
   supabaseClient?: SupabaseClient,
-  userId?: string
+  userId?: string,
+  imageAttachments?: Array<{ url: string; mediaType: string }>
 ) {
   const getClient = () => supabaseClient ?? createServiceRoleClient()
 
@@ -547,12 +555,34 @@ export function buildRetailTools(
       }) => {
         const supabase = getClient()
 
-        const { data: products } = await supabase
+        let { data: products } = await supabase
           .from('store_products')
           .select('id, name, external_id, variants')
           .eq('store_id', storeId)
           .ilike('name', `%${params.search}%`)
           .limit(5)
+
+        // If ILIKE found nothing, fallback to accent-insensitive search in JS
+        if (!products || products.length === 0) {
+          const { data: allProducts } = await supabase
+            .from('store_products')
+            .select('id, name, external_id, variants')
+            .eq('store_id', storeId)
+            .limit(50)
+
+          const needle = normalizeAccents(params.search)
+          const matched = (allProducts ?? []).filter((p) =>
+            normalizeAccents(p.name).includes(needle)
+          )
+          if (matched.length === 1) {
+            products = matched
+          } else if (matched.length > 1) {
+            return {
+              error: `Found ${matched.length} products. Be more specific.`,
+              matches: matched.map((p) => p.name),
+            }
+          }
+        }
 
         if (!products || products.length === 0) {
           return { error: `No products found matching "${params.search}"` }
@@ -1121,7 +1151,7 @@ export function buildRetailTools(
 
     STORE_ADD_PRODUCT_IMAGE: {
       description:
-        'Add an image to a product. The user attaches an image in chat and asks to set it on a product. Use when user says "coloca essa imagem no produto X", "adiciona foto", "sobe imagem", etc. You receive the image as a data URL from the conversation — pass it as the image_data parameter.',
+        'Add an image to a product. The image is automatically taken from the file the user attached in this chat message — do NOT ask the user to provide base64 or a URL. Use when user says "coloca essa imagem no produto X", "adiciona foto", "sobe imagem", etc.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -1129,27 +1159,49 @@ export function buildRetailTools(
             type: 'string',
             description: 'Search by product name to find the product',
           },
-          image_data: {
+          image_url: {
             type: 'string',
             description:
-              'The image as a data URL (data:image/png;base64,...) from the user attachment, or an HTTP URL to the image',
+              'Optional: HTTP URL of an image found in the conversation. Leave empty when the user attached a file — the tool picks it up automatically.',
           },
           position: {
             type: 'number',
             description: 'Image position/order (optional, default: 1)',
           },
         },
-        required: ['search', 'image_data'],
+        required: ['search'],
       }),
-      execute: async (params: { search: string; image_data: string; position?: number }) => {
+      execute: async (params: { search: string; image_url?: string; position?: number }) => {
         const supabase = getClient()
 
-        const { data: products } = await supabase
+        let { data: products } = await supabase
           .from('store_products')
           .select('id, name, external_id')
           .eq('store_id', storeId)
           .ilike('name', `%${params.search}%`)
           .limit(5)
+
+        // If ILIKE found nothing, fallback to accent-insensitive search in JS
+        if (!products || products.length === 0) {
+          const { data: allProducts } = await supabase
+            .from('store_products')
+            .select('id, name, external_id')
+            .eq('store_id', storeId)
+            .limit(50)
+
+          const needle = normalizeAccents(params.search)
+          const matched = (allProducts ?? []).filter((p) =>
+            normalizeAccents(p.name).includes(needle)
+          )
+          if (matched.length === 1) {
+            products = matched
+          } else if (matched.length > 1) {
+            return {
+              error: `Found ${matched.length} products. Be more specific.`,
+              matches: matched.map((p) => p.name),
+            }
+          }
+        }
 
         if (!products || products.length === 0) {
           return { error: `No products found matching "${params.search}"` }
@@ -1180,6 +1232,16 @@ export function buildRetailTools(
           return { error: 'Store not connected to Nuvemshop' }
         }
 
+        // Resolve image source: prefer user attachment, fall back to image_url param
+        const attachmentUrl = imageAttachments?.[0]?.url
+        const rawImageSource = attachmentUrl ?? params.image_url
+
+        if (!rawImageSource) {
+          return {
+            error: 'No image found. Please attach an image to your message.',
+          }
+        }
+
         try {
           const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
           const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
@@ -1193,9 +1255,9 @@ export function buildRetailTools(
             position?: number
           }
 
-          if (params.image_data.startsWith('data:')) {
+          if (rawImageSource.startsWith('data:')) {
             // Extract base64 from data URL: "data:image/png;base64,iVBOR..."
-            const match = params.image_data.match(/^data:([^;]+);base64,(.+)$/)
+            const match = rawImageSource.match(/^data:([^;]+);base64,(.+)$/)
             if (!match) {
               return { error: 'Invalid data URL format' }
             }
@@ -1209,7 +1271,7 @@ export function buildRetailTools(
             }
           } else {
             // HTTP URL
-            imagePayload = { src: params.image_data, position: params.position ?? 1 }
+            imagePayload = { src: rawImageSource, position: params.position ?? 1 }
           }
 
           const image = await client.createImage(externalId, imagePayload)

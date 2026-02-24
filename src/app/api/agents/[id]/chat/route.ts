@@ -191,6 +191,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       agentAppIds.add(tc.app_id)
     }
   }
+  // Extract image attachments from the latest user message for retail tools
+  let imageAttachments: Array<{ url: string; mediaType: string }> | undefined
+  if (body.messages && Array.isArray(body.messages)) {
+    const msgs = body.messages as UIMessage[]
+    const lastUser = [...msgs].reverse().find((m) => m.role === 'user')
+    if (lastUser?.parts) {
+      const fileParts = lastUser.parts.filter(
+        (p): p is { type: 'file'; url: string; mediaType: string } =>
+          p.type === 'file' &&
+          'mediaType' in p &&
+          (p as { mediaType: string }).mediaType.startsWith('image/')
+      )
+      if (fileParts.length > 0) {
+        imageAttachments = fileParts.map((f) => ({ url: f.url, mediaType: f.mediaType }))
+      }
+    }
+  }
+
   // 8b. If the team's store has a connected platform, always include it so agents
   //     can interact with the store (create products, manage orders, etc.)
   let storeId: string | null = null
@@ -239,7 +257,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...buildSkillBuilderTools(agentId, user.id, agent.team_id, hasComposioApps ? 'full' : 'chat'),
     // Add retail tools (stock queries, price monitoring, etc.) when the team has a store
     ...(storeId && agent.team_id
-      ? buildRetailTools(storeId, agent.team_id, undefined, user.id)
+      ? buildRetailTools(storeId, agent.team_id, undefined, user.id, imageAttachments)
       : {}),
   }
 
