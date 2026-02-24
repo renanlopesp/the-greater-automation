@@ -178,7 +178,7 @@ export default function StepConfigPanel() {
       )}
 
       <div className="flex items-center justify-between border-t px-4 py-3">
-        <Badge variant="secondary">step_{selectedStep.position + 1}.output</Badge>
+        <Badge variant="secondary">step_{selectedStep.position + 2}.output</Badge>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={!canTest} onClick={handleTest}>
             {testStep.isPending ? (

@@ -35,6 +35,7 @@ export default function UtilityStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="send_telegram">Send Telegram</SelectItem>
             <SelectItem value="format">Format data</SelectItem>
             <SelectItem value="parse_json">Parse JSON</SelectItem>
             <SelectItem value="parse_csv">Parse CSV</SelectItem>
@@ -46,18 +47,66 @@ export default function UtilityStepConfigForm({
         </Select>
       </div>
 
-      <div>
-        <Label htmlFor="input-source" className="text-sm font-medium">
-          Input Source
-        </Label>
-        <Input
-          id="input-source"
-          value={config.input_source ?? ''}
-          onChange={(e) => onUpdate({ ...config, input_source: e.target.value })}
-          placeholder="e.g., {{step_1.output}}"
-          className="mt-1"
-        />
-      </div>
+      {/* Send Telegram fields */}
+      {config.utility_type === 'send_telegram' && (
+        <>
+          <div>
+            <Label htmlFor="telegram-template" className="text-sm font-medium">
+              Message Template
+            </Label>
+            <Textarea
+              id="telegram-template"
+              value={config.telegram_template ?? ''}
+              onChange={(e) => onUpdate({ ...config, telegram_template: e.target.value })}
+              placeholder="e.g., {{step_3.output.content}}"
+              rows={4}
+              className="mt-1"
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              Use {'{{step_N.output.content}}'} to reference output from previous steps.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="telegram-parse-mode" className="text-sm font-medium">
+              Parse Mode
+            </Label>
+            <Select
+              value={config.telegram_parse_mode ?? 'Markdown'}
+              onValueChange={(v) =>
+                onUpdate({
+                  ...config,
+                  telegram_parse_mode: v as UtilityStepConfig['telegram_parse_mode'],
+                })
+              }
+            >
+              <SelectTrigger id="telegram-parse-mode" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Markdown">Markdown</SelectItem>
+                <SelectItem value="MarkdownV2">Markdown V2</SelectItem>
+                <SelectItem value="HTML">HTML</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {/* Non-telegram types show input source */}
+      {config.utility_type !== 'send_telegram' && (
+        <div>
+          <Label htmlFor="input-source" className="text-sm font-medium">
+            Input Source
+          </Label>
+          <Input
+            id="input-source"
+            value={config.input_source ?? ''}
+            onChange={(e) => onUpdate({ ...config, input_source: e.target.value })}
+            placeholder="e.g., {{step_2.output}}"
+            className="mt-1"
+          />
+        </div>
+      )}
 
       {config.utility_type === 'format' && (
         <div>

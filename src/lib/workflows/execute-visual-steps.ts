@@ -9,7 +9,8 @@ import {
   createHumanApproval,
   getApprovalForStep,
 } from '@/lib/workflow-editor/human-in-loop-executor'
-import { executeUtilityStep } from '@/lib/workflow-editor/utility-executor'
+import { executeUtilityStep, resolveTemplate } from '@/lib/workflow-editor/utility-executor'
+import { sendMessage } from '@/lib/messaging/telegram'
 import { executeSequenceStep } from '@/lib/workflow-editor/sequence-executor'
 import { getComposio } from '@/lib/composio/client'
 import { createWorkflowNotification } from '@/lib/notifications/create-workflow-notification'
@@ -118,7 +119,7 @@ export async function executeVisualWorkflowSteps(
       if (existingStep?.status === 'completed') {
         // Restore output to context and skip
         if (existingStep.output) {
-          stepOutputs[`step_${step.position + 1}`] = { output: existingStep.output }
+          stepOutputs[`step_${step.position + 2}`] = { output: existingStep.output }
         }
         continue
       }
@@ -266,15 +267,66 @@ export async function executeVisualWorkflowSteps(
             }
           }
           case 'utility': {
-            try {
-              const result = executeUtilityStep(
-                step.config as unknown as UtilityStepConfig,
+            const utilConfig = step.config as unknown as UtilityStepConfig
+            if (utilConfig.utility_type === 'send_telegram') {
+              // send_telegram needs I/O — handled here instead of in pure utility-executor
+              const template = utilConfig.telegram_template ?? ''
+              const resolvedMessage = resolveTemplate(
+                template,
                 stepOutputs as Record<string, unknown>
               )
-              stepOutput = result as unknown as typeof stepOutput
-            } catch (err) {
-              stepStatus = 'failed'
-              stepError = err instanceof Error ? err.message : 'Utility step failed'
+
+              // Look up team_id from workflow
+              const { data: wf } = await supabase
+                .from('workflows')
+                .select('team_id')
+                .eq('id', workflowId)
+                .single()
+
+              if (!wf?.team_id) {
+                stepStatus = 'failed'
+                stepError = 'Cannot determine workflow team for Telegram delivery'
+                break
+              }
+
+              // Find verified Telegram link for this team
+              const { data: link } = await supabase
+                .from('messaging_links')
+                .select('external_chat_id')
+                .eq('team_id', wf.team_id)
+                .eq('channel_type', 'telegram')
+                .eq('is_verified', true)
+                .single()
+
+              if (!link?.external_chat_id) {
+                stepStatus = 'failed'
+                stepError =
+                  'No verified Telegram link found for this team. Link your Telegram first.'
+                break
+              }
+
+              await sendMessage(
+                link.external_chat_id,
+                resolvedMessage,
+                utilConfig.telegram_parse_mode
+              )
+
+              stepOutput = {
+                sent: true,
+                chat_id: link.external_chat_id,
+                message: resolvedMessage,
+              } as unknown as typeof stepOutput
+            } else {
+              try {
+                const result = executeUtilityStep(
+                  utilConfig,
+                  stepOutputs as Record<string, unknown>
+                )
+                stepOutput = result as unknown as typeof stepOutput
+              } catch (err) {
+                stepStatus = 'failed'
+                stepError = err instanceof Error ? err.message : 'Utility step failed'
+              }
             }
             break
           }
@@ -339,7 +391,7 @@ export async function executeVisualWorkflowSteps(
                       const composioClient = getComposio()
                       const rawTools = await composioClient.tools.getRawComposioTools({
                         toolkits: [ac.app_id],
-                        limit: 200,
+                        limit: 500,
                       })
                       const rawToolsBySlug = new Map(rawTools.map((t) => [t.slug, t]))
                       const meta = rawToolsBySlug.get(ac.action)
@@ -390,7 +442,7 @@ export async function executeVisualWorkflowSteps(
                 // Look up tool version (required for manual execution)
                 const tools = await composio.tools.getRawComposioTools({
                   toolkits: [appConfig.app_id],
-                  limit: 200,
+                  limit: 500,
                 })
                 const toolsBySlug = new Map(tools.map((t) => [t.slug, t]))
                 const toolMeta = toolsBySlug.get(appConfig.action)
@@ -443,7 +495,7 @@ export async function executeVisualWorkflowSteps(
 
       // Accumulate step output for context
       if (stepOutput) {
-        stepOutputs[`step_${step.position + 1}`] = { output: stepOutput }
+        stepOutputs[`step_${step.position + 2}`] = { output: stepOutput }
       }
 
       // If step failed, mark the entire run as failed

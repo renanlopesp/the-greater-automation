@@ -19,8 +19,6 @@ export interface WorkspaceWorkflow {
   has_ai_steps: boolean
   agent_id: string | null
   folder_id: string | null
-  /** True for standalone agent automations (not visual editor workflows) */
-  is_automation?: boolean
 }
 
 export interface WorkspaceAgent {
@@ -98,36 +96,13 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       : Promise.resolve({ data: null }),
   ])
 
-  // Build per-agent workflow ID sets and standalone automations from agent_workflows
+  // Build per-agent workflow ID sets from agent_workflows (only linked workflows)
   const agentWorkflowIds: Record<string, Set<string>> = {}
-  const agentStandaloneAutomations: Record<string, WorkspaceWorkflow[]> = {}
   if (workflowsResult.data) {
     for (const w of workflowsResult.data) {
       if (w.workflow_id !== null) {
-        // Linked to a visual editor workflow
         if (!agentWorkflowIds[w.agent_id]) agentWorkflowIds[w.agent_id] = new Set()
         agentWorkflowIds[w.agent_id].add(w.workflow_id)
-      } else {
-        // Standalone automation (provisioned workflow with no visual editor counterpart)
-        if (!agentStandaloneAutomations[w.agent_id]) agentStandaloneAutomations[w.agent_id] = []
-        agentStandaloneAutomations[w.agent_id].push({
-          type: 'workflow' as const,
-          id: w.id,
-          name: w.name ?? 'Untitled Automation',
-          emoji: '\u2699\uFE0F',
-          status: w.is_enabled ? 'published' : 'draft',
-          created_by: '',
-          updated_at: w.updated_at,
-          created_at: w.created_at,
-          published_at: null,
-          last_run_at: w.last_run_at,
-          created_by_name: null,
-          step_count: 0,
-          has_ai_steps: false,
-          agent_id: w.agent_id,
-          folder_id: null,
-          is_automation: true,
-        })
       }
     }
   }
@@ -186,9 +161,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       .map((w) => ({ ...w, agent_id: agent.id }))
     childWorkflows.forEach((w) => claimedWorkflows.add(w.id))
 
-    // Merge linked visual workflows + standalone automations
-    const standaloneAutomations = agentStandaloneAutomations[agent.id] ?? []
-    const allWorkflows = [...childWorkflows, ...standaloneAutomations]
+    const allWorkflows = childWorkflows
 
     items.push({
       type: 'agent',

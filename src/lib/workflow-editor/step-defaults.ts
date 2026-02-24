@@ -48,11 +48,21 @@ export interface HumanInLoopStepConfig {
 }
 
 export interface UtilityStepConfig {
-  utility_type: 'format' | 'parse_json' | 'parse_csv' | 'merge' | 'filter' | 'map' | 'math'
+  utility_type:
+    | 'format'
+    | 'parse_json'
+    | 'parse_csv'
+    | 'merge'
+    | 'filter'
+    | 'map'
+    | 'math'
+    | 'send_telegram'
   input_source?: string
   format_template?: string
   filter_condition?: string
   math_expression?: string
+  telegram_template?: string
+  telegram_parse_mode?: 'Markdown' | 'MarkdownV2' | 'HTML'
 }
 
 export interface HTTPStepConfig {
@@ -156,6 +166,7 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       if (uc.utility_type === 'math') return !!uc.math_expression
       if (uc.utility_type === 'filter') return !!uc.input_source && !!uc.filter_condition
       if (uc.utility_type === 'map') return !!uc.input_source && !!uc.format_template
+      if (uc.utility_type === 'send_telegram') return !!uc.telegram_template
       return !!uc.input_source // parse_json, parse_csv, merge
     }
     case 'sequence': {

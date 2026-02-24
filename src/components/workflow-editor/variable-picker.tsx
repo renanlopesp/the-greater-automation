@@ -59,7 +59,7 @@ export function VariablePicker({ currentStepPosition, onInsert }: VariablePicker
             {/* Step outputs */}
             {availableSteps.map((step) => {
               const stepMeta = getStepMeta(step.type)
-              const stepNum = step.position + 1
+              const stepNum = step.position + 2
               const variable = `step_${stepNum}.output`
 
               return (

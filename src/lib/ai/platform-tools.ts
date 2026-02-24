@@ -406,7 +406,7 @@ export function buildPlatformTools(
         try {
           const composio = getComposio()
           const [tools, triggerTypesResult] = await Promise.all([
-            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 200 }),
+            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 500 }),
             composio.triggers.listTypes({ toolkits: [params.app_id] }).catch(() => ({ items: [] })),
           ])
 

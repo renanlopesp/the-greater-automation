@@ -84,7 +84,7 @@ export default function FlowControlStepConfigForm({
                       <Input
                         value={condition.field}
                         onChange={(e) => updateCondition(index, { field: e.target.value })}
-                        placeholder="Field (e.g., step_1.output)"
+                        placeholder="Field (e.g., step_2.output)"
                         className="flex-1"
                       />
                       <Button variant="ghost" size="icon" onClick={() => removeCondition(index)}>
@@ -145,7 +145,7 @@ export default function FlowControlStepConfigForm({
               id="loop-source"
               value={config.loop_source ?? ''}
               onChange={(e) => onUpdate({ ...config, loop_source: e.target.value })}
-              placeholder="e.g., {{step_1.output}}"
+              placeholder="e.g., {{step_2.output}}"
               className="mt-1"
             />
           </div>
