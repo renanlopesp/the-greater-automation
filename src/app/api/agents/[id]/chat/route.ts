@@ -191,11 +191,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       agentAppIds.add(tc.app_id)
     }
   }
-  const hasComposioWorkflows = agentAppIds.size > 0
-
   // 8b. If the team's store has a connected platform, always include it so agents
   //     can interact with the store (create products, manage orders, etc.)
-  let storePlatform: string | null = null
   let storeId: string | null = null
   if (agent.team_id) {
     const { data: store } = await supabase
@@ -208,8 +205,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (store) {
       storeId = store.id
       if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
-        storePlatform = store.platform
-        agentAppIds.add(store.platform)
+        // Only add to Composio apps if the platform uses Composio (not nuvemshop, which uses native API)
+        if (store.platform !== 'nuvemshop') {
+          agentAppIds.add(store.platform)
+        }
       }
     }
   }

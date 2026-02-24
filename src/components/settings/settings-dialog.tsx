@@ -57,6 +57,11 @@ export default function SettingsDialog({
   storeData,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
+  const [prevDefault, setPrevDefault] = useState(defaultSection)
+  if (defaultSection !== prevDefault) {
+    setPrevDefault(defaultSection)
+    setActiveSection(defaultSection)
+  }
 
   function renderSection() {
     switch (activeSection) {

@@ -3,24 +3,28 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { NuvemshopClient } from '@/lib/nuvemshop/client'
 
 export async function GET(request: NextRequest) {
+  // Use public URL to avoid localhost redirects when behind ngrok/proxy
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
+
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.redirect(new URL('/login', request.url))
+  if (!user) return NextResponse.redirect(new URL('/login', origin))
 
   const code = request.nextUrl.searchParams.get('code')
   const stateParam = request.nextUrl.searchParams.get('state')
 
   if (!code || !stateParam) {
-    return NextResponse.redirect(new URL('/workspace?error=missing_params', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=missing_params', origin))
   }
 
   let state: { team_id: string; redirect_uri: string }
   try {
     state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
   } catch {
-    return NextResponse.redirect(new URL('/workspace?error=invalid_state', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=invalid_state', origin))
   }
 
   try {
@@ -47,7 +51,6 @@ export async function GET(request: NextRequest) {
       .single()
 
     // Trigger initial sync (fire-and-forget)
-    const origin = request.nextUrl.origin
     fetch(`${origin}/api/nuvemshop/sync`, {
       method: 'POST',
       headers: {
@@ -62,10 +65,11 @@ export async function GET(request: NextRequest) {
       registerWebhooks(client, store.id, origin, serviceSupabase).catch(console.error)
     }
 
-    return NextResponse.redirect(new URL(state.redirect_uri || '/workspace', request.url))
+    const redirectPath = state.redirect_uri || '/workspace'
+    return NextResponse.redirect(new URL(redirectPath, origin))
   } catch (error) {
     console.error('[nuvemshop/callback] OAuth error:', error)
-    return NextResponse.redirect(new URL('/workspace?error=oauth_failed', request.url))
+    return NextResponse.redirect(new URL('/workspace?error=oauth_failed', origin))
   }
 }
 

@@ -69,6 +69,7 @@ export function buildRetailTools(
 
         return {
           products: (data ?? []).map((p) => ({
+            id: p.id,
             name: p.name,
             sku: p.sku,
             price: p.price,
@@ -368,6 +369,116 @@ export function buildRetailTools(
       },
     },
 
+    STORE_DELETE_PRODUCT: {
+      description:
+        'Delete specific products from the store (both the e-commerce platform and local database). IMPORTANT: Always use product_ids for precise deletion. First use STORE_QUERY_STOCK to list products with their IDs, then pass the exact IDs of the products to delete. Only use search as a fallback when you do not have IDs.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          product_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Array of product IDs (from STORE_QUERY_STOCK) to delete. This is the preferred way to delete — always use this when you have the IDs.',
+          },
+          search: {
+            type: 'string',
+            description:
+              'Fallback: search by product name. Only use when you do not have product IDs. Will fail if multiple products match to prevent accidental mass deletion.',
+          },
+        },
+      }),
+      execute: async (params: { product_ids?: string[]; search?: string }) => {
+        const supabase = getClient()
+
+        let productsToDelete: Array<{ id: string; name: string; external_id: string | null }>
+
+        if (params.product_ids && params.product_ids.length > 0) {
+          // Precise deletion by ID
+          const { data, error } = await supabase
+            .from('store_products')
+            .select('id, name, external_id')
+            .eq('store_id', storeId)
+            .in('id', params.product_ids)
+
+          if (error) return { error: error.message }
+          if (!data || data.length === 0)
+            return { error: 'None of the provided product IDs were found' }
+          productsToDelete = data
+        } else if (params.search) {
+          // Fallback: name search — only allow single match to prevent accidents
+          const { data, error } = await supabase
+            .from('store_products')
+            .select('id, name, external_id')
+            .eq('store_id', storeId)
+            .ilike('name', `%${params.search}%`)
+
+          if (error) return { error: error.message }
+          if (!data || data.length === 0)
+            return { error: `No products found matching "${params.search}"` }
+          if (data.length > 1) {
+            return {
+              error: `Found ${data.length} products matching "${params.search}". Use STORE_QUERY_STOCK first to get exact IDs, then pass them via product_ids to delete specific ones.`,
+              matches: data.map((p) => ({ id: p.id, name: p.name })),
+            }
+          }
+          productsToDelete = data
+        } else {
+          return { error: 'Provide either product_ids or search parameter' }
+        }
+
+        // Get store credentials for platform deletion
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        const deleted: string[] = []
+        const errors: string[] = []
+
+        for (const product of productsToDelete) {
+          try {
+            // Delete from platform if connected and product has external_id
+            if (
+              product.external_id &&
+              store?.platform === 'nuvemshop' &&
+              store.platform_store_id &&
+              store.platform_access_token
+            ) {
+              const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+              const client = new NuvemshopClient(
+                store.platform_store_id,
+                store.platform_access_token
+              )
+              await client.deleteProduct(parseInt(product.external_id, 10))
+            }
+
+            // Delete from local DB
+            const { error: delError } = await supabase
+              .from('store_products')
+              .delete()
+              .eq('id', product.id)
+
+            if (delError) {
+              errors.push(`${product.name}: ${delError.message}`)
+            } else {
+              deleted.push(product.name)
+            }
+          } catch (err) {
+            errors.push(`${product.name}: ${err instanceof Error ? err.message : String(err)}`)
+          }
+        }
+
+        return {
+          success: deleted.length > 0,
+          deleted,
+          errors: errors.length > 0 ? errors : undefined,
+          message: `Deleted ${deleted.length} product(s)${errors.length > 0 ? `, ${errors.length} failed` : ''}.`,
+        }
+      },
+    },
+
     STORE_TRIGGER_SYNC: {
       description:
         'Trigger a manual product sync from the connected e-commerce platform (Shopify, etc). Use when user says "sincroniza meus produtos", "atualiza o estoque", or "sync products".',
@@ -404,6 +515,650 @@ export function buildRetailTools(
 
         return {
           error: `Sync is not yet supported for ${store.platform}. Shopify and Nuvemshop are currently available.`,
+        }
+      },
+    },
+
+    STORE_UPDATE_PRODUCT: {
+      description:
+        'Update a product in the store (name, price, description, stock, published status). Use when user says "muda o nome do produto", "atualiza o preço", "despublica produto", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          search: {
+            type: 'string',
+            description: 'Search by product name to find the product to update',
+          },
+          name: { type: 'string', description: 'New product name' },
+          price: { type: 'string', description: 'New price (e.g. "29.90")' },
+          stock: { type: 'number', description: 'New stock quantity (updates all variants)' },
+          description: { type: 'string', description: 'New product description' },
+          published: { type: 'boolean', description: 'Publish or unpublish the product' },
+        },
+        required: ['search'],
+      }),
+      execute: async (params: {
+        search: string
+        name?: string
+        price?: string
+        stock?: number
+        description?: string
+        published?: boolean
+      }) => {
+        const supabase = getClient()
+
+        const { data: products } = await supabase
+          .from('store_products')
+          .select('id, name, external_id, variants')
+          .eq('store_id', storeId)
+          .ilike('name', `%${params.search}%`)
+          .limit(5)
+
+        if (!products || products.length === 0) {
+          return { error: `No products found matching "${params.search}"` }
+        }
+        if (products.length > 1) {
+          return {
+            error: `Found ${products.length} products. Be more specific.`,
+            matches: products.map((p) => p.name),
+          }
+        }
+
+        const product = products[0]
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        try {
+          if (
+            product.external_id &&
+            store?.platform === 'nuvemshop' &&
+            store.platform_store_id &&
+            store.platform_access_token
+          ) {
+            const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+            const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+            const externalId = parseInt(product.external_id, 10)
+
+            // Update product fields on platform
+            const updateData: Record<string, unknown> = {}
+            if (params.name) updateData.name = { pt: params.name }
+            if (params.description) updateData.description = { pt: params.description }
+            if (params.published !== undefined) updateData.published = params.published
+
+            if (Object.keys(updateData).length > 0) {
+              await client.updateProduct(
+                externalId,
+                updateData as Parameters<typeof client.updateProduct>[1]
+              )
+            }
+
+            // Update price/stock on variants
+            if (params.price !== undefined || params.stock !== undefined) {
+              const variants = await client.getVariants(externalId)
+              for (const v of variants) {
+                const variantUpdate: Record<string, unknown> = {}
+                if (params.price !== undefined) variantUpdate.price = params.price
+                if (params.stock !== undefined) variantUpdate.stock = params.stock
+                if (Object.keys(variantUpdate).length > 0) {
+                  await client.updateVariant(
+                    externalId,
+                    v.id,
+                    variantUpdate as Parameters<typeof client.updateVariant>[2]
+                  )
+                }
+              }
+            }
+          }
+
+          // Update local DB
+          const localUpdate: Record<string, unknown> = {}
+          if (params.name) localUpdate.name = params.name
+          if (params.price !== undefined) localUpdate.price = parseFloat(params.price)
+          if (params.stock !== undefined) localUpdate.stock_quantity = params.stock
+          if (params.published !== undefined) localUpdate.is_published = params.published
+
+          if (Object.keys(localUpdate).length > 0) {
+            await supabase.from('store_products').update(localUpdate).eq('id', product.id)
+          }
+
+          return { success: true, message: `Product "${product.name}" updated.` }
+        } catch (err) {
+          return { error: `Update failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_CREATE_PRODUCT: {
+      description:
+        'Create a new product in the store. Use when user asks to add or create a product. The product is created both on the e-commerce platform and locally.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Product name' },
+          price: { type: 'string', description: 'Product price (e.g. "49.90")' },
+          stock: { type: 'number', description: 'Initial stock quantity (default: 0)' },
+          description: { type: 'string', description: 'Product description' },
+          sku: { type: 'string', description: 'Product SKU' },
+          published: { type: 'boolean', description: 'Publish immediately (default: true)' },
+        },
+        required: ['name', 'price'],
+      }),
+      execute: async (params: {
+        name: string
+        price: string
+        stock?: number
+        description?: string
+        sku?: string
+        published?: boolean
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        try {
+          let externalId: string | null = null
+
+          if (
+            store?.platform === 'nuvemshop' &&
+            store.platform_store_id &&
+            store.platform_access_token
+          ) {
+            const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+            const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+            const created = await client.createProduct({
+              name: { pt: params.name },
+              description: params.description ? { pt: params.description } : undefined,
+              variants: [
+                {
+                  price: params.price,
+                  stock: params.stock ?? 0,
+                  stock_management: true,
+                  sku: params.sku,
+                },
+              ],
+              published: params.published !== false,
+            })
+            externalId = String(created.id)
+          }
+
+          // Create in local DB
+          await supabase.from('store_products').insert({
+            store_id: storeId,
+            external_id: externalId ?? `local_${Date.now()}`,
+            name: params.name,
+            sku: params.sku ?? null,
+            price: parseFloat(params.price),
+            stock_quantity: params.stock ?? 0,
+            is_published: params.published !== false,
+            variants: [
+              {
+                name: 'Default',
+                price: parseFloat(params.price),
+                stock: params.stock ?? 0,
+                sku: params.sku,
+              },
+            ],
+            images: [],
+          })
+
+          return {
+            success: true,
+            message: `Product "${params.name}" created at R$ ${params.price} with ${params.stock ?? 0} units.`,
+          }
+        } catch (err) {
+          return { error: `Create failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_QUERY_CATEGORIES: {
+      description:
+        'List product categories from the store. Use when user asks about categories, collections, or how products are organized.',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const categories = await client.getCategories({ per_page: 100 })
+          return {
+            categories: categories.map((c) => ({
+              id: c.id,
+              name: c.name?.pt ?? c.name?.es ?? c.name?.en ?? 'Sem nome',
+              parent: c.parent,
+              subcategories: c.subcategories,
+            })),
+            total: categories.length,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MANAGE_CATEGORIES: {
+      description:
+        'Create or delete a product category. Use when user says "cria a categoria X", "deleta a categoria", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['create', 'delete'], description: 'Action to perform' },
+          name: { type: 'string', description: 'Category name (for create)' },
+          category_id: { type: 'number', description: 'Category ID (for delete)' },
+          parent_id: { type: 'number', description: 'Parent category ID (for create, optional)' },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: string
+        name?: string
+        category_id?: number
+        parent_id?: number
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          if (params.action === 'create') {
+            if (!params.name) return { error: 'Category name is required' }
+            const cat = await client.createCategory({
+              name: { pt: params.name },
+              parent: params.parent_id,
+            })
+            return { success: true, message: `Category "${params.name}" created (ID: ${cat.id}).` }
+          }
+
+          if (params.action === 'delete') {
+            if (!params.category_id) return { error: 'Category ID is required for deletion' }
+            await client.deleteCategory(params.category_id)
+            return { success: true, message: `Category ${params.category_id} deleted.` }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_QUERY_CUSTOMERS: {
+      description:
+        'Search or list store customers. Use when user asks about customers, buyers, or "quem comprou?", "quantos clientes tenho?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: 'Search by name, email, or identification' },
+          email: { type: 'string', description: 'Search by exact email' },
+          limit: { type: 'number', description: 'Max results (default: 20)' },
+        },
+      }),
+      execute: async (params: { search?: string; email?: string; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const customers = await client.getCustomers({
+            q: params.search,
+            email: params.email,
+            per_page: params.limit ?? 20,
+          })
+          return {
+            customers: customers.map((c) => ({
+              id: c.id,
+              name: c.name,
+              email: c.email,
+              phone: c.phone,
+              orders_count: c.orders_count,
+              total_spent: c.total_spent,
+            })),
+            total: customers.length,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MANAGE_COUPONS: {
+      description:
+        'List, create, or delete discount coupons. Use when user says "cria cupom", "meus cupons", "deleta o cupom X", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['list', 'create', 'delete'],
+            description: 'Action to perform',
+          },
+          code: { type: 'string', description: 'Coupon code (for create)' },
+          type: {
+            type: 'string',
+            enum: ['percentage', 'absolute', 'shipping'],
+            description: 'Discount type (for create)',
+          },
+          value: { type: 'string', description: 'Discount value (e.g. "10" for 10% or R$10)' },
+          coupon_id: { type: 'number', description: 'Coupon ID (for delete)' },
+          max_uses: { type: 'number', description: 'Max uses (for create, optional)' },
+          min_price: { type: 'string', description: 'Minimum order price (for create, optional)' },
+          start_date: { type: 'string', description: 'Start date ISO 8601 (for create, optional)' },
+          end_date: { type: 'string', description: 'End date ISO 8601 (for create, optional)' },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: string
+        code?: string
+        type?: 'percentage' | 'absolute' | 'shipping'
+        value?: string
+        coupon_id?: number
+        max_uses?: number
+        min_price?: string
+        start_date?: string
+        end_date?: string
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          if (params.action === 'list') {
+            const coupons = await client.getCoupons({ per_page: 50 })
+            return {
+              coupons: coupons.map((c) => ({
+                id: c.id,
+                code: c.code,
+                type: c.type,
+                value: c.value,
+                valid: c.valid,
+                used: c.used,
+                max_uses: c.max_uses,
+                start_date: c.start_date,
+                end_date: c.end_date,
+              })),
+              total: coupons.length,
+            }
+          }
+
+          if (params.action === 'create') {
+            if (!params.code || !params.type)
+              return { error: 'Code and type are required to create a coupon' }
+            const coupon = await client.createCoupon({
+              code: params.code,
+              type: params.type,
+              value: params.value,
+              max_uses: params.max_uses,
+              min_price: params.min_price,
+              start_date: params.start_date,
+              end_date: params.end_date,
+            })
+            return {
+              success: true,
+              message: `Coupon "${coupon.code}" created (${coupon.type}: ${coupon.value}).`,
+            }
+          }
+
+          if (params.action === 'delete') {
+            if (!params.coupon_id) return { error: 'Coupon ID is required for deletion' }
+            await client.deleteCoupon(params.coupon_id)
+            return { success: true, message: `Coupon ${params.coupon_id} deleted.` }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MANAGE_ORDERS: {
+      description:
+        'Manage orders: close, reopen, or cancel. Use when user says "fecha o pedido", "cancela pedido #X", "reabre o pedido", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['close', 'open', 'cancel'],
+            description: 'Action to perform on the order',
+          },
+          order_number: {
+            type: 'string',
+            description: 'Order number to find (e.g. "#1234" or "1234")',
+          },
+          cancel_reason: {
+            type: 'string',
+            enum: ['customer', 'inventory', 'fraud', 'other'],
+            description: 'Cancellation reason (required for cancel)',
+          },
+          restock: {
+            type: 'boolean',
+            description: 'Return inventory on cancellation (default: true)',
+          },
+        },
+        required: ['action', 'order_number'],
+      }),
+      execute: async (params: {
+        action: string
+        order_number: string
+        cancel_reason?: string
+        restock?: boolean
+      }) => {
+        const supabase = getClient()
+
+        // Find order in local DB first
+        const orderNum = params.order_number.replace('#', '')
+        const { data: orderRow } = await supabase
+          .from('store_orders')
+          .select('id, external_id, order_number, status')
+          .eq('store_id', storeId)
+          .eq('order_number', orderNum)
+          .single()
+
+        if (!orderRow?.external_id) {
+          return { error: `Order #${orderNum} not found or has no external ID` }
+        }
+
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const externalId = parseInt(orderRow.external_id, 10)
+
+          if (params.action === 'close') {
+            await client.closeOrder(externalId)
+            await supabase.from('store_orders').update({ status: 'closed' }).eq('id', orderRow.id)
+            return { success: true, message: `Order #${orderNum} closed.` }
+          }
+
+          if (params.action === 'open') {
+            await client.openOrder(externalId)
+            await supabase.from('store_orders').update({ status: 'open' }).eq('id', orderRow.id)
+            return { success: true, message: `Order #${orderNum} reopened.` }
+          }
+
+          if (params.action === 'cancel') {
+            await client.cancelOrder(externalId, {
+              reason: params.cancel_reason ?? 'other',
+              restock: params.restock !== false,
+            })
+            await supabase
+              .from('store_orders')
+              .update({ status: 'cancelled' })
+              .eq('id', orderRow.id)
+            return { success: true, message: `Order #${orderNum} cancelled.` }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_GET_ABANDONED_CHECKOUTS: {
+      description:
+        'List abandoned checkouts (customers who started but didn\'t finish buying). Use when user asks about abandoned carts, "carrinhos abandonados", or recovery opportunities.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Max results (default: 20)' },
+        },
+      }),
+      execute: async (params: { limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const checkouts = await client.getAbandonedCheckouts({ per_page: params.limit ?? 20 })
+          return {
+            abandoned_checkouts: checkouts.map((c) => ({
+              id: c.id,
+              customer_name: c.contact_name,
+              customer_email: c.contact_email,
+              total: c.total,
+              currency: c.currency,
+              products_count: c.products?.length ?? 0,
+              recovery_url: c.abandoned_checkout_url,
+              created_at: c.created_at,
+            })),
+            total: checkouts.length,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_GET_STORE_INFO: {
+      description:
+        'Get store information (name, domain, plan, contact, social media). Use when user asks "info da loja", "qual meu domínio?", "dados da loja", etc.',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const info = await client.getStoreInfo()
+          return {
+            name: info.name?.pt ?? info.name?.es ?? info.name?.en,
+            email: info.email,
+            phone: info.phone,
+            domain: info.original_domain,
+            domains: info.domains,
+            plan: info.plan_name,
+            country: info.country,
+            language: info.main_language,
+            currency: info.main_currency,
+            instagram: info.instagram,
+            facebook: info.facebook,
+            created_at: info.created_at,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
         }
       },
     },

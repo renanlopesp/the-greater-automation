@@ -11,20 +11,33 @@ export async function GET(request: NextRequest) {
   const appId = process.env.NUVEMSHOP_APP_ID
   if (!appId) return NextResponse.json({ error: 'Nuvemshop not configured' }, { status: 500 })
 
-  const { data: member } = await supabase
+  // Prefer explicit team_id from query param (sent by the UI), fall back to first membership
+  let teamId = request.nextUrl.searchParams.get('team_id')
+  if (!teamId) {
+    const { data: member } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+    if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+    teamId = member.team_id
+  }
+
+  // Verify user is actually a member of this team
+  const { data: membership } = await supabase
     .from('team_members')
     .select('team_id')
     .eq('user_id', user.id)
-    .limit(1)
+    .eq('team_id', teamId)
     .single()
-
-  if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+  if (!membership) return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
 
   const redirectUri = request.nextUrl.searchParams.get('redirect_uri') || '/workspace'
 
   const state = Buffer.from(
     JSON.stringify({
-      team_id: member.team_id,
+      team_id: teamId,
       redirect_uri: redirectUri,
       ts: Date.now(),
     })

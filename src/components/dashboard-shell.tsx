@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
 import { SettingsDialog } from '@/components/settings'
+import type { SettingsSection } from '@/components/settings/settings-sidebar'
 import { CommandMenuContext } from '@/lib/command-menu-context'
 import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
 import { Button } from '@/components/ui/button'
@@ -92,10 +94,26 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
   const [isSwitchingWorkspace, startWorkspaceTransition] = useTransition()
   const [switchingToName, setSwitchingToName] = useState<string | null>(null)
   const currentTime = useCurrentTime()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // Auto-open settings from URL params (e.g. after OAuth callback)
+  const openSettingsParam = searchParams.get('open_settings')
+  if (openSettingsParam && !settingsOpen) {
+    setSettingsSection(openSettingsParam as SettingsSection)
+    setSettingsOpen(true)
+    toast.success('Nuvemshop conectada com sucesso!')
+    // Clean URL params
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('open_settings')
+    const newPath = params.size > 0 ? `${pathname}?${params}` : pathname
+    router.replace(newPath)
+  }
 
   return (
     <CommandMenuContext value={() => setCommandMenuOpen(true)}>
@@ -163,6 +181,7 @@ export default function DashboardShell({
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
+          defaultSection={settingsSection}
           profile={{
             fullName: user.fullName ?? '',
             email: user.email,

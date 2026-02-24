@@ -42,19 +42,40 @@ export async function POST(request: NextRequest) {
     } = await authSupabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: member } = await authSupabase
+    // Prefer explicit team_id from body, fall back to first membership
+    let teamId: string | null = null
+    try {
+      const body = await request.clone().json()
+      if (body.team_id) teamId = body.team_id as string
+    } catch {
+      /* no body */
+    }
+
+    if (!teamId) {
+      const { data: member } = await authSupabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single()
+      if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+      teamId = member.team_id
+    }
+
+    // Verify user is a member of this team
+    const { data: membership } = await authSupabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', user.id)
-      .limit(1)
+      .eq('team_id', teamId)
       .single()
-
-    if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+    if (!membership)
+      return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
 
     const { data: store } = await supabase
       .from('stores')
       .select('id, platform_access_token')
-      .eq('team_id', member.team_id)
+      .eq('team_id', teamId)
       .single()
 
     if (!store) return NextResponse.json({ error: 'No store found' }, { status: 404 })

@@ -64,7 +64,7 @@ const PLATFORM_OPTIONS = [
   { value: 'manual', label: 'No online store', available: true },
 ]
 
-export default function StoreSection({ storeData }: StoreSectionProps) {
+export default function StoreSection({ storeData, teamId }: StoreSectionProps) {
   // Store info form
   const [storeName, setStoreName] = useState(storeData?.name ?? '')
   const [segment, setSegment] = useState(storeData?.segment ?? '')
@@ -299,7 +299,11 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
                 className="w-fit"
                 onClick={() => {
                   setConnecting(true)
-                  window.location.href = `/api/nuvemshop/connect?redirect_uri=${encodeURIComponent('/settings')}`
+                  const params = new URLSearchParams({
+                    redirect_uri: '/workspace?open_settings=store',
+                    ...(teamId && { team_id: teamId }),
+                  })
+                  window.location.href = `/api/nuvemshop/connect?${params}`
                 }}
                 disabled={connecting}
               >
