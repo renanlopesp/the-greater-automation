@@ -1286,6 +1286,406 @@ export function buildRetailTools(
       },
     },
 
+    STORE_MANAGE_DRAFT_ORDERS: {
+      description:
+        'Manage draft orders (manual orders created from WhatsApp, DM, phone). List, create, confirm, or delete. Use when user says "cria um pedido manual", "pedidos rascunho", "confirma o rascunho", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['list', 'create', 'confirm', 'delete'],
+            description: 'Action to perform',
+          },
+          customer_name: { type: 'string', description: 'Customer first name (for create)' },
+          customer_lastname: { type: 'string', description: 'Customer last name (for create)' },
+          customer_email: { type: 'string', description: 'Customer email (for create)' },
+          products: {
+            type: 'string',
+            description:
+              'JSON array of products like \'[{"name":"Camiseta","quantity":1,"price":"49.90"}]\' (for create)',
+          },
+          draft_id: { type: 'string', description: 'Draft order ID (for confirm/delete)' },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: string
+        customer_name?: string
+        customer_lastname?: string
+        customer_email?: string
+        products?: string
+        draft_id?: string
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          if (params.action === 'list') {
+            const drafts = await client.getDraftOrders()
+            return {
+              draft_orders: drafts.map((d) => ({
+                id: d.id,
+                contact_name: `${d.contact_name} ${d.contact_lastname}`.trim(),
+                payment_status: d.payment_status,
+                total: d.total,
+                currency: d.currency,
+                created_at: d.created_at,
+              })),
+              total: drafts.length,
+            }
+          }
+
+          if (params.action === 'create') {
+            if (!params.customer_name || !params.customer_email || !params.products) {
+              return {
+                error: 'customer_name, customer_email, and products are required for create',
+              }
+            }
+            const draft = await client.createDraftOrder({
+              contact_name: params.customer_name,
+              contact_lastname: params.customer_lastname ?? '',
+              contact_email: params.customer_email,
+              payment_status: 'pending_confirmation',
+              products: JSON.parse(params.products),
+            })
+            return { success: true, message: `Draft order ${draft.id} created.`, id: draft.id }
+          }
+
+          if (params.action === 'confirm') {
+            if (!params.draft_id) return { error: 'draft_id is required for confirm' }
+            const order = await client.confirmDraftOrder(parseInt(params.draft_id))
+            return {
+              success: true,
+              message: `Draft order confirmed. Order #${order.number} created.`,
+            }
+          }
+
+          if (params.action === 'delete') {
+            if (!params.draft_id) return { error: 'draft_id is required for delete' }
+            await client.deleteDraftOrder(parseInt(params.draft_id))
+            return { success: true, message: `Draft order ${params.draft_id} deleted.` }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MANAGE_FULFILLMENT: {
+      description:
+        'Manage order shipping/fulfillment. Get what needs shipping, add tracking codes. Use when user says "o que preciso enviar?", "adiciona rastreio", "código de rastreamento", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['get', 'update_tracking'],
+            description: 'Action to perform',
+          },
+          order_number: { type: 'string', description: 'Order number (required)' },
+          tracking_number: { type: 'string', description: 'Tracking code (for update_tracking)' },
+          tracking_url: { type: 'string', description: 'Tracking URL (for update_tracking)' },
+          shipping_company: {
+            type: 'string',
+            description: 'Shipping carrier name (for update_tracking)',
+          },
+        },
+        required: ['action', 'order_number'],
+      }),
+      execute: async (params: {
+        action: string
+        order_number: string
+        tracking_number?: string
+        tracking_url?: string
+        shipping_company?: string
+      }) => {
+        const supabase = getClient()
+
+        const orderNum = params.order_number.replace('#', '')
+        const { data: orderRow } = await supabase
+          .from('store_orders')
+          .select('id, external_id, order_number, status')
+          .eq('store_id', storeId)
+          .eq('order_number', orderNum)
+          .single()
+
+        if (!orderRow?.external_id) {
+          return { error: `Order #${orderNum} not found or has no external ID` }
+        }
+
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const externalId = parseInt(orderRow.external_id, 10)
+
+          if (params.action === 'get') {
+            const fulfillments = await client.getFulfillmentOrders(externalId)
+            return {
+              order_number: orderNum,
+              fulfillments: fulfillments.map((f) => ({
+                id: f.id,
+                status: f.status,
+                tracking_number: f.shipping?.tracking_number ?? null,
+                tracking_url: f.shipping?.tracking_url ?? null,
+                shipping_type: f.shipping?.type ?? null,
+                line_items: f.line_items?.map((li) => ({
+                  id: li.id,
+                  name: li.name,
+                  quantity: li.quantity,
+                })),
+              })),
+            }
+          }
+
+          if (params.action === 'update_tracking') {
+            if (!params.tracking_number)
+              return { error: 'tracking_number is required for update_tracking' }
+            const fulfillments = await client.getFulfillmentOrders(externalId)
+            if (!fulfillments.length) return { error: 'No fulfillment orders found for this order' }
+            const fulfillmentId = fulfillments[0].id
+            await client.updateFulfillmentOrder(externalId, fulfillmentId, {
+              tracking_number: params.tracking_number,
+              tracking_url: params.tracking_url,
+              shipping_company: params.shipping_company,
+            })
+            return {
+              success: true,
+              message: `Tracking code ${params.tracking_number} added to order #${orderNum}.`,
+            }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_GET_PAYMENT_OPTIONS: {
+      description:
+        'List payment methods available in the store. Use when user asks "quais formas de pagamento?", "métodos de pagamento", "aceito pix?", etc.',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const options = await client.getPaymentOptions()
+          return {
+            providers: options.map((o) => ({
+              name: o.name,
+              options: o.checkout_payment_options.map((opt) => opt.name),
+            })),
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_QUERY_TRANSACTIONS: {
+      description:
+        'Get payment transactions for an order. Use when user asks "pagamento do pedido #X", "qual o status do pagamento?", "como pagou?", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          order_number: { type: 'string', description: 'Order number to look up' },
+        },
+        required: ['order_number'],
+      }),
+      execute: async (params: { order_number: string }) => {
+        const supabase = getClient()
+
+        const orderNum = params.order_number.replace('#', '')
+        const { data: orderRow } = await supabase
+          .from('store_orders')
+          .select('id, external_id, order_number')
+          .eq('store_id', storeId)
+          .eq('order_number', orderNum)
+          .single()
+
+        if (!orderRow?.external_id) {
+          return { error: `Order #${orderNum} not found or has no external ID` }
+        }
+
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const transactions = await client.getTransactions(parseInt(orderRow.external_id, 10))
+          return {
+            order_number: orderNum,
+            transactions: transactions.map((t) => ({
+              id: t.id,
+              payment_method: t.payment_method?.type,
+              status: t.status,
+              amount: t.amount,
+              created_at: t.created_at,
+            })),
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MANAGE_PAGES: {
+      description:
+        'Manage store content pages (About, FAQ, Shipping Policy, etc). List, create, update, or delete. Use when user says "cria página", "edita sobre nós", "lista páginas", etc.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['list', 'create', 'update', 'delete'],
+            description: 'Action to perform',
+          },
+          title: { type: 'string', description: 'Page title (for create/update)' },
+          content: { type: 'string', description: 'Page content as HTML (for create/update)' },
+          page_id: { type: 'string', description: 'Page ID (for update/delete)' },
+          published: { type: 'boolean', description: 'Publish status (for create/update)' },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: string
+        title?: string
+        content?: string
+        page_id?: string
+        published?: boolean
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          if (params.action === 'list') {
+            const pages = await client.getPages()
+            return {
+              pages: pages.map((p) => ({
+                id: p.id,
+                title: p.title?.pt ?? p.title?.es ?? p.title?.en ?? 'Sem título',
+                published: p.published,
+                updated_at: p.updated_at,
+              })),
+              total: pages.length,
+            }
+          }
+
+          if (params.action === 'create') {
+            if (!params.title) return { error: 'title is required for create' }
+            const page = await client.createPage({
+              title: { pt: params.title },
+              content: params.content ? { pt: params.content } : undefined,
+              published: params.published ?? true,
+            })
+            return {
+              success: true,
+              message: `Page "${params.title}" created (ID: ${page.id}).`,
+              id: page.id,
+            }
+          }
+
+          if (params.action === 'update') {
+            if (!params.page_id) return { error: 'page_id is required for update' }
+            const updateData: {
+              title?: Record<string, string>
+              content?: Record<string, string>
+              published?: boolean
+            } = {}
+            if (params.title) updateData.title = { pt: params.title }
+            if (params.content) updateData.content = { pt: params.content }
+            if (params.published !== undefined) updateData.published = params.published
+            await client.updatePage(parseInt(params.page_id), updateData)
+            return { success: true, message: `Page ${params.page_id} updated.` }
+          }
+
+          if (params.action === 'delete') {
+            if (!params.page_id) return { error: 'page_id is required for delete' }
+            await client.deletePage(parseInt(params.page_id))
+            return { success: true, message: `Page ${params.page_id} deleted.` }
+          }
+
+          return { error: `Unknown action: ${params.action}` }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
     STORE_GET_STORE_INFO: {
       description:
         'Get store information (name, domain, plan, contact, social media). Use when user asks "info da loja", "qual meu domínio?", "dados da loja", etc.',

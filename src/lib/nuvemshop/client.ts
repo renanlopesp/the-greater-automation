@@ -570,7 +570,12 @@ export class NuvemshopClient {
   async updateFulfillmentOrder(
     orderId: number,
     fulfillmentId: number,
-    data: { status?: string; tracking_number?: string; tracking_url?: string }
+    data: {
+      status?: string
+      tracking_number?: string
+      tracking_url?: string
+      shipping_company?: string
+    }
   ): Promise<NuvemshopFulfillmentOrder> {
     const result = await this.request<unknown>(
       `/orders/${orderId}/fulfillment-orders/${fulfillmentId}`,
@@ -586,6 +591,90 @@ export class NuvemshopClient {
   async getStoreInfo(): Promise<NuvemshopStore> {
     const data = await this.request<unknown>('/store')
     return NuvemshopStoreSchema.parse(data)
+  }
+
+  // Payment Options
+  async getPaymentOptions(): Promise<
+    Array<{
+      id: number
+      name: string
+      logo_url: string
+      checkout_payment_options: Array<{ id: number; name: string }>
+    }>
+  > {
+    return this.request('/payment_options')
+  }
+
+  // Transactions
+  async getTransactions(
+    orderId: number
+  ): Promise<
+    Array<{
+      id: number
+      payment_provider_id: string
+      payment_method: { type: string }
+      status: string
+      amount: { value: string; currency: string }
+      created_at: string
+    }>
+  > {
+    return this.request(`/orders/${orderId}/transactions`)
+  }
+
+  // Pages
+  async getPages(params?: {
+    per_page?: number
+    page?: number
+  }): Promise<
+    Array<{
+      id: number
+      title: Record<string, string>
+      handle: Record<string, string>
+      content: Record<string, string>
+      published: boolean
+      created_at: string
+      updated_at: string
+    }>
+  > {
+    const qs = new URLSearchParams()
+    if (params?.per_page) qs.set('per_page', String(params.per_page))
+    if (params?.page) qs.set('page', String(params.page))
+    const q = qs.toString()
+    return this.request(`/pages${q ? `?${q}` : ''}`)
+  }
+
+  async getPage(
+    id: number
+  ): Promise<{
+    id: number
+    title: Record<string, string>
+    handle: Record<string, string>
+    content: Record<string, string>
+    published: boolean
+    created_at: string
+    updated_at: string
+  }> {
+    return this.request(`/pages/${id}`)
+  }
+
+  async createPage(data: {
+    title: Record<string, string>
+    content?: Record<string, string>
+    handle?: Record<string, string>
+    published?: boolean
+  }): Promise<{ id: number }> {
+    return this.request('/pages', { method: 'POST', body: JSON.stringify(data) })
+  }
+
+  async updatePage(
+    id: number,
+    data: { title?: Record<string, string>; content?: Record<string, string>; published?: boolean }
+  ): Promise<{ id: number }> {
+    return this.request(`/pages/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  }
+
+  async deletePage(id: number): Promise<void> {
+    await this.requestVoid(`/pages/${id}`, { method: 'DELETE' })
   }
 
   // Webhooks
