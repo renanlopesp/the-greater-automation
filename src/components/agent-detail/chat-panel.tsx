@@ -114,6 +114,10 @@ function ChatMessageItem({
   const reasoningParts = parts.filter(isReasoningUIPart)
   // isToolUIPart catches both named tool parts (type: 'tool-${name}') and dynamic tool parts (type: 'dynamic-tool')
   const toolParts = parts.filter(isToolUIPart)
+  const fileParts = parts.filter(
+    (p): p is { type: 'file'; url: string; mediaType: string; filename?: string } =>
+      p.type === 'file'
+  )
 
   const textContent = textParts.map((p) => p.text).join('')
 
@@ -147,7 +151,34 @@ function ChatMessageItem({
 
       <MessageContent>
         {isUser ? (
-          <p className="whitespace-pre-wrap">{textContent}</p>
+          <>
+            {fileParts.length > 0 && (
+              <div className="flex flex-wrap gap-2 pb-1">
+                {fileParts.map((file, i) =>
+                  file.mediaType.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={file.url}
+                      alt={file.filename ?? 'Attached image'}
+                      className="max-h-48 max-w-64 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      key={i}
+                      className="bg-muted flex items-center gap-2 rounded-lg border px-3 py-2 text-xs"
+                    >
+                      <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                      <span className="max-w-[200px] truncate">
+                        {file.filename ?? 'Attached file'}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+            {textContent && <p className="whitespace-pre-wrap">{textContent}</p>}
+          </>
         ) : (
           <>
             {/* Reasoning parts from model */}
