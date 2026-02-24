@@ -22,7 +22,7 @@ import { listAvailableTriggers } from '@/lib/actions/trigger-subscriptions'
 import { getAppModule } from '@/lib/composio/modules'
 import type { AppsTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 
-const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
 
 interface AvailableTrigger {
   slug: string

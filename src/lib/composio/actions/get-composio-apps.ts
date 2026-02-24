@@ -17,7 +17,7 @@ const NATIVE_APPS: ComposioApp[] = [
   {
     id: 'nuvemshop',
     name: 'Nuvemshop',
-    logoUrl: 'https://cdn.simpleicons.org/nuvemshop/5624D0',
+    logoUrl: '',
     iconSlug: 'nuvemshop',
     category: 'E-commerce',
     authType: 'oauth',

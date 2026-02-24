@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 
 // LinkedIn was removed from SimpleIcons — use Lucide fallback
-const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
 
 interface AppIntegrationRowProps {
   app: ComposioApp

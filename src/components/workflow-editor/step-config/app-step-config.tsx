@@ -37,7 +37,7 @@ import type { AppStepConfig } from '@/lib/workflow-editor/step-defaults'
 import type { ComposioAppAction } from '@/lib/composio/actions/get-app-actions'
 import { cn } from '@/lib/utils'
 
-const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
 
 // --- Action type icon mapping ---
 
