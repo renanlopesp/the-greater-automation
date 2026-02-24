@@ -73,14 +73,14 @@ export const NuvemshopOrderItemSchema = z.object({
   variant_id: z.number().nullable(),
   name: z.string(),
   sku: z.string().nullable(),
-  quantity: z.string(), // Nuvemshop sends as string
-  price: z.string(), // Nuvemshop sends as string
+  quantity: z.coerce.string(),
+  price: z.coerce.string(),
 })
 
 // Nuvemshop order
 export const NuvemshopOrderSchema = z.object({
   id: z.number(),
-  number: z.string().nullable(),
+  number: z.coerce.string().nullable(),
   status: z.string(),
   payment_status: z.string().nullable().optional(),
   total: z.string(), // Nuvemshop sends as string
