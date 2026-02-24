@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { StoreNameStep } from '@/components/onboarding/store-name-step'
@@ -14,9 +14,21 @@ import type { Segment, Platform, Priority } from '@/lib/retail/segment-skills'
 type Step = 'name' | 'segment' | 'platform' | 'priorities' | 'telegram' | 'done'
 
 const STEP_ORDER: Step[] = ['name', 'segment', 'platform', 'priorities', 'telegram']
+const STORAGE_KEY = 'snew_onboarding_state'
 
-export default function OnboardingPage() {
+interface SavedState {
+  storeName: string
+  segment: Segment | null
+  platform: Platform | null
+  platformUrl: string
+  priorities: Priority[]
+  step: Step
+  nuvemshopConnected: boolean
+}
+
+function OnboardingContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>('name')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,13 +39,48 @@ export default function OnboardingPage() {
   const [platform, setPlatform] = useState<Platform | null>(null)
   const [platformUrl, setPlatformUrl] = useState('')
   const [priorities, setPriorities] = useState<Priority[]>([])
+  const [nuvemshopConnected, setNuvemshopConnected] = useState(false)
+
+  // Restore state from sessionStorage after OAuth redirect
+  useEffect(() => {
+    const connected = searchParams.get('connected')
+    const saved = sessionStorage.getItem(STORAGE_KEY)
+
+    if (saved) {
+      try {
+        const state: SavedState = JSON.parse(saved)
+        setStoreName(state.storeName)
+        setSegment(state.segment)
+        setPlatform(state.platform)
+        setPlatformUrl(state.platformUrl)
+        setPriorities(state.priorities)
+        setStep(state.step)
+        if (state.nuvemshopConnected || connected === 'nuvemshop') {
+          setNuvemshopConnected(true)
+        }
+        sessionStorage.removeItem(STORAGE_KEY)
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    if (connected) {
+      setNuvemshopConnected(true)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('connected')
+      router.replace(url.pathname)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const currentIndex = STEP_ORDER.indexOf(step)
   const isFirstStep = currentIndex === 0
   const canProceed =
     (step === 'name' && storeName.trim().length >= 2) ||
     (step === 'segment' && segment !== null) ||
-    (step === 'platform' && platform !== null) ||
+    (step === 'platform' && platform === 'nuvemshop' && nuvemshopConnected) ||
+    (step === 'platform' && platform === 'shopify' && platformUrl.trim().length > 0) ||
+    (step === 'platform' && platform === 'manual') ||
     (step === 'priorities' && priorities.length > 0) ||
     step === 'telegram'
 
@@ -44,9 +91,22 @@ export default function OnboardingPage() {
     }
   }
 
+  const handleConnectNuvemshop = () => {
+    const state: SavedState = {
+      storeName,
+      segment,
+      platform,
+      platformUrl,
+      priorities,
+      step: 'platform',
+      nuvemshopConnected: false,
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    window.location.href = '/api/nuvemshop/connect?redirect_uri=/onboarding?connected=nuvemshop'
+  }
+
   const goNext = async () => {
     if (step === 'priorities') {
-      // Submit the form before going to Telegram step
       setLoading(true)
       setError(null)
       try {
@@ -75,7 +135,6 @@ export default function OnboardingPage() {
     }
 
     if (step === 'telegram') {
-      // Complete onboarding
       router.push('/workspace')
       return
     }
@@ -117,8 +176,10 @@ export default function OnboardingPage() {
             <PlatformStep
               platform={platform}
               platformUrl={platformUrl}
+              nuvemshopConnected={nuvemshopConnected}
               onPlatformChange={setPlatform}
               onUrlChange={setPlatformUrl}
+              onConnectNuvemshop={handleConnectNuvemshop}
             />
           )}
           {step === 'priorities' && <PrioritiesStep value={priorities} onChange={setPriorities} />}
@@ -148,5 +209,13 @@ export default function OnboardingPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingContent />
+    </Suspense>
   )
 }

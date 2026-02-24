@@ -36,26 +36,50 @@ export interface ProvisionStoreResult {
 export async function provisionStore(input: ProvisionStoreInput): Promise<ProvisionStoreResult> {
   const supabase = createServiceRoleClient()
 
-  // 1. Create store record
-  const { data: store, error: storeError } = await supabase
+  // 1. Create store record (or update if already created by OAuth callback)
+  const { data: existingStore } = await supabase
     .from('stores')
-    .insert({
-      team_id: input.teamId,
-      name: input.storeName,
-      segment: input.segment,
-      platform: input.platform,
-      platform_url: input.platformUrl ?? null,
-      priorities: input.priorities,
-      onboarding_completed: false,
-    })
     .select('id')
+    .eq('team_id', input.teamId)
+    .limit(1)
     .single()
 
-  if (storeError) {
-    if (storeError.code === '23505') {
-      throw new Error('Store already exists for this team')
+  let store: { id: string }
+  if (existingStore) {
+    const { data: updated, error: updateError } = await supabase
+      .from('stores')
+      .update({
+        name: input.storeName,
+        segment: input.segment,
+        platform: input.platform,
+        platform_url: input.platformUrl ?? null,
+        priorities: input.priorities,
+        onboarding_completed: false,
+      })
+      .eq('id', existingStore.id)
+      .select('id')
+      .single()
+    if (updateError) throw new Error(`Failed to update store: ${updateError.message}`)
+    store = updated
+  } else {
+    const { data: created, error: storeError } = await supabase
+      .from('stores')
+      .insert({
+        team_id: input.teamId,
+        name: input.storeName,
+        segment: input.segment,
+        platform: input.platform,
+        platform_url: input.platformUrl ?? null,
+        priorities: input.priorities,
+        onboarding_completed: false,
+      })
+      .select('id')
+      .single()
+    if (storeError) {
+      if (storeError.code === '23505') throw new Error('Store already exists for this team')
+      throw new Error(`Failed to create store: ${storeError.message}`)
     }
-    throw new Error(`Failed to create store: ${storeError.message}`)
+    store = created
   }
 
   // 2. Create 4 specialized agents

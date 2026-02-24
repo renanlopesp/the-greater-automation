@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
 
     const serviceSupabase = createServiceRoleClient()
 
-    // Update store with platform credentials
-    await serviceSupabase
+    // Try to update existing store first
+    const { data: updated } = await serviceSupabase
       .from('stores')
       .update({
         platform: 'nuvemshop',
@@ -42,6 +42,20 @@ export async function GET(request: NextRequest) {
         platform_access_token: tokenData.access_token,
       })
       .eq('team_id', state.team_id)
+      .select('id')
+
+    // If no store exists (during onboarding), create a minimal one
+    if (!updated || updated.length === 0) {
+      await serviceSupabase.from('stores').insert({
+        team_id: state.team_id,
+        name: 'My Store',
+        segment: 'moda',
+        platform: 'nuvemshop',
+        platform_store_id: String(tokenData.user_id),
+        platform_access_token: tokenData.access_token,
+        onboarding_completed: false,
+      })
+    }
 
     // Get store record for webhook registration
     const { data: store } = await serviceSupabase
