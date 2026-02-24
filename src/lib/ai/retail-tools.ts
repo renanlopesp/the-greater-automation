@@ -1119,6 +1119,111 @@ export function buildRetailTools(
       },
     },
 
+    STORE_ADD_PRODUCT_IMAGE: {
+      description:
+        'Add an image to a product. The user attaches an image in chat and asks to set it on a product. Use when user says "coloca essa imagem no produto X", "adiciona foto", "sobe imagem", etc. You receive the image as a data URL from the conversation — pass it as the image_data parameter.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          search: {
+            type: 'string',
+            description: 'Search by product name to find the product',
+          },
+          image_data: {
+            type: 'string',
+            description:
+              'The image as a data URL (data:image/png;base64,...) from the user attachment, or an HTTP URL to the image',
+          },
+          position: {
+            type: 'number',
+            description: 'Image position/order (optional, default: 1)',
+          },
+        },
+        required: ['search', 'image_data'],
+      }),
+      execute: async (params: { search: string; image_data: string; position?: number }) => {
+        const supabase = getClient()
+
+        const { data: products } = await supabase
+          .from('store_products')
+          .select('id, name, external_id')
+          .eq('store_id', storeId)
+          .ilike('name', `%${params.search}%`)
+          .limit(5)
+
+        if (!products || products.length === 0) {
+          return { error: `No products found matching "${params.search}"` }
+        }
+        if (products.length > 1) {
+          return {
+            error: `Found ${products.length} products. Be more specific.`,
+            matches: products.map((p) => p.name),
+          }
+        }
+
+        const product = products[0]
+        if (!product.external_id) {
+          return { error: 'Product has no external ID (not synced to platform)' }
+        }
+
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const externalId = parseInt(product.external_id, 10)
+
+          // Determine image format: data URL (base64) or HTTP URL
+          let imagePayload: {
+            src?: string
+            attachment?: string
+            filename?: string
+            position?: number
+          }
+
+          if (params.image_data.startsWith('data:')) {
+            // Extract base64 from data URL: "data:image/png;base64,iVBOR..."
+            const match = params.image_data.match(/^data:([^;]+);base64,(.+)$/)
+            if (!match) {
+              return { error: 'Invalid data URL format' }
+            }
+            const mimeType = match[1]
+            const base64 = match[2]
+            const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png'
+            imagePayload = {
+              attachment: base64,
+              filename: `product-image.${ext}`,
+              position: params.position ?? 1,
+            }
+          } else {
+            // HTTP URL
+            imagePayload = { src: params.image_data, position: params.position ?? 1 }
+          }
+
+          const image = await client.createImage(externalId, imagePayload)
+          return {
+            success: true,
+            message: `Image added to "${product.name}".`,
+            image_url: image.src,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
     STORE_GET_STORE_INFO: {
       description:
         'Get store information (name, domain, plan, contact, social media). Use when user asks "info da loja", "qual meu domínio?", "dados da loja", etc.',
