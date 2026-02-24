@@ -38,7 +38,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 /** Which platforms are currently available for connection */
 export const PLATFORM_AVAILABLE: Record<Platform, boolean> = {
   shopify: true,
-  nuvemshop: false,
+  nuvemshop: true,
   mercadolivre: false,
   manual: true,
 }

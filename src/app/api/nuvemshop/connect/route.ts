@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     })
   ).toString('base64url')
 
-  const authUrl = new URL(`https://www.tiendanube.com/apps/${appId}/authorize`)
+  const authUrl = new URL(`https://www.nuvemshop.com.br/apps/${appId}/authorize`)
   authUrl.searchParams.set('state', state)
 
   return NextResponse.redirect(authUrl.toString())

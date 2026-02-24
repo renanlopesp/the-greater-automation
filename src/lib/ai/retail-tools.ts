@@ -398,8 +398,12 @@ export function buildRetailTools(
           return await syncShopifyProducts(supabase, storeId, store.platform_store_id, userId)
         }
 
+        if (store.platform === 'nuvemshop') {
+          return await syncNuvemshopProducts(supabase, storeId)
+        }
+
         return {
-          error: `Sync is not yet supported for ${store.platform}. Only Shopify is currently available.`,
+          error: `Sync is not yet supported for ${store.platform}. Shopify and Nuvemshop are currently available.`,
         }
       },
     },
@@ -516,6 +520,50 @@ async function syncShopifyProducts(
         published: p.is_published,
       })),
       total: synced,
+    }
+  } catch (err) {
+    return {
+      error: `Sync failed: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+}
+
+/**
+ * Sync products from Nuvemshop via native API into store_products.
+ */
+async function syncNuvemshopProducts(
+  supabase: SupabaseClient,
+  storeId: string
+): Promise<{
+  success?: boolean
+  message?: string
+  error?: string
+  products?: Array<{ name: string; sku?: string; price: number; stock: number; published: boolean }>
+  total?: number
+}> {
+  try {
+    const { syncProducts } = await import('@/lib/nuvemshop/sync')
+    const result = await syncProducts(storeId)
+
+    // Return product summary so the AI can present the results immediately
+    const { data: syncedProducts } = await supabase
+      .from('store_products')
+      .select('name, sku, price, stock_quantity, is_published')
+      .eq('store_id', storeId)
+      .order('name')
+      .limit(20)
+
+    return {
+      success: true,
+      message: `Synced ${result.synced} products from Nuvemshop (${result.created} new, ${result.updated} updated).`,
+      products: (syncedProducts ?? []).map((p) => ({
+        name: p.name,
+        sku: p.sku || undefined,
+        price: Number(p.price ?? 0),
+        stock: p.stock_quantity,
+        published: p.is_published,
+      })),
+      total: result.synced,
     }
   } catch (err) {
     return {

@@ -59,7 +59,7 @@ interface StoreSectionProps {
 
 const PLATFORM_OPTIONS = [
   { value: 'shopify', label: 'Shopify', available: true },
-  { value: 'nuvemshop', label: 'Nuvemshop', available: false },
+  { value: 'nuvemshop', label: 'Nuvemshop', available: true },
   { value: 'mercadolivre', label: 'Mercado Livre', available: false },
   { value: 'manual', label: 'No online store', available: true },
 ]
@@ -294,7 +294,22 @@ export default function StoreSection({ storeData }: StoreSectionProps) {
               </Select>
             </div>
             {platform === 'nuvemshop' && (
-              <p className="text-muted-foreground text-xs">Nuvemshop integration is coming soon.</p>
+              <Button
+                variant="outline"
+                className="w-fit"
+                onClick={() => {
+                  setConnecting(true)
+                  window.location.href = `/api/nuvemshop/connect?redirect_uri=${encodeURIComponent('/settings')}`
+                }}
+                disabled={connecting}
+              >
+                {connecting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )}
+                {connecting ? 'Connecting...' : 'Connect Nuvemshop'}
+              </Button>
             )}
             {platform === 'shopify' && (
               <div className="flex flex-col gap-2">

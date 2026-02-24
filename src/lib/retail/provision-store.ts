@@ -187,8 +187,8 @@ async function provisionWorkflows(
   userId: string,
   platform: Platform
 ) {
-  // Only provision automated workflows for Shopify (uses Composio app steps)
-  if (platform !== 'shopify') return
+  // Only provision automated workflows for connected platforms
+  if (platform !== 'shopify' && platform !== 'nuvemshop') return
 
   type StepType =
     | 'http'
@@ -211,27 +211,36 @@ async function provisionWorkflows(
   const CRON_TZ = 'America/Sao_Paulo'
   const defs: WorkflowDef[] = []
 
+  // Platform-specific app step config
+  const isNuvemshop = platform === 'nuvemshop'
+  const platformLabel = isNuvemshop ? 'Nuvemshop' : 'Shopify'
+  const productsAppStep = isNuvemshop
+    ? { app_id: 'nuvemshop', action: 'NUVEMSHOP_GET_PRODUCTS', inputs: {} }
+    : { app_id: 'shopify', action: 'SHOPIFY_GET_PRODUCTS', inputs: { limit: '250' } }
+  const ordersAppStep = isNuvemshop
+    ? { app_id: 'nuvemshop', action: 'NUVEMSHOP_GET_ORDERS', inputs: {} }
+    : { app_id: 'shopify', action: 'SHOPIFY_GET_ORDERS', inputs: {} }
+
   // 1. Low Stock Alert (estoquista) — every 6 hours
   if (priorities.includes('controle_de_estoque') && agentsByRole.estoquista) {
     defs.push({
       agentId: agentsByRole.estoquista,
       name: 'Low Stock Alert',
       emoji: '⚠️',
-      description: 'Checks Shopify products every 6 hours and alerts on low stock via Telegram.',
+      description: `Checks ${platformLabel} products every 6 hours and alerts on low stock via Telegram.`,
       cronExpression: '0 */6 * * *',
       steps: [
         {
           type: 'app',
-          name: 'Fetch Shopify Products',
-          config: { app_id: 'shopify', action: 'SHOPIFY_GET_PRODUCTS', inputs: { limit: '250' } },
+          name: `Fetch ${platformLabel} Products`,
+          config: productsAppStep,
         },
         {
           type: 'ai',
           name: 'Analyze Stock Levels',
           config: {
             ai_action: 'transform',
-            prompt_template:
-              'You are a stock management assistant for a retail store. Analyze the following Shopify product inventory data and identify products with LOW STOCK (5 units or fewer across all variants).\n\nFormat the result as a concise Telegram message in Portuguese (BR) using Markdown formatting. Use emojis for visual clarity.\n\nIf products have low stock, list them with: product name, current stock quantity, and a ⚠️ warning.\nIf NO products have low stock, respond with: "✅ Estoque OK — nenhum produto com estoque baixo."\n\nProduct data:\n{{step_2}}',
+            prompt_template: `You are a stock management assistant for a retail store. Analyze the following ${platformLabel} product inventory data and identify products with LOW STOCK (5 units or fewer across all variants).\n\nFormat the result as a concise Telegram message in Portuguese (BR) using Markdown formatting. Use emojis for visual clarity.\n\nIf products have low stock, list them with: product name, current stock quantity, and a ⚠️ warning.\nIf NO products have low stock, respond with: "✅ Estoque OK — nenhum produto com estoque baixo."\n\nProduct data:\n{{step_2}}`,
             output_format: 'text',
             temperature: 0.3,
             max_tokens: 1000,
@@ -256,21 +265,20 @@ async function provisionWorkflows(
       agentId: agentsByRole.caixa,
       name: 'Daily Sales Summary',
       emoji: '📈',
-      description: 'Fetches Shopify orders daily at 9 PM and sends a sales summary via Telegram.',
+      description: `Fetches ${platformLabel} orders daily at 9 PM and sends a sales summary via Telegram.`,
       cronExpression: '0 21 * * *',
       steps: [
         {
           type: 'app',
-          name: 'Fetch Shopify Orders',
-          config: { app_id: 'shopify', action: 'SHOPIFY_GET_ORDERS', inputs: {} },
+          name: `Fetch ${platformLabel} Orders`,
+          config: ordersAppStep,
         },
         {
           type: 'ai',
           name: 'Summarize Sales',
           config: {
             ai_action: 'summarize',
-            prompt_template:
-              'You are a sales analyst for a retail store. Analyze the following Shopify orders data and create a daily sales summary.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. Include:\n- Total number of orders today\n- Total revenue in R$\n- Top selling products (name and quantity)\n- Payment status breakdown\n\nUse 📈 emoji in the header. If no orders today, say "📈 Sem pedidos hoje."\n\nOrders data:\n{{step_2}}',
+            prompt_template: `You are a sales analyst for a retail store. Analyze the following ${platformLabel} orders data and create a daily sales summary.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. Include:\n- Total number of orders today\n- Total revenue in R$\n- Top selling products (name and quantity)\n- Payment status breakdown\n\nUse 📈 emoji in the header. If no orders today, say "📈 Sem pedidos hoje."\n\nOrders data:\n{{step_2}}`,
             output_format: 'text',
             temperature: 0.3,
             max_tokens: 1000,
@@ -295,21 +303,20 @@ async function provisionWorkflows(
       agentId: agentsByRole.caixa,
       name: 'New Order Notification',
       emoji: '🛒',
-      description: 'Checks Shopify for new orders every hour and notifies via Telegram.',
+      description: `Checks ${platformLabel} for new orders every hour and notifies via Telegram.`,
       cronExpression: '0 * * * *',
       steps: [
         {
           type: 'app',
           name: 'Fetch Recent Orders',
-          config: { app_id: 'shopify', action: 'SHOPIFY_GET_ORDERS', inputs: {} },
+          config: ordersAppStep,
         },
         {
           type: 'ai',
           name: 'Check New Orders',
           config: {
             ai_action: 'transform',
-            prompt_template:
-              'You are an order notification assistant for a retail store. Analyze the following Shopify orders data and identify any NEW orders placed in the last hour.\n\nFormat each new order as a Telegram notification in Portuguese (BR) using Markdown. Include: order number, customer name, items ordered, total value in R$.\n\nUse 🛒 emoji in the header. If no new orders in the last hour, say "🛒 Sem novos pedidos na última hora."\n\nOrders data:\n{{step_2}}',
+            prompt_template: `You are an order notification assistant for a retail store. Analyze the following ${platformLabel} orders data and identify any NEW orders placed in the last hour.\n\nFormat each new order as a Telegram notification in Portuguese (BR) using Markdown. Include: order number, customer name, items ordered, total value in R$.\n\nUse 🛒 emoji in the header. If no new orders in the last hour, say "🛒 Sem novos pedidos na última hora."\n\nOrders data:\n{{step_2}}`,
             output_format: 'text',
             temperature: 0.2,
             max_tokens: 500,

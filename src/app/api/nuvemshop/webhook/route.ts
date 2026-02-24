@@ -11,14 +11,15 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text()
 
-  // HMAC verification
+  // HMAC verification (required)
   const signature = request.headers.get('x-linkedstore-hmac-sha256')
-  if (signature) {
-    const expectedHmac = crypto.createHmac('sha256', clientSecret).update(rawBody).digest('hex')
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing signature' }, { status: 403 })
+  }
 
-    if (signature !== expectedHmac) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
-    }
+  const expectedHmac = crypto.createHmac('sha256', clientSecret).update(rawBody).digest('hex')
+  if (signature !== expectedHmac) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
   }
 
   let payload: { store_id: number; event: string; id: number }

@@ -120,6 +120,82 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
   return { synced: products.length, created, updated, errors }
 }
 
+export async function syncOrders(storeId: string, since?: string): Promise<SyncResult> {
+  const supabase = createServiceRoleClient()
+
+  const { data: store } = await supabase
+    .from('stores')
+    .select('id, platform_store_id, platform_access_token')
+    .eq('id', storeId)
+    .single()
+
+  if (!store?.platform_access_token || !store?.platform_store_id) {
+    throw new Error('Store not connected to Nuvemshop')
+  }
+
+  const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+  let created = 0
+  let updated = 0
+  let errors = 0
+  let totalFetched = 0
+  let page = 1
+
+  while (true) {
+    const orders = await client.getOrders(page, 50, since ? { created_at_min: since } : undefined)
+    totalFetched += orders.length
+
+    for (const order of orders) {
+      try {
+        const { count: existingCount } = await supabase
+          .from('store_orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', storeId)
+          .eq('external_id', String(order.id))
+
+        const orderData = {
+          store_id: storeId,
+          external_id: String(order.id),
+          order_number: order.number ?? String(order.id),
+          customer_name: order.customer?.name ?? 'Anônimo',
+          customer_email: order.customer?.email ?? null,
+          total: parseFloat(order.total ?? '0'),
+          currency: order.currency ?? 'BRL',
+          status: order.status ?? 'open',
+          payment_status: order.payment_status ?? 'pending',
+          items: (order.products ?? []).map((p) => ({
+            name: p.name ?? 'Produto',
+            quantity: parseInt(String(p.quantity ?? '1'), 10),
+            price: parseFloat(p.price ?? '0'),
+          })),
+          ordered_at: order.created_at ?? new Date().toISOString(),
+        }
+
+        const { error } = await supabase
+          .from('store_orders')
+          .upsert(orderData, { onConflict: 'store_id,external_id' })
+
+        if (error) {
+          console.error(`[sync] Error upserting order ${order.id}:`, error.message)
+          errors++
+        } else if ((existingCount ?? 0) > 0) {
+          updated++
+        } else {
+          created++
+        }
+      } catch (err) {
+        console.error(`[sync] Error processing order ${order.id}:`, err)
+        errors++
+      }
+    }
+
+    if (orders.length < 50) break
+    page++
+  }
+
+  return { synced: totalFetched, created, updated, errors }
+}
+
 export async function syncSingleProduct(storeId: string, externalProductId: string): Promise<void> {
   const supabase = createServiceRoleClient()
 

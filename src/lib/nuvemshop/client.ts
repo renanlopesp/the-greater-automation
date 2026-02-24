@@ -9,9 +9,10 @@ import {
   type NuvemshopWebhookResponse,
 } from './types'
 
-const NUVEMSHOP_API_BASE = 'https://api.tiendanube.com/v1'
-const NUVEMSHOP_AUTH_URL = 'https://www.tiendanube.com/apps/authorize/token'
+const NUVEMSHOP_API_BASE = 'https://api.nuvemshop.com.br/v1'
+const NUVEMSHOP_AUTH_URL = 'https://www.nuvemshop.com.br/apps/authorize/token'
 const MIN_REQUEST_INTERVAL = 500 // 500ms between requests (2 req/sec)
+const MAX_RETRIES = 3
 
 export class NuvemshopClient {
   private accessToken: string
@@ -32,7 +33,7 @@ export class NuvemshopClient {
     this.lastRequestAt = Date.now()
   }
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}, attempt = 1): Promise<T> {
     await this.rateLimit()
 
     const url = `${NUVEMSHOP_API_BASE}/${this.storeId}${path}`
@@ -40,11 +41,17 @@ export class NuvemshopClient {
       ...options,
       headers: {
         Authentication: `bearer ${this.accessToken}`,
-        'User-Agent': 'Snew Relay (contato@snew.io)',
+        'User-Agent': 'Snew (contact@snew.ai)',
         'Content-Type': 'application/json',
         ...options.headers,
       },
     })
+
+    if (response.status === 429 && attempt < MAX_RETRIES) {
+      const resetMs = parseInt(response.headers.get('x-rate-limit-reset') ?? '1000', 10)
+      await new Promise((resolve) => setTimeout(resolve, resetMs))
+      return this.request<T>(path, options, attempt + 1)
+    }
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '')

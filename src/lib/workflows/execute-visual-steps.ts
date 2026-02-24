@@ -380,6 +380,43 @@ export async function executeVisualWorkflowSteps(
                       const ac = cfg as unknown as AppStepConfig
                       if (!ac.app_id || !ac.action)
                         throw new Error('App step requires app_id and action')
+
+                      // Nuvemshop: direct API (not Composio)
+                      if (ac.app_id === 'nuvemshop') {
+                        const { data: wfForSeq } = await supabase
+                          .from('workflows')
+                          .select('team_id')
+                          .eq('id', workflowId)
+                          .single()
+                        if (!wfForSeq?.team_id)
+                          throw new Error('Cannot determine workflow team for Nuvemshop')
+                        const { data: seqStore } = await supabase
+                          .from('stores')
+                          .select('id, platform_store_id, platform_access_token')
+                          .eq('team_id', wfForSeq.team_id)
+                          .eq('platform', 'nuvemshop')
+                          .single()
+                        if (!seqStore?.platform_access_token || !seqStore?.platform_store_id)
+                          throw new Error('No connected Nuvemshop store found for this team.')
+                        const { NuvemshopClient: NsClient } = await import('@/lib/nuvemshop/client')
+                        const nsClient = new NsClient(
+                          seqStore.platform_store_id,
+                          seqStore.platform_access_token
+                        )
+                        switch (ac.action) {
+                          case 'NUVEMSHOP_GET_PRODUCTS':
+                            return await nsClient.getAllProducts()
+                          case 'NUVEMSHOP_GET_ORDERS':
+                            return await nsClient.getOrders(
+                              1,
+                              50,
+                              ac.inputs as { created_at_min?: string } | undefined
+                            )
+                          default:
+                            throw new Error(`Unknown Nuvemshop action: ${ac.action}`)
+                        }
+                      }
+
                       const { data: conn } = await supabase
                         .from('app_connections')
                         .select('composio_connection_id')
@@ -425,6 +462,53 @@ export async function executeVisualWorkflowSteps(
             if (!appConfig.app_id || !appConfig.action) {
               stepStatus = 'failed'
               stepError = 'App step requires app_id and action'
+            } else if (appConfig.app_id === 'nuvemshop') {
+              // Nuvemshop: direct API calls (not via Composio)
+              const { data: wfForStore } = await supabase
+                .from('workflows')
+                .select('team_id')
+                .eq('id', workflowId)
+                .single()
+
+              if (!wfForStore?.team_id) {
+                stepStatus = 'failed'
+                stepError = 'Cannot determine workflow team for Nuvemshop'
+              } else {
+                const { data: store } = await supabase
+                  .from('stores')
+                  .select('id, platform_store_id, platform_access_token')
+                  .eq('team_id', wfForStore.team_id)
+                  .eq('platform', 'nuvemshop')
+                  .single()
+
+                if (!store?.platform_access_token || !store?.platform_store_id) {
+                  stepStatus = 'failed'
+                  stepError = 'No connected Nuvemshop store found for this team.'
+                } else {
+                  const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+                  const nuvemClient = new NuvemshopClient(
+                    store.platform_store_id,
+                    store.platform_access_token
+                  )
+
+                  switch (appConfig.action) {
+                    case 'NUVEMSHOP_GET_PRODUCTS':
+                      stepOutput =
+                        (await nuvemClient.getAllProducts()) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_ORDERS':
+                      stepOutput = (await nuvemClient.getOrders(
+                        1,
+                        50,
+                        appConfig.inputs as { created_at_min?: string } | undefined
+                      )) as unknown as typeof stepOutput
+                      break
+                    default:
+                      stepStatus = 'failed'
+                      stepError = `Unknown Nuvemshop action: ${appConfig.action}`
+                  }
+                }
+              }
             } else {
               const { data: connection } = await supabase
                 .from('app_connections')
