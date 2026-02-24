@@ -68,6 +68,13 @@ If you are about to start implementing a feature without a spec, **STOP** and as
 
 Existing specs are in `specs/` — always check if a spec already exists before creating a new one.
 
+## Agent Automation Rules
+
+- **Every automation an agent creates MUST be a workflow.** When a user asks an agent to automate something (monitor prices, check stock daily, send reports, etc.), the agent MUST use `SNEW_CREATE_WORKFLOW` to create a visible, editable, testable workflow — NOT custom tools that write directly to the database.
+- Workflows use the existing infrastructure: cron triggers, app steps (Composio), AI steps, utility steps (send_telegram). This makes automations visible in the workflow editor, editable by the user, and composable (e.g., detect price change → update own store price → notify on Telegram).
+- **Never create one-off tools or database tables for automation logic.** If the workflow system lacks a capability, extend the workflow step types — don't bypass the system with custom code.
+- Retail tools (`STORE_QUERY_STOCK`, `STORE_QUERY_SALES`, `STORE_LIST_ORDERS`) are READ-ONLY data access tools for answering questions in chat. They are NOT for creating automations.
+
 ## Scripts
 
 - `bun dev` - Start dev server
