@@ -1,3 +1,5 @@
+export const maxDuration = 120
+
 import { NextRequest, NextResponse, after } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'

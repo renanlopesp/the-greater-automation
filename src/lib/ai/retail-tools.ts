@@ -1864,8 +1864,11 @@ async function syncNuvemshopProducts(
   total?: number
 }> {
   try {
-    const { syncProducts } = await import('@/lib/nuvemshop/sync')
-    const result = await syncProducts(storeId)
+    const { syncProducts, syncOrders } = await import('@/lib/nuvemshop/sync')
+    const [productResult, orderResult] = await Promise.all([
+      syncProducts(storeId),
+      syncOrders(storeId),
+    ])
 
     // Return product summary so the AI can present the results immediately
     const { data: syncedProducts } = await supabase
@@ -1877,7 +1880,7 @@ async function syncNuvemshopProducts(
 
     return {
       success: true,
-      message: `Synced ${result.synced} products from Nuvemshop (${result.created} new, ${result.updated} updated).`,
+      message: `Synced ${productResult.synced} products and ${orderResult.synced} orders from Nuvemshop.`,
       products: (syncedProducts ?? []).map((p) => ({
         name: p.name,
         sku: p.sku || undefined,
@@ -1885,7 +1888,7 @@ async function syncNuvemshopProducts(
         stock: p.stock_quantity,
         published: p.is_published,
       })),
-      total: result.synced,
+      total: productResult.synced + orderResult.synced,
     }
   } catch (err) {
     return {

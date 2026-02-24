@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
-import { syncProducts } from '@/lib/nuvemshop/sync'
+import { syncProducts, syncOrders } from '@/lib/nuvemshop/sync'
 
 export async function POST(request: NextRequest) {
   const supabase = createServiceRoleClient()
@@ -90,13 +90,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await syncProducts(storeId)
+    const [productResult, orderResult] = await Promise.all([
+      syncProducts(storeId),
+      syncOrders(storeId),
+    ])
     return NextResponse.json({
       status: 'completed',
-      products_synced: result.synced,
-      created: result.created,
-      updated: result.updated,
-      errors: result.errors,
+      products_synced: productResult.synced,
+      orders_synced: orderResult.synced,
+      created: productResult.created + orderResult.created,
+      updated: productResult.updated + orderResult.updated,
+      errors: productResult.errors + orderResult.errors,
     })
   } catch (error) {
     console.error('[nuvemshop/sync] Error:', error)

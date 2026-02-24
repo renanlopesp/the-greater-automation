@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { syncProducts } from '@/lib/nuvemshop/sync'
+import { syncProducts, syncOrders } from '@/lib/nuvemshop/sync'
 
 // Vercel Cron or external cron hits this endpoint every 15 minutes
 export async function GET(request: NextRequest) {
@@ -27,16 +27,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ synced: 0, message: 'No stores need syncing' })
   }
 
-  const results: Array<{ store_id: string; name: string; status: string; products?: number }> = []
+  const results: Array<{
+    store_id: string
+    name: string
+    status: string
+    products?: number
+    orders?: number
+  }> = []
 
   for (const store of stores) {
     try {
-      const result = await syncProducts(store.id)
+      const [productResult, orderResult] = await Promise.all([
+        syncProducts(store.id),
+        syncOrders(store.id),
+      ])
       results.push({
         store_id: store.id,
         name: store.name,
         status: 'success',
-        products: result.synced,
+        products: productResult.synced,
+        orders: orderResult.synced,
       })
     } catch (error) {
       results.push({
