@@ -12,6 +12,19 @@ export interface ComposioApp {
   hasTriggers: boolean
 }
 
+// Native apps (not in Composio, integrated directly)
+const NATIVE_APPS: ComposioApp[] = [
+  {
+    id: 'nuvemshop',
+    name: 'Nuvemshop',
+    logoUrl: 'https://cdn.simpleicons.org/nuvemshop/5624D0',
+    iconSlug: 'nuvemshop',
+    category: 'E-commerce',
+    authType: 'oauth',
+    hasTriggers: true,
+  },
+]
+
 // Module-level cache (per server instance, 1-hour TTL)
 let _cache: { apps: ComposioApp[]; ts: number } | null = null
 const CACHE_TTL = 3_600_000
@@ -63,10 +76,12 @@ export async function getComposioApps(): Promise<ComposioApp[]> {
       }
     })
 
-    _cache = { apps, ts: Date.now() }
-    return apps
+    // Merge native apps into the catalog
+    const allApps = [...NATIVE_APPS, ...apps]
+    _cache = { apps: allApps, ts: Date.now() }
+    return allApps
   } catch (error) {
     console.error('Failed to fetch Composio apps catalog:', error)
-    return _cache?.apps ?? []
+    return _cache?.apps ?? NATIVE_APPS
   }
 }

@@ -42,7 +42,45 @@ export async function getAppConnections(): Promise<AppConnection[]> {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (dbConnections && dbConnections.length > 0) return dbConnections
+    // Check if user's team has a Nuvemshop store connected (native, not Composio)
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    let nuvemshopConnection: AppConnection | null = null
+    if (teamMember) {
+      const { data: store } = await supabase
+        .from('stores')
+        .select('id, platform, platform_access_token, created_at')
+        .eq('team_id', teamMember.team_id)
+        .eq('platform', 'nuvemshop')
+        .not('platform_access_token', 'is', null)
+        .limit(1)
+        .single()
+
+      if (store) {
+        nuvemshopConnection = {
+          id: `nuvemshop_${store.id}`,
+          app_id: 'nuvemshop',
+          account_label: 'Nuvemshop',
+          created_at: store.created_at ?? new Date().toISOString(),
+          composio_connection_id: null,
+        }
+      }
+    }
+
+    if (dbConnections && dbConnections.length > 0) {
+      // Append native Nuvemshop connection if not already present
+      if (nuvemshopConnection && !dbConnections.some((c) => c.app_id === 'nuvemshop')) {
+        return [...dbConnections, nuvemshopConnection]
+      }
+      return dbConnections
+    }
+
+    if (nuvemshopConnection) return [nuvemshopConnection]
 
     // 2. Fallback: query Composio for the user's own connected accounts
     const composio = getComposio()

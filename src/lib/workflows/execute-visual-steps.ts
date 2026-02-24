@@ -412,6 +412,18 @@ export async function executeVisualWorkflowSteps(
                               50,
                               ac.inputs as { created_at_min?: string } | undefined
                             )
+                          case 'NUVEMSHOP_GET_CUSTOMERS':
+                            return await nsClient.getCustomers(
+                              ac.inputs as { q?: string } | undefined
+                            )
+                          case 'NUVEMSHOP_GET_CATEGORIES':
+                            return await nsClient.getCategories()
+                          case 'NUVEMSHOP_GET_ABANDONED_CHECKOUTS':
+                            return await nsClient.getAbandonedCheckouts()
+                          case 'NUVEMSHOP_GET_COUPONS':
+                            return await nsClient.getCoupons()
+                          case 'NUVEMSHOP_GET_STORE_INFO':
+                            return await nsClient.getStoreInfo()
                           default:
                             throw new Error(`Unknown Nuvemshop action: ${ac.action}`)
                         }
@@ -502,6 +514,26 @@ export async function executeVisualWorkflowSteps(
                         50,
                         appConfig.inputs as { created_at_min?: string } | undefined
                       )) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_CUSTOMERS':
+                      stepOutput = (await nuvemClient.getCustomers(
+                        appConfig.inputs as { q?: string } | undefined
+                      )) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_CATEGORIES':
+                      stepOutput =
+                        (await nuvemClient.getCategories()) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_ABANDONED_CHECKOUTS':
+                      stepOutput =
+                        (await nuvemClient.getAbandonedCheckouts()) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_COUPONS':
+                      stepOutput = (await nuvemClient.getCoupons()) as unknown as typeof stepOutput
+                      break
+                    case 'NUVEMSHOP_GET_STORE_INFO':
+                      stepOutput =
+                        (await nuvemClient.getStoreInfo()) as unknown as typeof stepOutput
                       break
                     default:
                       stepStatus = 'failed'
