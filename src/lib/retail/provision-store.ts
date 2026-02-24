@@ -250,46 +250,7 @@ async function provisionWorkflows(
     })
   }
 
-  // 2. Price Change Alert (vigia_de_preco) — daily at 9 AM
-  if (priorities.includes('monitorar_concorrencia') && agentsByRole.vigia_de_preco) {
-    defs.push({
-      agentId: agentsByRole.vigia_de_preco,
-      name: 'Price Change Alert',
-      emoji: '📊',
-      description: 'Fetches Shopify product prices daily and reports notable changes via Telegram.',
-      cronExpression: '0 9 * * *',
-      steps: [
-        {
-          type: 'app',
-          name: 'Fetch Shopify Products',
-          config: { app_id: 'shopify', action: 'SHOPIFY_GET_PRODUCTS', inputs: { limit: '250' } },
-        },
-        {
-          type: 'ai',
-          name: 'Analyze Prices',
-          config: {
-            ai_action: 'transform',
-            prompt_template:
-              'You are a price monitoring assistant for a retail store. Analyze the following Shopify product data and create a price analysis report.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. List the top 10 products by price (highest first) with their current prices in R$. Highlight any products that might need price review.\n\nUse 📊 emoji in the header.\n\nProduct data:\n{{step_2}}',
-            output_format: 'text',
-            temperature: 0.3,
-            max_tokens: 1000,
-          },
-        },
-        {
-          type: 'utility',
-          name: 'Send Telegram Report',
-          config: {
-            utility_type: 'send_telegram',
-            telegram_template: '{{step_3.output.content}}',
-            telegram_parse_mode: 'Markdown',
-          },
-        },
-      ],
-    })
-  }
-
-  // 3. Daily Sales Summary (caixa) — daily at 9 PM
+  // 2. Daily Sales Summary (caixa) — daily at 9 PM
   if (priorities.includes('resumo_de_vendas') && agentsByRole.caixa) {
     defs.push({
       agentId: agentsByRole.caixa,

@@ -10,6 +10,7 @@ import {
 } from '@/lib/ai/agent-chat'
 import { tokensToCredits } from '@/lib/billing/credits'
 import { buildSkillBuilderTools } from '@/lib/ai/skill-builder-tools'
+import { buildRetailTools } from '@/lib/ai/retail-tools'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: agentId } = await params
@@ -195,17 +196,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // 8b. If the team's store has a connected platform, always include it so agents
   //     can interact with the store (create products, manage orders, etc.)
   let storePlatform: string | null = null
+  let storeId: string | null = null
   if (agent.team_id) {
-    const { data: store, error: storeError } = await supabase
+    const { data: store } = await supabase
       .from('stores')
-      .select('platform, platform_store_id')
+      .select('id, platform, platform_store_id')
       .eq('team_id', agent.team_id)
       .limit(1)
       .single()
 
-    if (store?.platform && store.platform !== 'manual' && store.platform_store_id) {
-      storePlatform = store.platform
-      agentAppIds.add(store.platform)
+    if (store) {
+      storeId = store.id
+      if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
+        storePlatform = store.platform
+        agentAppIds.add(store.platform)
+      }
     }
   }
 
@@ -231,12 +236,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // 9. Build Relay virtual tools for skill management
   // In 'chat' mode (no Composio workflows), exclude heavy workflow-builder tools to reduce tokens
-  const relayTools = buildSkillBuilderTools(
-    agentId,
-    user.id,
-    agent.team_id,
-    hasComposioWorkflows ? 'full' : 'chat'
-  )
+  const relayTools: Record<string, unknown> = {
+    ...buildSkillBuilderTools(agentId, user.id, agent.team_id, hasComposioApps ? 'full' : 'chat'),
+    // Add retail tools (stock queries, price monitoring, etc.) when the team has a store
+    ...(storeId && agent.team_id
+      ? buildRetailTools(storeId, agent.team_id, undefined, user.id)
+      : {}),
+  }
 
   // 10. Build system prompt
   const systemPrompt = buildAgentSystemPrompt(
@@ -245,7 +251,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     connectedApps,
     dynamicSkills,
     knowledgeSkills,
-    hasComposioWorkflows
+    hasComposioApps
   )
 
   // 11. Update agent status to 'running'

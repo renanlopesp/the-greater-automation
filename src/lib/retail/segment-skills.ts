@@ -124,7 +124,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Fashion',
-      content: `You monitor prices in the fashion market. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Fashion market expertise:
 - Relevant marketplaces: Mercado Livre, Shopee, Shein, Renner, C&A
 - Healthy margin for fashion: 50-70% over cost
 - When to adjust: end of collection (30-50% clearance), new collection launch
@@ -163,7 +165,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Electronics',
-      content: `You monitor electronics prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Electronics market expertise:
 - Marketplaces: Mercado Livre, Amazon, Kabum, Magazine Luiza
 - Prices change frequently: check daily
 - Margin reference: 15-25% for electronics, 40-60% for accessories
@@ -202,7 +206,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Food',
-      content: `You monitor food prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Food market expertise:
 - Local competitors: supermarkets, wholesale clubs, other delivery services
 - Margin reference: 20-35% for dry foods, 30-50% for prepared items
 - Fluctuation: produce prices change weekly
@@ -241,7 +247,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Cosmetics',
-      content: `You monitor cosmetics prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Cosmetics market expertise:
 - Marketplaces: Sephora, Ulta, Amazon, Mercado Livre
 - Margin: 40-60% for domestic brands, 30-45% for imports
 - Caution: very low prices may indicate counterfeit products
@@ -280,7 +288,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Home & Decor',
-      content: `You monitor home and decor prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Home & Decor market expertise:
 - Competitors: Wayfair, IKEA, Target Home, Amazon, Etsy
 - Margin: 50-100% for decorative, 30-50% for utilitarian items
 - Shipping matters: include shipping cost in comparison
@@ -317,7 +327,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Sports',
-      content: `You monitor sports product prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Sports market expertise:
 - Competitors: Nike.com, Dick's, Decathlon, Amazon
 - Margin: 40-60% for athletic apparel, 20-35% for equipment
 - Sneakers: very competitive market, tight margins
@@ -354,7 +366,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Pet Shop',
-      content: `You monitor pet product prices. Expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+Pet Shop market expertise:
 - Competitors: Chewy, Petco, PetSmart, Amazon, Mercado Livre
 - Margin: 25-40% for pet food, 50-70% for accessories and toys
 - Pet food: fierce competition, price-sensitive customers
@@ -392,7 +406,9 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - General',
-      content: `You monitor market prices. General expertise:
+      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+
+General market expertise:
 - Healthy margin: varies by segment, generally 30-60%
 - Marketplaces: Mercado Livre, Amazon, Shopee are reference points
 - Strategies: penetration pricing, skimming, competitive pricing

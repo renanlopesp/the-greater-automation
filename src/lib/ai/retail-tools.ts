@@ -1,10 +1,5 @@
 import { jsonSchema } from 'ai'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import {
-  createPriceMonitor,
-  listPriceMonitors,
-  deactivatePriceMonitor,
-} from '@/lib/retail/price-monitors'
 import { getComposio } from '@/lib/composio/client'
 import type { Json } from '@/lib/supabase/database.types'
 
@@ -405,95 +400,6 @@ export function buildRetailTools(
 
         return {
           error: `Sync is not yet supported for ${store.platform}. Only Shopify is currently available.`,
-        }
-      },
-    },
-
-    STORE_MONITOR_PRICE: {
-      description:
-        'Create a competitor price monitor for a product. Use when user says "monitora o preço de X no link Y", "acompanha o preço do concorrente", or similar.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          product_name: {
-            type: 'string',
-            description: 'Name of the product to monitor (e.g. "Tênis Nike Air Max")',
-          },
-          competitor_url: {
-            type: 'string',
-            description: 'URL of the competitor product page to monitor',
-          },
-        },
-        required: ['product_name', 'competitor_url'],
-      }),
-      execute: async (params: { product_name: string; competitor_url: string }) => {
-        try {
-          await createPriceMonitor(storeId, params.product_name, params.competitor_url)
-          const all = await listPriceMonitors(storeId)
-          const active = all.filter((m) => m.is_active)
-          return {
-            success: true,
-            message: `Monitor created for *${params.product_name}*. You'll be notified when the price changes. You have ${active.length} active monitor(s) total.`,
-          }
-        } catch (err) {
-          return {
-            error: `Failed to create monitor: ${err instanceof Error ? err.message : String(err)}`,
-          }
-        }
-      },
-    },
-
-    STORE_STOP_MONITOR: {
-      description:
-        'Deactivate a competitor price monitor. Use when user says "para de monitorar X", "cancela o monitor de preço", "remove o monitor", or similar.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          monitor_id: {
-            type: 'string',
-            description: 'ID of the monitor to deactivate (use if known)',
-          },
-          product_name: {
-            type: 'string',
-            description: 'Product name to search for and deactivate (fuzzy match)',
-          },
-        },
-      }),
-      execute: async (params: { monitor_id?: string; product_name?: string }) => {
-        if (params.monitor_id) {
-          await deactivatePriceMonitor(params.monitor_id)
-          return { success: true, message: 'Monitor deactivated successfully.' }
-        }
-
-        const monitors = await listPriceMonitors(storeId)
-        const active = monitors.filter((m) => m.is_active)
-
-        if (params.product_name) {
-          const lower = params.product_name.toLowerCase()
-          const match = active.find((m) => m.product_name.toLowerCase().includes(lower))
-          if (!match) {
-            return {
-              error: `No active monitor found for "${params.product_name}".`,
-              active_monitors: active.map((m) => ({ id: m.id, product: m.product_name })),
-            }
-          }
-          await deactivatePriceMonitor(match.id)
-          return { success: true, message: `Monitor for *${match.product_name}* deactivated.` }
-        }
-
-        // Neither provided — list active monitors so user can pick
-        if (active.length === 0) {
-          return { message: 'No active price monitors at the moment.' }
-        }
-
-        return {
-          message: 'Which monitor would you like to deactivate? Active monitors:',
-          active_monitors: active.map((m) => ({
-            id: m.id,
-            product: m.product_name,
-            url: m.url,
-            current_price: m.last_price ? `R$ ${Number(m.last_price).toFixed(2)}` : '—',
-          })),
         }
       },
     },

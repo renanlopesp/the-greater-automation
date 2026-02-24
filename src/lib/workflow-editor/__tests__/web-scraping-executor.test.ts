@@ -24,7 +24,6 @@ describe('web-scraping-executor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.FIRECRAWL_API_KEY = 'test-api-key'
-    process.env.FIRECRAWL_BASE_URL = 'https://fire.test.com'
   })
 
   describe('createFirecrawlClient', () => {

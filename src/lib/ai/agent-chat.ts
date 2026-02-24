@@ -111,7 +111,7 @@ export function buildAgentSystemPrompt(
     prompt +=
       '- **IF** (Conditions): Optional rules that must be true for actions to run (e.g. "sender contains @acme.com")\n'
     prompt +=
-      '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, or send a notification\n'
+      '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, scrape a web page, or send a notification. For notify actions, use channel: "telegram" (preferred, sends to user\'s Telegram) or "internal" (in-app only)\n'
     prompt +=
       "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
     prompt += '### App Event Triggers (Event-Driven Workflows)\n\n'
@@ -157,6 +157,25 @@ export function buildAgentSystemPrompt(
       'claude_agent config: prompt (required), output_key (required), output_format ("text" or "json"), '
     prompt +=
       'tools (array of Composio tool names), model (default: gpt-4o), timeout_ms (default: 300000)\n\n'
+    prompt += '### Web Scraping Steps (Competitor Monitoring)\n\n'
+    prompt +=
+      'You can add `web_scraping` action steps to workflows for extracting data from web pages using Firecrawl.\n\n'
+    prompt += 'Parameters:\n'
+    prompt += '- `url` (required): The URL to scrape\n'
+    prompt +=
+      "- `scraping_action`: 'scrape' (extract page content), 'map' (list site URLs), 'search' (search query). Default: 'scrape'\n"
+    prompt += "- `output_format`: 'markdown' (default) or 'html'\n"
+    prompt += "- `query`: Search query (only for 'search' action)\n\n"
+    prompt += 'Use cases: competitor price monitoring, content extraction, market research.\n\n'
+    prompt += 'Example: "Monitor competitor price every 4 hours and alert on Telegram"\n'
+    prompt += '→ trigger: { type: "scheduled", cron_expression: "0 */4 * * *" }\n'
+    prompt += '→ actions: [\n'
+    prompt +=
+      '  { type: "web_scraping", url: "https://competitor.com/product", scraping_action: "scrape", output_format: "markdown" },\n'
+    prompt +=
+      '  { type: "ai_transform", prompt: "Extract the current price from this page content: {{prev.result}}. Compare with our price of R$XX. If changed, format a brief alert.", output_key: "analysis" },\n'
+    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.analysis}}" }\n'
+    prompt += ']\n\n'
     prompt += '### How to Build a Workflow\n\n'
     prompt +=
       '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, IF there are conditions, and WHAT actions to take\n'

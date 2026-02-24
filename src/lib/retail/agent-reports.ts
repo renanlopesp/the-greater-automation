@@ -63,44 +63,62 @@ export async function generateStockReport(storeId: string): Promise<string | nul
 
 /**
  * Generate a price monitoring report for the Price Monitor agent.
+ * Lists the agent's monitoring workflows with their status and last run time.
  * Returns a Markdown-formatted string or null if nothing to report.
  */
 export async function generatePriceReport(storeId: string): Promise<string | null> {
   const supabase = createServiceRoleClient()
 
-  const { data: store } = await supabase.from('stores').select('name').eq('id', storeId).single()
+  const { data: store } = await supabase
+    .from('stores')
+    .select('name, team_id')
+    .eq('id', storeId)
+    .single()
 
   if (!store) return null
 
-  const { data: monitors } = await supabase
-    .from('store_price_monitors')
-    .select('product_name, last_price, last_checked_at, is_active, url')
-    .eq('store_id', storeId)
-    .eq('is_active', true)
-    .order('last_checked_at', { ascending: false })
+  // Find the price monitor agent for this team
+  const { data: agent } = await supabase
+    .from('agents')
+    .select('id')
+    .eq('team_id', store.team_id)
+    .or('name.ilike.%price%,name.ilike.%vigia%,name.ilike.%monitor%')
+    .limit(1)
+    .single()
 
-  const activeMonitors = monitors ?? []
+  if (!agent) return null
 
-  if (activeMonitors.length === 0) {
-    return null // No active monitors, skip report
+  // Get the agent's workflows
+  const { data: workflows } = await supabase
+    .from('agent_workflows')
+    .select('name, is_enabled, last_run_at')
+    .eq('agent_id', agent.id)
+    .order('created_at', { ascending: false })
+
+  const wfs = workflows ?? []
+
+  if (wfs.length === 0) {
+    return null // No workflows configured, skip report
   }
 
   const lines: string[] = [
     `👀 *Price Monitor Report — ${store.name}*`,
     '',
-    `Active monitors: ${activeMonitors.length}`,
+    `Monitoring workflows: ${wfs.length}`,
     '',
   ]
 
-  for (const m of activeMonitors) {
-    const price = m.last_price ? `$${Number(m.last_price).toFixed(2)}` : 'not checked yet'
-    const lastChecked = m.last_checked_at
-      ? new Date(m.last_checked_at as string).toLocaleDateString('en-US', {
+  for (const wf of wfs) {
+    const status = wf.is_enabled ? '✅' : '⏸️'
+    const lastRun = wf.last_run_at
+      ? new Date(wf.last_run_at).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
         })
       : 'never'
-    lines.push(`• *${m.product_name}*: ${price} (checked: ${lastChecked})`)
+    lines.push(`${status} *${wf.name}* — last run: ${lastRun}`)
   }
 
   return lines.join('\n')

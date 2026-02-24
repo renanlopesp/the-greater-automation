@@ -41,6 +41,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     { data: storeData },
     { data: messagingLink },
     { count: skillCount },
+    { count: workflowCount },
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
     getActiveConversation(supabase, id),
@@ -57,12 +58,22 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       .single(),
     supabase.from('messaging_links').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
     supabase.from('agent_skills').select('id', { count: 'exact', head: true }).eq('agent_id', id),
+    supabase
+      .from('agent_workflows')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', id),
   ])
 
   const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
 
   // Build setup checklist based on agent role
-  const setupSteps = buildSetupSteps(agent, storeData, messagingLink, skillCount ?? 0)
+  const setupSteps = buildSetupSteps(
+    agent,
+    storeData,
+    messagingLink,
+    skillCount ?? 0,
+    workflowCount ?? 0
+  )
 
   const currentUser = {
     id: user.id,
@@ -151,7 +162,8 @@ function buildSetupSteps(
     settings: unknown
   } | null,
   messagingLink: { id: string } | null,
-  skillCount: number
+  skillCount: number,
+  workflowCount: number
 ): SetupStep[] {
   // "manual" platform means no online store — nothing to connect
   const hasPlatform = storeData?.platform === 'manual' || !!storeData?.platform_store_id
@@ -194,7 +206,7 @@ function buildSetupSteps(
       connectPlatform,
       {
         label: 'Add competitor URLs to monitor',
-        completed: skillCount >= 2,
+        completed: workflowCount >= 1,
       },
       connectTelegram,
     ]

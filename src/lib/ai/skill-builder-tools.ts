@@ -138,10 +138,18 @@ const actionJsonSchema: Record<string, unknown> = {
   properties: {
     type: {
       type: 'string',
-      enum: ['composio_action', 'ai_transform', 'notify', 'claude_agent'],
+      enum: ['composio_action', 'ai_transform', 'notify', 'claude_agent', 'web_scraping'],
     },
     action: { type: 'string', description: 'Composio action ID like SLACK_SEND_MESSAGE' },
     app_id: { type: 'string', description: 'App ID like slack' },
+    url: { type: 'string', description: 'URL to scrape (for web_scraping type)' },
+    scraping_action: {
+      type: 'string',
+      enum: ['scrape', 'map', 'search'],
+      description:
+        "Scraping action: 'scrape' (extract page), 'map' (site URLs), 'search' (search query). Default: 'scrape'",
+    },
+    query: { type: 'string', description: 'Search query (for web_scraping search action)' },
     params: {
       type: 'object',
       additionalProperties: { type: 'string' },
@@ -151,7 +159,7 @@ const actionJsonSchema: Record<string, unknown> = {
     prompt: { type: 'string', description: 'AI prompt with {{trigger.field}} templates' },
     output_key: { type: 'string', description: 'Key to store AI output for next action' },
     model: { type: 'string' },
-    channel: { type: 'string', enum: ['internal', 'slack', 'email'] },
+    channel: { type: 'string', enum: ['internal', 'slack', 'email', 'telegram'] },
     message: { type: 'string', description: 'Notification message with templates' },
     target: { type: 'string', description: 'Channel name, email, etc.' },
     tools: {
@@ -165,8 +173,9 @@ const actionJsonSchema: Record<string, unknown> = {
     },
     output_format: {
       type: 'string',
-      enum: ['text', 'json'],
-      description: 'Output format for claude_agent (default: text)',
+      enum: ['text', 'json', 'markdown', 'html'],
+      description:
+        "Output format: 'text'/'json' for claude_agent, 'markdown'/'html' for web_scraping",
     },
   },
   required: ['type'],
@@ -183,19 +192,22 @@ interface ConditionParam {
 }
 
 interface ActionParam {
-  type: 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent'
+  type: 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent' | 'web_scraping'
   action?: string
   app_id?: string
   params?: Record<string, string>
   prompt?: string
   output_key?: string
   model?: string
-  channel?: 'internal' | 'slack' | 'email'
+  channel?: 'internal' | 'slack' | 'email' | 'telegram'
   message?: string
   target?: string
   tools?: string[]
   timeout_ms?: number
-  output_format?: 'text' | 'json'
+  output_format?: 'text' | 'json' | 'markdown' | 'html'
+  url?: string
+  scraping_action?: 'scrape' | 'map' | 'search'
+  query?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +231,8 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
         model: a.model,
       }
     } else if (a.type === 'claude_agent') {
+      const fmt =
+        a.output_format === 'text' || a.output_format === 'json' ? a.output_format : undefined
       return {
         type: 'claude_agent' as const,
         prompt: a.prompt || '',
@@ -226,12 +240,24 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
         tools: a.tools,
         model: a.model,
         timeout_ms: a.timeout_ms,
-        output_format: a.output_format,
+        output_format: fmt,
+      }
+    } else if (a.type === 'web_scraping') {
+      const fmt =
+        a.output_format === 'markdown' || a.output_format === 'html'
+          ? a.output_format
+          : ('markdown' as const)
+      return {
+        type: 'web_scraping' as const,
+        url: a.url || '',
+        scraping_action: a.scraping_action || 'scrape',
+        output_format: fmt,
+        query: a.query,
       }
     } else {
       return {
         type: 'notify' as const,
-        channel: (a.channel || 'internal') as 'internal' | 'slack' | 'email',
+        channel: (a.channel || 'internal') as 'internal' | 'slack' | 'email' | 'telegram',
         message: a.message || '',
         target: a.target,
       }
@@ -673,13 +699,32 @@ export function buildSkillBuilderTools(
               temperature: 0.3,
               max_tokens: 500,
             }
-          } else {
-            // notify → utility with format template
-            stepType = 'utility'
-            stepName = `Notify: ${action.channel || 'internal'}`
+          } else if (action.type === 'web_scraping') {
+            stepType = 'web_scraping'
+            stepName = `Scrape: ${action.url ? new URL(action.url).hostname : 'URL'}`
             stepConfig = {
-              utility_type: 'format',
-              format_template: action.message || '',
+              action: action.scraping_action || 'scrape',
+              url: action.url || '',
+              output_format: action.output_format || 'markdown',
+              only_main_content: true,
+              ...(action.query ? { query: action.query } : {}),
+            }
+          } else {
+            // notify → utility step (send_telegram when channel is telegram, format otherwise)
+            stepType = 'utility'
+            if (action.channel === 'telegram') {
+              stepName = 'Send Telegram Alert'
+              stepConfig = {
+                utility_type: 'send_telegram',
+                telegram_template: action.message || '{{prev.output}}',
+                telegram_parse_mode: 'Markdown',
+              }
+            } else {
+              stepName = `Notify: ${action.channel || 'internal'}`
+              stepConfig = {
+                utility_type: 'format',
+                format_template: action.message || '',
+              }
             }
           }
 
@@ -983,12 +1028,32 @@ export function buildSkillBuilderTools(
                   temperature: 0.3,
                   max_tokens: 500,
                 }
-              } else {
-                stepType = 'utility'
-                stepName = `Notify: ${action.channel || 'internal'}`
+              } else if (action.type === 'web_scraping') {
+                stepType = 'web_scraping'
+                stepName = `Scrape: ${action.url ? new URL(action.url).hostname : 'URL'}`
                 stepConfig = {
-                  utility_type: 'format',
-                  format_template: action.message || '',
+                  action: action.scraping_action || 'scrape',
+                  url: action.url || '',
+                  output_format: action.output_format || 'markdown',
+                  only_main_content: true,
+                  ...(action.query ? { query: action.query } : {}),
+                }
+              } else {
+                // notify → utility step (send_telegram when channel is telegram, format otherwise)
+                stepType = 'utility'
+                if (action.channel === 'telegram') {
+                  stepName = 'Send Telegram Alert'
+                  stepConfig = {
+                    utility_type: 'send_telegram',
+                    telegram_template: action.message || '{{prev.output}}',
+                    telegram_parse_mode: 'Markdown',
+                  }
+                } else {
+                  stepName = `Notify: ${action.channel || 'internal'}`
+                  stepConfig = {
+                    utility_type: 'format',
+                    format_template: action.message || '',
+                  }
                 }
               }
 
