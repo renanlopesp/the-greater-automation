@@ -32,6 +32,7 @@ function makeAgent(overrides: Partial<WorkspaceAgent> = {}): WorkspaceAgent {
     palette: null,
     created_by: 'user-1',
     workflows: [],
+    automation_count: 0,
     ...overrides,
   }
 }

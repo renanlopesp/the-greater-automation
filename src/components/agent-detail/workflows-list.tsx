@@ -134,7 +134,9 @@ export default function WorkflowsList({
   }
 
   // Separate legacy and rule workflows
-  const legacyWorkflows = workflows.filter((w) => w.source === 'manual' || w.source === 'dynamic')
+  const legacyWorkflows = workflows.filter(
+    (w) => w.source === 'manual' || w.source === 'dynamic' || w.source === 'provision'
+  )
   const ruleWorkflows = workflows.filter((w) => w.source === 'rule')
 
   return (
