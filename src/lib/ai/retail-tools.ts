@@ -28,7 +28,7 @@ export function buildRetailTools(
   return {
     STORE_QUERY_STOCK: {
       description:
-        'Query product stock levels. Search by product name, SKU, or get all products with low stock. Use this when the user asks about inventory, stock, or "como ta meu estoque?".',
+        'Query product stock levels. Search by product name, SKU, or get all products with low stock. Queries the store API directly for fresh data. Use this when the user asks about inventory, stock, or "como ta meu estoque?".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -42,56 +42,90 @@ export function buildRetailTools(
       }),
       execute: async (params: { search?: string; low_stock_only?: boolean; limit?: number }) => {
         const supabase = getClient()
-        let query = supabase
-          .from('store_products')
-          .select('id, name, sku, price, stock_quantity, variants, is_published')
-          .eq('store_id', storeId)
-          .order('stock_quantity', { ascending: true })
-          .limit(params.limit ?? 20)
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
 
-        if (params.search) {
-          query = query.or(`name.ilike.%${params.search}%,sku.ilike.%${params.search}%`)
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
         }
 
-        if (params.low_stock_only) {
-          // Get the global threshold
-          const { data: alertConfig } = await supabase
-            .from('store_stock_alerts')
-            .select('threshold')
-            .eq('store_id', storeId)
-            .is('product_id', null)
-            .single()
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
 
-          const threshold = alertConfig?.threshold ?? 5
-          query = query.lte('stock_quantity', threshold)
-        }
+          const allProducts = await client.getAllProducts()
 
-        const { data, error } = await query
-        if (error) return { error: error.message }
+          // Get low stock threshold from DB
+          let threshold = 5
+          if (params.low_stock_only) {
+            const { data: alertConfig } = await supabase
+              .from('store_stock_alerts')
+              .select('threshold')
+              .eq('store_id', storeId)
+              .is('product_id', null)
+              .single()
+            threshold = alertConfig?.threshold ?? 5
+          }
 
-        // Also get total product count
-        const { count } = await supabase
-          .from('store_products')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', storeId)
+          // Map products with stock info
+          let products = allProducts.map((p) => {
+            const name = p.name?.pt ?? p.name?.es ?? p.name?.en ?? 'Sem nome'
+            const totalStock = p.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0)
+            const mainSku = p.variants[0]?.sku ?? null
+            const mainPrice = p.variants[0]?.price ?? null
+            return {
+              id: p.id,
+              name,
+              sku: mainSku,
+              price: mainPrice,
+              stock: totalStock,
+              published: p.published,
+              variants: p.variants.map((v) => ({
+                name:
+                  v.name || v.values.map((val) => val.pt ?? val.en ?? '').join(' / ') || undefined,
+                sku: v.sku,
+                stock: v.stock ?? 0,
+                price: v.price,
+              })),
+            }
+          })
 
-        return {
-          products: (data ?? []).map((p) => ({
-            id: p.id,
-            name: p.name,
-            sku: p.sku,
-            price: p.price,
-            stock: p.stock_quantity,
-            published: p.is_published,
-            variants: Array.isArray(p.variants)
-              ? (p.variants as Array<{ name?: string; stock?: number }>).map((v) => ({
-                  name: v.name,
-                  stock: v.stock,
-                }))
-              : [],
-          })),
-          total_products: count ?? 0,
-          showing: data?.length ?? 0,
+          // Apply search filter (accent-insensitive)
+          if (params.search) {
+            const needle = normalizeAccents(params.search)
+            products = products.filter(
+              (p) =>
+                normalizeAccents(p.name).includes(needle) ||
+                (p.sku && normalizeAccents(p.sku).includes(needle))
+            )
+          }
+
+          // Apply low stock filter
+          if (params.low_stock_only) {
+            products = products.filter((p) => p.stock <= threshold)
+          }
+
+          // Sort by stock ascending (lowest first)
+          products.sort((a, b) => a.stock - b.stock)
+
+          const totalCount = products.length
+          const limited = products.slice(0, params.limit ?? 20)
+
+          return {
+            products: limited,
+            total_products: allProducts.length,
+            matching: totalCount,
+            showing: limited.length,
+          }
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : 'Failed to query stock from API' }
         }
       },
     },
