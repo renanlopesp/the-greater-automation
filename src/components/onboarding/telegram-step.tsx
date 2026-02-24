@@ -57,7 +57,7 @@ export function TelegramStep({ onSkip, onLinked }: TelegramStepProps) {
         const res = await fetch('/api/messaging/link')
         if (res.ok) {
           const data = await res.json()
-          if (data.linked) {
+          if (data.status === 'linked') {
             clearInterval(interval)
             setLinked(true)
             onLinked()
