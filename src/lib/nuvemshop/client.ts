@@ -441,11 +441,14 @@ export class NuvemshopClient {
   async getOrders(
     page = 1,
     perPage = 50,
-    params?: { created_at_min?: string }
+    params?: { created_at_min?: string; status?: string }
   ): Promise<NuvemshopOrder[]> {
     let url = `/orders?page=${page}&per_page=${perPage}`
     if (params?.created_at_min) {
       url += `&created_at_min=${params.created_at_min}`
+    }
+    if (params?.status) {
+      url += `&status=${params.status}`
     }
     const data = await this.request<unknown[]>(url)
     return data.map((item) => NuvemshopOrderSchema.parse(item))
@@ -606,9 +609,7 @@ export class NuvemshopClient {
   }
 
   // Transactions
-  async getTransactions(
-    orderId: number
-  ): Promise<
+  async getTransactions(orderId: number): Promise<
     Array<{
       id: number
       payment_provider_id: string
@@ -622,10 +623,7 @@ export class NuvemshopClient {
   }
 
   // Pages
-  async getPages(params?: {
-    per_page?: number
-    page?: number
-  }): Promise<
+  async getPages(params?: { per_page?: number; page?: number }): Promise<
     Array<{
       id: number
       title: Record<string, string>
@@ -643,9 +641,7 @@ export class NuvemshopClient {
     return this.request(`/pages${q ? `?${q}` : ''}`)
   }
 
-  async getPage(
-    id: number
-  ): Promise<{
+  async getPage(id: number): Promise<{
     id: number
     title: Record<string, string>
     handle: Record<string, string>

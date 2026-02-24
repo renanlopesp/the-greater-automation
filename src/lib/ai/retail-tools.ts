@@ -98,7 +98,7 @@ export function buildRetailTools(
 
     STORE_QUERY_SALES: {
       description:
-        'Get sales summary for a date range. Shows order count, revenue, and top products. Use this when the user asks about sales, revenue, or "quanto vendi?".',
+        'Get sales summary for a date range. Shows order count, revenue, and top products. Queries the store API directly for fresh data. Use this when the user asks about sales, revenue, or "quanto vendi?".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -111,27 +111,33 @@ export function buildRetailTools(
       }),
       execute: async (params: { period?: string }) => {
         const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
 
         // Calculate date range
         const now = new Date()
         let startDate: Date
-        const endDate = now
+        let endDate: Date = now
 
         switch (params.period) {
           case 'yesterday': {
             startDate = new Date(now)
             startDate.setDate(startDate.getDate() - 1)
             startDate.setHours(0, 0, 0, 0)
-            const yesterdayEnd = new Date(startDate)
-            yesterdayEnd.setHours(23, 59, 59, 999)
-            // Query yesterday specifically
-            const { data } = await supabase
-              .from('store_orders')
-              .select('total, items, status, payment_status')
-              .eq('store_id', storeId)
-              .gte('ordered_at', startDate.toISOString())
-              .lte('ordered_at', yesterdayEnd.toISOString())
-            return buildSalesSummary(data ?? [], 'yesterday')
+            endDate = new Date(startDate)
+            endDate.setHours(23, 59, 59, 999)
+            break
           }
           case 'this_week':
             startDate = new Date(now)
@@ -146,20 +152,65 @@ export function buildRetailTools(
             startDate.setHours(0, 0, 0, 0)
         }
 
-        const { data } = await supabase
-          .from('store_orders')
-          .select('total, items, status, payment_status')
-          .eq('store_id', storeId)
-          .gte('ordered_at', startDate.toISOString())
-          .lte('ordered_at', endDate.toISOString())
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
 
-        return buildSalesSummary(data ?? [], params.period ?? 'today')
+          // Fetch all orders in the period (paginate)
+          const allOrders: Array<{
+            total: string
+            status: string
+            payment_status: string
+            products: Array<{ name: string; quantity: string; price: string }>
+            created_at: string
+          }> = []
+          let page = 1
+          while (true) {
+            const orders = await client.getOrders(page, 200, {
+              created_at_min: startDate.toISOString(),
+            })
+            // Filter by end date client-side (API only supports created_at_min)
+            for (const o of orders) {
+              if (new Date(o.created_at) <= endDate) {
+                allOrders.push({
+                  total: o.total ?? '0',
+                  status: o.status ?? 'open',
+                  payment_status: o.payment_status ?? 'pending',
+                  products: (o.products ?? []).map((p) => ({
+                    name: p.name ?? 'Produto',
+                    quantity: String(p.quantity ?? '1'),
+                    price: p.price ?? '0',
+                  })),
+                  created_at: o.created_at,
+                })
+              }
+            }
+            if (orders.length < 200) break
+            page++
+          }
+
+          return buildSalesSummary(
+            allOrders.map((o) => ({
+              total: parseFloat(o.total),
+              items: o.products.map((p) => ({
+                name: p.name,
+                quantity: p.quantity,
+                price: p.price,
+              })),
+              status: o.status,
+              payment_status: o.payment_status,
+            })),
+            params.period ?? 'today'
+          )
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
       },
     },
 
     STORE_LIST_ORDERS: {
       description:
-        'List recent orders with optional status filter. Use when the user asks about orders or "meus pedidos".',
+        'List recent orders with optional status filter. Queries the store API directly for fresh data. Use when the user asks about orders or "meus pedidos".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -173,33 +224,45 @@ export function buildRetailTools(
       }),
       execute: async (params: { status?: string; limit?: number }) => {
         const supabase = getClient()
-        let query = supabase
-          .from('store_orders')
-          .select(
-            'order_number, status, payment_status, total, currency, customer_name, items, ordered_at'
-          )
-          .eq('store_id', storeId)
-          .order('ordered_at', { ascending: false })
-          .limit(params.limit ?? 10)
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
 
-        if (params.status) {
-          query = query.eq('status', params.status)
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
         }
 
-        const { data, error } = await query
-        if (error) return { error: error.message }
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+          const limit = params.limit ?? 10
+          const orders = await client.getOrders(
+            1,
+            limit,
+            params.status ? { status: params.status } : undefined
+          )
 
-        return {
-          orders: (data ?? []).map((o) => ({
-            number: o.order_number,
-            status: o.status,
-            payment: o.payment_status,
-            total: `R$ ${Number(o.total).toFixed(2)}`,
-            customer: o.customer_name,
-            items_count: Array.isArray(o.items) ? o.items.length : 0,
-            date: o.ordered_at,
-          })),
-          count: data?.length ?? 0,
+          return {
+            orders: orders.map((o) => ({
+              number: o.number ?? String(o.id),
+              status: o.status,
+              payment: o.payment_status,
+              total: `R$ ${parseFloat(o.total ?? '0').toFixed(2)}`,
+              currency: o.currency ?? 'BRL',
+              customer: o.customer?.name ?? 'Anônimo',
+              items_count: o.products?.length ?? 0,
+              date: o.created_at,
+            })),
+            count: orders.length,
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
         }
       },
     },
