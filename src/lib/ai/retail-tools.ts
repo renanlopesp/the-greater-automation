@@ -945,7 +945,7 @@ export function buildRetailTools(
 
     STORE_QUERY_CUSTOMERS: {
       description:
-        'Search or list store customers. Supports sorting by most purchases or highest spend. Use when user asks about customers, buyers, top customers, "quem comprou?", "quantos clientes tenho?", "quem mais comprou?".',
+        'Search or list store customers sorted by total spent. Use when user asks about customers, buyers, top customers, "quem comprou?", "quantos clientes tenho?", "quem mais comprou?".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -953,9 +953,9 @@ export function buildRetailTools(
           email: { type: 'string', description: 'Search by exact email' },
           sort_by: {
             type: 'string',
-            enum: ['total_spent', 'orders_count'],
+            enum: ['total_spent'],
             description:
-              'Sort customers by total_spent or orders_count (descending). When set, fetches all customers to sort accurately.',
+              'Sort customers by total_spent (descending). When set, fetches all customers to sort accurately.',
           },
           limit: { type: 'number', description: 'Max results (default: 20)' },
         },
@@ -1007,10 +1007,8 @@ export function buildRetailTools(
             )
           }
 
-          // Sort
-          if (params.sort_by === 'orders_count') {
-            customers.sort((a, b) => b.orders_count - a.orders_count)
-          } else if (params.sort_by === 'total_spent') {
+          // Sort by total_spent descending by default when sort_by is set
+          if (params.sort_by === 'total_spent') {
             customers.sort((a, b) => parseFloat(b.total_spent) - parseFloat(a.total_spent))
           }
 
@@ -1022,8 +1020,8 @@ export function buildRetailTools(
               name: c.name,
               email: c.email,
               phone: c.phone,
-              orders_count: c.orders_count,
               total_spent: c.total_spent,
+              total_spent_currency: c.total_spent_currency,
             })),
             total_customers: customers.length,
             showing: limited.length,

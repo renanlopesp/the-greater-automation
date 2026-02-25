@@ -329,7 +329,6 @@ export class NuvemshopClient {
     per_page?: number
     q?: string
     email?: string
-    fields?: string
   }): Promise<NuvemshopCustomer[]> {
     const query = new URLSearchParams()
     if (params?.page !== undefined) query.set('page', String(params.page))
@@ -338,8 +337,7 @@ export class NuvemshopClient {
     if (params?.email) query.set('email', params.email)
     query.set(
       'fields',
-      params?.fields ??
-        'id,name,email,phone,identification,orders_count,total_spent,total_spent_currency,created_at,updated_at'
+      'id,name,email,phone,identification,total_spent,total_spent_currency,last_order_id,active,created_at,updated_at'
     )
     const qs = query.toString() ? `?${query.toString()}` : ''
     const data = await this.request<unknown[]>(`/customers${qs}`)
