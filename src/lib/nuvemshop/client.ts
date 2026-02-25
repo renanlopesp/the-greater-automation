@@ -27,7 +27,7 @@ import {
   type NuvemshopStore,
 } from './types'
 
-const NUVEMSHOP_API_BASE = 'https://api.nuvemshop.com.br/v1'
+const NUVEMSHOP_API_BASE = 'https://api.tiendanube.com/2025-03'
 const NUVEMSHOP_AUTH_URL = 'https://www.nuvemshop.com.br/apps/authorize/token'
 const MIN_REQUEST_INTERVAL = 500 // 500ms between requests (2 req/sec)
 const MAX_RETRIES = 3
@@ -329,15 +329,33 @@ export class NuvemshopClient {
     per_page?: number
     q?: string
     email?: string
+    fields?: string
   }): Promise<NuvemshopCustomer[]> {
     const query = new URLSearchParams()
     if (params?.page !== undefined) query.set('page', String(params.page))
     if (params?.per_page !== undefined) query.set('per_page', String(params.per_page))
     if (params?.q) query.set('q', params.q)
     if (params?.email) query.set('email', params.email)
+    query.set(
+      'fields',
+      params?.fields ??
+        'id,name,email,phone,identification,orders_count,total_spent,total_spent_currency,created_at,updated_at'
+    )
     const qs = query.toString() ? `?${query.toString()}` : ''
     const data = await this.request<unknown[]>(`/customers${qs}`)
     return data.map((item) => NuvemshopCustomerSchema.parse(item))
+  }
+
+  async getAllCustomers(): Promise<NuvemshopCustomer[]> {
+    const all: NuvemshopCustomer[] = []
+    let page = 1
+    while (true) {
+      const customers = await this.getCustomers({ page, per_page: 200 })
+      all.push(...customers)
+      if (customers.length < 200) break
+      page++
+    }
+    return all
   }
 
   async getCustomer(customerId: number): Promise<NuvemshopCustomer> {

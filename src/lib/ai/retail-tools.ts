@@ -945,16 +945,27 @@ export function buildRetailTools(
 
     STORE_QUERY_CUSTOMERS: {
       description:
-        'Search or list store customers. Use when user asks about customers, buyers, or "quem comprou?", "quantos clientes tenho?".',
+        'Search or list store customers. Supports sorting by most purchases or highest spend. Use when user asks about customers, buyers, top customers, "quem comprou?", "quantos clientes tenho?", "quem mais comprou?".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           search: { type: 'string', description: 'Search by name, email, or identification' },
           email: { type: 'string', description: 'Search by exact email' },
+          sort_by: {
+            type: 'string',
+            enum: ['total_spent', 'orders_count'],
+            description:
+              'Sort customers by total_spent or orders_count (descending). When set, fetches all customers to sort accurately.',
+          },
           limit: { type: 'number', description: 'Max results (default: 20)' },
         },
       }),
-      execute: async (params: { search?: string; email?: string; limit?: number }) => {
+      execute: async (params: {
+        search?: string
+        email?: string
+        sort_by?: string
+        limit?: number
+      }) => {
         const supabase = getClient()
         const { data: store } = await supabase
           .from('stores')
@@ -973,13 +984,40 @@ export function buildRetailTools(
         try {
           const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
           const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
-          const customers = await client.getCustomers({
-            q: params.search,
-            email: params.email,
-            per_page: params.limit ?? 20,
-          })
+
+          let customers
+          if (params.sort_by || (!params.search && !params.email)) {
+            // Fetch all customers for sorting or general listing
+            customers = await client.getAllCustomers()
+          } else {
+            customers = await client.getCustomers({
+              q: params.search,
+              email: params.email,
+              per_page: params.limit ?? 20,
+            })
+          }
+
+          // Apply search filter if fetched all
+          if (params.search && (params.sort_by || (!params.search && !params.email))) {
+            const needle = normalizeAccents(params.search)
+            customers = customers.filter(
+              (c) =>
+                normalizeAccents(c.name).includes(needle) ||
+                normalizeAccents(c.email).includes(needle)
+            )
+          }
+
+          // Sort
+          if (params.sort_by === 'orders_count') {
+            customers.sort((a, b) => b.orders_count - a.orders_count)
+          } else if (params.sort_by === 'total_spent') {
+            customers.sort((a, b) => parseFloat(b.total_spent) - parseFloat(a.total_spent))
+          }
+
+          const limited = customers.slice(0, params.limit ?? 20)
+
           return {
-            customers: customers.map((c) => ({
+            customers: limited.map((c) => ({
               id: c.id,
               name: c.name,
               email: c.email,
@@ -987,7 +1025,8 @@ export function buildRetailTools(
               orders_count: c.orders_count,
               total_spent: c.total_spent,
             })),
-            total: customers.length,
+            total_customers: customers.length,
+            showing: limited.length,
           }
         } catch (err) {
           return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
