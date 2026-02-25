@@ -75,6 +75,13 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 - **Never create one-off tools or database tables for automation logic.** If the workflow system lacks a capability, extend the workflow step types — don't bypass the system with custom code.
 - Retail tools (`STORE_QUERY_STOCK`, `STORE_QUERY_SALES`, `STORE_LIST_ORDERS`) are READ-ONLY data access tools for answering questions in chat. They are NOT for creating automations.
 
+## Git Workflow
+
+- **Never push directly to `main`.** Always create a feature branch and open a PR.
+- Use **one branch per session/task** (e.g., `fix/nuvemshop-variant-coercion`, `feat/price-monitor`). Group all related commits in the same branch — do NOT create a separate branch for each individual commit or sub-task.
+- Branch naming: `fix/short-description`, `feat/short-description`, `refactor/short-description`.
+- When work is done: push the branch, create a PR, and let the user merge.
+
 ## Scripts
 
 - `bun dev` - Start dev server
