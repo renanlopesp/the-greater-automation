@@ -199,7 +199,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       id: agent.id,
       name: agent.name,
       system_prompt: null, // prompt is handled by buildOrchestratorSystemPrompt
-      model: agent.model,
+      model: 'o3',
       temperature: agent.temperature,
       max_tokens: agent.max_tokens,
     }
