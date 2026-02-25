@@ -49,6 +49,7 @@ interface DashboardShellProps {
     last_sync_at: string | null
     settings: Record<string, unknown> | null
   } | null
+  orchestratorId?: string | null
   children: ReactNode
 }
 
@@ -90,6 +91,7 @@ export default function DashboardShell({
   defaultSidebarOpen = false,
   planData,
   storeData,
+  orchestratorId,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
@@ -124,6 +126,7 @@ export default function DashboardShell({
           userTeams={userTeams}
           usage={usage}
           planData={planData}
+          orchestratorId={orchestratorId}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onSwitchWorkspace={(name, transition) => {

@@ -209,6 +209,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: null,
       }
 
+  // Fetch orchestrator agent ID for "Chat" nav link in sidebar
+  let orchestratorId: string | null = null
+  if (activeTeamId) {
+    const { data: orchAgent } = await supabase
+      .from('agents')
+      .select('id')
+      .eq('team_id', activeTeamId)
+      .eq('is_orchestrator', true)
+      .limit(1)
+      .single()
+    orchestratorId = orchAgent?.id ?? null
+  }
+
   const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
 
   return (
@@ -225,6 +238,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         defaultSidebarOpen={sidebarOpen}
         planData={planData}
         storeData={storeData}
+        orchestratorId={orchestratorId}
       >
         {children}
       </DashboardShell>

@@ -294,6 +294,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_orchestrator: boolean
           max_tokens: number | null
           model: string | null
           name: string
@@ -315,6 +316,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_orchestrator?: boolean
           max_tokens?: number | null
           model?: string | null
           name: string
@@ -336,6 +338,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_orchestrator?: boolean
           max_tokens?: number | null
           model?: string | null
           name?: string

@@ -49,6 +49,7 @@ interface AppSidebarProps {
   userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
   planData?: PlanData | null
+  orchestratorId?: string | null
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
   onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
@@ -71,6 +72,7 @@ export default function AppSidebar({
   team,
   userTeams,
   planData,
+  orchestratorId,
   onOpenCommandMenu,
   onOpenSettings,
   onSwitchWorkspace,
@@ -100,9 +102,12 @@ export default function AppSidebar({
 
   const platformItems = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ...(orchestratorId
+      ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
+      : []),
     { label: 'Workspace', href: '/workspace', icon: FolderKanban },
     { label: 'Runs', href: '/runs', icon: Play },
-    { label: 'Messaging', href: '/messaging', icon: MessageCircle },
+    ...(!orchestratorId ? [{ label: 'Messaging', href: '/messaging', icon: MessageCircle }] : []),
   ]
 
   const toolItems = [
