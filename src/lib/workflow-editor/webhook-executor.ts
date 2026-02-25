@@ -590,6 +590,9 @@ export async function executeWorkflowSteps(
 
     if (stepOutput) {
       stepOutputs[`step_${step.position + 2}`] = { output: stepOutput }
+      // Add "prev" alias so templates can use {{prev.content}} or {{prev.field}}
+      // instead of the positional {{step_N.output.field}} syntax
+      stepOutputs['prev'] = stepOutput
     }
 
     if (stepStatus === 'failed') {

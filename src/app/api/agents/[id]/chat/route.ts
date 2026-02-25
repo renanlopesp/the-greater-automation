@@ -254,9 +254,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // 9. Build Relay virtual tools for skill management
-  // In 'chat' mode (no Composio workflows), exclude heavy workflow-builder tools to reduce tokens
+  // Retail agents need workflow tools (web scraping, notify) even without Composio apps.
+  // Only exclude heavy Composio-specific tools when there are no Composio apps AND no store.
+  const needsWorkflowTools = hasComposioApps || !!storeId
   const relayTools: Record<string, unknown> = {
-    ...buildSkillBuilderTools(agentId, user.id, agent.team_id, hasComposioApps ? 'full' : 'chat'),
+    ...buildSkillBuilderTools(
+      agentId,
+      user.id,
+      agent.team_id,
+      needsWorkflowTools ? 'full' : 'chat'
+    ),
     // Add retail tools (stock queries, price monitoring, etc.) when the team has a store
     ...(storeId && agent.team_id
       ? buildRetailTools(storeId, agent.team_id, undefined, user.id, imageAttachments)
@@ -264,13 +271,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // 10. Build system prompt
+  // Retail agents (with store, no Composio) get focused automation instructions (web scraping, notify, cron).
+  // Composio agents get full automation instructions (app events, composio_action, auth awareness).
+  // Agents with neither get no automation instructions.
+  const automationMode = hasComposioApps ? 'full' : storeId ? 'retail' : false
   const systemPrompt = buildAgentSystemPrompt(
     agentConfig,
     staticSkills,
     connectedApps,
     dynamicSkills,
     knowledgeSkills,
-    hasComposioApps
+    automationMode
   )
 
   // 11. Update agent status to 'running'

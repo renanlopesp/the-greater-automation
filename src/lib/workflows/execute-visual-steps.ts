@@ -612,6 +612,9 @@ export async function executeVisualWorkflowSteps(
       // Accumulate step output for context
       if (stepOutput) {
         stepOutputs[`step_${step.position + 2}`] = { output: stepOutput }
+        // Add "prev" alias so templates can use {{prev.content}} or {{prev.field}}
+        // instead of the positional {{step_N.output.field}} syntax
+        stepOutputs['prev'] = stepOutput
       }
 
       // If step failed, mark the entire run as failed

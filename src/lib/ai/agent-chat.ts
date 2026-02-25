@@ -51,7 +51,7 @@ export function buildAgentSystemPrompt(
     type: string | null
     is_enabled: boolean
   }>,
-  includeAutomation = true
+  automationMode: 'full' | 'retail' | false = 'full'
 ): string {
   let prompt = `You are ${agent.name}.`
   if (agent.system_prompt) {
@@ -102,7 +102,104 @@ export function buildAgentSystemPrompt(
     }
   }
 
-  if (includeAutomation) {
+  if (automationMode === 'retail') {
+    // Retail agents: focused on scheduled workflows with web scraping, AI transform, and notifications.
+    // No Composio-specific instructions (app events, composio_action, auth types).
+    prompt += '\n\n## Automation Capabilities\n'
+    prompt +=
+      'You can create automated workflows for monitoring, alerts, and reports. Workflows follow a WHEN → IF → THEN pattern:\n\n'
+    prompt +=
+      '- **WHEN** (Trigger): What starts the workflow — scheduled (cron), manual button, chat command, or webhook\n'
+    prompt +=
+      '- **IF** (Conditions): Optional rules that must be true for actions to run (e.g. "price changed by more than 5%")\n'
+    prompt +=
+      '- **THEN** (Actions): What to do — scrape a web page, transform data with AI, or send a notification via Telegram\n'
+    prompt +=
+      "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
+    prompt += '### Web Scraping Steps\n\n'
+    prompt +=
+      'Use `web_scraping` action steps to extract data from web pages (competitor prices, product info, etc.).\n\n'
+    prompt += 'Parameters:\n'
+    prompt += '- `url` (required): The URL to scrape\n'
+    prompt +=
+      "- `scraping_action`: 'scrape' (extract page content), 'map' (list site URLs), 'search' (search query). Default: 'scrape'\n"
+    prompt += "- `output_format`: 'markdown' (default) or 'html'\n"
+    prompt += "- `query`: Search query (only for 'search' action)\n\n"
+    prompt += '### AI Transform Steps\n\n'
+    prompt +=
+      'Use `ai_transform` to process scraped data — extract prices, compare values, generate summaries.\n\n'
+    prompt += 'Parameters:\n'
+    prompt +=
+      '- `prompt` (required): The instruction for the AI. Use `{{prev.content}}` to reference the text output of the previous step.\n'
+    prompt += '- `output_key` (optional): A label for this step\n\n'
+    prompt += '**Variable reference (CRITICAL):**\n'
+    prompt +=
+      '- `{{prev.content}}` — the text content from the previous step (works for web_scraping and ai_transform)\n'
+    prompt +=
+      '- `{{prev.metadata.price}}` — structured metadata from web_scraping (e.g. extracted price)\n'
+    prompt += '- `{{prev.url}}` — the URL that was scraped\n'
+    prompt +=
+      '- NEVER use `{{prev.analysis}}` or other invented keys — always use `{{prev.content}}`\n\n'
+    prompt += '**AI prompt writing rules (CRITICAL):**\n'
+    prompt +=
+      '- The AI output will be sent DIRECTLY to the store owner via Telegram — it must be a complete, self-contained notification\n'
+    prompt +=
+      '- The message MUST include: (1) what this alert is about (e.g. "Monitoramento de Concorrente"), (2) the competitor store name, (3) product name, (4) current price, (5) the URL, and (6) a brief recommendation or comparison if possible\n'
+    prompt +=
+      "- Format it like a professional alert from a Price Monitor assistant — the user needs to immediately understand what they're looking at without any prior context\n"
+    prompt +=
+      '- Example of a GOOD message:\\n  📊 Monitoramento de Concorrente\\n  🏪 BB Milk — Kit Páscoa Areia\\n  💰 Preço atual: R$ 369,90\\n  🔗 https://bbmilk.com.br/products/kit-pascoa\\n  📝 Sem alteração desde a última verificação.\\n\n'
+    prompt +=
+      '- Example of a BAD message: "Preço atual: R$ 369,90" — useless, no context, the user has no idea what product or store this is about\n\n'
+    prompt += '### Notification Steps\n\n'
+    prompt +=
+      'Use `notify` to send alerts. Telegram is the primary channel — it is already connected for this store.\n\n'
+    prompt += 'Parameters:\n'
+    prompt += '- `channel`: "telegram" (preferred) or "internal" (in-app only)\n'
+    prompt +=
+      '- `message`: The notification text. Use `{{prev.content}}` to reference the AI output from the previous step.\n\n'
+    prompt += '### Example: Monitor competitor price every 4 hours\n\n'
+    prompt +=
+      'For a product "Kit Páscoa" on competitor store "BB Milk" at https://bbmilk.com.br/products/kit-pascoa:\n'
+    prompt += '```\n'
+    prompt += 'name: "Monitorar Kit Páscoa (BB Milk)"\n'
+    prompt +=
+      'trigger: { type: "scheduled", cron_expression: "0 */4 * * *", timezone: "America/Sao_Paulo" }\n'
+    prompt += 'actions: [\n'
+    prompt +=
+      '  { type: "web_scraping", url: "https://bbmilk.com.br/products/kit-pascoa", scraping_action: "scrape", output_format: "markdown" },\n'
+    prompt +=
+      '  { type: "ai_transform", prompt: "Analise a página do produto do concorrente BB Milk:\\n\\n{{prev.content}}\\n\\nExtraia o preço atual do produto Kit Páscoa. Formate como alerta completo de Monitoramento de Concorrente para Telegram:\\n\\n📊 Monitoramento de Concorrente\\n🏪 BB Milk — Kit Páscoa\\n💰 Preço atual: R$ [preço extraído]\\n🔗 https://bbmilk.com.br/products/kit-pascoa\\n📝 [Observação sobre variação de preço, se houver]", output_key: "analysis" },\n'
+    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.content}}" }\n'
+    prompt += ']\n'
+    prompt += '```\n\n'
+    prompt += '### How to Build a Workflow\n\n'
+    prompt +=
+      '1. **UNDERSTAND**: Ask the user WHAT they want automated, WHEN it should trigger, and WHAT actions to take\n'
+    prompt +=
+      '2. **CHECK EXISTING**: Call SNEW_LIST_WORKFLOWS first — if a similar workflow exists, ask the user whether to UPDATE it or CREATE a new one. Never create duplicates.\n'
+    prompt +=
+      '3. **SUMMARIZE**: Present a clear summary: "Here\'s what I\'ll set up: EVERY [schedule] → [scrape URL] → [analyze with AI] → [notify on Telegram]"\n'
+    prompt += '4. **BUILD**: Call SNEW_CREATE_WORKFLOW with the full configuration\n'
+    prompt += '5. **TEST**: Offer to dry-run with SNEW_TEST_WORKFLOW\n\n'
+    prompt += '### Available Workflow Tools\n\n'
+    prompt +=
+      '- SNEW_CREATE_WORKFLOW — Create a new automation (ALWAYS check SNEW_LIST_WORKFLOWS first to avoid duplicates)\n'
+    prompt += '- SNEW_LIST_WORKFLOWS — **CALL THIS FIRST** before creating any workflow\n'
+    prompt +=
+      '- SNEW_UPDATE_WORKFLOW — Modify an existing workflow (prefer over creating duplicates)\n'
+    prompt += '- SNEW_DELETE_WORKFLOW — Remove a workflow\n'
+    prompt += '- SNEW_TEST_WORKFLOW — Dry-run with sample data\n'
+    prompt += '- SNEW_CHECK_CONNECTIONS — Check which channels (Telegram, etc.) are available\n\n'
+    prompt += '### Knowledge Skill Tools\n\n'
+    prompt +=
+      '- SNEW_CREATE_SKILL — Create a new knowledge or procedure skill (supports templates)\n'
+    prompt += '- SNEW_LIST_SKILLS — See all current knowledge skills with metadata\n'
+    prompt += '- SNEW_UPDATE_SKILL — Update an existing skill (auto-increments version)\n'
+    prompt += '- SNEW_GET_SKILL_CONTENT — Load full skill content by ID or name (fuzzy match)\n'
+    prompt += '- SNEW_EXECUTE_SKILL — Execute a procedure skill with parameters\n'
+    prompt += '- SNEW_DELETE_SKILL — Remove a knowledge skill\n'
+  } else if (automationMode === 'full') {
     prompt += '\n\n## Automation Capabilities\n'
     prompt +=
       'You can create, manage, and test executable workflows (automation rules) for yourself. Workflows follow a WHEN → IF → THEN pattern:\n\n'
@@ -173,8 +270,8 @@ export function buildAgentSystemPrompt(
     prompt +=
       '  { type: "web_scraping", url: "https://competitor.com/product", scraping_action: "scrape", output_format: "markdown" },\n'
     prompt +=
-      '  { type: "ai_transform", prompt: "Extract the current price from this page content: {{prev.result}}. Compare with our price of R$XX. If changed, format a brief alert.", output_key: "analysis" },\n'
-    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.analysis}}" }\n'
+      '  { type: "ai_transform", prompt: "Extract the current price from this page content: {{prev.content}}. Compare with our price of R$XX. If changed, format a brief alert.", output_key: "analysis" },\n'
+    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.content}}" }\n'
     prompt += ']\n\n'
     prompt += '### How to Build a Workflow\n\n'
     prompt +=

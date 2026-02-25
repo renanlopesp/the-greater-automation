@@ -1247,10 +1247,31 @@ export function buildSkillBuilderTools(
             scopes: composioDetails[row.app_id]?.scopes || null,
           }))
 
+          // Check for Telegram via SnewClaw (messaging_links) — not a Composio connection
+          // but available for workflow "notify" steps with channel: "telegram".
+          // Search by team_id so we find the team owner's link (not just the current user's).
+          const { data: messagingLink } = await supabase
+            .from('messaging_links')
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('channel_type', 'telegram')
+            .eq('is_verified', true)
+            .limit(1)
+            .maybeSingle()
+          if (messagingLink) {
+            connectedApps.push({
+              app_id: 'telegram',
+              account_label: 'Telegram (via messaging)',
+              is_own_connection: true,
+              auth_type: 'bot_token',
+              scopes: null,
+            })
+          }
+
           return {
             connected_apps: connectedApps,
             _hint:
-              'Apps with is_own_connection=true are yours. Apps with is_own_connection=false are connected by a team owner/admin and available to this agent. Check auth_type before creating workflows. OAuth user tokens have limited permissions — Bot/API Key connections generally have broader access.',
+              'Apps with is_own_connection=true are yours. Apps with is_own_connection=false are connected by a team owner/admin and available to this agent. Check auth_type before creating workflows. Telegram via messaging is available for workflow "notify" steps — no Composio connection needed.',
           }
         } catch {
           // Fallback to local DB — own connections only
@@ -1656,16 +1677,11 @@ export function buildSkillBuilderTools(
     },
   }
 
-  // In 'chat' mode, exclude heavy workflow-builder tools to reduce token count.
-  // Keeps: skill management tools + read-only workflow/connection listing.
+  // In 'chat' mode (no Composio apps), exclude Composio-specific tools to reduce
+  // token count but keep workflow tools — agents like Price Monitor need them to
+  // create automations (e.g. scheduled web scraping) even without Composio apps.
   if (toolMode === 'chat') {
-    const excluded = new Set([
-      'SNEW_LIST_APP_CAPABILITIES',
-      'SNEW_CREATE_WORKFLOW',
-      'SNEW_UPDATE_WORKFLOW',
-      'SNEW_DELETE_WORKFLOW',
-      'SNEW_TEST_WORKFLOW',
-    ])
+    const excluded = new Set(['SNEW_LIST_APP_CAPABILITIES'])
     return Object.fromEntries(Object.entries(allTools).filter(([name]) => !excluded.has(name)))
   }
 

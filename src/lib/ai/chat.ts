@@ -44,8 +44,24 @@ export async function executeAIStep(
   const systemPrompt = systemPrompts[config.ai_action]
 
   // Interpolate context variables in prompt template
+  // Supports both simple {{key}} and dot-notation {{key.field}} placeholders
   let userPrompt = config.prompt_template
   if (context) {
+    // First resolve dot-notation paths (e.g. {{prev.content}}, {{step_2.output.url}})
+    userPrompt = userPrompt.replace(/\{\{([\w.]+)\}\}/g, (match, path: string) => {
+      const keys = path.split('.')
+      let current: unknown = context
+      for (const k of keys) {
+        if (current == null || typeof current !== 'object') return match
+        current = (current as Record<string, unknown>)[k]
+      }
+      if (current === undefined) return match
+      return typeof current === 'object' && current !== null
+        ? JSON.stringify(current, null, 2)
+        : String(current)
+    })
+
+    // Then resolve simple {{key}} placeholders for any remaining
     for (const [key, value] of Object.entries(context)) {
       const placeholder = `{{${key}}}`
       const serialized =
