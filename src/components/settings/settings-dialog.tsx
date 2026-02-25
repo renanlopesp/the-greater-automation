@@ -10,6 +10,7 @@ import GeneralSection from '@/components/settings/general-section'
 import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
 import StoreSection from '@/components/settings/store-section'
+import MessagingSection from '@/components/settings/messaging-section'
 import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
 
 interface SettingsDialogProps {
@@ -100,6 +101,8 @@ export default function SettingsDialog({
             planData={planData}
           />
         )
+      case 'messaging':
+        return <MessagingSection />
       case 'store':
         return <StoreSection storeData={storeData} teamId={teamId} />
     }

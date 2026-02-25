@@ -14,7 +14,6 @@ import {
   Play,
   Plug,
   Search,
-  Send,
   Settings,
   Sun,
 } from 'lucide-react'
@@ -108,7 +107,6 @@ export default function AppSidebar({
       : []),
     { label: 'Workspace', href: '/workspace', icon: FolderKanban },
     { label: 'Runs', href: '/runs', icon: Play },
-    { label: 'Messaging', href: '/messaging', icon: Send },
   ]
 
   const toolItems = [
