@@ -193,6 +193,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       agentAppIds.add(tc.app_id)
     }
   }
+  // Also include apps the user has connected — so the agent can use them
+  // directly in chat, not only through workflow steps.
+  for (const app of connectedApps) {
+    agentAppIds.add(app.appId)
+  }
+
   // Extract image attachments from the latest user message for retail tools
   let imageAttachments: Array<{ url: string; mediaType: string }> | undefined
   if (body.messages && Array.isArray(body.messages)) {
@@ -236,18 +242,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const hasComposioApps = agentAppIds.size > 0
 
   // 8c. Build connected account map for Composio session (custom auth configs need explicit IDs)
+  // Query ALL team members' connections — not just the current user's — so agents
+  // can use connections made by any team member (e.g. JP connected GA, Renan chats).
+  // Also determine the Composio entity ID: Composio validates that connected accounts
+  // belong to the entity, so we must use the connection owner's user ID.
   let connectedAccountMap: Record<string, string> | undefined
+  let composioEntityId = user.id
   if (hasComposioApps) {
+    const userIds = [user.id]
+    if (agent.team_id) {
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', agent.team_id)
+      if (members) {
+        for (const m of members) {
+          if (m.user_id !== user.id) userIds.push(m.user_id)
+        }
+      }
+    }
+
     const { data: connRows } = await supabase
       .from('app_connections')
-      .select('app_id, composio_connection_id')
-      .eq('user_id', user.id)
+      .select('app_id, composio_connection_id, user_id')
+      .in('user_id', userIds)
       .in('app_id', [...agentAppIds])
     if (connRows && connRows.length > 0) {
       connectedAccountMap = {}
+      // Track connection owners to determine the Composio entity ID
+      const ownerCounts = new Map<string, number>()
       for (const row of connRows) {
         if (row.composio_connection_id) {
-          connectedAccountMap[row.app_id] = row.composio_connection_id
+          // Prefer current user's connection over team member's
+          if (!connectedAccountMap[row.app_id] || row.user_id === user.id) {
+            connectedAccountMap[row.app_id] = row.composio_connection_id
+          }
+          ownerCounts.set(row.user_id, (ownerCounts.get(row.user_id) ?? 0) + 1)
+        }
+      }
+      // Use the connection owner with the most connections as the Composio entity.
+      // Prefer the current user if they have any connections.
+      if (!ownerCounts.has(user.id) && ownerCounts.size > 0) {
+        let maxCount = 0
+        for (const [ownerId, count] of ownerCounts) {
+          if (count > maxCount) {
+            maxCount = count
+            composioEntityId = ownerId
+          }
         }
       }
     }
@@ -290,7 +331,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // 12. Run agent chat with Vercel AI SDK + Composio tools
   try {
     const result = await runAgentChat({
-      userId: user.id,
+      userId: composioEntityId,
       agent: agentConfig,
       messages: modelMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
       systemPrompt,

@@ -54,6 +54,7 @@ export async function initiateAppConnection(
           callback_url: callbackUrl,
           user_id: user.id,
           data: connectionData,
+          allow_multiple: true,
         },
       })
       connectionId = response.id
@@ -61,6 +62,7 @@ export async function initiateAppConnection(
     } else {
       const connectionRequest = await composio.connectedAccounts.initiate(user.id, authConfigId, {
         callbackUrl,
+        allowMultiple: true,
       })
       connectionId = connectionRequest.id
       const req = connectionRequest as unknown as Record<string, unknown>
