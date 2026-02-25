@@ -16,25 +16,20 @@ export async function POST() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get the user's team
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
+  // Fetch team and existing link in parallel (both only depend on user.id)
+  const [{ data: membership }, { data: existingLink }] = await Promise.all([
+    supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1).single(),
+    supabase
+      .from('messaging_links')
+      .select('id, is_verified, external_username')
+      .eq('user_id', user.id)
+      .eq('channel_type', 'telegram')
+      .single(),
+  ])
 
   if (!membership) {
     return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
   }
-
-  // Check if user already has a verified link — warn before overwriting
-  const { data: existingLink } = await supabase
-    .from('messaging_links')
-    .select('id, is_verified, external_username')
-    .eq('user_id', user.id)
-    .eq('channel_type', 'telegram')
-    .single()
 
   if (existingLink?.is_verified) {
     return NextResponse.json(

@@ -171,15 +171,13 @@ export const MessageBranch = ({
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>
 
 export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
-  const { currentBranch, setBranches, branches } = useMessageBranch()
+  const { currentBranch, setBranches } = useMessageBranch()
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children])
 
-  // Use useEffect to update branches when they change
+  // Sync branch count to context when children change
   useEffect(() => {
-    if (branches.length !== childrenArray.length) {
-      setBranches(childrenArray)
-    }
-  }, [childrenArray, branches, setBranches])
+    setBranches(childrenArray)
+  }, [childrenArray.length, setBranches])
 
   return childrenArray.map((branch, index) => (
     <div

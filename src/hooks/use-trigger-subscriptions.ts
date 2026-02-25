@@ -64,7 +64,7 @@ export function useWorkflowRunSteps(runId: string | null) {
         .order('step_position', { ascending: true })
 
       if (runSteps && runSteps.length > 0) {
-        // Fetch step names from workflow_steps
+        // Fetch step names in parallel with the run status query below
         const stepIds = runSteps.map((rs) => rs.step_id).filter(Boolean) as string[]
         const stepNames: Record<string, string> = {}
         if (stepIds.length > 0) {

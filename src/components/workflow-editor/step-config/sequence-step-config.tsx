@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -33,27 +34,18 @@ export default function SequenceStepConfigForm({
   onUpdate: (config: SequenceStepConfig) => void
 }) {
   const currentWorkflowId = useWorkflowEditorStore((s) => s.workflowId)
-  const [workflows, setWorkflows] = useState<WorkflowOption[]>([])
-  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
+  const { data: workflows = [], isLoading: loading } = useQuery({
+    queryKey: ['team-workflows', currentWorkflowId],
+    queryFn: async () => {
       const supabase = createBrowserClient()
-
       const { data: current } = await supabase
         .from('workflows')
         .select('team_id')
         .eq('id', currentWorkflowId)
         .single()
-
-      if (cancelled || !current) {
-        setLoading(false)
-        return
-      }
-
+      if (!current) return []
       const { data } = await supabase
         .from('workflows')
         .select('id, name, emoji, status')
@@ -62,18 +54,11 @@ export default function SequenceStepConfigForm({
         .neq('id', currentWorkflowId)
         .order('name', { ascending: true })
         .limit(50)
-
-      if (!cancelled) {
-        setWorkflows(data ?? [])
-        setLoading(false)
-      }
-    }
-
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [currentWorkflowId])
+      return (data ?? []) as WorkflowOption[]
+    },
+    enabled: !!currentWorkflowId,
+    staleTime: 30_000,
+  })
 
   const selected = workflows.find((w) => w.id === config.workflow_id)
 

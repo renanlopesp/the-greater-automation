@@ -63,10 +63,10 @@ export function useAgentChat(
   // Sync refs after render — refs must not be written during render (React 19)
   useEffect(() => {
     conversationIdRef.current = conversationId
-  })
+  }, [conversationId])
   useEffect(() => {
     onSkillMutationRef.current = options?.onSkillMutation
-  })
+  }, [options?.onSkillMutation])
 
   // Stable transport — recreated only when agentId changes.
   // body() is called during fetch (not render), so reading the ref there is safe.

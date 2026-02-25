@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Card,
   CardContent,
@@ -25,52 +26,26 @@ type LinkStatus =
     }
 
 export default function MessagingPage() {
-  const [linkStatus, setLinkStatus] = useState<LinkStatus | null>(null)
   const [code, setCode] = useState<string | null>(null)
   const [instructions, setInstructions] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [isUnlinking, setIsUnlinking] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  const fetchStatus = useCallback(async () => {
-    try {
+  const { data: linkStatus = null } = useQuery<LinkStatus>({
+    queryKey: ['messaging-link'],
+    queryFn: async () => {
       const res = await fetch('/api/messaging/link')
-      const data = await res.json()
-      setLinkStatus(data as LinkStatus)
-    } catch {
-      setError('Failed to load messaging status')
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchStatus()
-  }, [fetchStatus])
-
-  // Poll for verification while code is shown
-  useEffect(() => {
-    if (!code) return
-    let failures = 0
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/messaging/link')
-        if (!res.ok) throw new Error('Poll failed')
-        const data = (await res.json()) as LinkStatus
-        failures = 0 // reset on success
-        if (data.status === 'linked') {
-          setLinkStatus(data)
-          setCode(null)
-        }
-      } catch {
-        failures++
-        if (failures >= 5) {
-          clearInterval(interval)
-          setError('Verification polling failed. Please refresh the page.')
-        }
-      }
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [code])
+      const data = (await res.json()) as LinkStatus
+      // Stop polling when linked
+      if (data.status === 'linked') setCode(null)
+      return data
+    },
+    refetchInterval: code ? 3000 : false,
+    refetchIntervalInBackground: false,
+  })
 
   async function handleGenerateCode() {
     setIsGenerating(true)
@@ -86,7 +61,7 @@ export default function MessagingPage() {
       }
       setCode(data.code)
       setInstructions(data.instructions)
-      await fetchStatus()
+      queryClient.invalidateQueries({ queryKey: ['messaging-link'] })
     } catch {
       setError('Failed to generate code')
     } finally {
@@ -103,7 +78,7 @@ export default function MessagingPage() {
         setError('Failed to unlink')
         return
       }
-      setLinkStatus({ status: 'not_linked' })
+      queryClient.setQueryData(['messaging-link'], { status: 'not_linked' })
       setCode(null)
     } catch {
       setError('Failed to unlink')

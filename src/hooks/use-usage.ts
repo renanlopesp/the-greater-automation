@@ -44,10 +44,8 @@ export function useUsage(teamId: string | undefined, initial: UsageData): UsageD
       }
     }
 
-    // Initial client-side fetch
-    fetchUsage()
-
     // Subscribe to realtime updates on the usage table for this team
+    // Skip initial fetch — server-rendered `initial` data is already fresh
     const channel = supabase
       .channel(`usage-${teamId}`)
       .on(
@@ -67,7 +65,7 @@ export function useUsage(teamId: string | undefined, initial: UsageData): UsageD
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [teamId])
+  }, [teamId, initial])
 
   return usage
 }

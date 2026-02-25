@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
 import { Check, ChevronsUpDown, Linkedin, Loader2, Plus, Trash2, Zap } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -85,8 +86,6 @@ export function AppTriggerConfigForm({
   config: AppsTriggerConfig
   onUpdate: (config: AppsTriggerConfig) => void
 }) {
-  const [triggers, setTriggers] = useState<AvailableTrigger[]>([])
-  const [loadingTriggers, startLoadingTriggers] = useTransition()
   const [repoPickerOpen, setRepoPickerOpen] = useState(false)
 
   const { data: connectionsData, isLoading: isLoadingConnections } = useAppConnections()
@@ -103,6 +102,23 @@ export function AppTriggerConfigForm({
     const connectedIds = new Set(connections.map((c) => c.app_id))
     return composioApps.filter((app) => connectedIds.has(app.id))
   }, [connections, composioApps])
+
+  // Load triggers when app changes
+  const appId = config.app_id
+  const { data: triggers = [], isLoading: loadingTriggers } = useQuery({
+    queryKey: ['available-triggers', appId],
+    queryFn: async () => {
+      const result = await listAvailableTriggers(appId!)
+      return (result.triggers ?? []).map((t) => ({
+        slug: String(t.slug ?? ''),
+        name: String(t.name ?? t.slug ?? ''),
+        description: String(t.description ?? ''),
+        config_schema: (t.config_schema ?? {}) as Record<string, unknown>,
+      }))
+    },
+    enabled: !!appId,
+    staleTime: 60_000,
+  })
 
   const filterEntries = Object.entries(config.filters)
 
@@ -157,25 +173,6 @@ export function AppTriggerConfigForm({
     if (owner && repo) return `${owner}/${repo}`
     return ''
   }, [config.trigger_config?.owner, config.trigger_config?.repo])
-
-  // Load triggers when app changes
-  const appId = config.app_id
-  useEffect(() => {
-    if (!appId) return
-    startLoadingTriggers(async () => {
-      const result = await listAvailableTriggers(appId)
-      if (result.triggers) {
-        setTriggers(
-          result.triggers.map((t) => ({
-            slug: String(t.slug ?? ''),
-            name: String(t.name ?? t.slug ?? ''),
-            description: String(t.description ?? ''),
-            config_schema: (t.config_schema ?? {}) as Record<string, unknown>,
-          }))
-        )
-      }
-    })
-  }, [appId])
 
   // Clear triggers when app is deselected
   const triggersForApp = appId ? triggers : []

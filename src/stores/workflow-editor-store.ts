@@ -69,6 +69,9 @@ const initialState: WorkflowEditorState = {
 
 const MAX_UNDO_STACK = 50
 
+/** Capture only the workflow data state for undo/redo.
+ * Excludes undoStack/redoStack to prevent exponential memory growth,
+ * and excludes transient UI state (selectedStepId, isSaving, etc.). */
 function captureState(state: WorkflowEditorState): WorkflowEditorState {
   return {
     workflowId: state.workflowId,
@@ -85,8 +88,8 @@ function captureState(state: WorkflowEditorState): WorkflowEditorState {
     workflowStatus: state.workflowStatus,
     activeTab: state.activeTab,
     pendingRunId: state.pendingRunId,
-    undoStack: state.undoStack,
-    redoStack: state.redoStack,
+    undoStack: [],
+    redoStack: [],
   }
 }
 

@@ -35,25 +35,30 @@ export async function PATCH(request: NextRequest) {
     agent_notifications?: { daily_summary_enabled: boolean; report_hour: number }
   }
 
+  // Run independent writes in parallel
+  const writes: PromiseLike<unknown>[] = []
+
   // Update store info (name, segment, platform)
   if (body.name !== undefined || body.segment !== undefined || body.platform !== undefined) {
     const updates: Record<string, string> = {}
     if (body.name !== undefined) updates.name = body.name
     if (body.segment !== undefined) updates.segment = body.segment
     if (body.platform !== undefined) updates.platform = body.platform
-    await serviceClient.from('stores').update(updates).eq('id', store.id)
+    writes.push(serviceClient.from('stores').update(updates).eq('id', store.id))
   }
 
   // Update default alert threshold
   if (body.default_threshold !== undefined) {
-    await serviceClient.from('store_stock_alerts').upsert(
-      {
-        store_id: store.id,
-        product_id: null,
-        threshold: body.default_threshold,
-        is_enabled: true,
-      },
-      { onConflict: 'store_id,product_id' }
+    writes.push(
+      serviceClient.from('store_stock_alerts').upsert(
+        {
+          store_id: store.id,
+          product_id: null,
+          threshold: body.default_threshold,
+          is_enabled: true,
+        },
+        { onConflict: 'store_id,product_id' }
+      )
     )
   }
 
@@ -61,12 +66,16 @@ export async function PATCH(request: NextRequest) {
   if (body.settings) {
     const currentSettings = (store.settings ?? {}) as Record<string, unknown>
     const newSettings = { ...currentSettings, ...body.settings }
-    await serviceClient
-      .from('stores')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update({ settings: newSettings as any })
-      .eq('id', store.id)
+    writes.push(
+      serviceClient
+        .from('stores')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update({ settings: newSettings as any })
+        .eq('id', store.id)
+    )
   }
+
+  await Promise.all(writes)
 
   // Update Sales Analyst agent's notification_settings when daily summary settings change
   if (body.agent_notifications) {
