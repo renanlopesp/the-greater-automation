@@ -193,6 +193,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       agentAppIds.add(tc.app_id)
     }
   }
+  // Also include apps the user has connected — so the agent can use them
+  // directly in chat, not only through workflow steps.
+  for (const app of connectedApps) {
+    agentAppIds.add(app.appId)
+  }
+
   // Extract image attachments from the latest user message for retail tools
   let imageAttachments: Array<{ url: string; mediaType: string }> | undefined
   if (body.messages && Array.isArray(body.messages)) {
