@@ -70,7 +70,7 @@ export type NuvemshopProduct = z.infer<typeof NuvemshopProductSchema>
 // Nuvemshop order item
 export const NuvemshopOrderItemSchema = z.object({
   product_id: z.number().nullable(),
-  variant_id: z.number().nullable(),
+  variant_id: z.coerce.number().nullable(),
   name: z.string(),
   sku: z.string().nullable(),
   quantity: z.coerce.string(),
@@ -267,7 +267,7 @@ export const NuvemshopDraftOrderSchema = z.object({
   products: z
     .array(
       z.object({
-        variant_id: z.number(),
+        variant_id: z.coerce.number(),
         quantity: z.number(),
         price: z.string().optional(),
         name: z.string().optional(),
@@ -305,7 +305,7 @@ export const NuvemshopFulfillmentOrderSchema = z.object({
     .array(
       z.object({
         id: z.number(),
-        variant_id: z.number(),
+        variant_id: z.coerce.number(),
         product_id: z.number(),
         quantity: z.number(),
         name: z.string(),
