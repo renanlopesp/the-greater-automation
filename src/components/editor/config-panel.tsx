@@ -20,8 +20,10 @@ function useIsMobile() {
 }
 
 export default function ConfigPanel() {
-  const { selectedStepId, selectStep, isTriggerConfigOpen, closeTriggerConfig } =
-    useWorkflowEditorStore()
+  const selectedStepId = useWorkflowEditorStore((s) => s.selectedStepId)
+  const selectStep = useWorkflowEditorStore((s) => s.selectStep)
+  const isTriggerConfigOpen = useWorkflowEditorStore((s) => s.isTriggerConfigOpen)
+  const closeTriggerConfig = useWorkflowEditorStore((s) => s.closeTriggerConfig)
   const isMobile = useIsMobile()
 
   const isOpen = !!selectedStepId || isTriggerConfigOpen

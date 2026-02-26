@@ -11,7 +11,7 @@ import {
   XIcon,
   FileIcon,
 } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import {
   Conversation,
@@ -329,7 +329,10 @@ export default function ChatPanel({
   const hasMessages = messages.length > 0
 
   // Message feedback (like/dislike)
-  const assistantMessageIds = messages.filter((m) => m.role === 'assistant').map((m) => m.id)
+  const assistantMessageIds = useMemo(
+    () => messages.filter((m) => m.role === 'assistant').map((m) => m.id),
+    [messages]
+  )
   const { getFeedback, toggleFeedback } = useMessageFeedback(agentId, assistantMessageIds)
 
   // Register handler so the header button can trigger new chat
@@ -358,13 +361,12 @@ export default function ChatPanel({
   )
 
   // Find the last assistant message to know which one is streaming
-  let lastAssistantId: string | null = null
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'assistant') {
-      lastAssistantId = messages[i].id
-      break
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id
     }
-  }
+    return null
+  }, [messages])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

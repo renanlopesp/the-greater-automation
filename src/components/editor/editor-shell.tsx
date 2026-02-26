@@ -34,9 +34,14 @@ function useIsMobile() {
   )
 }
 
+const ASSISTANT_ICON_STYLE = { width: '43%', height: '43%' } as const
+
 export default function EditorShell() {
-  const { workflowId, isAssistantOpen, toggleAssistant, activeTab, setActiveTab } =
-    useWorkflowEditorStore()
+  const workflowId = useWorkflowEditorStore((s) => s.workflowId)
+  const isAssistantOpen = useWorkflowEditorStore((s) => s.isAssistantOpen)
+  const toggleAssistant = useWorkflowEditorStore((s) => s.toggleAssistant)
+  const activeTab = useWorkflowEditorStore((s) => s.activeTab)
+  const setActiveTab = useWorkflowEditorStore((s) => s.setActiveTab)
   const isMobile = useIsMobile()
 
   return (
@@ -111,7 +116,7 @@ export default function EditorShell() {
                   className="bg-primary text-primary-foreground ring-primary/20 fixed bottom-6 left-6 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ring-1 transition-all hover:scale-105 hover:shadow-xl"
                   aria-label="Open assistant"
                 >
-                  <svg viewBox="0 0 535 323" fill="none" style={{ width: '43%', height: '43%' }}>
+                  <svg viewBox="0 0 535 323" fill="none" style={ASSISTANT_ICON_STYLE}>
                     <path
                       d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
                       fill="currentColor"

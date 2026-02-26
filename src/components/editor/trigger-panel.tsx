@@ -11,9 +11,13 @@ import {
   isTriggerConfigComplete,
 } from '@/lib/workflow-editor/trigger-defaults'
 import { getTriggerMeta } from '@/lib/workflow-editor/trigger-metadata'
+import { cn } from '@/lib/utils'
 
 export default function TriggerPanel() {
-  const { trigger, setTrigger, isTriggerConfigOpen, openTriggerConfig } = useWorkflowEditorStore()
+  const trigger = useWorkflowEditorStore((s) => s.trigger)
+  const setTrigger = useWorkflowEditorStore((s) => s.setTrigger)
+  const isTriggerConfigOpen = useWorkflowEditorStore((s) => s.isTriggerConfigOpen)
+  const openTriggerConfig = useWorkflowEditorStore((s) => s.openTriggerConfig)
 
   const [selectorOpen, setSelectorOpen] = React.useState(false)
 
@@ -35,7 +39,10 @@ export default function TriggerPanel() {
   return (
     <>
       <Card
-        className={`w-full max-w-[520px] gap-0 overflow-hidden rounded-lg py-0 shadow-sm ${isTriggerConfigOpen ? 'ring-primary ring-2' : ''}`}
+        className={cn(
+          'w-full max-w-[520px] gap-0 overflow-hidden rounded-lg py-0 shadow-sm',
+          isTriggerConfigOpen && 'ring-primary ring-2'
+        )}
       >
         <div className="bg-muted/20 text-muted-foreground border-b px-5 py-3 text-sm font-medium">
           Add a step to start a run

@@ -13,8 +13,11 @@ import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { cn } from '@/lib/utils'
 
 export default function TopBar() {
-  const { workflowName, workflowEmoji, isStarred, setWorkflowName, toggleStar } =
-    useWorkflowEditorStore()
+  const workflowName = useWorkflowEditorStore((s) => s.workflowName)
+  const workflowEmoji = useWorkflowEditorStore((s) => s.workflowEmoji)
+  const isStarred = useWorkflowEditorStore((s) => s.isStarred)
+  const setWorkflowName = useWorkflowEditorStore((s) => s.setWorkflowName)
+  const toggleStar = useWorkflowEditorStore((s) => s.toggleStar)
 
   return (
     <div className="flex h-14 items-center gap-2 border-b px-4">
