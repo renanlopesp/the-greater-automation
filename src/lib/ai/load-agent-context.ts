@@ -105,16 +105,23 @@ export async function loadAgentContext(
     agentAppIds.add(app.appId)
   }
 
-  // Store detection
+  // Store detection + team members — parallelized (both depend only on agent.team_id)
   let storeId: string | null = null
-  if (agent.team_id) {
-    const { data: store } = await supabase
-      .from('stores')
-      .select('id, platform, platform_store_id')
-      .eq('team_id', agent.team_id)
-      .limit(1)
-      .single()
+  let connectedAccountMap: Record<string, string> | undefined
+  let composioEntityId = userId
 
+  if (agent.team_id) {
+    const [storeResult, membersResult] = await Promise.all([
+      supabase
+        .from('stores')
+        .select('id, platform, platform_store_id')
+        .eq('team_id', agent.team_id)
+        .limit(1)
+        .single(),
+      supabase.from('team_members').select('user_id').eq('team_id', agent.team_id),
+    ])
+
+    const store = storeResult.data
     if (store) {
       storeId = store.id
       if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
@@ -123,54 +130,46 @@ export async function loadAgentContext(
         }
       }
     }
-  }
 
-  const hasComposioApps = agentAppIds.size > 0
-
-  // Connected account map for Composio session
-  let connectedAccountMap: Record<string, string> | undefined
-  let composioEntityId = userId
-  if (hasComposioApps) {
-    const userIds = [userId]
-    if (agent.team_id) {
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('user_id')
-        .eq('team_id', agent.team_id)
-      if (members) {
-        for (const m of members) {
+    const hasComposioApps = agentAppIds.size > 0
+    if (hasComposioApps) {
+      const userIds = [userId]
+      if (membersResult.data) {
+        for (const m of membersResult.data) {
           if (m.user_id !== userId) userIds.push(m.user_id)
         }
       }
-    }
 
-    const { data: connRows } = await supabase
-      .from('app_connections')
-      .select('app_id, composio_connection_id, user_id')
-      .in('user_id', userIds)
-      .in('app_id', [...agentAppIds])
-    if (connRows && connRows.length > 0) {
-      connectedAccountMap = {}
-      const ownerCounts = new Map<string, number>()
-      for (const row of connRows) {
-        if (row.composio_connection_id) {
-          if (!connectedAccountMap[row.app_id] || row.user_id === userId) {
-            connectedAccountMap[row.app_id] = row.composio_connection_id
+      const { data: connRows } = await supabase
+        .from('app_connections')
+        .select('app_id, composio_connection_id, user_id')
+        .in('user_id', userIds)
+        .in('app_id', [...agentAppIds])
+      if (connRows && connRows.length > 0) {
+        connectedAccountMap = {}
+        const ownerCounts = new Map<string, number>()
+        for (const row of connRows) {
+          if (row.composio_connection_id) {
+            if (!connectedAccountMap[row.app_id] || row.user_id === userId) {
+              connectedAccountMap[row.app_id] = row.composio_connection_id
+            }
+            ownerCounts.set(row.user_id, (ownerCounts.get(row.user_id) ?? 0) + 1)
           }
-          ownerCounts.set(row.user_id, (ownerCounts.get(row.user_id) ?? 0) + 1)
         }
-      }
-      if (!ownerCounts.has(userId) && ownerCounts.size > 0) {
-        let maxCount = 0
-        for (const [ownerId, count] of ownerCounts) {
-          if (count > maxCount) {
-            maxCount = count
-            composioEntityId = ownerId
+        if (!ownerCounts.has(userId) && ownerCounts.size > 0) {
+          let maxCount = 0
+          for (const [ownerId, count] of ownerCounts) {
+            if (count > maxCount) {
+              maxCount = count
+              composioEntityId = ownerId
+            }
           }
         }
       }
     }
   }
+
+  const hasComposioApps = agentAppIds.size > 0
 
   // Build relay tools
   const needsWorkflowTools = hasComposioApps || !!storeId

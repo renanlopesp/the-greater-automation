@@ -265,40 +265,51 @@ async function AgentSidebarData({
 }) {
   const supabase = await createServerClient()
 
-  const [workflowsResult, recentRunsResult, connectionsResult, skillsResult, triggerSubsResult] =
-    await Promise.all([
-      supabase
-        .from('agent_workflows')
-        .select(
-          'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
-        )
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: true }),
+  const [
+    workflowsResult,
+    recentRunsResult,
+    connectionsResult,
+    skillsResult,
+    triggerSubsResult,
+    storeResult,
+  ] = await Promise.all([
+    supabase
+      .from('agent_workflows')
+      .select(
+        'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
+      )
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: true }),
 
-      supabase
-        .from('workflow_runs')
-        .select(
-          'id, status, steps_used, ai_credits_used, started_at, completed_at, trigger_data, trigger_type, error, workflow_id, workflows(name, emoji)'
-        )
-        .eq('agent_id', agentId)
-        .order('started_at', { ascending: false })
-        .limit(20),
+    supabase
+      .from('workflow_runs')
+      .select(
+        'id, status, steps_used, ai_credits_used, started_at, completed_at, trigger_data, trigger_type, error, workflow_id, workflows(name, emoji)'
+      )
+      .eq('agent_id', agentId)
+      .order('started_at', { ascending: false })
+      .limit(20),
 
-      supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
+    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
 
-      supabase
-        .from('agent_skills')
-        .select('id, name, description, content, source, is_enabled, type, parameters, version')
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: true }),
+    supabase
+      .from('agent_skills')
+      .select('id, name, description, content, source, is_enabled, type, parameters, version')
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: true }),
 
-      supabase
-        .from('trigger_subscriptions')
-        .select(
-          'id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count'
-        )
-        .eq('agent_id', agentId),
-    ])
+    supabase
+      .from('trigger_subscriptions')
+      .select('id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count')
+      .eq('agent_id', agentId),
+
+    supabase
+      .from('stores')
+      .select('platform, platform_store_id')
+      .eq('team_id', teamId)
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   // Transform workflows
   const workflows = (workflowsResult.data ?? []).map((w) => ({
@@ -338,12 +349,7 @@ async function AgentSidebarData({
   }
 
   // Also include the team's store platform (e.g. Shopify connected via Composio)
-  const { data: storeRow } = await supabase
-    .from('stores')
-    .select('platform, platform_store_id')
-    .eq('team_id', teamId)
-    .limit(1)
-    .maybeSingle()
+  const storeRow = storeResult.data
   if (storeRow?.platform && storeRow.platform !== 'manual' && storeRow.platform_store_id) {
     usedAppIds.add(storeRow.platform)
   }
