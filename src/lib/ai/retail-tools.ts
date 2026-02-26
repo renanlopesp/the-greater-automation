@@ -2632,22 +2632,26 @@ export function buildRetailTools(
             created_at: string
           }> = []
           let page = 1
-          while (true) {
-            const orders = await client.getOrders(page, 200, {
-              created_at_min: startDate.toISOString(),
-            })
-            for (const o of orders) {
-              allOrders.push({
-                products: (o.products ?? []).map((p) => ({
-                  product_id: p.product_id,
-                  name: p.name ?? 'Produto',
-                  quantity: String(p.quantity ?? '1'),
-                })),
-                created_at: o.created_at,
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
               })
+              for (const o of orders) {
+                allOrders.push({
+                  products: (o.products ?? []).map((p) => ({
+                    product_id: p.product_id,
+                    name: p.name ?? 'Produto',
+                    quantity: String(p.quantity ?? '1'),
+                  })),
+                  created_at: o.created_at,
+                })
+              }
+              if (orders.length < 200) break
+              page++
             }
-            if (orders.length < 200) break
-            page++
+          } catch {
+            // Nuvemshop returns 404 when there are no orders — treat as empty
           }
 
           if (allOrders.length === 0) {
