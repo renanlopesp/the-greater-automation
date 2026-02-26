@@ -2573,6 +2573,219 @@ export function buildRetailTools(
         }
       },
     },
+
+    STORE_FORECAST_DEMAND: {
+      description:
+        'Forecast product demand based on real sales history from the store API. Shows average daily sales, stock days remaining, restock urgency, and weekly trend. Use when the user asks about demand forecast, restock, "quando vai acabar?", "previsão de demanda", "preciso repor estoque?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Number of days of sales history to analyze (default: 30, max: 90)',
+          },
+          search: {
+            type: 'string',
+            description: 'Filter by product name (optional)',
+          },
+          urgent_only: {
+            type: 'boolean',
+            description: 'Only show products that will run out within 7 days (default: false)',
+          },
+          limit: { type: 'number', description: 'Max results (default: 20)' },
+        },
+      }),
+      execute: async (params: {
+        days?: number
+        search?: string
+        urgent_only?: boolean
+        limit?: number
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 30, 7), 90)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          // Fetch all orders in the analysis period
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            products: Array<{ product_id: number | null; name: string; quantity: string }>
+            created_at: string
+          }> = []
+          let page = 1
+          while (true) {
+            const orders = await client.getOrders(page, 200, {
+              created_at_min: startDate.toISOString(),
+            })
+            for (const o of orders) {
+              allOrders.push({
+                products: (o.products ?? []).map((p) => ({
+                  product_id: p.product_id,
+                  name: p.name ?? 'Produto',
+                  quantity: String(p.quantity ?? '1'),
+                })),
+                created_at: o.created_at,
+              })
+            }
+            if (orders.length < 200) break
+            page++
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `No orders found in the last ${historyDays} days. Need sales history to forecast demand.`,
+              orders_analyzed: 0,
+            }
+          }
+
+          // Aggregate: quantity sold per product per day
+          const productSales = new Map<
+            string,
+            { name: string; dailySales: Map<string, number>; totalQty: number }
+          >()
+
+          for (const order of allOrders) {
+            const day = order.created_at.slice(0, 10) // YYYY-MM-DD
+            for (const item of order.products) {
+              const key = item.name.toLowerCase().trim()
+              if (!productSales.has(key)) {
+                productSales.set(key, { name: item.name, dailySales: new Map(), totalQty: 0 })
+              }
+              const prod = productSales.get(key)!
+              const qty = parseInt(item.quantity, 10) || 1
+              prod.dailySales.set(day, (prod.dailySales.get(day) ?? 0) + qty)
+              prod.totalQty += qty
+            }
+          }
+
+          // Get current stock levels
+          const allProducts = await client.getAllProducts()
+          const stockMap = new Map<string, { stock: number; price: number }>()
+          for (const p of allProducts) {
+            const totalStock = (p.variants ?? []).reduce((sum, v) => sum + (v.stock ?? 0), 0)
+            const pName = p.name?.pt ?? p.name?.es ?? p.name?.en ?? 'Sem nome'
+            stockMap.set(pName.toLowerCase().trim(), {
+              stock: totalStock,
+              price: parseFloat(String(p.variants?.[0]?.price ?? '0')),
+            })
+          }
+
+          // Compute forecasts
+          const now = new Date()
+          const forecasts: Array<{
+            product: string
+            avg_daily_sales: number
+            total_sold: number
+            current_stock: number
+            days_until_stockout: number | null
+            urgency: string
+            trend: string
+            price: number
+          }> = []
+
+          for (const [key, data] of productSales) {
+            if (params.search && !key.includes(params.search.toLowerCase())) continue
+
+            const avgDaily = data.totalQty / historyDays
+            const stockInfo = stockMap.get(key)
+            const currentStock = stockInfo?.stock ?? 0
+            const daysUntilOut = avgDaily > 0 ? Math.round(currentStock / avgDaily) : null
+
+            // Weekly trend: compare last 7 days vs previous 7 days
+            let recentQty = 0
+            let previousQty = 0
+            for (const [day, qty] of data.dailySales) {
+              const dayDate = new Date(day)
+              const daysAgo = Math.floor(
+                (now.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24)
+              )
+              if (daysAgo <= 7) recentQty += qty
+              else if (daysAgo <= 14) previousQty += qty
+            }
+
+            let trend = 'stable'
+            if (previousQty > 0) {
+              const change = ((recentQty - previousQty) / previousQty) * 100
+              if (change > 20) trend = `↑ growing (+${Math.round(change)}%)`
+              else if (change < -20) trend = `↓ declining (${Math.round(change)}%)`
+            } else if (recentQty > 0) {
+              trend = '↑ new demand'
+            }
+
+            let urgency = 'ok'
+            if (daysUntilOut !== null) {
+              if (daysUntilOut <= 3) urgency = '🔴 critical'
+              else if (daysUntilOut <= 7) urgency = '🟡 restock soon'
+              else if (daysUntilOut <= 14) urgency = '🟢 monitor'
+            }
+
+            if (params.urgent_only && daysUntilOut !== null && daysUntilOut > 7) continue
+
+            forecasts.push({
+              product: data.name,
+              avg_daily_sales: Math.round(avgDaily * 10) / 10,
+              total_sold: data.totalQty,
+              current_stock: currentStock,
+              days_until_stockout: daysUntilOut,
+              urgency,
+              trend,
+              price: stockInfo?.price ?? 0,
+            })
+          }
+
+          // Sort by urgency (lowest days_until_stockout first)
+          forecasts.sort((a, b) => {
+            const da = a.days_until_stockout ?? 9999
+            const db = b.days_until_stockout ?? 9999
+            return da - db
+          })
+
+          const maxResults = params.limit ?? 20
+          const critical = forecasts.filter((f) => f.urgency.includes('critical')).length
+          const restockSoon = forecasts.filter((f) => f.urgency.includes('restock')).length
+
+          return {
+            period: `Last ${historyDays} days`,
+            orders_analyzed: allOrders.length,
+            products_with_sales: productSales.size,
+            alerts: {
+              critical_stockout: critical,
+              restock_soon: restockSoon,
+            },
+            forecasts: forecasts.slice(0, maxResults).map((f) => ({
+              product: f.product,
+              avg_daily_sales: f.avg_daily_sales,
+              total_sold_period: f.total_sold,
+              current_stock: f.current_stock,
+              days_until_stockout: f.days_until_stockout,
+              urgency: f.urgency,
+              trend: f.trend,
+            })),
+          }
+        } catch (err) {
+          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
   }
 }
 
