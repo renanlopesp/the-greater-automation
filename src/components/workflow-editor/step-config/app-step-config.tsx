@@ -38,6 +38,7 @@ import type { ComposioAppAction } from '@/lib/composio/actions/get-app-actions'
 import { cn } from '@/lib/utils'
 
 const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
+const EMPTY_ITEMS: { label: string; value: string }[] = []
 
 // --- Action type icon mapping ---
 
@@ -191,7 +192,7 @@ function DynamicField({ appId, param, override, value, inputs, onChange }: Dynam
     dependenciesMet
   )
 
-  const items = resourceData?.items ?? []
+  const items = resourceData?.items ?? EMPTY_ITEMS
 
   // Render searchable combobox for select fields
   if (override?.type === 'select') {

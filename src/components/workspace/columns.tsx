@@ -34,8 +34,8 @@ import type {
 export interface ColumnMeta {
   userId: string
   memberNameById: Map<string, string | null>
-  expandedAgentIds: Set<string>
-  expandedFolderIds: Set<string>
+  isAgentExpanded: (id: string) => boolean
+  isFolderExpanded: (id: string) => boolean
   onToggleExpand: (id: string) => void
   onToggleFolderExpand: (id: string) => void
   onDeleteWorkflow?: (id: string, name: string) => void
@@ -177,7 +177,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
 
         if (item.type === 'folder') {
           const folder = item as WorkspaceFolder
-          const isExpanded = meta.expandedFolderIds.has(folder.id)
+          const isExpanded = meta.isFolderExpanded(folder.id)
           return (
             <div className="flex items-center gap-2">
               <button
@@ -208,7 +208,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
 
         if (item.type === 'agent') {
           const agent = item as WorkspaceAgent
-          const isExpanded = meta.expandedAgentIds.has(agent.id)
+          const isExpanded = meta.isAgentExpanded(agent.id)
           return (
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => meta.onToggleExpand(agent.id)} className="p-0.5">
