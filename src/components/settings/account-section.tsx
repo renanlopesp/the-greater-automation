@@ -12,7 +12,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { updateProfileAction } from '@/lib/actions/settings'
 import { uploadAvatarAction } from '@/lib/actions/avatar'
 import { accountSettingsSchema, type AccountSettingsValues } from '@/lib/schemas/settings'
-import AvatarCropDialog from '@/components/settings/avatar-crop-dialog'
+import dynamic from 'next/dynamic'
+
+const AvatarCropDialog = dynamic(() => import('@/components/settings/avatar-crop-dialog'), {
+  ssr: false,
+})
 
 interface AccountSectionProps {
   fullName: string

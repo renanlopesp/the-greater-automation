@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { cjk } from '@streamdown/cjk'
 import { code } from '@streamdown/code'
 import { math } from '@streamdown/math'
-import { mermaid } from '@streamdown/mermaid'
 import { BrainIcon, ChevronDownIcon } from 'lucide-react'
 import {
   createContext,
@@ -20,9 +19,23 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Streamdown } from 'streamdown'
+import { type DiagramPlugin, Streamdown } from 'streamdown'
 
 import { Shimmer } from './shimmer'
+
+// Mermaid is large (~200KB gz) — load asynchronously
+let _mermaid: DiagramPlugin | undefined
+const _mermaidPromise = import('@streamdown/mermaid').then((m) => {
+  _mermaid = m.mermaid as DiagramPlugin
+})
+
+function useMermaidPlugin() {
+  const [ready, setReady] = useState(!!_mermaid)
+  useEffect(() => {
+    if (!ready) _mermaidPromise.then(() => setReady(true))
+  }, [ready])
+  return ready ? _mermaid : undefined
+}
 
 interface ReasoningContextValue {
   isStreaming: boolean
@@ -189,22 +202,26 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
   children: string
 }
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const basePlugins = { cjk, code, math }
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      'mt-4 text-sm',
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground data-[state=closed]:animate-out data-[state=open]:animate-in outline-none',
-      className
-    )}
-    {...props}
-  >
-    <Streamdown plugins={streamdownPlugins} {...props}>
-      {children}
-    </Streamdown>
-  </CollapsibleContent>
-))
+export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => {
+  const mermaid = useMermaidPlugin()
+  const plugins = useMemo(() => (mermaid ? { ...basePlugins, mermaid } : basePlugins), [mermaid])
+  return (
+    <CollapsibleContent
+      className={cn(
+        'mt-4 text-sm',
+        'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground data-[state=closed]:animate-out data-[state=open]:animate-in outline-none',
+        className
+      )}
+      {...props}
+    >
+      <Streamdown plugins={plugins} {...props}>
+        {children}
+      </Streamdown>
+    </CollapsibleContent>
+  )
+})
 
 Reasoning.displayName = 'Reasoning'
 ReasoningTrigger.displayName = 'ReasoningTrigger'
