@@ -20,7 +20,7 @@ export default function StepsPanel() {
   const reorderSteps = useWorkflowEditorStore((s) => s.reorderSteps)
   const [stepSelectorOpen, setStepSelectorOpen] = useState(false)
 
-  const sortedSteps = useMemo(() => [...steps].sort((a, b) => a.position - b.position), [steps])
+  const sortedSteps = useMemo(() => steps.toSorted((a, b) => a.position - b.position), [steps])
 
   function handleStepSelect(type: StepType) {
     const meta = getStepMeta(type)

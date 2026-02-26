@@ -188,8 +188,8 @@ export default function MembersSection({
             No team members yet. Invite someone to get started.
           </p>
         ) : (
-          [...members]
-            .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9))
+          members
+            .toSorted((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9))
             .map((member) => {
               const isSelf = member.id === currentUserId
               const canChangeRole = isOwner && !isSelf && member.role !== 'owner'

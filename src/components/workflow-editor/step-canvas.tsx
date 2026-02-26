@@ -28,7 +28,7 @@ export default function StepCanvas() {
   const [triggerSelectorOpen, setTriggerSelectorOpen] = useState(false)
   const [stepSelectorOpen, setStepSelectorOpen] = useState(false)
 
-  const sortedSteps = useMemo(() => [...steps].sort((a, b) => a.position - b.position), [steps])
+  const sortedSteps = useMemo(() => steps.toSorted((a, b) => a.position - b.position), [steps])
   const showConnectorAfterTrigger = trigger !== null || steps.length > 0
 
   function handleTriggerSelect(type: Parameters<typeof getTriggerDefaultConfig>[0]) {

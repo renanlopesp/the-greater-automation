@@ -36,6 +36,14 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
     return map
   }, [availableApps])
 
+  const connectionsMap = useMemo(() => {
+    const map = new Map<string, (typeof connections)[number]>()
+    for (const conn of connections) {
+      map.set(conn.app_id, conn)
+    }
+    return map
+  }, [connections])
+
   // Build a lookup from the dynamic Composio apps catalog
   const composioAppsMap = useMemo(() => {
     const map = new Map<string, ComposioApp>()
@@ -88,10 +96,6 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
     toast.success('App disconnected successfully')
   }
 
-  function getConnectionForApp(appId: string) {
-    return connections.find((conn) => conn.app_id === appId)
-  }
-
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
       <h2 className="text-lg font-semibold">Manage apps</h2>
@@ -127,7 +131,7 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
           </p>
         ) : (
           filtered.map((app) => {
-            const connection = getConnectionForApp(app.id)
+            const connection = connectionsMap.get(app.id)
             return (
               <AppIntegrationRow
                 key={app.id}
