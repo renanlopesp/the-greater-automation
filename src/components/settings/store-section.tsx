@@ -85,6 +85,12 @@ export default function StoreSection({ storeData, teamId }: StoreSectionProps) {
   )
   const [dailySummary, setDailySummary] = useState(settings.daily_summary_enabled !== false)
   const [summaryHour, setSummaryHour] = useState(String(settings.daily_summary_hour ?? 21))
+  const [abandonedCartNotifications, setAbandonedCartNotifications] = useState(
+    settings.abandoned_cart_notifications_enabled !== false
+  )
+  const [abandonedCartDelay, setAbandonedCartDelay] = useState(
+    String(settings.abandoned_cart_delay_minutes ?? 60)
+  )
   const [savingNotifications, setSavingNotifications] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [shopifySubdomain, setShopifySubdomain] = useState('')
@@ -149,6 +155,8 @@ export default function StoreSection({ storeData, teamId }: StoreSectionProps) {
             order_notifications_enabled: orderNotifications,
             daily_summary_enabled: dailySummary,
             daily_summary_hour: parseInt(summaryHour),
+            abandoned_cart_notifications_enabled: abandonedCartNotifications,
+            abandoned_cart_delay_minutes: parseInt(abandonedCartDelay),
           },
           // Also update Sales Analyst agent's notification_settings
           agent_notifications: {
@@ -407,6 +415,34 @@ export default function StoreSection({ storeData, teamId }: StoreSectionProps) {
           </div>
           <Switch checked={dailySummary} onCheckedChange={setDailySummary} />
         </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm">Abandoned cart alerts</p>
+            <p className="text-muted-foreground text-xs">
+              Notify when a customer abandons checkout
+            </p>
+          </div>
+          <Switch
+            checked={abandonedCartNotifications}
+            onCheckedChange={setAbandonedCartNotifications}
+          />
+        </div>
+        {abandonedCartNotifications && (
+          <div className="flex flex-col gap-2">
+            <Label>Minimum abandonment time</Label>
+            <Select value={abandonedCartDelay} onValueChange={setAbandonedCartDelay}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 min</SelectItem>
+                <SelectItem value="60">1 hour</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
+                <SelectItem value="240">4 hours</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {dailySummary && (
           <div className="flex flex-col gap-2">
             <Label>Summary time</Label>

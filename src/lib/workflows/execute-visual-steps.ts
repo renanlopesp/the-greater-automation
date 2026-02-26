@@ -615,6 +615,38 @@ export async function executeVisualWorkflowSteps(
         // Add "prev" alias so templates can use {{prev.content}} or {{prev.field}}
         // instead of the positional {{step_N.output.field}} syntax
         stepOutputs['prev'] = stepOutput
+
+        // Price monitor hook: persist scraped price when an AI step extracts a price
+        // from a workflow linked to a store_price_monitors entry
+        if (step.type === 'ai' && stepStatus === 'completed') {
+          try {
+            const { data: linkedMonitor } = await supabase
+              .from('store_price_monitors')
+              .select('id')
+              .eq('workflow_id', workflowId)
+              .eq('is_active', true)
+              .limit(1)
+              .single()
+
+            if (linkedMonitor) {
+              const content = (stepOutput as Record<string, unknown>)?.content
+              if (typeof content === 'string') {
+                const { extractPriceFromText, persistScrapedPrice } =
+                  await import('@/lib/retail/price-monitor')
+                const price = extractPriceFromText(content)
+                if (price !== null) {
+                  const result = await persistScrapedPrice(linkedMonitor.id, price)
+                  if (result.alert) {
+                    // Inject alert into step output so the next telegram step picks it up
+                    ;(stepOutput as Record<string, unknown>).price_alert = result.alert
+                  }
+                }
+              }
+            }
+          } catch {
+            // Non-critical — don't fail the workflow
+          }
+        }
       }
 
       // If step failed, mark the entire run as failed

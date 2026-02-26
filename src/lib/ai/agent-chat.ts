@@ -551,6 +551,9 @@ export interface AgentChatOptions {
    *  Use for progressive messaging (Telegram, WhatsApp) — sends intermediate
    *  updates like "I'll sync now" immediately while tools execute in the background. */
   onIntermediateMessage?: (text: string) => Promise<void>
+  /** Called when stream generation completes (before response closes).
+   *  Use for persisting assistant messages — fires earlier than after(). */
+  onFinish?: (event: { text: string; usage: { totalTokens: number } }) => Promise<void>
 }
 
 /**
@@ -602,6 +605,19 @@ export async function runAgentChat(options: AgentChatOptions) {
       ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
       : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
+    ...(options.onFinish
+      ? {
+          onFinish: async (event: {
+            text: string
+            totalUsage: { totalTokens: number | undefined }
+          }) => {
+            await options.onFinish!({
+              text: event.text,
+              usage: { totalTokens: event.totalUsage.totalTokens ?? 0 },
+            })
+          },
+        }
+      : {}),
   })
 
   return result

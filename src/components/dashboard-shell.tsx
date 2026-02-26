@@ -78,6 +78,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/workspace')) return 'Workspace'
   if (pathname.startsWith('/runs')) return 'Runs'
   if (pathname.startsWith('/agents')) return 'Agent Detail'
+  if (pathname.startsWith('/products')) return 'Products'
   return 'Dashboard'
 }
 
@@ -134,6 +135,7 @@ export default function DashboardShell({
           usage={usage}
           planData={planData}
           orchestratorId={orchestratorId}
+          hasStore={!!storeData}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onSwitchWorkspace={(name, transition) => {

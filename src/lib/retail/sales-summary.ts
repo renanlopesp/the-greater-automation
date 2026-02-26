@@ -12,6 +12,11 @@ interface SalesSummary {
     revenue: number
     changePercent: number
   }
+  margin?: {
+    grossProfit: number
+    averageMarginPct: number
+    lowestMarginProduct?: { name: string; marginPct: number }
+  }
 }
 
 /**
@@ -82,7 +87,60 @@ export async function buildSalesSummary(storeId: string, date?: string): Promise
           : 0,
   }
 
-  return { date: targetDate, ordersCount, revenue, currency, topProducts, comparison }
+  // Calculate margin data if cost_price is available
+  let margin: SalesSummary['margin']
+  if (ordersCount > 0) {
+    // Get products with cost_price for margin calculation
+    const { data: productsWithCost } = await supabase
+      .from('store_products')
+      .select('name, price, cost_price')
+      .eq('store_id', storeId)
+      .not('cost_price', 'is', null)
+
+    if (productsWithCost && productsWithCost.length > 0) {
+      const costMap = new Map<string, { price: number; cost: number }>()
+      for (const p of productsWithCost) {
+        if (p.price && p.cost_price) {
+          costMap.set(p.name, { price: Number(p.price), cost: Number(p.cost_price) })
+        }
+      }
+
+      let grossProfit = 0
+      let marginItems = 0
+      let lowestMargin: { name: string; marginPct: number } | undefined
+      const soldProductMargins: Array<{ name: string; marginPct: number }> = []
+
+      for (const order of orders ?? []) {
+        const items = order.items as Array<{ name: string; quantity: number; price: number }> | null
+        if (!items) continue
+        for (const item of items) {
+          const costInfo = costMap.get(item.name)
+          if (costInfo) {
+            const profit = (item.price - costInfo.cost) * item.quantity
+            grossProfit += profit
+            marginItems += item.quantity
+            const marginPct = item.price > 0 ? ((item.price - costInfo.cost) / item.price) * 100 : 0
+            soldProductMargins.push({ name: item.name, marginPct })
+          }
+        }
+      }
+
+      if (marginItems > 0) {
+        const avgMargin =
+          soldProductMargins.reduce((sum, p) => sum + p.marginPct, 0) / soldProductMargins.length
+        const sorted = [...soldProductMargins].sort((a, b) => a.marginPct - b.marginPct)
+        lowestMargin = sorted[0]
+
+        margin = {
+          grossProfit,
+          averageMarginPct: avgMargin,
+          lowestMarginProduct: lowestMargin,
+        }
+      }
+    }
+  }
+
+  return { date: targetDate, ordersCount, revenue, currency, topProducts, comparison, margin }
 }
 
 /**
@@ -119,6 +177,18 @@ export function formatSalesSummaryMessage(storeName: string, summary: SalesSumma
     lines.push(
       `${arrow} ${sign}${change.toFixed(1)}% vs. yesterday (${fmt(summary.comparison.revenue)})`
     )
+  }
+
+  if (summary.margin) {
+    lines.push('')
+    lines.push(
+      `💵 Lucro bruto estimado: *${fmt(summary.margin.grossProfit)}* (margem média: ${summary.margin.averageMarginPct.toFixed(1)}%)`
+    )
+    if (summary.margin.lowestMarginProduct) {
+      lines.push(
+        `⚠️ Menor margem vendida hoje: ${summary.margin.lowestMarginProduct.name} (${summary.margin.lowestMarginProduct.marginPct.toFixed(1)}%)`
+      )
+    }
   }
 
   return lines.join('\n')
