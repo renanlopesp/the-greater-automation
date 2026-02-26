@@ -179,7 +179,7 @@ describe('ChatPanel', () => {
       expect(screen.getByText('Help me')).toBeInTheDocument()
     })
 
-    it('should not show starters when messages exist', () => {
+    it('should show starters even when messages exist', () => {
       mockChatState({
         messages: [
           {
@@ -191,7 +191,7 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('suggestion')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('suggestion')).toHaveLength(2)
     })
 
     it('should not show empty state when messages exist', () => {

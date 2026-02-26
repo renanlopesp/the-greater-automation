@@ -411,8 +411,8 @@ export default function ChatPanel({
       {/* Prompt input area */}
       <div className="bg-background border-t px-4 py-3">
         <div className="mx-auto max-w-3xl">
-          {/* Suggestion chips when no messages */}
-          {!hasMessages && conversationStarters.length > 0 && (
+          {/* Suggestion chips — always visible */}
+          {conversationStarters.length > 0 && (
             <div className="mb-3">
               <Suggestions>
                 {conversationStarters.map((starter) => (

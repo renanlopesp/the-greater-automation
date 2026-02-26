@@ -76,10 +76,10 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
   // Orchestrator conversation starters
   const orchestratorStarters = [
-    "How's my stock?",
-    "Show today's sales",
-    'Recent orders',
-    'Create an agent',
+    'Como está meu estoque?',
+    'Vendas de hoje',
+    'Previsão de demanda',
+    'Pedidos recentes',
   ]
 
   const conversationStarters = isOrchestrator

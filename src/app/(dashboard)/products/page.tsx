@@ -15,12 +15,17 @@ export default async function ProductsPage() {
   const activeTeamId = await getActiveTeamId(supabase, user.id)
   if (!activeTeamId) redirect('/dashboard')
 
-  // Get store for this team
-  const { data: store } = await supabase
-    .from('stores')
-    .select('id, name')
-    .eq('team_id', activeTeamId)
-    .single()
+  // Get store + orchestrator in parallel
+  const [{ data: store }, { data: orchestrator }] = await Promise.all([
+    supabase.from('stores').select('id, name').eq('team_id', activeTeamId).single(),
+    supabase
+      .from('agents')
+      .select('id')
+      .eq('team_id', activeTeamId)
+      .eq('is_orchestrator', true)
+      .limit(1)
+      .single(),
+  ])
 
   if (!store) redirect('/dashboard')
 
@@ -32,5 +37,12 @@ export default async function ProductsPage() {
     .eq('is_published', true)
     .order('name')
 
-  return <ProductsClient products={products ?? []} storeId={store.id} storeName={store.name} />
+  return (
+    <ProductsClient
+      products={products ?? []}
+      storeId={store.id}
+      storeName={store.name}
+      chatAgentId={orchestrator?.id ?? null}
+    />
+  )
 }

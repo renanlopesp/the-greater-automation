@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import {
   Loader2,
   Filter,
@@ -14,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  TrendingUp,
+  MessageCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -51,6 +54,7 @@ interface ProductsClientProps {
   products: Product[]
   storeId: string
   storeName: string
+  chatAgentId: string | null
 }
 
 type SortKey = 'name' | 'sku' | 'price' | 'cost_price' | 'margin_pct' | 'margin_value'
@@ -69,6 +73,7 @@ export default function ProductsClient({
   products: initial,
   storeId,
   storeName,
+  chatAgentId,
 }: ProductsClientProps) {
   const [products, setProducts] = useState(initial)
   const [search, setSearch] = useState('')
@@ -472,6 +477,25 @@ export default function ProductsClient({
           </p>
         </div>
       </div>
+
+      {/* Demand Forecast CTA */}
+      {chatAgentId && (
+        <Link
+          href={`/agents/${chatAgentId}`}
+          className="bg-muted/50 hover:bg-muted flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
+        >
+          <div className="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+            <TrendingUp className="text-primary h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Previsão de demanda</p>
+            <p className="text-muted-foreground text-xs">
+              Pergunte ao Snew quais produtos vão acabar primeiro e quando repor estoque.
+            </p>
+          </div>
+          <MessageCircle className="text-muted-foreground h-4 w-4 shrink-0" />
+        </Link>
+      )}
 
       {/* Filters row */}
       <div className="flex flex-wrap items-center gap-2">
