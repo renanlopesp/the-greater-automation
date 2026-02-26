@@ -13,6 +13,11 @@ type ActionResult = { error?: string }
 
 export async function getAgentWorkflows(agentId: string) {
   const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data } = await supabase
     .from('agent_workflows')
     .select(

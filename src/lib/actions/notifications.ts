@@ -116,6 +116,19 @@ export async function createNotification(params: {
   message?: string
 }): Promise<{ id?: string; error?: string }> {
   const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Verify caller is a member of the target team
+  const { data: membership } = await supabase
+    .from('team_members')
+    .select('team_id')
+    .eq('user_id', user.id)
+    .eq('team_id', params.teamId)
+    .single()
+  if (!membership) return { error: 'Not a member of this team' }
 
   const { data, error } = await supabase
     .from('notifications')
