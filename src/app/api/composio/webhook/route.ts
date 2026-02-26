@@ -210,31 +210,22 @@ async function processWorkflows(
           }
         }
 
-        // 3. Load the workflow and check status
-        const { data: workflow } = await supabase
-          .from('workflows')
-          .select('id, status, created_by, name, team_id')
-          .eq('id', vt.workflow_id)
-          .single()
+        // 3. Load the workflow and agent link in parallel (both depend only on workflow_id)
+        const [{ data: workflow }, { data: agentLink }] = await Promise.all([
+          supabase
+            .from('workflows')
+            .select('id, status, created_by, name, team_id')
+            .eq('id', vt.workflow_id)
+            .single(),
+          supabase
+            .from('agent_workflows')
+            .select('id, agent_id, run_count, is_enabled')
+            .eq('workflow_id', vt.workflow_id)
+            .limit(1)
+            .single(),
+        ])
 
         if (!workflow || workflow.status !== 'published') continue
-
-        // 3a. Usage limit check — soft-fail: skip execution but don't break the webhook response
-        const usageResult = await checkUsageLimits(workflow.team_id)
-        if (!usageResult.allowed) {
-          console.warn(
-            `[composio-webhook] Usage limit exceeded for team ${workflow.team_id}: ${usageResult.reason}`
-          )
-          continue
-        }
-
-        // 4. Check if this is an agent-owned workflow (for agent_id and stats)
-        const { data: agentLink } = await supabase
-          .from('agent_workflows')
-          .select('id, agent_id, run_count, is_enabled')
-          .eq('workflow_id', vt.workflow_id)
-          .limit(1)
-          .single()
 
         // If agent-owned and disabled at agent level, skip
         if (agentLink && !agentLink.is_enabled) {
@@ -242,27 +233,37 @@ async function processWorkflows(
           continue
         }
 
-        // 5. Idempotency check
-        if (eventLogId) {
-          const { data: dupeCheck } = await supabase
-            .from('workflow_runs')
-            .select('id')
+        // 3a. Usage limit check + idempotency check + steps fetch in parallel
+        // Usage depends on workflow.team_id (now resolved); the other two only need workflow_id.
+        const [usageResult, dupeCheckResult, { data: steps }] = await Promise.all([
+          checkUsageLimits(workflow.team_id),
+          eventLogId
+            ? supabase
+                .from('workflow_runs')
+                .select('id')
+                .eq('workflow_id', vt.workflow_id)
+                .filter('trigger_data->>event_log_id', 'eq', eventLogId)
+                .limit(1)
+            : Promise.resolve({ data: null }),
+          supabase
+            .from('workflow_steps')
+            .select('id, position, type, name, config')
             .eq('workflow_id', vt.workflow_id)
-            .filter('trigger_data->>event_log_id', 'eq', eventLogId)
-            .limit(1)
+            .order('position', { ascending: true }),
+        ])
 
-          if (dupeCheck && dupeCheck.length > 0) {
-            console.log(`Duplicate event ${eventLogId} for workflow ${vt.workflow_id}, skipping`)
-            continue
-          }
+        if (!usageResult.allowed) {
+          console.warn(
+            `[composio-webhook] Usage limit exceeded for team ${workflow.team_id}: ${usageResult.reason}`
+          )
+          continue
         }
 
-        // 6. Load workflow steps
-        const { data: steps } = await supabase
-          .from('workflow_steps')
-          .select('id, position, type, name, config')
-          .eq('workflow_id', vt.workflow_id)
-          .order('position', { ascending: true })
+        // 5. Idempotency check
+        if (eventLogId && dupeCheckResult.data && dupeCheckResult.data.length > 0) {
+          console.log(`Duplicate event ${eventLogId} for workflow ${vt.workflow_id}, skipping`)
+          continue
+        }
 
         if (!steps || steps.length === 0) continue
 

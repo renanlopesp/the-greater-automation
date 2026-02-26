@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import StepCard from '@/components/workflow-editor/step-card'
 import ConnectorLine from '@/components/workflow-editor/connector-line'
@@ -13,10 +13,14 @@ import type { Database } from '@/lib/supabase/database.types'
 type StepType = Database['public']['Enums']['step_type']
 
 export default function StepsPanel() {
-  const { steps, selectedStepId, addStep, selectStep, reorderSteps } = useWorkflowEditorStore()
+  const steps = useWorkflowEditorStore((s) => s.steps)
+  const selectedStepId = useWorkflowEditorStore((s) => s.selectedStepId)
+  const addStep = useWorkflowEditorStore((s) => s.addStep)
+  const selectStep = useWorkflowEditorStore((s) => s.selectStep)
+  const reorderSteps = useWorkflowEditorStore((s) => s.reorderSteps)
   const [stepSelectorOpen, setStepSelectorOpen] = useState(false)
 
-  const sortedSteps = [...steps].sort((a, b) => a.position - b.position)
+  const sortedSteps = useMemo(() => steps.toSorted((a, b) => a.position - b.position), [steps])
 
   function handleStepSelect(type: StepType) {
     const meta = getStepMeta(type)

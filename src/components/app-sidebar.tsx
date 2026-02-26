@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -42,6 +43,11 @@ import {
 } from '@/components/ui/sidebar'
 import type { UsageData, UserData, TeamData, PlanData } from '@/types/navigation'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
+
+const TOOL_ITEMS = [
+  { label: 'Search', icon: Search, action: 'command-menu' as const },
+  { label: 'Integrations', icon: Plug, action: 'settings' as const },
+]
 
 interface AppSidebarProps {
   user: UserData
@@ -100,19 +106,17 @@ export default function AppSidebar({
     }
   }
 
-  const platformItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ...(orchestratorId
-      ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
-      : []),
-    { label: 'Workspace', href: '/workspace', icon: FolderKanban },
-    { label: 'Runs', href: '/runs', icon: Play },
-  ]
-
-  const toolItems = [
-    { label: 'Search', icon: Search, action: 'command-menu' as const },
-    { label: 'Integrations', icon: Plug, action: 'settings' as const },
-  ]
+  const platformItems = useMemo(
+    () => [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      ...(orchestratorId
+        ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
+        : []),
+      { label: 'Workspace', href: '/workspace', icon: FolderKanban },
+      { label: 'Runs', href: '/runs', icon: Play },
+    ],
+    [orchestratorId]
+  )
 
   return (
     <Sidebar collapsible="icon" side="left">
@@ -193,7 +197,7 @@ export default function AppSidebar({
           <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolItems.map((item) => (
+              {TOOL_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton
                     tooltip={item.label}

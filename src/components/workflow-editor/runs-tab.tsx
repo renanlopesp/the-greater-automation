@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Play, ChevronDown, ChevronRight, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,13 @@ interface RunsTabProps {
 
 const EMPTY_RUNS: ReturnType<typeof useWorkflowRuns>['data'] & unknown[] = []
 
+const STATUS_FILTERS = ['all', 'completed', 'failed', 'running'] as const
+const SOURCE_FILTERS = ['all', 'event', 'manual'] as const
+
 export default function RunsTab({ workflowId }: RunsTabProps) {
   const [detailRunId, setDetailRunId] = useState<string | null>(null)
-  const { pendingRunId, setPendingRunId } = useWorkflowEditorStore()
+  const pendingRunId = useWorkflowEditorStore((s) => s.pendingRunId)
+  const setPendingRunId = useWorkflowEditorStore((s) => s.setPendingRunId)
 
   const { data: runs = EMPTY_RUNS, isLoading } = useWorkflowRuns(workflowId)
   const startRun = useStartWorkflowRun(workflowId)
@@ -28,7 +32,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<string>('all')
 
-  // Auto-expand pending run when it appears
+  // Auto-expand pending run when it appears (render-time state adjustment — React 19 supported pattern)
   if (pendingRunId) {
     const found = runs.find((r) => r.id === pendingRunId)
     if (found && !expandedRuns.has(pendingRunId)) {
@@ -56,6 +60,18 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
       console.error('Failed to start run:', error)
     }
   }
+
+  // Filter runs (must be before early returns — hooks cannot be called conditionally)
+  const filteredRuns = useMemo(
+    () =>
+      runs.filter((run) => {
+        if (statusFilter !== 'all' && run.status !== statusFilter) return false
+        if (sourceFilter === 'event' && !run.event_log_id) return false
+        if (sourceFilter === 'manual' && run.event_log_id) return false
+        return true
+      }),
+    [runs, statusFilter, sourceFilter]
+  )
 
   // If viewing run detail (for approvals / full step I/O)
   if (detailRunId) {
@@ -96,14 +112,6 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
     )
   }
 
-  // Filter runs
-  const filteredRuns = runs.filter((run) => {
-    if (statusFilter !== 'all' && run.status !== statusFilter) return false
-    if (sourceFilter === 'event' && !run.event_log_id) return false
-    if (sourceFilter === 'manual' && run.event_log_id) return false
-    return true
-  })
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header with Run Now button */}
@@ -128,7 +136,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
 
       {/* Filters — matching agent sidebar */}
       <div className="flex items-center gap-1.5 border-b px-6 py-2">
-        {['all', 'completed', 'failed', 'running'].map((status) => (
+        {STATUS_FILTERS.map((status) => (
           <button
             key={status}
             type="button"
@@ -144,7 +152,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
           </button>
         ))}
         <div className="bg-border mx-1 h-4 w-px" />
-        {['all', 'event', 'manual'].map((source) => (
+        {SOURCE_FILTERS.map((source) => (
           <button
             key={source}
             type="button"

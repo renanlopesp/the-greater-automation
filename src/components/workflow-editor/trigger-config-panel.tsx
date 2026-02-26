@@ -16,7 +16,10 @@ import { generateWebhookToken } from '@/lib/workflow-editor/webhook-utils'
 import { useState } from 'react'
 
 export default function TriggerConfigPanel() {
-  const { trigger, setTrigger, closeTriggerConfig, workflowStatus } = useWorkflowEditorStore()
+  const trigger = useWorkflowEditorStore((s) => s.trigger)
+  const setTrigger = useWorkflowEditorStore((s) => s.setTrigger)
+  const closeTriggerConfig = useWorkflowEditorStore((s) => s.closeTriggerConfig)
+  const workflowStatus = useWorkflowEditorStore((s) => s.workflowStatus)
   const [selectorOpen, setSelectorOpen] = useState(false)
 
   if (!trigger) return null

@@ -40,11 +40,50 @@ export default async function DashboardLayout({ children }: { children: React.Re
     activeTeamId = selectedTeamId
   }
 
-  // Fetch team details for all memberships (for the switcher)
+  // Fetch team details for switcher + active team data + usage + subscription in one round
   let userTeams: { id: string; name: string; role: string }[] = []
+  let team = null
+  let usage = null
+  let planData: PlanData | null = null
   if (memberRows && memberRows.length > 0) {
     const teamIds = memberRows.map((m) => m.team_id)
-    const { data: teamsData } = await supabase.from('teams').select('id, name').in('id', teamIds)
+    const now = new Date().toISOString()
+
+    // All four queries depend only on memberRows (now resolved) — run in parallel
+    const [
+      { data: teamsData },
+      { data: teamData },
+      { data: usageRows },
+      { data: subscriptionRow },
+    ] = await Promise.all([
+      supabase.from('teams').select('id, name').in('id', teamIds),
+      activeTeamId
+        ? supabase
+            .from('teams')
+            .select(
+              'id, name, slug, plan_id, has_store, plans(id, name, features, max_team_members)'
+            )
+            .eq('id', activeTeamId)
+            .single()
+        : Promise.resolve({ data: null }),
+      activeTeamId
+        ? supabase
+            .from('usage')
+            .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
+            .eq('team_id', activeTeamId)
+            .lte('period_start', now)
+            .gte('period_end', now)
+            .order('period_start', { ascending: false })
+            .limit(1)
+        : Promise.resolve({ data: null }),
+      activeTeamId
+        ? supabase
+            .from('subscriptions')
+            .select('stripe_subscription_id, cancel_at_period_end, status')
+            .eq('team_id', activeTeamId)
+            .single()
+        : Promise.resolve({ data: null }),
+    ])
 
     if (teamsData) {
       userTeams = teamsData.map((t) => ({
@@ -53,36 +92,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         role: memberRows.find((m) => m.team_id === t.id)?.role ?? 'member',
       }))
     }
-  }
 
-  // Fetch team and usage in parallel (both depend on activeTeamId)
-  let team = null
-  let usage = null
-  let planData: PlanData | null = null
-  if (activeTeamId) {
-    const now = new Date().toISOString()
-    const [{ data: teamData }, { data: usageRows }, { data: subscriptionRow }] = await Promise.all([
-      supabase
-        .from('teams')
-        .select('id, name, slug, plan_id, has_store, plans(id, name, features, max_team_members)')
-        .eq('id', activeTeamId)
-        .single(),
-      supabase
-        .from('usage')
-        .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-        .eq('team_id', activeTeamId)
-        .lte('period_start', now)
-        .gte('period_end', now)
-        .order('period_start', { ascending: false })
-        .limit(1),
-      supabase
-        .from('subscriptions')
-        .select('stripe_subscription_id, cancel_at_period_end, status')
-        .eq('team_id', activeTeamId)
-        .single(),
-    ])
-
-    if (teamData) {
+    if (activeTeamId && teamData) {
       // Redirect to onboarding if team doesn't have a store yet
       if (!teamData.has_store) {
         redirect('/onboarding')

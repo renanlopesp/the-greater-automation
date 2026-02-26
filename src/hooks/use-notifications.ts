@@ -3,7 +3,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getNotifications,
-  getUnreadCount,
   markAsRead as markAsReadAction,
   markAllAsRead as markAllAsReadAction,
   type NotificationRow,
@@ -36,7 +35,6 @@ export function useNotifications(limit = 50) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
@@ -47,7 +45,6 @@ export function useNotifications(limit = 50) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
   })
 
@@ -64,22 +61,9 @@ export function useNotifications(limit = 50) {
 
 /**
  * Hook to get just the unread notification count.
- * Lightweight — only fetches count, not full notification list.
+ * Derived from the notifications list to avoid a separate polling query.
  */
 export function useUnreadNotificationCount() {
-  const query = useQuery<number>({
-    queryKey: ['notifications-unread-count'],
-    queryFn: async () => {
-      const result = await getUnreadCount()
-      if (result.error) throw new Error(result.error)
-      return result.count
-    },
-    staleTime: POLL_INTERVAL,
-    refetchInterval: POLL_INTERVAL,
-  })
-
-  return {
-    count: query.data ?? 0,
-    isLoading: query.isLoading,
-  }
+  const { notifications } = useNotifications()
+  return { count: notifications.filter((n) => !n.read).length }
 }

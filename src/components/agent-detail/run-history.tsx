@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkflowRunSteps, type RunStep } from '@/hooks/use-trigger-subscriptions'
+
+const STATUS_FILTERS = ['all', 'completed', 'failed', 'running'] as const
+const SOURCE_FILTERS = ['all', 'event', 'manual'] as const
 
 export interface Run {
   id: string
@@ -175,12 +178,16 @@ export default function RunHistory({ runs }: RunHistoryProps) {
   }
 
   // Filter runs
-  const filteredRuns = runs.filter((run) => {
-    if (statusFilter !== 'all' && run.status !== statusFilter) return false
-    if (sourceFilter === 'event' && !run.event_log_id) return false
-    if (sourceFilter === 'manual' && run.event_log_id) return false
-    return true
-  })
+  const filteredRuns = useMemo(
+    () =>
+      runs.filter((run) => {
+        if (statusFilter !== 'all' && run.status !== statusFilter) return false
+        if (sourceFilter === 'event' && !run.event_log_id) return false
+        if (sourceFilter === 'manual' && run.event_log_id) return false
+        return true
+      }),
+    [runs, statusFilter, sourceFilter]
+  )
 
   if (runs.length === 0) {
     return (
@@ -195,7 +202,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
   return (
     <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
       <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
-        {['all', 'completed', 'failed', 'running'].map((status) => (
+        {STATUS_FILTERS.map((status) => (
           <button
             key={status}
             type="button"
@@ -211,7 +218,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
           </button>
         ))}
         <div className="bg-border mx-1 h-4 w-px" />
-        {['all', 'event', 'manual'].map((source) => (
+        {SOURCE_FILTERS.map((source) => (
           <button
             key={source}
             type="button"

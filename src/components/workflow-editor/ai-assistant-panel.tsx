@@ -3,7 +3,7 @@
 import type { UIMessage } from 'ai'
 import { isTextUIPart, isToolUIPart } from 'ai'
 import { Diamond, PanelLeftClose, CopyIcon } from 'lucide-react'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import {
   Conversation,
@@ -231,13 +231,12 @@ export default function AIAssistantPanel() {
     [sendMessage]
   )
 
-  let lastAssistantId: string | null = null
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'assistant') {
-      lastAssistantId = messages[i].id
-      break
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id
     }
-  }
+    return null
+  }, [messages])
 
   return (
     <div className="flex h-full flex-col">

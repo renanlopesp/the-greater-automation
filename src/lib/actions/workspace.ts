@@ -877,15 +877,6 @@ export async function saveWorkflow(
 
   const supabase = await createServerClient()
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return { error: 'Unauthorized', savedAt: '' }
-  }
-
   // Update workflow metadata
   const { error: workflowError } = await supabase
     .from('workflows')
@@ -964,13 +955,13 @@ export async function saveWorkflow(
           const { data: connection } = await supabase
             .from('app_connections')
             .select('composio_connection_id')
-            .eq('user_id', user.id)
+            .eq('user_id', info.userId)
             .eq('app_id', appConfig.app_id)
             .single()
 
           if (connection?.composio_connection_id) {
             const composioTriggerId = await createTrigger({
-              userId: user.id,
+              userId: info.userId,
               triggerSlug: appConfig.event,
               connectedAccountId: connection.composio_connection_id,
               triggerConfig: (appConfig.trigger_config as Record<string, unknown>) ?? {},
@@ -1040,15 +1031,6 @@ export async function publishWorkflow(
   if (!canMutate(info.role)) return { error: 'You do not have permission to publish workflows' }
 
   const supabase = await createServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return { error: 'Unauthorized' }
-  }
 
   let generatedWebhookToken: string | undefined
   let generatedWebhookSecret: string | undefined
@@ -1133,7 +1115,7 @@ export async function publishWorkflow(
         try {
           const triggerConfig = (config.trigger_config ?? {}) as Record<string, unknown>
           const composioTriggerId = await createTrigger({
-            userId: user.id,
+            userId: info.userId,
             triggerSlug: event,
             connectedAccountId: connection.composio_connection_id,
             triggerConfig,
@@ -1227,7 +1209,7 @@ export async function publishWorkflow(
 
   if (workflow) {
     createWorkflowNotification({
-      userId: user.id,
+      userId: info.userId,
       teamId: workflow.team_id,
       workflowId,
       workflowName: workflow.name,

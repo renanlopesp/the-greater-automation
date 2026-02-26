@@ -1,6 +1,24 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useMemo } from "react"
+
+const SHORTHAND_HEX_RE = /^#?([a-f\d])([a-f\d])([a-f\d])$/i
+const FULL_HEX_RE = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i
+
+function hexToRgb(hex: string) {
+  hex = hex.replace(SHORTHAND_HEX_RE, (_m, r: string, g: string, b: string) => {
+    return r + r + g + g + b + b
+  })
+
+  const result = FULL_HEX_RE.exec(hex)
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null
+}
 
 interface LetterGlitchProps {
   glitchColors?: string[]
@@ -32,7 +50,7 @@ export function LetterGlitch({
   const context = useRef<CanvasRenderingContext2D | null>(null)
   const lastGlitchTime = useRef(Date.now())
 
-  const lettersAndSymbols = Array.from(characters)
+  const lettersAndSymbols = useMemo(() => Array.from(characters), [characters])
   const fontSize = 9
   const charWidth = 6
   const charHeight = 11
@@ -43,22 +61,6 @@ export function LetterGlitch({
 
   const getRandomColor = () => {
     return glitchColors[Math.floor(Math.random() * glitchColors.length)]
-  }
-
-  const hexToRgb = (hex: string) => {
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i
-    hex = hex.replace(shorthandRegex, (_m, r: string, g: string, b: string) => {
-      return r + r + g + g + b + b
-    })
-
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result
-      ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
-      : null
   }
 
   const interpolateColor = (

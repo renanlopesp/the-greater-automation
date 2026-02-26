@@ -58,10 +58,6 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
     return { error: 'You do not have permission to manage trigger subscriptions' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Check subscription limit (50 active subscriptions per agent)
@@ -91,7 +87,7 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
 
     // Create trigger in Composio
     const composioTriggerId = await createTrigger({
-      userId: user.id,
+      userId: info.userId,
       triggerSlug: params.triggerSlug,
       connectedAccountId: connection.composio_connection_id,
       triggerConfig: params.triggerConfig,
@@ -104,7 +100,7 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
       .insert({
         agent_workflow_id: params.agentWorkflowId,
         agent_id: params.agentId,
-        user_id: user.id,
+        user_id: info.userId,
         composio_trigger_id: composioTriggerId,
         trigger_slug: params.triggerSlug,
         app_id: params.appId,
@@ -190,10 +186,6 @@ export async function toggleTriggerSubscription(
     return { error: 'You do not have permission to manage trigger subscriptions' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Fetch subscription to get composio_trigger_id
@@ -246,10 +238,6 @@ export async function deleteTriggerSubscription(
     return { error: 'You do not have permission to manage trigger subscriptions' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Fetch subscription to get composio_trigger_id
@@ -295,10 +283,6 @@ export async function retryWorkflowRun(runId: string) {
   if (!canMutate(info.role)) return { error: 'You do not have permission to retry workflow runs' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Load original run from workflow_runs (unified table)
@@ -358,7 +342,7 @@ export async function retryWorkflowRun(runId: string) {
     await executeVisualWorkflowSteps({
       workflowId,
       runId: newRun.id,
-      userId: user.id,
+      userId: info.userId,
       triggerData,
       supabase,
     })

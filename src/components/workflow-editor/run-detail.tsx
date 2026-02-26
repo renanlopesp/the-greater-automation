@@ -399,19 +399,19 @@ function StepStatusIcon({ status }: { status: string }) {
   }
 }
 
-function RunStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    completed: 'bg-chart-2/15 text-chart-2 border-chart-2/20',
-    running: 'bg-primary/15 text-primary border-primary/20',
-    failed: 'bg-destructive/15 text-destructive border-destructive/20',
-    pending: 'bg-muted text-muted-foreground border-border',
-    waiting: 'bg-chart-3/15 text-chart-3 border-chart-3/20',
-  }
+const RUN_STATUS_STYLES: Record<string, string> = {
+  completed: 'bg-chart-2/15 text-chart-2 border-chart-2/20',
+  running: 'bg-primary/15 text-primary border-primary/20',
+  failed: 'bg-destructive/15 text-destructive border-destructive/20',
+  pending: 'bg-muted text-muted-foreground border-border',
+  waiting: 'bg-chart-3/15 text-chart-3 border-chart-3/20',
+}
 
+function RunStatusBadge({ status }: { status: string }) {
   return (
     <Badge
       variant="outline"
-      className={cn('text-xs font-medium', styles[status] || styles.pending)}
+      className={cn('text-xs font-medium', RUN_STATUS_STYLES[status] || RUN_STATUS_STYLES.pending)}
     >
       {status}
     </Badge>

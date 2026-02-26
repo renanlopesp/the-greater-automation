@@ -76,24 +76,22 @@ const WORKFLOW_EMOJIS = [
 
 export default function EditorHeader() {
   const router = useRouter()
-  const {
-    workflowId,
-    workflowName,
-    workflowEmoji,
-    isStarred,
-    trigger,
-    steps,
-    workflowStatus,
-    isSaving,
-    setWorkflowName,
-    setWorkflowEmoji,
-    toggleStar,
-    setWorkflowStatus,
-    setActiveTab,
-    setPendingRunId,
-    clearDirty,
-    setSaving,
-  } = useWorkflowEditorStore()
+  const workflowId = useWorkflowEditorStore((s) => s.workflowId)
+  const workflowName = useWorkflowEditorStore((s) => s.workflowName)
+  const workflowEmoji = useWorkflowEditorStore((s) => s.workflowEmoji)
+  const isStarred = useWorkflowEditorStore((s) => s.isStarred)
+  const trigger = useWorkflowEditorStore((s) => s.trigger)
+  const steps = useWorkflowEditorStore((s) => s.steps)
+  const workflowStatus = useWorkflowEditorStore((s) => s.workflowStatus)
+  const isSaving = useWorkflowEditorStore((s) => s.isSaving)
+  const setWorkflowName = useWorkflowEditorStore((s) => s.setWorkflowName)
+  const setWorkflowEmoji = useWorkflowEditorStore((s) => s.setWorkflowEmoji)
+  const toggleStar = useWorkflowEditorStore((s) => s.toggleStar)
+  const setWorkflowStatus = useWorkflowEditorStore((s) => s.setWorkflowStatus)
+  const setActiveTab = useWorkflowEditorStore((s) => s.setActiveTab)
+  const setPendingRunId = useWorkflowEditorStore((s) => s.setPendingRunId)
+  const clearDirty = useWorkflowEditorStore((s) => s.clearDirty)
+  const setSaving = useWorkflowEditorStore((s) => s.setSaving)
 
   const [sharingOpen, setSharingOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)

@@ -53,34 +53,35 @@ export async function POST(request: NextRequest) {
           ? new Date(firstItem.current_period_end * 1000).toISOString()
           : null
 
-        await supabase.from('subscriptions').upsert(
-          {
-            team_id: teamId,
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: stripeSub.id,
-            stripe_price_id: priceId,
-            plan_id: planId,
-            status: stripeSub.status,
-            current_period_start: periodStart,
-            current_period_end: periodEnd,
-            cancel_at_period_end: stripeSub.cancel_at_period_end,
-          },
-          { onConflict: 'team_id' }
-        )
-
-        await supabase.from('teams').update({ plan_id: planId }).eq('id', teamId)
-
-        // Upsert usage limits for current period
-        if (periodStart && periodEnd) {
-          await supabase.from('usage').upsert(
+        await Promise.all([
+          supabase.from('subscriptions').upsert(
             {
               team_id: teamId,
-              period_start: periodStart,
-              period_end: periodEnd,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: stripeSub.id,
+              stripe_price_id: priceId,
+              plan_id: planId,
+              status: stripeSub.status,
+              current_period_start: periodStart,
+              current_period_end: periodEnd,
+              cancel_at_period_end: stripeSub.cancel_at_period_end,
             },
             { onConflict: 'team_id' }
-          )
-        }
+          ),
+          supabase.from('teams').update({ plan_id: planId }).eq('id', teamId),
+          ...(periodStart && periodEnd
+            ? [
+                supabase.from('usage').upsert(
+                  {
+                    team_id: teamId,
+                    period_start: periodStart,
+                    period_end: periodEnd,
+                  },
+                  { onConflict: 'team_id' }
+                ),
+              ]
+            : []),
+        ])
 
         break
       }
@@ -107,19 +108,20 @@ export async function POST(request: NextRequest) {
           ? new Date(updatedItem.current_period_end * 1000).toISOString()
           : null
 
-        await supabase
-          .from('subscriptions')
-          .update({
-            plan_id: planId,
-            status: stripeSub.status,
-            stripe_price_id: priceId,
-            current_period_start: updatedPeriodStart,
-            current_period_end: updatedPeriodEnd,
-            cancel_at_period_end: stripeSub.cancel_at_period_end,
-          })
-          .eq('stripe_subscription_id', stripeSub.id)
-
-        await supabase.from('teams').update({ plan_id: planId }).eq('id', subRow.team_id)
+        await Promise.all([
+          supabase
+            .from('subscriptions')
+            .update({
+              plan_id: planId,
+              status: stripeSub.status,
+              stripe_price_id: priceId,
+              current_period_start: updatedPeriodStart,
+              current_period_end: updatedPeriodEnd,
+              cancel_at_period_end: stripeSub.cancel_at_period_end,
+            })
+            .eq('stripe_subscription_id', stripeSub.id),
+          supabase.from('teams').update({ plan_id: planId }).eq('id', subRow.team_id),
+        ])
 
         break
       }
@@ -135,18 +137,19 @@ export async function POST(request: NextRequest) {
 
         if (!subRow) break
 
-        await supabase
-          .from('subscriptions')
-          .update({
-            plan_id: 'free',
-            status: 'canceled',
-            stripe_subscription_id: null,
-            stripe_price_id: null,
-            cancel_at_period_end: false,
-          })
-          .eq('stripe_subscription_id', stripeSub.id)
-
-        await supabase.from('teams').update({ plan_id: 'free' }).eq('id', subRow.team_id)
+        await Promise.all([
+          supabase
+            .from('subscriptions')
+            .update({
+              plan_id: 'free',
+              status: 'canceled',
+              stripe_subscription_id: null,
+              stripe_price_id: null,
+              cancel_at_period_end: false,
+            })
+            .eq('stripe_subscription_id', stripeSub.id),
+          supabase.from('teams').update({ plan_id: 'free' }).eq('id', subRow.team_id),
+        ])
 
         break
       }

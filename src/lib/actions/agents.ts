@@ -67,10 +67,6 @@ export async function createAgent(data: {
   if (!canMutate(info.role)) return { error: 'You do not have permission to create agents', id: '' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized', id: '' }
 
   // Insert with only original columns (PostgREST schema cache safe)
   const { data: agent, error } = await supabase
@@ -130,10 +126,6 @@ export async function updateAgent(
   if (!canMutate(info.role)) return { error: 'You do not have permission to edit agents' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Build update payload — only original columns (PostgREST schema cache safe)
   const updatePayload: Record<string, unknown> = {

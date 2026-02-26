@@ -11,7 +11,7 @@ import {
   XIcon,
   FileIcon,
 } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import {
   Conversation,
@@ -328,8 +328,17 @@ export default function ChatPanel({
 
   const hasMessages = messages.length > 0
 
+  // Filter to visible messages (exclude tool/system messages from render)
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => m.role === 'user' || m.role === 'assistant'),
+    [messages]
+  )
+
   // Message feedback (like/dislike)
-  const assistantMessageIds = messages.filter((m) => m.role === 'assistant').map((m) => m.id)
+  const assistantMessageIds = useMemo(
+    () => messages.filter((m) => m.role === 'assistant').map((m) => m.id),
+    [messages]
+  )
   const { getFeedback, toggleFeedback } = useMessageFeedback(agentId, assistantMessageIds)
 
   // Register handler so the header button can trigger new chat
@@ -358,13 +367,12 @@ export default function ChatPanel({
   )
 
   // Find the last assistant message to know which one is streaming
-  let lastAssistantId: string | null = null
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'assistant') {
-      lastAssistantId = messages[i].id
-      break
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id
     }
-  }
+    return null
+  }, [messages])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -376,20 +384,18 @@ export default function ChatPanel({
               description="Ask a question or pick a conversation starter below."
             />
           ) : (
-            messages
-              .filter((m) => m.role === 'user' || m.role === 'assistant')
-              .map((message) => (
-                <ChatMessageItem
-                  key={message.id}
-                  message={message}
-                  agentName={agentName}
-                  agentPalette={agentPalette}
-                  isStreaming={isStreaming && message.id === lastAssistantId}
-                  currentUserId={currentUserId}
-                  feedback={getFeedback(message.id)}
-                  onFeedback={toggleFeedback}
-                />
-              ))
+            visibleMessages.map((message) => (
+              <ChatMessageItem
+                key={message.id}
+                message={message}
+                agentName={agentName}
+                agentPalette={agentPalette}
+                isStreaming={isStreaming && message.id === lastAssistantId}
+                currentUserId={currentUserId}
+                feedback={getFeedback(message.id)}
+                onFeedback={toggleFeedback}
+              />
+            ))
           )}
         </ConversationContent>
         <ConversationScrollButton />

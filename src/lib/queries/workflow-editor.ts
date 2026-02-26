@@ -130,16 +130,10 @@ export async function updateWorkflowStatus(
 ) {
   // If publishing, verify workflow has trigger and at least 1 step
   if (status === 'published') {
-    const { data: trigger } = await supabase
-      .from('workflow_triggers')
-      .select('id')
-      .eq('workflow_id', workflowId)
-      .single()
-
-    const { data: steps } = await supabase
-      .from('workflow_steps')
-      .select('id')
-      .eq('workflow_id', workflowId)
+    const [{ data: trigger }, { data: steps }] = await Promise.all([
+      supabase.from('workflow_triggers').select('id').eq('workflow_id', workflowId).single(),
+      supabase.from('workflow_steps').select('id').eq('workflow_id', workflowId),
+    ])
 
     if (!trigger) {
       throw new Error('Cannot publish workflow without a trigger')

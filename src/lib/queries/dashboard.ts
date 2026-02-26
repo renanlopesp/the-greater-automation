@@ -77,17 +77,10 @@ export async function fetchRunsToday(supabase: Client, teamId: string): Promise<
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
   )
 
-  const { data: workflows } = await supabase.from('workflows').select('id').eq('team_id', teamId)
-
-  if (!workflows || workflows.length === 0) return 0
-
   const { count } = await supabase
     .from('workflow_runs')
-    .select('id', { count: 'exact', head: true })
-    .in(
-      'workflow_id',
-      workflows.map((w) => w.id)
-    )
+    .select('id, workflows!inner(team_id)', { count: 'exact', head: true })
+    .eq('workflows.team_id', teamId)
     .gte('started_at', startOfDayUTC.toISOString())
 
   return count ?? 0

@@ -2,7 +2,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import BoringAvatar from 'boring-avatars'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils'

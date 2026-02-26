@@ -10,10 +10,23 @@ import { cn } from '@/lib/utils'
 import { cjk } from '@streamdown/cjk'
 import { code } from '@streamdown/code'
 import { math } from '@streamdown/math'
-import { mermaid } from '@streamdown/mermaid'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Streamdown } from 'streamdown'
+import { type DiagramPlugin, Streamdown } from 'streamdown'
+
+// Mermaid is large (~200KB gz) — load asynchronously
+let _mermaid: DiagramPlugin | undefined
+const _mermaidPromise = import('@streamdown/mermaid').then((m) => {
+  _mermaid = m.mermaid as DiagramPlugin
+})
+
+function useMermaidPlugin() {
+  const [ready, setReady] = useState(!!_mermaid)
+  useEffect(() => {
+    if (!ready) _mermaidPromise.then(() => setReady(true))
+  }, [ready])
+  return ready ? _mermaid : undefined
+}
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']
@@ -272,16 +285,20 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const basePlugins = { cjk, code, math }
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  ({ className, ...props }: MessageResponseProps) => {
+    const mermaid = useMermaidPlugin()
+    const plugins = useMemo(() => (mermaid ? { ...basePlugins, mermaid } : basePlugins), [mermaid])
+    return (
+      <Streamdown
+        className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+        plugins={plugins}
+        {...props}
+      />
+    )
+  },
   (prevProps, nextProps) => prevProps.children === nextProps.children
 )
 

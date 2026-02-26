@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   useReactTable,
@@ -108,6 +108,14 @@ export default function WorkspaceClient({
   const memberNameById = useMemo(() => {
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
   }, [teamMembers])
+
+  const expandedAgentIdsRef = useRef(expandedAgentIds)
+  expandedAgentIdsRef.current = expandedAgentIds
+  const expandedFolderIdsRef = useRef(expandedFolderIds)
+  expandedFolderIdsRef.current = expandedFolderIds
+
+  const isAgentExpanded = useCallback((id: string) => expandedAgentIdsRef.current.has(id), [])
+  const isFolderExpanded = useCallback((id: string) => expandedFolderIdsRef.current.has(id), [])
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedAgentIds((prev) => {
@@ -218,8 +226,8 @@ export default function WorkspaceClient({
       createColumns({
         userId,
         memberNameById,
-        expandedAgentIds,
-        expandedFolderIds,
+        isAgentExpanded,
+        isFolderExpanded,
         onToggleExpand: handleToggleExpand,
         onToggleFolderExpand: handleToggleFolderExpand,
         onDeleteWorkflow: handleDeleteWorkflow,
@@ -233,8 +241,8 @@ export default function WorkspaceClient({
     [
       userId,
       memberNameById,
-      expandedAgentIds,
-      expandedFolderIds,
+      isAgentExpanded,
+      isFolderExpanded,
       handleToggleExpand,
       handleToggleFolderExpand,
       handleDeleteWorkflow,
