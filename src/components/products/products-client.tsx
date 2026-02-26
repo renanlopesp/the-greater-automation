@@ -428,53 +428,61 @@ export default function ProductsClient({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
+    <div className="mx-auto flex max-w-7xl flex-1 flex-col gap-6 px-6 pt-8 pb-8">
       {/* Header */}
-      <div>
-        <h1 className="text-lg font-semibold">Products — {storeName}</h1>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-semibold tracking-tight">Products — {storeName}</h2>
         <p className="text-muted-foreground text-sm">Manage product costs and profit margins.</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border px-4 py-3">
-          <p className="text-muted-foreground text-xs">Total products</p>
-          <p className="text-lg font-semibold">{stats.total}</p>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
+          <div className="flex flex-col">
+            <span className="text-2xl font-semibold">{stats.total}</span>
+            <span className="text-muted-foreground text-xs">Total products</span>
+          </div>
         </div>
-        <div className="rounded-lg border px-4 py-3">
-          <p className="text-muted-foreground text-xs">With cost</p>
-          <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-            {stats.withCost}
-          </p>
+        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
+          <div className="flex flex-col">
+            <span className="text-2xl font-semibold text-green-600 dark:text-green-400">
+              {stats.withCost}
+            </span>
+            <span className="text-muted-foreground text-xs">With cost</span>
+          </div>
         </div>
-        <div className="rounded-lg border px-4 py-3">
-          <p className="text-muted-foreground text-xs">Without cost</p>
-          <p
-            className={cn(
-              'text-lg font-semibold',
-              stats.noCost > 0 && 'text-orange-600 dark:text-orange-400'
-            )}
-          >
-            {stats.noCost}
-          </p>
+        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
+          <div className="flex flex-col">
+            <span
+              className={cn(
+                'text-2xl font-semibold',
+                stats.noCost > 0 && 'text-orange-600 dark:text-orange-400'
+              )}
+            >
+              {stats.noCost}
+            </span>
+            <span className="text-muted-foreground text-xs">Without cost</span>
+          </div>
         </div>
-        <div className="rounded-lg border px-4 py-3">
-          <p className="text-muted-foreground text-xs">Avg. margin</p>
-          <p
-            className={cn(
-              'text-lg font-semibold',
-              stats.avgMargin != null && stats.avgMargin < 20 && 'text-red-600 dark:text-red-400',
-              stats.avgMargin != null &&
-                stats.avgMargin >= 20 &&
-                stats.avgMargin < 40 &&
-                'text-orange-600 dark:text-orange-400',
-              stats.avgMargin != null &&
-                stats.avgMargin >= 40 &&
-                'text-green-600 dark:text-green-400'
-            )}
-          >
-            {stats.avgMargin != null ? `${stats.avgMargin.toFixed(1)}%` : '—'}
-          </p>
+        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
+          <div className="flex flex-col">
+            <span
+              className={cn(
+                'text-2xl font-semibold',
+                stats.avgMargin != null && stats.avgMargin < 20 && 'text-red-600 dark:text-red-400',
+                stats.avgMargin != null &&
+                  stats.avgMargin >= 20 &&
+                  stats.avgMargin < 40 &&
+                  'text-orange-600 dark:text-orange-400',
+                stats.avgMargin != null &&
+                  stats.avgMargin >= 40 &&
+                  'text-green-600 dark:text-green-400'
+              )}
+            >
+              {stats.avgMargin != null ? `${stats.avgMargin.toFixed(1)}%` : '—'}
+            </span>
+            <span className="text-muted-foreground text-xs">Avg. margin</span>
+          </div>
         </div>
       </div>
 
@@ -498,7 +506,7 @@ export default function ProductsClient({
       )}
 
       {/* Filters row */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
           <Input
@@ -508,61 +516,68 @@ export default function ProductsClient({
               setSearch(e.target.value)
               setPage(0)
             }}
-            className="w-64 pl-8"
+            className="w-full pl-8 sm:w-64"
           />
         </div>
 
-        <Select
-          value={costFilter}
-          onValueChange={(v) => {
-            setCostFilter(v as CostFilter)
-            setPage(0)
-          }}
-        >
-          <SelectTrigger className="w-36">
-            <Filter className="mr-1 h-3 w-3" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All products</SelectItem>
-            <SelectItem value="no_cost">Without cost ({stats.noCost})</SelectItem>
-            <SelectItem value="has_cost">With cost ({stats.withCost})</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            value={costFilter}
+            onValueChange={(v) => {
+              setCostFilter(v as CostFilter)
+              setPage(0)
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-36">
+              <Filter className="mr-1 h-3 w-3" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All products</SelectItem>
+              <SelectItem value="no_cost">Without cost ({stats.noCost})</SelectItem>
+              <SelectItem value="has_cost">With cost ({stats.withCost})</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select
-          value={marginFilter}
-          onValueChange={(v) => {
-            setMarginFilter(v as MarginFilter)
-            setPage(0)
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <Percent className="mr-1 h-3 w-3" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All margins</SelectItem>
-            <SelectItem value="low">Low (&lt;20%)</SelectItem>
-            <SelectItem value="medium">Medium (20–40%)</SelectItem>
-            <SelectItem value="high">High (&gt;40%)</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={marginFilter}
+            onValueChange={(v) => {
+              setMarginFilter(v as MarginFilter)
+              setPage(0)
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-40">
+              <Percent className="mr-1 h-3 w-3" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All margins</SelectItem>
+              <SelectItem value="low">Low (&lt;20%)</SelectItem>
+              <SelectItem value="medium">Medium (20–40%)</SelectItem>
+              <SelectItem value="high">High (&gt;40%)</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.tsv,.txt"
-          className="hidden"
-          onChange={handleCsvUpload}
-        />
-        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-          <Upload className="mr-1 h-3 w-3" />
-          Import CSV
-        </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.tsv,.txt"
+            className="hidden"
+            onChange={handleCsvUpload}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="mr-1 h-3 w-3" />
+            Import CSV
+          </Button>
+        </div>
 
         {selected.size > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:ml-auto">
             <span className="text-muted-foreground text-sm">{selected.size} selected</span>
             <Input
               placeholder="Margin %"
@@ -691,8 +706,8 @@ export default function ProductsClient({
       )}
 
       {/* Table */}
-      <div className="rounded-md border">
-        <Table>
+      <div className="-mx-6 overflow-x-auto sm:mx-0 sm:rounded-md sm:border">
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
@@ -701,7 +716,10 @@ export default function ProductsClient({
                   onCheckedChange={toggleAll}
                 />
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>
+              <TableHead
+                className="max-w-[280px] cursor-pointer select-none"
+                onClick={() => handleSort('name')}
+              >
                 Product <SortIcon col="name" />
               </TableHead>
               <TableHead
@@ -761,7 +779,7 @@ export default function ProductsClient({
                         onCheckedChange={() => toggleOne(p.id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="max-w-[280px] truncate font-medium">{p.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{p.sku || '—'}</TableCell>
                     <TableCell className="text-right">
                       {p.price != null ? `R$ ${Number(p.price).toFixed(2)}` : '—'}
@@ -830,7 +848,7 @@ export default function ProductsClient({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-sm">
           {filtered.length > 0
             ? `Showing ${showingFrom}–${showingTo} of ${filtered.length} products`
