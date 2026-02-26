@@ -68,11 +68,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Workflow has no steps' }, { status: 400 })
     }
 
+    // Look up the agent that owns this workflow (if any)
+    const { data: agentWorkflow } = await supabase
+      .from('agent_workflows')
+      .select('agent_id')
+      .eq('workflow_id', workflowId)
+      .limit(1)
+      .maybeSingle()
+
     // Create run
     const { data: run, error: runError } = await supabase
       .from('workflow_runs')
       .insert({
         workflow_id: workflowId,
+        agent_id: agentWorkflow?.agent_id ?? null,
         status: 'pending',
         trigger_type: 'scheduled',
         trigger_data: { source: 'pg_cron', triggered_at: new Date().toISOString() },
