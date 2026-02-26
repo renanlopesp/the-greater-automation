@@ -31,7 +31,7 @@ interface DashboardClientProps {
 }
 
 const stats = [
-  { label: 'Agents', icon: Bot, value: 0 },
+  { label: 'Workers', icon: Bot, value: 0 },
   { label: 'Workflows', icon: GitBranch, value: 0 },
   { label: 'Runs today', icon: Play, value: 0 },
   { label: 'Starred', icon: Star, value: 0 },
@@ -74,7 +74,7 @@ export default function DashboardClient({
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground text-sm">
-          Overview of your team&apos;s agents and workflows.
+          Overview of your team&apos;s workers and workflows.
         </p>
       </div>
 

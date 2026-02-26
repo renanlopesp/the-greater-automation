@@ -200,8 +200,55 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       name: agent.name,
       system_prompt: null, // prompt is handled by buildOrchestratorSystemPrompt
       model: 'gpt-5.2',
-      temperature: agent.temperature,
+      temperature: null, // reasoning models don't support temperature
       max_tokens: agent.max_tokens,
+    }
+
+    // Load ALL connected apps from ALL team members so orchestrator can use any tool directly
+    const { data: teamMembers } = await supabase
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', agent.team_id)
+    const teamUserIds = (teamMembers ?? []).map((m) => m.user_id)
+
+    const { data: allConnections } =
+      teamUserIds.length > 0
+        ? await supabase
+            .from('app_connections')
+            .select('app_id, composio_connection_id, user_id')
+            .in('user_id', teamUserIds)
+        : { data: null }
+
+    const orchAppIds = new Set<string>()
+    let orchConnectedAccountMap: Record<string, string> | undefined
+    let orchEntityId = user.id
+
+    if (allConnections && allConnections.length > 0) {
+      orchConnectedAccountMap = {}
+      const ownerCounts = new Map<string, number>()
+      for (const row of allConnections) {
+        orchAppIds.add(row.app_id)
+        if (row.composio_connection_id) {
+          if (!orchConnectedAccountMap[row.app_id] || row.user_id === user.id) {
+            orchConnectedAccountMap[row.app_id] = row.composio_connection_id
+          }
+          ownerCounts.set(row.user_id, (ownerCounts.get(row.user_id) ?? 0) + 1)
+        }
+      }
+      if (!ownerCounts.has(user.id) && ownerCounts.size > 0) {
+        let maxCount = 0
+        for (const [ownerId, count] of ownerCounts) {
+          if (count > maxCount) {
+            maxCount = count
+            orchEntityId = ownerId
+          }
+        }
+      }
+    }
+
+    // Also include the store platform if it uses Composio
+    if (store?.platform && store.platform !== 'manual' && store.platform !== 'nuvemshop') {
+      orchAppIds.add(store.platform)
     }
 
     // Update status + run chat
@@ -209,12 +256,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     try {
       const result = await runAgentChat({
-        userId: user.id,
+        userId: orchEntityId,
         agent: orchAgentConfig,
         messages: orchMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
         systemPrompt: orchestratorPrompt,
         relayTools: platformTools,
-        // No Composio apps for orchestrator — specialists handle their own
+        connectedAppIds: orchAppIds.size > 0 ? [...orchAppIds] : undefined,
+        connectedAccountMap: orchConnectedAccountMap,
       })
 
       after(async () => {
@@ -239,7 +287,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       })
 
-      const response = result.toUIMessageStreamResponse()
+      const response = result.toUIMessageStreamResponse({ sendReasoning: true })
       const headers = new Headers(response.headers)
       headers.set('X-Conversation-Id', orchConvId)
       return new Response(response.body, { status: response.status, headers })
@@ -542,7 +590,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
 
     // Return streaming response with conversation ID header
-    const response = result.toUIMessageStreamResponse()
+    const response = result.toUIMessageStreamResponse({ sendReasoning: true })
     const headers = new Headers(response.headers)
     headers.set('X-Conversation-Id', conversationId)
 

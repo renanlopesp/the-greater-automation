@@ -69,6 +69,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       .from('agents')
       .select('id, name, avatar_url, palette, created_by')
       .eq('team_id', teamId)
+      .eq('is_orchestrator', false)
       .order('name', { ascending: true }),
   ])
 
