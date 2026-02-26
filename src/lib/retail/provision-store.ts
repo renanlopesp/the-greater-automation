@@ -100,55 +100,64 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
     roleNotificationDefaults.caixa = { telegram_enabled: true, report_hour: 21 }
   }
 
-  for (const role of AGENT_ROLES) {
-    const notificationSettings = roleNotificationDefaults[role.role] ?? {}
+  // Create all agents + their skills in parallel (each pair is independent)
+  const agentResults = await Promise.allSettled(
+    AGENT_ROLES.map(async (role) => {
+      const notificationSettings = roleNotificationDefaults[role.role] ?? {}
 
-    const { data: agent, error: agentError } = await supabase
-      .from('agents')
-      .insert({
-        team_id: input.teamId,
-        created_by: input.userId,
-        name: role.name,
-        description: role.description,
-        system_prompt: role.is_orchestrator
-          ? null // orchestrator prompt is built dynamically
-          : `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
-        palette: role.palette,
-        model: 'gpt-4o',
-        is_orchestrator: role.is_orchestrator ?? false,
-        notification_settings: notificationSettings as unknown as Json,
-      })
-      .select('id')
-      .single()
+      const { data: agent, error: agentError } = await supabase
+        .from('agents')
+        .insert({
+          team_id: input.teamId,
+          created_by: input.userId,
+          name: role.name,
+          description: role.description,
+          system_prompt: role.is_orchestrator
+            ? null // orchestrator prompt is built dynamically
+            : `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
+          palette: role.palette,
+          model: 'gpt-4o',
+          is_orchestrator: role.is_orchestrator ?? false,
+          notification_settings: notificationSettings as unknown as Json,
+        })
+        .select('id')
+        .single()
 
-    if (agentError) {
-      console.error(`[provision-store] Failed to create agent ${role.name}:`, agentError.message)
-      continue
-    }
+      if (agentError) {
+        console.error(`[provision-store] Failed to create agent ${role.name}:`, agentError.message)
+        return null
+      }
 
-    agentsCreated++
-    agentsByRole[role.role] = agent.id
+      // 3. Create segment-specific skill for this agent role (skip orchestrator — it delegates)
+      const skill = role.is_orchestrator ? undefined : segmentSkills[role.role]
+      if (skill && agent) {
+        const { error: skillError } = await supabase.from('agent_skills').insert({
+          agent_id: agent.id,
+          name: skill.title,
+          description: `Specialized segment knowledge for ${role.name}`,
+          content: skill.content,
+          type: 'knowledge',
+          version: 1,
+          metadata: { segment: input.segment, role: role.role },
+          source: 'manual',
+        })
 
-    // 3. Create segment-specific skill for this agent role (skip orchestrator — it delegates)
-    const skill = role.is_orchestrator ? undefined : segmentSkills[role.role]
-    if (skill && agent) {
-      const { error: skillError } = await supabase.from('agent_skills').insert({
-        agent_id: agent.id,
-        name: skill.title,
-        description: `Specialized segment knowledge for ${role.name}`,
-        content: skill.content,
-        type: 'knowledge',
-        version: 1,
-        metadata: { segment: input.segment, role: role.role },
-        source: 'manual',
-      })
+        if (!skillError) skillsCreated++
+        else
+          console.error(
+            `[provision-store] Failed to create skill for ${role.name}:`,
+            skillError.message
+          )
+      }
 
-      if (!skillError) skillsCreated++
-      else
-        console.error(
-          `[provision-store] Failed to create skill for ${role.name}:`,
-          skillError.message
-        )
+      return { role: role.role, agentId: agent.id }
+    })
+  )
+
+  for (const result of agentResults) {
+    if (result.status === 'fulfilled' && result.value) {
+      agentsCreated++
+      agentsByRole[result.value.role] = result.value.agentId
     }
   }
 
@@ -362,79 +371,86 @@ async function provisionWorkflows(
     })
   }
 
-  for (const def of defs) {
-    const triggerConfig = {
-      schedule_type: 'cron',
-      cron_expression: def.cronExpression,
-      timezone: CRON_TZ,
-    }
+  // Create all workflows in parallel (each definition is independent)
+  await Promise.allSettled(
+    defs.map(async (def) => {
+      const triggerConfig = {
+        schedule_type: 'cron',
+        cron_expression: def.cronExpression,
+        timezone: CRON_TZ,
+      }
 
-    // 1. Create the workflow record
-    const { data: wf, error: wfError } = await supabase
-      .from('workflows')
-      .insert({
-        team_id: teamId,
-        created_by: userId,
-        name: def.name,
-        emoji: def.emoji,
-        status: 'published',
-      })
-      .select('id')
-      .single()
+      // 1. Create the workflow record (must be first — FK dependency)
+      const { data: wf, error: wfError } = await supabase
+        .from('workflows')
+        .insert({
+          team_id: teamId,
+          created_by: userId,
+          name: def.name,
+          emoji: def.emoji,
+          status: 'published',
+        })
+        .select('id')
+        .single()
 
-    if (wfError || !wf) {
-      console.error(`[provision-store] Failed to create workflow "${def.name}":`, wfError?.message)
-      continue
-    }
-
-    // 2. Create scheduled trigger (pg_cron auto-registered by trg_manage_scheduled_cron)
-    const { error: triggerError } = await supabase.from('workflow_triggers').insert({
-      workflow_id: wf.id,
-      type: 'scheduled' as const,
-      config: triggerConfig as unknown as Json,
-    })
-    if (triggerError) {
-      console.error(
-        `[provision-store] Failed to create trigger for "${def.name}":`,
-        triggerError.message
-      )
-    }
-
-    // 3. Create 3-step pipeline: app → ai → send_telegram
-    for (const [i, step] of def.steps.entries()) {
-      const { error: stepError } = await supabase.from('workflow_steps').insert({
-        workflow_id: wf.id,
-        position: i,
-        type: step.type,
-        name: step.name,
-        config: step.config as unknown as Json,
-      })
-      if (stepError) {
+      if (wfError || !wf) {
         console.error(
-          `[provision-store] Failed to create step "${step.name}" for "${def.name}":`,
-          stepError.message
+          `[provision-store] Failed to create workflow "${def.name}":`,
+          wfError?.message
+        )
+        return
+      }
+
+      // 2. Create trigger, steps (batch), and agent link in parallel
+      const [triggerResult, stepsResult, linkResult] = await Promise.allSettled([
+        supabase.from('workflow_triggers').insert({
+          workflow_id: wf.id,
+          type: 'scheduled' as const,
+          config: triggerConfig as unknown as Json,
+        }),
+        supabase.from('workflow_steps').insert(
+          def.steps.map((step, i) => ({
+            workflow_id: wf.id,
+            position: i,
+            type: step.type,
+            name: step.name,
+            config: step.config as unknown as Json,
+          }))
+        ),
+        supabase.from('agent_workflows').insert({
+          agent_id: def.agentId,
+          workflow_id: wf.id,
+          name: def.name,
+          description: def.description,
+          is_enabled: true,
+          source: 'provision',
+          trigger_config: triggerConfig as unknown as Json,
+          actions: [] as unknown as Json,
+        }),
+      ])
+
+      if (triggerResult.status === 'rejected' || triggerResult.value.error) {
+        console.error(
+          `[provision-store] Failed to create trigger for "${def.name}":`,
+          triggerResult.status === 'rejected'
+            ? triggerResult.reason
+            : triggerResult.value.error?.message
         )
       }
-    }
-
-    // 4. Link to agent via agent_workflows
-    const { error: linkError } = await supabase.from('agent_workflows').insert({
-      agent_id: def.agentId,
-      workflow_id: wf.id,
-      name: def.name,
-      description: def.description,
-      is_enabled: true,
-      source: 'provision',
-      trigger_config: triggerConfig as unknown as Json,
-      actions: [] as unknown as Json,
+      if (stepsResult.status === 'rejected' || stepsResult.value.error) {
+        console.error(
+          `[provision-store] Failed to create steps for "${def.name}":`,
+          stepsResult.status === 'rejected' ? stepsResult.reason : stepsResult.value.error?.message
+        )
+      }
+      if (linkResult.status === 'rejected' || linkResult.value.error) {
+        console.error(
+          `[provision-store] Failed to link workflow "${def.name}" to agent:`,
+          linkResult.status === 'rejected' ? linkResult.reason : linkResult.value.error?.message
+        )
+      }
     })
-    if (linkError) {
-      console.error(
-        `[provision-store] Failed to link workflow "${def.name}" to agent:`,
-        linkError.message
-      )
-    }
-  }
+  )
 }
 
 /**
