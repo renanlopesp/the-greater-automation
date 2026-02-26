@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Bot, GitBranch, MessageCircle, Play, Star } from 'lucide-react'
@@ -61,12 +61,15 @@ export default function DashboardClient({
     }
   }, [connectedApp, connectionError])
 
-  const computedStats = [
-    { ...stats[0], value: initialAgents.length },
-    { ...stats[1], value: initialWorkflows.length },
-    { ...stats[2], value: runsToday },
-    { ...stats[3], value: initialWorkflows.filter((w) => w.is_starred).length },
-  ]
+  const computedStats = useMemo(
+    () => [
+      { ...stats[0], value: initialAgents.length },
+      { ...stats[1], value: initialWorkflows.length },
+      { ...stats[2], value: runsToday },
+      { ...stats[3], value: initialWorkflows.filter((w) => w.is_starred).length },
+    ],
+    [stats, initialAgents.length, initialWorkflows.length, runsToday, initialWorkflows]
+  )
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-12 pb-12">

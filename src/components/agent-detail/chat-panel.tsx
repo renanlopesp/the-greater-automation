@@ -328,6 +328,12 @@ export default function ChatPanel({
 
   const hasMessages = messages.length > 0
 
+  // Filter to visible messages (exclude tool/system messages from render)
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => m.role === 'user' || m.role === 'assistant'),
+    [messages]
+  )
+
   // Message feedback (like/dislike)
   const assistantMessageIds = useMemo(
     () => messages.filter((m) => m.role === 'assistant').map((m) => m.id),
@@ -378,20 +384,18 @@ export default function ChatPanel({
               description="Ask a question or pick a conversation starter below."
             />
           ) : (
-            messages
-              .filter((m) => m.role === 'user' || m.role === 'assistant')
-              .map((message) => (
-                <ChatMessageItem
-                  key={message.id}
-                  message={message}
-                  agentName={agentName}
-                  agentPalette={agentPalette}
-                  isStreaming={isStreaming && message.id === lastAssistantId}
-                  currentUserId={currentUserId}
-                  feedback={getFeedback(message.id)}
-                  onFeedback={toggleFeedback}
-                />
-              ))
+            visibleMessages.map((message) => (
+              <ChatMessageItem
+                key={message.id}
+                message={message}
+                agentName={agentName}
+                agentPalette={agentPalette}
+                isStreaming={isStreaming && message.id === lastAssistantId}
+                currentUserId={currentUserId}
+                feedback={getFeedback(message.id)}
+                onFeedback={toggleFeedback}
+              />
+            ))
           )}
         </ConversationContent>
         <ConversationScrollButton />

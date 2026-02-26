@@ -27,6 +27,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { useAppConnections } from '@/hooks/use-app-connections'
+import type { AppConnection } from '@/lib/composio/actions/get-app-connections'
+import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 import { useAppActions } from '@/hooks/use-app-actions'
 import { useAppResources } from '@/hooks/use-app-resources'
 import { getAppModule } from '@/lib/composio/modules'
@@ -39,6 +41,8 @@ import { cn } from '@/lib/utils'
 
 const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
 const EMPTY_ITEMS: { label: string; value: string }[] = []
+const EMPTY_CONNECTIONS: AppConnection[] = []
+const EMPTY_APPS: ComposioApp[] = []
 
 // --- Action type icon mapping ---
 
@@ -364,14 +368,8 @@ export default function AppStepConfigForm({
   const [actionComboboxOpen, setActionComboboxOpen] = useState(false)
 
   const { data: connectionsData, isLoading: isLoadingConnections } = useAppConnections()
-  const connections = useMemo(
-    () => connectionsData?.connections ?? [],
-    [connectionsData?.connections]
-  )
-  const composioApps = useMemo(
-    () => connectionsData?.composioApps ?? [],
-    [connectionsData?.composioApps]
-  )
+  const connections = connectionsData?.connections ?? EMPTY_CONNECTIONS
+  const composioApps = connectionsData?.composioApps ?? EMPTY_APPS
 
   // Derive connected apps from connections + dynamic Composio catalog
   const connectedApps = useMemo(() => {
