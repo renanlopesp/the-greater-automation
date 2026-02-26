@@ -166,6 +166,14 @@ export async function deleteAgent(agentId: string): Promise<ActionResult> {
 
   const supabase = await createServerClient()
 
+  // Block deletion of orchestrator agents
+  const { data: target } = await supabase
+    .from('agents')
+    .select('is_orchestrator')
+    .eq('id', agentId)
+    .single()
+  if (target?.is_orchestrator) return { error: 'The orchestrator agent cannot be deleted' }
+
   // Collect workflow IDs created by agent workflows before cascade deletes them
   const { data: workflows } = await supabase
     .from('agent_workflows')
@@ -488,12 +496,28 @@ export async function bulkDeleteItems(
 
   // Delete agents and their workflow-created workflows
   if (agentIds.length > 0) {
+    // Filter out orchestrator agents — they cannot be deleted
+    const { data: orchestrators } = await supabase
+      .from('agents')
+      .select('id')
+      .in('id', agentIds)
+      .eq('is_orchestrator', true)
+    const orchestratorIds = new Set((orchestrators ?? []).map((o) => o.id))
+    const safeAgentIds = agentIds.filter((id) => !orchestratorIds.has(id))
+
+    if (orchestratorIds.size > 0 && safeAgentIds.length === 0 && workflowIds.length === 0) {
+      return { error: 'The orchestrator agent cannot be deleted' }
+    }
+
     // Collect workflow IDs created by agent workflows before cascade deletes them
-    const { data: agentWorkflows } = await supabase
-      .from('agent_workflows')
-      .select('workflow_id')
-      .in('agent_id', agentIds)
-      .not('workflow_id', 'is', null)
+    const { data: agentWorkflows } =
+      safeAgentIds.length > 0
+        ? await supabase
+            .from('agent_workflows')
+            .select('workflow_id')
+            .in('agent_id', safeAgentIds)
+            .not('workflow_id', 'is', null)
+        : { data: null }
 
     const deletedSet = new Set(workflowIds)
     const agentWorkflowIds: string[] = []
@@ -503,15 +527,17 @@ export async function bulkDeleteItems(
       }
     }
 
-    const { error } = await supabase.from('agents').delete().in('id', agentIds)
+    if (safeAgentIds.length > 0) {
+      const { error } = await supabase.from('agents').delete().in('id', safeAgentIds)
 
-    if (error) {
-      errors.push(`Failed to delete agents: ${error.message}`)
-    }
+      if (error) {
+        errors.push(`Failed to delete agents: ${error.message}`)
+      }
 
-    // Clean up orphaned workflows that were created by agent workflows
-    if (agentWorkflowIds.length > 0) {
-      await supabase.from('workflows').delete().in('id', agentWorkflowIds)
+      // Clean up orphaned workflows that were created by agent workflows
+      if (agentWorkflowIds.length > 0) {
+        await supabase.from('workflows').delete().in('id', agentWorkflowIds)
+      }
     }
   }
 

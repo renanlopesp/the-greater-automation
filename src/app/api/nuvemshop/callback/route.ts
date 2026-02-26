@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     // exchangeCodeForToken reads NUVEMSHOP_APP_ID and NUVEMSHOP_CLIENT_SECRET from env
     const tokenData = await NuvemshopClient.exchangeCodeForToken(code)
 
+    console.log('[nuvemshop/callback] Granted scope:', tokenData.scope)
+
     const serviceSupabase = createServiceRoleClient()
 
     // Try to update existing store first

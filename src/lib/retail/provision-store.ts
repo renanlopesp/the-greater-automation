@@ -110,9 +110,12 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
         created_by: input.userId,
         name: role.name,
         description: role.description,
-        system_prompt: `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
+        system_prompt: role.is_orchestrator
+          ? null // orchestrator prompt is built dynamically
+          : `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
         palette: role.palette,
         model: 'gpt-4o',
+        is_orchestrator: role.is_orchestrator ?? false,
         notification_settings: notificationSettings as unknown as Json,
       })
       .select('id')
@@ -126,8 +129,8 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
     agentsCreated++
     agentsByRole[role.role] = agent.id
 
-    // 3. Create segment-specific skill for this agent role
-    const skill = segmentSkills[role.role]
+    // 3. Create segment-specific skill for this agent role (skip orchestrator — it delegates)
+    const skill = role.is_orchestrator ? undefined : segmentSkills[role.role]
     if (skill && agent) {
       const { error: skillError } = await supabase.from('agent_skills').insert({
         agent_id: agent.id,

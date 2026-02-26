@@ -66,14 +66,27 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
   const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
 
-  // Build setup checklist based on agent role
-  const setupSteps = buildSetupSteps(
-    agent,
-    storeData,
-    messagingLink,
-    skillCount ?? 0,
-    workflowCount ?? 0
-  )
+  // Orchestrator agents skip setup checklist and get tailored conversation starters
+  const isOrchestrator = agent.is_orchestrator
+
+  // Build setup checklist based on agent role (skip for orchestrator)
+  const setupSteps = isOrchestrator
+    ? []
+    : buildSetupSteps(agent, storeData, messagingLink, skillCount ?? 0, workflowCount ?? 0)
+
+  // Orchestrator conversation starters
+  const orchestratorStarters = [
+    "How's my stock?",
+    "Show today's sales",
+    'Recent orders',
+    'Create an agent',
+  ]
+
+  const conversationStarters = isOrchestrator
+    ? orchestratorStarters
+    : Array.isArray(agent.conversation_starters)
+      ? (agent.conversation_starters as string[])
+      : []
 
   const currentUser = {
     id: user.id,
@@ -110,26 +123,28 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
         <div className="flex items-center gap-1.5">
           <PresenceIndicator agentId={id} currentUser={currentUser} />
-          <Suspense
-            fallback={
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" disabled>
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Settings</TooltipContent>
-              </Tooltip>
-            }
-          >
-            <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
-          </Suspense>
+          {!isOrchestrator && (
+            <Suspense
+              fallback={
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" disabled>
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Settings</TooltipContent>
+                </Tooltip>
+              }
+            >
+              <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
+            </Suspense>
+          )}
           <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
           <NewChatButton />
         </div>
       </header>
 
-      {/* Setup checklist — shown when agent has incomplete setup steps */}
+      {/* Setup checklist — shown when agent has incomplete setup steps (not for orchestrator) */}
       {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
 
       {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
@@ -137,11 +152,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         agentId={id}
         agentName={agent.name}
         agentPalette={agent.palette}
-        conversationStarters={
-          Array.isArray(agent.conversation_starters)
-            ? (agent.conversation_starters as string[])
-            : []
-        }
+        conversationStarters={conversationStarters}
         currentUserId={user.id}
         initialConversationId={activeConversation?.conversationId ?? null}
         initialMessages={activeConversation?.messages ?? []}

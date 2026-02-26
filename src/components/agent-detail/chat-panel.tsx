@@ -121,6 +121,11 @@ function ChatMessageItem({
 
   const textContent = textParts.map((p) => p.text).join('')
 
+  // Consolidate reasoning parts into a single text block and detect streaming state
+  const reasoningText = reasoningParts.map((part) => part.text).join('\n\n')
+  const lastPart = parts.at(-1)
+  const isReasoningStreaming = isStreaming && lastPart?.type === 'reasoning'
+
   // Other users' messages are displayed left-aligned (like assistant)
   const messageFrom = isUser && !isOwnMessage ? 'assistant' : message.role
 
@@ -181,22 +186,11 @@ function ChatMessageItem({
           </>
         ) : (
           <>
-            {/* Reasoning parts from model */}
-            {reasoningParts.map((part, i) => (
-              <Reasoning
-                key={`reasoning-${i}`}
-                isStreaming={isStreaming && i === reasoningParts.length - 1}
-              >
+            {/* Reasoning — only show when model actually produces reasoning parts */}
+            {reasoningParts.length > 0 && (
+              <Reasoning isStreaming={isReasoningStreaming}>
                 <ReasoningTrigger />
-                <ReasoningContent>{part.text}</ReasoningContent>
-              </Reasoning>
-            ))}
-
-            {/* Working indicator — shows when agent is processing but has no reasoning parts or text yet */}
-            {isStreaming && !textContent && reasoningParts.length === 0 && (
-              <Reasoning isStreaming={true}>
-                <ReasoningTrigger />
-                <ReasoningContent>{''}</ReasoningContent>
+                <ReasoningContent>{reasoningText}</ReasoningContent>
               </Reasoning>
             )}
 

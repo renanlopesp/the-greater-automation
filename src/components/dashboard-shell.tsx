@@ -49,6 +49,7 @@ interface DashboardShellProps {
     last_sync_at: string | null
     settings: Record<string, unknown> | null
   } | null
+  orchestratorId?: string | null
   children: ReactNode
 }
 
@@ -90,6 +91,7 @@ export default function DashboardShell({
   defaultSidebarOpen = false,
   planData,
   storeData,
+  orchestratorId,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
@@ -102,12 +104,14 @@ export default function DashboardShell({
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // Auto-open settings from URL params (e.g. after OAuth callback)
+  // Auto-open settings from URL params (e.g. after OAuth callback or redirect)
   const openSettingsParam = searchParams.get('open_settings')
   if (openSettingsParam && !settingsOpen) {
     setSettingsSection(openSettingsParam as SettingsSection)
     setSettingsOpen(true)
-    toast.success('Nuvemshop conectada com sucesso!')
+    if (openSettingsParam === 'store') {
+      toast.success('Nuvemshop conectada com sucesso!')
+    }
     // Clean URL params
     const params = new URLSearchParams(searchParams.toString())
     params.delete('open_settings')
@@ -124,6 +128,7 @@ export default function DashboardShell({
           userTeams={userTeams}
           usage={usage}
           planData={planData}
+          orchestratorId={orchestratorId}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onSwitchWorkspace={(name, transition) => {

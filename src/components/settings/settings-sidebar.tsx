@@ -6,6 +6,7 @@ export type SettingsSection =
   | 'account'
   | 'notifications'
   | 'manage-apps'
+  | 'messaging'
   | 'general'
   | 'members'
   | 'billing'
@@ -23,6 +24,7 @@ const SECTIONS: { group: string; items: { id: SettingsSection; label: string }[]
       { id: 'account', label: 'Account' },
       { id: 'notifications', label: 'Notifications' },
       { id: 'manage-apps', label: 'Manage apps' },
+      { id: 'messaging', label: 'Messaging' },
     ],
   },
   {

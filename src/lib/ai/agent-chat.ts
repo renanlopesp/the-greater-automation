@@ -392,6 +392,16 @@ export function buildAgentSystemPrompt(
 
 const DEFAULT_MODEL = 'gpt-4o'
 
+/** Reasoning models don't support temperature and require the Responses API for reasoning summaries */
+function isReasoningModel(modelId: string): boolean {
+  return (
+    modelId.startsWith('o1') ||
+    modelId.startsWith('o3') ||
+    modelId.startsWith('o4') ||
+    modelId.startsWith('gpt-5')
+  )
+}
+
 /**
  * Get the OpenAI provider for agent chat.
  * Uses OPEN_AI_API_KEY for function calling support.
@@ -403,6 +413,15 @@ function getOpenAIProvider() {
     throw new Error('OPEN_AI_API_KEY environment variable is required for agent chat')
   }
   return createOpenAI({ apiKey })
+}
+
+/**
+ * Get the correct model instance for a given model ID.
+ * Reasoning models (o1, o3, o4, gpt-5.x) use the Responses API (supports reasoningSummary).
+ * Regular models use the Chat Completions API.
+ */
+function getModel(provider: ReturnType<typeof getOpenAIProvider>, modelId: string) {
+  return isReasoningModel(modelId) ? provider.responses(modelId) : provider.chat(modelId)
 }
 
 // ---------------------------------------------------------------------------
@@ -571,13 +590,17 @@ export async function runAgentChat(options: AgentChatOptions) {
   const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
 
   // Stream with native tool calling + multi-step loop
+  const reasoning = isReasoningModel(modelId)
   const result = streamText({
-    model: provider.chat(modelId),
+    model: getModel(provider, modelId),
     system: systemPrompt,
     messages,
     tools: allTools as unknown as ToolSet,
     stopWhen: stepCountIs(10),
-    temperature: agent.temperature ?? 0.7,
+    ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
+    ...(reasoning
+      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+      : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
   })
 
@@ -625,17 +648,21 @@ export async function runAgentChatSync(
   const provider = getOpenAIProvider()
   const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
   const hasTools = Object.keys(allTools).length > 0
+  const reasoning = isReasoningModel(modelId)
 
   // When onIntermediateMessage is provided (messaging channels), use streamText
   // so we can send progressive updates as the AI works through tool calls.
   if (onIntermediateMessage && hasTools) {
     const streamResult = streamText({
-      model: provider.chat(modelId),
+      model: getModel(provider, modelId),
       system: systemPrompt,
       messages,
       tools: allTools as unknown as ToolSet,
       stopWhen: stepCountIs(10),
-      temperature: agent.temperature ?? 0.7,
+      ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
+      ...(reasoning
+        ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+        : {}),
       maxOutputTokens: agent.max_tokens ?? 4096,
       onStepFinish: async ({ text: stepText, toolCalls }) => {
         // When the AI produces text AND calls tools in the same step,
@@ -673,13 +700,16 @@ export async function runAgentChatSync(
 
   // Default path: generateText (web chat and contexts without intermediate messaging)
   const result = await generateText({
-    model: provider.chat(modelId),
+    model: getModel(provider, modelId),
     system: systemPrompt,
     messages,
     ...(hasTools
       ? { tools: allTools as Parameters<typeof generateText>[0]['tools'], maxSteps: 10 }
       : {}),
-    temperature: agent.temperature ?? 0.7,
+    ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
+    ...(reasoning
+      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+      : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
   })
 
@@ -740,7 +770,7 @@ async function generateFollowUp(
   toolSummaries: string[]
 ): Promise<{ text: string; tokens: number }> {
   const followUp = await generateText({
-    model: provider.chat(modelId),
+    model: getModel(provider, modelId),
     system: systemPrompt,
     messages: [
       ...messages,
@@ -755,7 +785,7 @@ async function generateFollowUp(
         ].join('\n'),
       },
     ],
-    temperature: agent.temperature ?? 0.7,
+    ...(!isReasoningModel(modelId) ? { temperature: agent.temperature ?? 0.7 } : {}),
     maxOutputTokens: 512,
   })
 

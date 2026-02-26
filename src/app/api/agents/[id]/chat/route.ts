@@ -13,6 +13,7 @@ import {
 import { tokensToCredits } from '@/lib/billing/credits'
 import { buildSkillBuilderTools } from '@/lib/ai/skill-builder-tools'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
+import { buildPlatformTools, buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: agentId } = await params
@@ -76,6 +77,228 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!agent) {
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
   }
+
+  // ── Orchestrator branch ──────────────────────────────────────────────
+  // When the agent is an orchestrator, use platform tools + SNEW_ASK_AGENT
+  // instead of agent-scoped tools, and use the orchestrator system prompt.
+  if (agent.is_orchestrator) {
+    // Load team's specialist agents for the orchestrator prompt catalog
+    const [{ data: teamAgents }, { data: store }] = await Promise.all([
+      supabase
+        .from('agents')
+        .select('id, name, description')
+        .eq('team_id', agent.team_id)
+        .eq('is_orchestrator', false)
+        .order('name'),
+      supabase
+        .from('stores')
+        .select('id, name, segment, platform, platform_access_token')
+        .eq('team_id', agent.team_id)
+        .limit(1)
+        .single(),
+    ])
+
+    const storeId = store?.id ?? null
+    const hasProducts = store
+      ? ((
+          await supabase
+            .from('store_products')
+            .select('id', { count: 'exact', head: true })
+            .eq('store_id', store.id)
+        ).count ?? 0) > 0
+      : false
+
+    const { data: team } = await supabase
+      .from('teams')
+      .select('name')
+      .eq('id', agent.team_id)
+      .single()
+
+    // Build orchestrator system prompt with agent catalog
+    const orchestratorPrompt = buildOrchestratorSystemPrompt(
+      team?.name ?? 'Your workspace',
+      teamAgents ?? [],
+      store
+        ? {
+            storeName: store.name,
+            segment: store.segment,
+            platform: store.platform,
+            hasProducts,
+          }
+        : undefined
+    )
+
+    // Platform tools (includes SNEW_ASK_AGENT, retail tools, etc.)
+    const platformTools = buildPlatformTools(
+      user.id,
+      agent.team_id,
+      undefined,
+      storeId ?? undefined
+    )
+
+    // Load or create conversation (same logic as regular agents)
+    let orchConvId = existingConvId
+    if (!orchConvId) {
+      const { data: activeConv } = await supabase
+        .from('agent_conversations')
+        .select('id')
+        .eq('agent_id', agentId)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .single()
+
+      if (activeConv) {
+        orchConvId = activeConv.id
+      } else {
+        const { data: conv } = await supabase
+          .from('agent_conversations')
+          .insert({
+            agent_id: agentId,
+            user_id: user.id,
+            created_by: user.id,
+            is_active: true,
+            title: userMessage.slice(0, 100),
+          })
+          .select('id')
+          .single()
+        orchConvId = conv?.id
+      }
+    }
+
+    if (!orchConvId) {
+      return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
+    }
+
+    // Insert user message
+    await supabase.from('agent_messages').insert({
+      conversation_id: orchConvId,
+      role: 'user',
+      content: userMessage,
+      sender_id: user.id,
+    })
+
+    // Build messages
+    let orchMessages: Awaited<ReturnType<typeof convertToModelMessages>>
+    if (body.messages && Array.isArray(body.messages)) {
+      orchMessages = await convertToModelMessages(body.messages as UIMessage[])
+    } else {
+      const { data: historyRows } = await supabase
+        .from('agent_messages')
+        .select('role, content')
+        .eq('conversation_id', orchConvId)
+        .order('created_at', { ascending: true })
+        .limit(50)
+
+      orchMessages = (historyRows ?? [])
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    }
+
+    const orchAgentConfig: AgentConfig = {
+      id: agent.id,
+      name: agent.name,
+      system_prompt: null, // prompt is handled by buildOrchestratorSystemPrompt
+      model: 'gpt-5.2',
+      temperature: null, // reasoning models don't support temperature
+      max_tokens: agent.max_tokens,
+    }
+
+    // Load ALL connected apps from ALL team members so orchestrator can use any tool directly
+    const { data: teamMembers } = await supabase
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', agent.team_id)
+    const teamUserIds = (teamMembers ?? []).map((m) => m.user_id)
+
+    const { data: allConnections } =
+      teamUserIds.length > 0
+        ? await supabase
+            .from('app_connections')
+            .select('app_id, composio_connection_id, user_id')
+            .in('user_id', teamUserIds)
+        : { data: null }
+
+    const orchAppIds = new Set<string>()
+    let orchConnectedAccountMap: Record<string, string> | undefined
+    let orchEntityId = user.id
+
+    if (allConnections && allConnections.length > 0) {
+      orchConnectedAccountMap = {}
+      const ownerCounts = new Map<string, number>()
+      for (const row of allConnections) {
+        orchAppIds.add(row.app_id)
+        if (row.composio_connection_id) {
+          if (!orchConnectedAccountMap[row.app_id] || row.user_id === user.id) {
+            orchConnectedAccountMap[row.app_id] = row.composio_connection_id
+          }
+          ownerCounts.set(row.user_id, (ownerCounts.get(row.user_id) ?? 0) + 1)
+        }
+      }
+      if (!ownerCounts.has(user.id) && ownerCounts.size > 0) {
+        let maxCount = 0
+        for (const [ownerId, count] of ownerCounts) {
+          if (count > maxCount) {
+            maxCount = count
+            orchEntityId = ownerId
+          }
+        }
+      }
+    }
+
+    // Also include the store platform if it uses Composio
+    if (store?.platform && store.platform !== 'manual' && store.platform !== 'nuvemshop') {
+      orchAppIds.add(store.platform)
+    }
+
+    // Update status + run chat
+    await supabase.from('agents').update({ status: 'running' }).eq('id', agentId)
+
+    try {
+      const result = await runAgentChat({
+        userId: orchEntityId,
+        agent: orchAgentConfig,
+        messages: orchMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+        systemPrompt: orchestratorPrompt,
+        relayTools: platformTools,
+        connectedAppIds: orchAppIds.size > 0 ? [...orchAppIds] : undefined,
+        connectedAccountMap: orchConnectedAccountMap,
+      })
+
+      after(async () => {
+        try {
+          const [fullText, usage] = await Promise.all([result.text, result.usage])
+          if (fullText) {
+            await supabase.from('agent_messages').insert({
+              conversation_id: orchConvId,
+              role: 'assistant',
+              content: fullText,
+            })
+          }
+          const credits = tokensToCredits(usage?.totalTokens ?? 0)
+          if (credits > 0 && agent.team_id) {
+            await supabase.rpc('increment_ai_credits', {
+              p_team_id: agent.team_id,
+              p_credits: credits,
+            })
+          }
+        } finally {
+          await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
+        }
+      })
+
+      const response = result.toUIMessageStreamResponse({ sendReasoning: true })
+      const headers = new Headers(response.headers)
+      headers.set('X-Conversation-Id', orchConvId)
+      return new Response(response.body, { status: response.status, headers })
+    } catch (error) {
+      await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
+      const errorMessage = error instanceof Error ? error.message : 'Chat failed'
+      console.error('[agent-chat] Orchestrator error:', errorMessage)
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
+    }
+  }
+  // ── End orchestrator branch ──────────────────────────────────────────
 
   const agentConfig: AgentConfig = {
     id: agent.id,
@@ -367,7 +590,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
 
     // Return streaming response with conversation ID header
-    const response = result.toUIMessageStreamResponse()
+    const response = result.toUIMessageStreamResponse({ sendReasoning: true })
     const headers = new Headers(response.headers)
     headers.set('X-Conversation-Id', conversationId)
 

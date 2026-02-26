@@ -40,27 +40,41 @@ export async function processMessage(
       ).count ?? 0) > 0
     : false
 
-  // Find or create conversation (not tied to any specific agent)
+  // Find or create conversation — prefer orchestrator agent for FK
   let conversationId = link.conversation_id
 
   if (!conversationId) {
     // We need an agent_id for agent_conversations (FK constraint).
-    // Use the first agent in the team as the conversation host.
-    const { data: firstAgent } = await supabase
+    // Use the orchestrator agent if one exists, otherwise fall back to first agent.
+    const { data: orchestratorAgent } = await supabase
       .from('agents')
       .select('id')
       .eq('team_id', link.team_id)
-      .order('created_at', { ascending: true })
+      .eq('is_orchestrator', true)
       .limit(1)
       .single()
 
-    if (!firstAgent) {
+    const conversationAgent =
+      orchestratorAgent ??
+      (
+        await supabase
+          .from('agents')
+          .select('id')
+          .eq('team_id', link.team_id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single()
+      ).data
+
+    if (!conversationAgent) {
       await sendMessage(
         chatId,
         'No agents found in your workspace. Create one first in the dashboard.'
       )
       return
     }
+
+    const firstAgent = conversationAgent
 
     const { data: conv } = await supabase
       .from('agent_conversations')

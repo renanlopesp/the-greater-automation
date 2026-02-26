@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
@@ -54,14 +55,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get the user's team
-    const { data: teamMember, error: teamError } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', user.id)
-      .single()
+    // Get the user's active team (respects workspace switcher cookie)
+    const teamId = await getActiveTeamId(supabase, user.id)
 
-    if (teamError || !teamMember) {
+    if (!teamId) {
       return NextResponse.redirect(`${siteUrl}/dashboard?error=no_team`)
     }
 
@@ -69,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { error: upsertError } = await supabase.from('app_connections').upsert(
       {
         user_id: user.id,
-        team_id: teamMember.team_id,
+        team_id: teamId,
         app_id: pending.appId,
         composio_connection_id: pending.connectedAccountId,
         account_label: (account as Record<string, unknown>)?.accountId
@@ -98,7 +95,7 @@ export async function GET(request: NextRequest) {
           platform: pending.appId,
           platform_store_id: pending.connectedAccountId,
         })
-        .eq('team_id', teamMember.team_id)
+        .eq('team_id', teamId)
     }
 
     return NextResponse.redirect(`${siteUrl}/workspace?connected=${pending.appId}`)

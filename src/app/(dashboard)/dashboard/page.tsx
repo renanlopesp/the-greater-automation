@@ -107,10 +107,24 @@ async function DashboardData({
     fetchRunsToday(supabase, teamId),
   ])
 
+  // Separate orchestrator from specialist agents
+  const orchestrator = agents.find((a) => a.is_orchestrator)
+  const specialistAgents = agents.filter((a) => !a.is_orchestrator)
+
   return (
     <DashboardClient
       team={{ name: team?.name ?? 'My Team', avatar_url: team?.avatar_url ?? null }}
-      initialAgents={agents.map((a) => ({
+      orchestrator={
+        orchestrator
+          ? {
+              id: orchestrator.id,
+              name: orchestrator.name,
+              description: orchestrator.description,
+              palette: orchestrator.palette,
+            }
+          : null
+      }
+      initialAgents={specialistAgents.map((a) => ({
         agent: {
           id: a.id,
           name: a.name,

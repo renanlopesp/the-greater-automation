@@ -139,6 +139,10 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
 
 export async function getTriggerSubscriptions(agentId: string) {
   const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { subscriptions: [] }
 
   const { data } = await supabase
     .from('trigger_subscriptions')

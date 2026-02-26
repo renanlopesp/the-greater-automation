@@ -67,9 +67,19 @@ export interface AgentRoleConfig {
   description: string
   palette: string // matches existing agent palette system
   icon: string
+  is_orchestrator?: boolean
 }
 
 export const AGENT_ROLES: AgentRoleConfig[] = [
+  {
+    role: 'orchestrator',
+    name: 'Snew',
+    description:
+      'Your central assistant. Ask anything — it routes to the right specialist or answers directly.',
+    palette: 'indigo',
+    icon: '🧠',
+    is_orchestrator: true,
+  },
   {
     role: 'estoquista',
     name: 'Stock Manager',
