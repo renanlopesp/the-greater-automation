@@ -29,14 +29,14 @@ describe('AgentsGrid', () => {
     expect(screen.getByText('Data Agent')).toBeInTheDocument()
   })
 
-  it('renders "Create new agent" link', () => {
+  it('renders "Create new worker" link', () => {
     render(<AgentsGrid agents={mockAgents} />)
-    expect(screen.getByText('Create new agent')).toBeInTheDocument()
+    expect(screen.getByText('Create new worker')).toBeInTheDocument()
   })
 
   it('renders with empty agents list', () => {
     render(<AgentsGrid agents={[]} />)
-    expect(screen.getByText('Create new agent')).toBeInTheDocument()
+    expect(screen.getByText('Create new worker')).toBeInTheDocument()
   })
 
   it('renders workflow counts for agents', () => {
@@ -47,6 +47,6 @@ describe('AgentsGrid', () => {
 
   it('renders section heading', () => {
     render(<AgentsGrid agents={mockAgents} />)
-    expect(screen.getByText('Agents')).toBeInTheDocument()
+    expect(screen.getByText('Workers')).toBeInTheDocument()
   })
 })

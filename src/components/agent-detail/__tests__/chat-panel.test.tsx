@@ -344,24 +344,23 @@ describe('ChatPanel', () => {
   })
 
   describe('Streaming Indicator', () => {
-    it('should show reasoning indicator when streaming with no text content', () => {
+    it('should not show reasoning indicator when streaming with no reasoning parts', () => {
       mockChatState({
         isStreaming: true,
         messages: [
           {
             id: 'msg-1',
             role: 'assistant',
-            parts: [], // No content yet
+            parts: [], // No content yet — reasoning only shows when model produces reasoning parts
           },
         ],
       })
       render(<ChatPanel {...defaultProps} />)
 
-      const reasoning = screen.getByTestId('reasoning')
-      expect(reasoning).toBeInTheDocument()
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
 
-    it('should show reasoning indicator when streaming with tool parts but no text', () => {
+    it('should not show reasoning indicator when streaming with tool parts but no reasoning', () => {
       mockChatState({
         isStreaming: true,
         messages: [
@@ -381,7 +380,7 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.getByTestId('reasoning')).toBeInTheDocument()
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
       expect(screen.getByTestId('tool')).toBeInTheDocument()
     })
 
