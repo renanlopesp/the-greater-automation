@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkflowRunSteps, type RunStep } from '@/hooks/use-trigger-subscriptions'
 
@@ -235,7 +236,7 @@ export default function RunHistory({ runs }: RunHistoryProps) {
         ))}
       </div>
       <div className="divide-y">
-        {filteredRuns.map((run) => {
+        {filteredRuns.slice(0, 5).map((run) => {
           const isExpanded = expandedRuns.has(run.id)
           const name = run.workflow ? `${run.workflow.emoji} ${run.workflow.name}` : 'Unknown'
 
@@ -321,6 +322,17 @@ export default function RunHistory({ runs }: RunHistoryProps) {
           )
         })}
       </div>
+      {filteredRuns.length > 5 && (
+        <div className="border-t px-4 py-2.5">
+          <Link
+            href="/runs"
+            className="text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 text-xs font-medium transition-colors"
+          >
+            View all runs
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

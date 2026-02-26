@@ -190,11 +190,20 @@ export async function handleWebhookRequest(
   // 7. Capture webhook payload
   const triggerData = await captureWebhookPayload(request)
 
+  // 7b. Look up the agent that owns this workflow (if any)
+  const { data: agentWorkflow } = await supabase
+    .from('agent_workflows')
+    .select('agent_id')
+    .eq('workflow_id', workflow.id)
+    .limit(1)
+    .maybeSingle()
+
   // 8. Create workflow run
   const { data: run, error: runError } = await supabase
     .from('workflow_runs')
     .insert({
       workflow_id: workflow.id,
+      agent_id: agentWorkflow?.agent_id ?? null,
       status: 'pending',
       trigger_type: 'webhook',
       trigger_data: triggerData as Json,
@@ -499,70 +508,132 @@ export async function executeWorkflowSteps(
             break
           }
 
-          // Look up the workflow to get the creator's user_id
-          const { data: wf } = await supabase
-            .from('workflows')
-            .select('created_by')
-            .eq('id', workflowId)
-            .single()
+          if (appConfig.app_id === 'nuvemshop') {
+            // Nuvemshop: direct API calls (not via Composio)
+            const { data: wfForStore } = await supabase
+              .from('workflows')
+              .select('team_id')
+              .eq('id', workflowId)
+              .single()
 
-          if (!wf?.created_by) {
-            stepStatus = 'failed'
-            stepError = 'Cannot determine workflow owner for app connection'
-            break
-          }
+            if (!wfForStore?.team_id) {
+              stepStatus = 'failed'
+              stepError = 'Cannot determine workflow team for Nuvemshop'
+            } else {
+              const { data: store } = await supabase
+                .from('stores')
+                .select('id, platform_store_id, platform_access_token')
+                .eq('team_id', wfForStore.team_id)
+                .eq('platform', 'nuvemshop')
+                .single()
 
-          // Look up the user's connection for this app
-          const { data: connection } = await supabase
-            .from('app_connections')
-            .select('composio_connection_id')
-            .eq('user_id', wf.created_by)
-            .eq('app_id', appConfig.app_id)
-            .single()
+              if (!store?.platform_access_token || !store?.platform_store_id) {
+                stepStatus = 'failed'
+                stepError = 'No connected Nuvemshop store found for this team.'
+              } else {
+                const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+                const nuvemClient = new NuvemshopClient(
+                  store.platform_store_id,
+                  store.platform_access_token
+                )
 
-          if (!connection?.composio_connection_id) {
-            stepStatus = 'failed'
-            stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
-            break
-          }
-
-          // Execute via Composio
-          const composio = getComposio()
-          // New workflows store full Composio slugs; legacy ones may use short names
-          const actionName =
-            appConfig.action.includes('_') && appConfig.action === appConfig.action.toUpperCase()
-              ? appConfig.action
-              : `${appConfig.app_id.toUpperCase()}_${appConfig.action.toUpperCase()}`
-
-          // Look up tool version (required for manual execution)
-          const tools = await composio.tools.getRawComposioTools({
-            toolkits: [appConfig.app_id],
-            limit: 500,
-          })
-          const toolMeta = tools.find((t) => t.slug === actionName)
-
-          const result = await composio.tools.execute(actionName, {
-            connectedAccountId: connection.composio_connection_id,
-            userId: wf.created_by,
-            arguments: appConfig.inputs as Record<string, unknown>,
-            ...(toolMeta?.version ? { version: toolMeta.version } : {}),
-          })
-
-          const appResult = result as {
-            successful?: boolean
-            data?: unknown
-            error?: string
-          }
-
-          if (appResult.successful) {
-            stepOutput = {
-              app_id: appConfig.app_id,
-              action: appConfig.action,
-              result: appResult.data,
-            } as Json
+                switch (appConfig.action) {
+                  case 'NUVEMSHOP_GET_PRODUCTS':
+                    stepOutput =
+                      (await nuvemClient.getAllProducts()) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_ORDERS':
+                    stepOutput = (await nuvemClient.getOrders(
+                      1,
+                      50,
+                      appConfig.inputs as { created_at_min?: string } | undefined
+                    )) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_CUSTOMERS':
+                    stepOutput = (await nuvemClient.getCustomers(
+                      appConfig.inputs as { q?: string } | undefined
+                    )) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_CATEGORIES':
+                    stepOutput = (await nuvemClient.getCategories()) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_ABANDONED_CHECKOUTS':
+                    stepOutput =
+                      (await nuvemClient.getAbandonedCheckouts()) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_COUPONS':
+                    stepOutput = (await nuvemClient.getCoupons()) as unknown as typeof stepOutput
+                    break
+                  case 'NUVEMSHOP_GET_STORE_INFO':
+                    stepOutput = (await nuvemClient.getStoreInfo()) as unknown as typeof stepOutput
+                    break
+                  default:
+                    stepStatus = 'failed'
+                    stepError = `Unknown Nuvemshop action: ${appConfig.action}`
+                }
+              }
+            }
           } else {
-            stepStatus = 'failed'
-            stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
+            // Non-Nuvemshop apps: use Composio
+            const { data: wf } = await supabase
+              .from('workflows')
+              .select('created_by')
+              .eq('id', workflowId)
+              .single()
+
+            if (!wf?.created_by) {
+              stepStatus = 'failed'
+              stepError = 'Cannot determine workflow owner for app connection'
+            } else {
+              const { data: connection } = await supabase
+                .from('app_connections')
+                .select('composio_connection_id')
+                .eq('user_id', wf.created_by)
+                .eq('app_id', appConfig.app_id)
+                .single()
+
+              if (!connection?.composio_connection_id) {
+                stepStatus = 'failed'
+                stepError = `No ${appConfig.app_id} connection found. Please connect the app in Settings > Integrations.`
+              } else {
+                const composio = getComposio()
+                const actionName =
+                  appConfig.action.includes('_') &&
+                  appConfig.action === appConfig.action.toUpperCase()
+                    ? appConfig.action
+                    : `${appConfig.app_id.toUpperCase()}_${appConfig.action.toUpperCase()}`
+
+                const tools = await composio.tools.getRawComposioTools({
+                  toolkits: [appConfig.app_id],
+                  limit: 500,
+                })
+                const toolMeta = tools.find((t) => t.slug === actionName)
+
+                const result = await composio.tools.execute(actionName, {
+                  connectedAccountId: connection.composio_connection_id,
+                  userId: wf.created_by,
+                  arguments: appConfig.inputs as Record<string, unknown>,
+                  ...(toolMeta?.version ? { version: toolMeta.version } : {}),
+                })
+
+                const appResult = result as {
+                  successful?: boolean
+                  data?: unknown
+                  error?: string
+                }
+
+                if (appResult.successful) {
+                  stepOutput = {
+                    app_id: appConfig.app_id,
+                    action: appConfig.action,
+                    result: appResult.data,
+                  } as Json
+                } else {
+                  stepStatus = 'failed'
+                  stepError = appResult.error || `${appConfig.app_id} ${appConfig.action} failed`
+                }
+              }
+            }
           }
           break
         }
