@@ -117,6 +117,17 @@ describe('webhook route handler', () => {
           }),
         }
       }
+      if (table === 'agent_workflows') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              limit: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        }
+      }
       return { select: vi.fn(), insert: vi.fn(), update: vi.fn() }
     })
 
