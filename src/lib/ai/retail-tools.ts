@@ -2576,31 +2576,25 @@ export function buildRetailTools(
 
     STORE_FORECAST_DEMAND: {
       description:
-        'Forecast product demand based on real sales history from the store API. Shows average daily sales, stock days remaining, restock urgency, and weekly trend. Use when the user asks about demand forecast, restock, "quando vai acabar?", "previsão de demanda", "preciso repor estoque?".',
+        'Forecast product demand based on real sales history from the store API. Fetches orders and stock directly from the platform — no local sync needed. Returns actionable categories: products running low, out-of-stock bestsellers, and healthy stock. Use when user asks "previsão de demanda", "quando vai acabar?", "preciso repor estoque?", "quais produtos vão acabar?".',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           days: {
             type: 'number',
-            description: 'Number of days of sales history to analyze (default: 30, max: 90)',
+            description: 'Days of sales history to analyze (default: 30, max: 90)',
           },
           search: {
             type: 'string',
-            description: 'Filter by product name (optional)',
+            description: 'Filter by product name (optional, fuzzy match)',
           },
-          urgent_only: {
-            type: 'boolean',
-            description: 'Only show products that will run out within 7 days (default: false)',
+          top: {
+            type: 'number',
+            description: 'How many top sellers to analyze stock for (default: 30, max: 50)',
           },
-          limit: { type: 'number', description: 'Max results (default: 20)' },
         },
       }),
-      execute: async (params: {
-        days?: number
-        search?: string
-        urgent_only?: boolean
-        limit?: number
-      }) => {
+      execute: async (params: { days?: number; search?: string; top?: number }) => {
         const supabase = getClient()
         const { data: store } = await supabase
           .from('stores')
@@ -2617,18 +2611,24 @@ export function buildRetailTools(
         }
 
         const historyDays = Math.min(Math.max(params.days ?? 30, 7), 90)
+        const topN = Math.min(Math.max(params.top ?? 30, 5), 50)
 
         try {
           const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
           const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
 
-          // Fetch all orders in the analysis period
+          // 1. Fetch orders in the analysis period
           const startDate = new Date()
           startDate.setDate(startDate.getDate() - historyDays)
           startDate.setHours(0, 0, 0, 0)
 
           const allOrders: Array<{
-            products: Array<{ product_id: number | null; name: string; quantity: string }>
+            products: Array<{
+              product_id: number | null
+              name: string
+              quantity: string
+              price: string
+            }>
             created_at: string
           }> = []
           let page = 1
@@ -2643,6 +2643,7 @@ export function buildRetailTools(
                     product_id: p.product_id,
                     name: p.name ?? 'Produto',
                     quantity: String(p.quantity ?? '1'),
+                    price: String(p.price ?? '0'),
                   })),
                   created_at: o.created_at,
                 })
@@ -2651,142 +2652,181 @@ export function buildRetailTools(
               page++
             }
           } catch {
-            // Nuvemshop returns 404 when there are no orders — treat as empty
+            // Nuvemshop returns 404 when there are no orders
           }
 
           if (allOrders.length === 0) {
             return {
-              message: `No orders found in the last ${historyDays} days. Need sales history to forecast demand.`,
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico de vendas pra prever demanda.`,
               orders_analyzed: 0,
             }
           }
 
-          // Aggregate: quantity sold per product per day
+          // 2. Aggregate sales by product_id (primary key) with daily breakdown
+          const now = new Date()
           const productSales = new Map<
-            string,
-            { name: string; dailySales: Map<string, number>; totalQty: number }
+            number,
+            {
+              name: string
+              productId: number
+              dailySales: Map<string, number>
+              totalQty: number
+              revenue: number
+            }
           >()
 
           for (const order of allOrders) {
-            const day = order.created_at.slice(0, 10) // YYYY-MM-DD
+            const day = order.created_at.slice(0, 10)
             for (const item of order.products) {
-              const key = item.name.toLowerCase().trim()
+              if (!item.product_id) continue
+              const key = item.product_id
+              if (params.search && !item.name.toLowerCase().includes(params.search.toLowerCase()))
+                continue
+
               if (!productSales.has(key)) {
-                productSales.set(key, { name: item.name, dailySales: new Map(), totalQty: 0 })
+                productSales.set(key, {
+                  name: item.name,
+                  productId: key,
+                  dailySales: new Map(),
+                  totalQty: 0,
+                  revenue: 0,
+                })
               }
               const prod = productSales.get(key)!
               const qty = parseInt(item.quantity, 10) || 1
               prod.dailySales.set(day, (prod.dailySales.get(day) ?? 0) + qty)
               prod.totalQty += qty
+              prod.revenue += qty * (parseFloat(item.price) || 0)
             }
           }
 
-          // Get current stock levels
-          const allProducts = await client.getAllProducts()
-          const stockMap = new Map<string, { stock: number; price: number }>()
-          for (const p of allProducts) {
-            const totalStock = (p.variants ?? []).reduce((sum, v) => sum + (v.stock ?? 0), 0)
-            const pName = p.name?.pt ?? p.name?.es ?? p.name?.en ?? 'Sem nome'
-            stockMap.set(pName.toLowerCase().trim(), {
-              stock: totalStock,
-              price: parseFloat(String(p.variants?.[0]?.price ?? '0')),
-            })
+          if (productSales.size === 0) {
+            return {
+              message: params.search
+                ? `Nenhum produto com "${params.search}" vendido nos últimos ${historyDays} dias.`
+                : `Nenhum produto com ID encontrado nos pedidos.`,
+              orders_analyzed: allOrders.length,
+            }
           }
 
-          // Compute forecasts
-          const now = new Date()
-          const forecasts: Array<{
-            product: string
-            avg_daily_sales: number
-            total_sold: number
-            current_stock: number
-            days_until_stockout: number | null
-            urgency: string
-            trend: string
-            price: number
-          }> = []
+          // 3. Rank by total sold, take top N for stock check
+          const ranked = [...productSales.values()].sort((a, b) => b.totalQty - a.totalQty)
+          const topSellers = ranked.slice(0, topN)
 
-          for (const [key, data] of productSales) {
-            if (params.search && !key.includes(params.search.toLowerCase())) continue
+          // 4. Fetch current stock only for top sellers (parallel, max 10 concurrent)
+          const stockMap = new Map<number, { stock: number; price: number }>()
+          const batchSize = 10
+          for (let i = 0; i < topSellers.length; i += batchSize) {
+            const batch = topSellers.slice(i, i + batchSize)
+            const results = await Promise.allSettled(
+              batch.map(async (s) => {
+                const product = await client.getProduct(s.productId)
+                const totalStock = (product.variants ?? []).reduce(
+                  (sum, v) => sum + (v.stock ?? 0),
+                  0
+                )
+                return {
+                  id: s.productId,
+                  stock: totalStock,
+                  price: parseFloat(String(product.variants?.[0]?.price ?? '0')),
+                }
+              })
+            )
+            for (const r of results) {
+              if (r.status === 'fulfilled') {
+                stockMap.set(r.value.id, { stock: r.value.stock, price: r.value.price })
+              }
+            }
+          }
 
+          // 5. Compute forecasts with categories
+          const restockUrgente: Array<Record<string, unknown>> = [] // stock > 0, runs out ≤ 7 days
+          const esgotadoVendendo: Array<Record<string, unknown>> = [] // stock = 0, had sales
+          const monitorar: Array<Record<string, unknown>> = [] // stock > 0, runs out 8-14 days
+          let healthyCount = 0
+
+          for (const data of topSellers) {
             const avgDaily = data.totalQty / historyDays
-            const stockInfo = stockMap.get(key)
+            const stockInfo = stockMap.get(data.productId)
             const currentStock = stockInfo?.stock ?? 0
             const daysUntilOut = avgDaily > 0 ? Math.round(currentStock / avgDaily) : null
+            const restockQty30d = avgDaily > 0 ? Math.ceil(avgDaily * 30) - currentStock : 0
 
-            // Weekly trend: compare last 7 days vs previous 7 days
+            // Weekly trend
             let recentQty = 0
             let previousQty = 0
             for (const [day, qty] of data.dailySales) {
-              const dayDate = new Date(day)
               const daysAgo = Math.floor(
-                (now.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24)
+                (now.getTime() - new Date(day).getTime()) / (1000 * 60 * 60 * 24)
               )
               if (daysAgo <= 7) recentQty += qty
               else if (daysAgo <= 14) previousQty += qty
             }
-
-            let trend = 'stable'
+            let trend = 'estável'
             if (previousQty > 0) {
               const change = ((recentQty - previousQty) / previousQty) * 100
-              if (change > 20) trend = `↑ growing (+${Math.round(change)}%)`
-              else if (change < -20) trend = `↓ declining (${Math.round(change)}%)`
+              if (change > 20) trend = `↑ crescendo (+${Math.round(change)}%)`
+              else if (change < -20) trend = `↓ caindo (${Math.round(change)}%)`
             } else if (recentQty > 0) {
-              trend = '↑ new demand'
+              trend = '↑ demanda nova'
             }
 
-            let urgency = 'ok'
-            if (daysUntilOut !== null) {
-              if (daysUntilOut <= 3) urgency = '🔴 critical'
-              else if (daysUntilOut <= 7) urgency = '🟡 restock soon'
-              else if (daysUntilOut <= 14) urgency = '🟢 monitor'
+            const item = {
+              produto: data.name,
+              vendas_periodo: data.totalQty,
+              media_dia: Math.round(avgDaily * 10) / 10,
+              estoque_atual: currentStock,
+              dias_ate_acabar: daysUntilOut,
+              tendencia: trend,
+              faturamento_periodo: `R$ ${data.revenue.toFixed(2)}`,
+              ...(restockQty30d > 0 ? { repor_para_30_dias: restockQty30d } : {}),
             }
 
-            if (params.urgent_only && daysUntilOut !== null && daysUntilOut > 7) continue
-
-            forecasts.push({
-              product: data.name,
-              avg_daily_sales: Math.round(avgDaily * 10) / 10,
-              total_sold: data.totalQty,
-              current_stock: currentStock,
-              days_until_stockout: daysUntilOut,
-              urgency,
-              trend,
-              price: stockInfo?.price ?? 0,
-            })
+            if (currentStock === 0 && data.totalQty > 0) {
+              esgotadoVendendo.push(item)
+            } else if (daysUntilOut !== null && daysUntilOut <= 7) {
+              restockUrgente.push(item)
+            } else if (daysUntilOut !== null && daysUntilOut <= 14) {
+              monitorar.push(item)
+            } else {
+              healthyCount++
+            }
           }
 
-          // Sort by urgency (lowest days_until_stockout first)
-          forecasts.sort((a, b) => {
-            const da = a.days_until_stockout ?? 9999
-            const db = b.days_until_stockout ?? 9999
-            return da - db
-          })
-
-          const maxResults = params.limit ?? 20
-          const critical = forecasts.filter((f) => f.urgency.includes('critical')).length
-          const restockSoon = forecasts.filter((f) => f.urgency.includes('restock')).length
+          // Sort each category by avg daily sales desc (most impactful first)
+          const byAvgDaily = (a: Record<string, unknown>, b: Record<string, unknown>) =>
+            (b.media_dia as number) - (a.media_dia as number)
+          esgotadoVendendo.sort(byAvgDaily)
+          restockUrgente.sort(
+            (a, b) => (a.dias_ate_acabar as number) - (b.dias_ate_acabar as number)
+          )
 
           return {
-            period: `Last ${historyDays} days`,
-            orders_analyzed: allOrders.length,
-            products_with_sales: productSales.size,
-            alerts: {
-              critical_stockout: critical,
-              restock_soon: restockSoon,
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              produtos_com_vendas: productSales.size,
+              top_analisados: topSellers.length,
             },
-            forecasts: forecasts.slice(0, maxResults).map((f) => ({
-              product: f.product,
-              avg_daily_sales: f.avg_daily_sales,
-              total_sold_period: f.total_sold,
-              current_stock: f.current_stock,
-              days_until_stockout: f.days_until_stockout,
-              urgency: f.urgency,
-              trend: f.trend,
-            })),
+            // Products with stock that will run out in ≤ 7 days — BUY NOW
+            restock_urgente:
+              restockUrgente.length > 0
+                ? restockUrgente.slice(0, 10)
+                : 'Nenhum produto com estoque prestes a acabar (≤ 7 dias)',
+            // Out of stock but selling — MISSED REVENUE
+            esgotado_vendendo:
+              esgotadoVendendo.length > 0
+                ? esgotadoVendendo.slice(0, 10)
+                : 'Nenhum produto esgotado com vendas recentes',
+            // Running low (8-14 days) — WATCH
+            monitorar:
+              monitorar.length > 0
+                ? monitorar.slice(0, 5)
+                : 'Nenhum produto na faixa de monitoramento (8-14 dias)',
+            estoque_saudavel: `${healthyCount} produtos com estoque para 14+ dias`,
           }
         } catch (err) {
-          return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
         }
       },
     },
