@@ -3,34 +3,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
-import { getActiveTeamId } from '@/lib/get-active-team'
 import { getTeamPlan, hasFeature, canInviteMembers } from '@/lib/billing/feature-gate'
+import { getUserTeamRole } from '@/lib/auth/require-role'
 
 export type MembersActionResult = { error?: string; success?: boolean }
-
-// Helper: get current user's team membership (respects workspace switcher cookie)
-
-async function getCurrentUserTeamInfo(supabase: any) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const teamId = await getActiveTeamId(supabase, user.id)
-  if (!teamId) return null
-
-  // Fetch role for the active team
-  const { data: memberRow } = await supabase
-    .from('team_members')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('team_id', teamId)
-    .single()
-
-  if (!memberRow) return null
-
-  return { userId: user.id, teamId, role: memberRow.role as string }
-}
 
 // T012: inviteMemberAction
 export async function inviteMemberAction(formData: FormData): Promise<MembersActionResult> {
@@ -49,9 +25,10 @@ export async function inviteMemberAction(formData: FormData): Promise<MembersAct
 
   const role = roleValue as 'admin' | 'member'
 
-  const supabase = await createServerClient()
-  const info = await getCurrentUserTeamInfo(supabase)
+  const info = await getUserTeamRole()
   if (!info) return { error: 'Not authenticated' }
+
+  const supabase = await createServerClient()
 
   // Verify caller is owner or admin
   if (!['owner', 'admin'].includes(info.role)) {
@@ -234,9 +211,10 @@ export async function updateMemberRoleAction(formData: FormData): Promise<Member
 
   const newRole = roleValue as 'admin' | 'member'
 
-  const supabase = await createServerClient()
-  const info = await getCurrentUserTeamInfo(supabase)
+  const info = await getUserTeamRole()
   if (!info) return { error: 'Not authenticated' }
+
+  const supabase = await createServerClient()
 
   // Only owners can change roles
   if (info.role !== 'owner') {
@@ -262,9 +240,10 @@ export async function updateMemberRoleAction(formData: FormData): Promise<Member
 
 // T026: removeMemberAction
 export async function removeMemberAction(targetUserId: string): Promise<MembersActionResult> {
-  const supabase = await createServerClient()
-  const info = await getCurrentUserTeamInfo(supabase)
+  const info = await getUserTeamRole()
   if (!info) return { error: 'Not authenticated' }
+
+  const supabase = await createServerClient()
 
   // Only owners and admins can remove
   if (!['owner', 'admin'].includes(info.role)) {
@@ -310,9 +289,10 @@ export async function removeMemberAction(targetUserId: string): Promise<MembersA
 
 // T030: cancelInvitationAction
 export async function cancelInvitationAction(invitationId: string): Promise<MembersActionResult> {
-  const supabase = await createServerClient()
-  const info = await getCurrentUserTeamInfo(supabase)
+  const info = await getUserTeamRole()
   if (!info) return { error: 'Not authenticated' }
+
+  const supabase = await createServerClient()
 
   // Only owners and admins can cancel
   if (!['owner', 'admin'].includes(info.role)) {

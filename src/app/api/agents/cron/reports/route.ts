@@ -40,47 +40,68 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sent: 0, hour: brtHour })
   }
 
+  // Filter agents that should fire this hour
+  const activeAgents = agents.filter((agent) => {
+    const settings = agent.notification_settings as Record<string, unknown>
+    return settings.telegram_enabled && (settings.report_hour as number) === brtHour
+  })
+
+  if (activeAgents.length === 0) {
+    return NextResponse.json({ sent: 0, checked: agents.length, hour: brtHour })
+  }
+
+  // Batch-fetch all stores and messaging_links for active agents' teams
+  const teamIds = [...new Set(activeAgents.map((a) => a.team_id).filter(Boolean))] as string[]
+
+  const [{ data: stores }, { data: messagingLinks }] = await Promise.all([
+    supabase.from('stores').select('id, team_id').in('team_id', teamIds),
+    supabase
+      .from('messaging_links')
+      .select('team_id, external_chat_id')
+      .in('team_id', teamIds)
+      .eq('channel_type', 'telegram')
+      .eq('is_verified', true),
+  ])
+
+  // Build Maps for O(1) lookup
+  const storeByTeam = new Map<string, string>() // team_id -> store_id
+  for (const store of stores ?? []) {
+    if (!storeByTeam.has(store.team_id)) storeByTeam.set(store.team_id, store.id)
+  }
+
+  const chatIdByTeam = new Map<string, string>() // team_id -> external_chat_id
+  for (const link of messagingLinks ?? []) {
+    if (link.external_chat_id) chatIdByTeam.set(link.team_id, link.external_chat_id)
+  }
+
+  // Process all active agents in parallel
   let sent = 0
   const errors: string[] = []
 
-  for (const agent of agents) {
-    const settings = agent.notification_settings as Record<string, unknown>
+  const results = await Promise.allSettled(
+    activeAgents.map(async (agent) => {
+      const storeId = storeByTeam.get(agent.team_id)
+      if (!storeId) return
 
-    if (!settings.telegram_enabled) continue
-    if ((settings.report_hour as number) !== brtHour) continue
+      const chatId = chatIdByTeam.get(agent.team_id)
+      if (!chatId) return
 
-    try {
-      // Get the team's store
-      const { data: store } = await supabase
-        .from('stores')
-        .select('id, team_id')
-        .eq('team_id', agent.team_id)
-        .single()
-
-      if (!store) continue
-
-      // Get verified Telegram link for this team
-      const { data: link } = await supabase
-        .from('messaging_links')
-        .select('external_chat_id')
-        .eq('team_id', agent.team_id)
-        .eq('channel_type', 'telegram')
-        .eq('is_verified', true)
-        .single()
-
-      if (!link?.external_chat_id) continue
-
-      // Generate report based on agent name pattern
-      const report = await generateAgentReport(agent.name, store.id)
-
+      const report = await generateAgentReport(agent.name, storeId)
       if (report) {
-        await sendMessage(link.external_chat_id, report, 'Markdown')
-        sent++
+        await sendMessage(chatId, report, 'Markdown')
+        return true
       }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(`[agent-reports] Error for agent ${agent.name}:`, msg)
-      errors.push(`${agent.name}: ${msg}`)
+    })
+  )
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    if (result.status === 'fulfilled' && result.value === true) {
+      sent++
+    } else if (result.status === 'rejected') {
+      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason)
+      console.error(`[agent-reports] Error for agent ${activeAgents[i].name}:`, msg)
+      errors.push(`${activeAgents[i].name}: ${msg}`)
     }
   }
 

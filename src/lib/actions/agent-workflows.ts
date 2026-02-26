@@ -64,10 +64,6 @@ export async function addWorkflow(agentId: string, workflowId: string): Promise<
     return { error: 'You do not have permission to manage agent workflows' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Get workflow name for the workflow name
   const { data: workflow } = await supabase
@@ -100,10 +96,6 @@ export async function removeWorkflow(workflowId: string, agentId: string): Promi
     return { error: 'You do not have permission to manage agent workflows' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 
@@ -150,10 +142,6 @@ export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promi
     return { error: 'You do not have permission to manage agent workflows' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Build action_template from toolExecutions
   let actionTemplate: Json
@@ -222,10 +210,6 @@ export async function deleteWorkflow(workflowId: string, agentId: string): Promi
     return { error: 'You do not have permission to delete agent workflows' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 

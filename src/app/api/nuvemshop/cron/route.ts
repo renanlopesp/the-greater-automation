@@ -27,35 +27,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ synced: 0, message: 'No stores need syncing' })
   }
 
-  const results: Array<{
-    store_id: string
-    name: string
-    status: string
-    products?: number
-    orders?: number
-  }> = []
-
-  for (const store of stores) {
-    try {
+  const settled = await Promise.allSettled(
+    stores.map(async (store) => {
       const [productResult, orderResult] = await Promise.all([
         syncProducts(store.id),
         syncOrders(store.id),
       ])
-      results.push({
+      return {
         store_id: store.id,
         name: store.name,
-        status: 'success',
+        status: 'success' as const,
         products: productResult.synced,
         orders: orderResult.synced,
-      })
-    } catch (error) {
-      results.push({
-        store_id: store.id,
-        name: store.name,
-        status: `error: ${error instanceof Error ? error.message : 'unknown'}`,
-      })
-    }
-  }
+      }
+    })
+  )
+
+  const results = settled.map((r, i) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : {
+          store_id: stores[i].id,
+          name: stores[i].name,
+          status: `error: ${r.reason instanceof Error ? r.reason.message : 'unknown'}`,
+        }
+  )
 
   return NextResponse.json({ synced: results.length, results })
 }

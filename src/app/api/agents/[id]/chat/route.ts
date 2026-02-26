@@ -440,24 +440,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
   }
 
-  // 8b. If the team's store has a connected platform, always include it so agents
-  //     can interact with the store (create products, manage orders, etc.)
+  // 8b. Fetch store and team members in parallel (both independent of each other)
   let storeId: string | null = null
-  if (agent.team_id) {
-    const { data: store } = await supabase
-      .from('stores')
-      .select('id, platform, platform_store_id')
-      .eq('team_id', agent.team_id)
-      .limit(1)
-      .single()
+  const [storeResult, membersResult] = await Promise.all([
+    agent.team_id
+      ? supabase
+          .from('stores')
+          .select('id, platform, platform_store_id')
+          .eq('team_id', agent.team_id)
+          .limit(1)
+          .single()
+      : Promise.resolve({ data: null }),
+    agent.team_id
+      ? supabase.from('team_members').select('user_id').eq('team_id', agent.team_id)
+      : Promise.resolve({ data: null }),
+  ])
 
-    if (store) {
-      storeId = store.id
-      if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
-        // Only add to Composio apps if the platform uses Composio (not nuvemshop, which uses native API)
-        if (store.platform !== 'nuvemshop') {
-          agentAppIds.add(store.platform)
-        }
+  const store = storeResult.data
+  if (store) {
+    storeId = store.id
+    if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
+      // Only add to Composio apps if the platform uses Composio (not nuvemshop, which uses native API)
+      if (store.platform !== 'nuvemshop') {
+        agentAppIds.add(store.platform)
       }
     }
   }
@@ -473,15 +478,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let composioEntityId = user.id
   if (hasComposioApps) {
     const userIds = [user.id]
-    if (agent.team_id) {
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('user_id')
-        .eq('team_id', agent.team_id)
-      if (members) {
-        for (const m of members) {
-          if (m.user_id !== user.id) userIds.push(m.user_id)
-        }
+    const members = membersResult.data
+    if (members) {
+      for (const m of members) {
+        if (m.user_id !== user.id) userIds.push(m.user_id)
       }
     }
 

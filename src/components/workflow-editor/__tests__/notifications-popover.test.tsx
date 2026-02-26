@@ -30,7 +30,6 @@ vi.mock('@/hooks/use-notifications', () => ({
   }),
   useUnreadNotificationCount: vi.fn().mockReturnValue({
     count: 1,
-    isLoading: false,
   }),
 }))
 
@@ -59,7 +58,7 @@ describe('NotificationsPopover', () => {
 
   it('renders without crashing when no unread', async () => {
     const { useUnreadNotificationCount } = await import('@/hooks/use-notifications')
-    vi.mocked(useUnreadNotificationCount).mockReturnValue({ count: 0, isLoading: false })
+    vi.mocked(useUnreadNotificationCount).mockReturnValue({ count: 0 })
 
     render(
       <NotificationsPopover>

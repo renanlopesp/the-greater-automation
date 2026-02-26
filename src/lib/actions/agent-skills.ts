@@ -17,10 +17,6 @@ export async function createSkill(
   if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { data, error } = await supabase
     .from('agent_skills')
@@ -54,10 +50,6 @@ export async function updateSkill(
   if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Fetch current version if content is being updated
   let versionIncrement = {}
@@ -92,10 +84,6 @@ export async function deleteSkill(skillId: string, agentId: string): Promise<Act
   if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
 
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase
     .from('agent_skills')
