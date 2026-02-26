@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
-import { usePathname, useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
+import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
-import { SettingsDialog } from '@/components/settings'
 import type { SettingsSection } from '@/components/settings/settings-sidebar'
 import { CommandMenuContext } from '@/lib/command-menu-context'
 import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
+
+const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -101,23 +103,26 @@ export default function DashboardShell({
   const [switchingToName, setSwitchingToName] = useState<string | null>(null)
   const currentTime = useCurrentTime()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
 
   // Auto-open settings from URL params (e.g. after OAuth callback or redirect)
-  const openSettingsParam = searchParams.get('open_settings')
-  if (openSettingsParam && !settingsOpen) {
-    setSettingsSection(openSettingsParam as SettingsSection)
-    setSettingsOpen(true)
-    if (openSettingsParam === 'store') {
-      toast.success('Nuvemshop conectada com sucesso!')
+  // Read once on mount via window.location instead of useSearchParams() to avoid
+  // re-rendering the entire shell on every URL param change across the app.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const openSettingsParam = params.get('open_settings')
+    if (openSettingsParam) {
+      setSettingsSection(openSettingsParam as SettingsSection)
+      setSettingsOpen(true)
+      if (openSettingsParam === 'store') {
+        toast.success('Nuvemshop conectada com sucesso!')
+      }
+      params.delete('open_settings')
+      const newPath = params.size > 0 ? `${pathname}?${params}` : pathname
+      router.replace(newPath)
     }
-    // Clean URL params
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('open_settings')
-    const newPath = params.size > 0 ? `${pathname}?${params}` : pathname
-    router.replace(newPath)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, [])
 
   return (
     <CommandMenuContext value={() => setCommandMenuOpen(true)}>

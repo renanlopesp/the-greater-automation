@@ -65,7 +65,7 @@ export function useUsage(teamId: string | undefined, initial: UsageData): UsageD
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [teamId, initial])
+  }, [teamId])
 
   return usage
 }
