@@ -99,20 +99,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ])
 
     const storeId = store?.id ?? null
-    const hasProducts = store
-      ? ((
-          await supabase
+
+    // hasProducts and team name are independent — fetch in parallel
+    const [hasProductsResult, { data: team }] = await Promise.all([
+      store
+        ? supabase
             .from('store_products')
             .select('id', { count: 'exact', head: true })
             .eq('store_id', store.id)
-        ).count ?? 0) > 0
-      : false
-
-    const { data: team } = await supabase
-      .from('teams')
-      .select('name')
-      .eq('id', agent.team_id)
-      .single()
+        : Promise.resolve({ count: 0 }),
+      supabase.from('teams').select('name').eq('id', agent.team_id).single(),
+    ])
+    const hasProducts = store ? (hasProductsResult.count ?? 0) > 0 : false
 
     // Build orchestrator system prompt with agent catalog
     const orchestratorPrompt = buildOrchestratorSystemPrompt(

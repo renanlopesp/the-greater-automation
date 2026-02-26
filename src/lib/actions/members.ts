@@ -35,16 +35,18 @@ export async function inviteMemberAction(formData: FormData): Promise<MembersAct
     return { error: 'Not authorized' }
   }
 
-  // Plan check: verify the team's plan allows inviting members
-  const plan = await getTeamPlan(info.teamId)
+  // Plan check + member count are independent — fetch in parallel
+  const [plan, { count: memberCount }] = await Promise.all([
+    getTeamPlan(info.teamId),
+    supabase
+      .from('team_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_id', info.teamId),
+  ])
+
   if (!hasFeature(plan, 'invite_members')) {
     return { error: 'Upgrade to Pro to invite team members' }
   }
-
-  const { count: memberCount } = await supabase
-    .from('team_members')
-    .select('*', { count: 'exact', head: true })
-    .eq('team_id', info.teamId)
 
   if (!canInviteMembers(plan, memberCount ?? 0)) {
     return { error: `Your plan allows up to ${plan.maxTeamMembers} team members` }

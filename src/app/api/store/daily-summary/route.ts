@@ -25,19 +25,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sent: 0 })
   }
 
-  let sent = 0
-  for (const store of stores) {
+  const eligibleStores = stores.filter((store) => {
     const settings = store.settings as Record<string, unknown> | null
     const summaryHour = (settings?.daily_summary_hour as number) ?? 21
     const summaryEnabled = settings?.daily_summary_enabled !== false // Default enabled
+    return summaryEnabled && summaryHour === brtHour
+  })
 
-    if (!summaryEnabled || summaryHour !== brtHour) continue
-
-    try {
+  const results = await Promise.allSettled(
+    eligibleStores.map(async (store) => {
       await sendDailySummary(store.id)
+    })
+  )
+
+  let sent = 0
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'fulfilled') {
       sent++
-    } catch (error) {
-      console.error(`[daily-summary] Error for store ${store.name}:`, error)
+    } else {
+      console.error(
+        `[daily-summary] Error for store ${eligibleStores[i].name}:`,
+        (results[i] as PromiseRejectedResult).reason
+      )
     }
   }
 
