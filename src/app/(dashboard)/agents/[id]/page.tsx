@@ -44,7 +44,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     { count: workflowCount },
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
-    getActiveConversation(supabase, id),
+    getActiveConversation(supabase, id, user.id),
     supabase
       .from('team_members')
       .select('role')

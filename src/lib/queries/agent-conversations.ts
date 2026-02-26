@@ -16,13 +16,16 @@ export interface AgentMessage {
 
 export async function getActiveConversation(
   supabase: Client,
-  agentId: string
+  agentId: string,
+  userId: string
 ): Promise<{ conversationId: string; messages: AgentMessage[] } | null> {
   const { data: conversation } = await supabase
     .from('agent_conversations')
     .select('*')
     .eq('agent_id', agentId)
+    .eq('user_id', userId)
     .eq('is_active', true)
+    .order('created_at', { ascending: false })
     .limit(1)
     .single()
 

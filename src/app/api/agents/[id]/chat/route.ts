@@ -261,16 +261,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         relayTools: platformTools,
         connectedAppIds: orchAppIds.size > 0 ? [...orchAppIds] : undefined,
         connectedAccountMap: orchConnectedAccountMap,
-      })
-
-      after(async () => {
-        try {
-          const [fullText, usage] = await Promise.all([result.text, result.usage])
-          if (fullText) {
+        onFinish: async ({ text, usage }) => {
+          if (text) {
             await supabase.from('agent_messages').insert({
               conversation_id: orchConvId,
               role: 'assistant',
-              content: fullText,
+              content: text,
             })
           }
           const credits = tokensToCredits(usage?.totalTokens ?? 0)
@@ -280,9 +276,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               p_credits: credits,
             })
           }
-        } finally {
-          await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-        }
+        },
+      })
+
+      after(async () => {
+        await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
       })
 
       const response = result.toUIMessageStreamResponse({ sendReasoning: true })
@@ -559,22 +557,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       relayTools,
       connectedAppIds: hasComposioApps ? [...agentAppIds] : undefined,
       connectedAccountMap,
-    })
-
-    // Persist assistant response + track AI credits after stream completes (non-blocking via after())
-    after(async () => {
-      try {
-        const [fullText, usage] = await Promise.all([result.text, result.usage])
-
-        if (fullText) {
+      onFinish: async ({ text, usage }) => {
+        if (text) {
           await supabase.from('agent_messages').insert({
             conversation_id: conversationId,
             role: 'assistant',
-            content: fullText,
+            content: text,
           })
         }
-
-        // Track AI credits usage for the agent's team
         const credits = tokensToCredits(usage?.totalTokens ?? 0)
         if (credits > 0 && agent.team_id) {
           await supabase.rpc('increment_ai_credits', {
@@ -582,9 +572,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             p_credits: credits,
           })
         }
-      } finally {
-        await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-      }
+      },
+    })
+
+    // Reset agent status after response is sent
+    after(async () => {
+      await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
     })
 
     // Return streaming response with conversation ID header

@@ -18,5 +18,5 @@ export async function loadConversationHistory(
 
   if (!user) return null
 
-  return getActiveConversation(supabase, agentId)
+  return getActiveConversation(supabase, agentId, user.id)
 }
