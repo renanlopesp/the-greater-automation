@@ -174,7 +174,7 @@ export const MessageBranchContent = ({ children, ...props }: MessageBranchConten
   const { currentBranch, setBranches } = useMessageBranch()
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children])
 
-  // Sync branch count to context when children change
+  // Sync branch list to context when the number of branches changes
   useEffect(() => {
     setBranches(childrenArray)
   }, [childrenArray.length, setBranches])

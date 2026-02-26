@@ -8,16 +8,16 @@ import { ResizablePanelGroup, ResizablePanel } from '@/components/ui/resizable'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Button } from '@/components/ui/button'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import EditorHeader from '@/components/editor/editor-header'
 import TriggerPanel from '@/components/editor/trigger-panel'
 import StepsPanel from '@/components/editor/steps-panel'
 import ConfigPanel from '@/components/editor/config-panel'
 import ConnectorLine from '@/components/workflow-editor/connector-line'
-import RunsTab from '@/components/workflow-editor/runs-tab'
-import TestsTab from '@/components/workflow-editor/tests-tab'
 import { cn } from '@/lib/utils'
+
+const RunsTab = dynamic(() => import('@/components/workflow-editor/runs-tab'))
+const TestsTab = dynamic(() => import('@/components/workflow-editor/tests-tab'))
 
 // Lazy-load assistant panel - only shown when toggled open
 const AIAssistantPanel = dynamic(() => import('@/components/workflow-editor/ai-assistant-panel'))

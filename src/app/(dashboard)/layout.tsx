@@ -120,7 +120,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   }
 
-  // Fetch store data for settings dialog
+  // Fetch store, members, invitations, pending invitations, and orchestrator in parallel
+  // (all depend only on activeTeamId / userEmail — available since the previous step)
+  const userEmail = profile?.email ?? user.email ?? ''
   let storeData: {
     id: string
     name: string
@@ -130,12 +132,46 @@ export default async function DashboardLayout({ children }: { children: React.Re
     last_sync_at: string | null
     settings: Record<string, unknown> | null
   } | null = null
-  if (activeTeamId) {
-    const { data: storeRow } = await supabase
-      .from('stores')
-      .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
-      .eq('team_id', activeTeamId)
-      .single()
+  let members: Awaited<ReturnType<typeof fetchTeamMembers>> = []
+  let invitations: Awaited<ReturnType<typeof fetchTeamInvitations>> = []
+  let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
+  let pendingUserInvitations: Awaited<ReturnType<typeof fetchPendingInvitationsForUser>> = []
+  let orchestratorId: string | null = null
+
+  if (team) {
+    const [storeResult, fetchedMembers, fetchedInvitations, fetchedPending, orchResult] =
+      await Promise.all([
+        supabase
+          .from('stores')
+          .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+          .eq('team_id', activeTeamId!)
+          .single(),
+        fetchTeamMembers(supabase, team.id),
+        fetchTeamInvitations(supabase, team.id),
+        userEmail
+          ? fetchPendingInvitationsForUser(supabase, userEmail)
+          : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
+        supabase
+          .from('agents')
+          .select('id')
+          .eq('team_id', activeTeamId!)
+          .eq('is_orchestrator', true)
+          .limit(1)
+          .single(),
+      ])
+
+    members = fetchedMembers
+    invitations = fetchedInvitations
+    pendingUserInvitations = fetchedPending
+    orchestratorId = orchResult.data?.id ?? null
+
+    const currentMember = fetchedMembers.find((m) => m.id === user.id)
+    if (currentMember) {
+      currentUserRole = currentMember.role
+    }
+
+    // Process store data (conditional app_connections fallback runs after)
+    const storeRow = storeResult.data
     if (storeRow) {
       let platformStoreId = storeRow.platform_store_id ?? null
 
@@ -145,7 +181,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         const { data: appConn } = await supabase
           .from('app_connections')
           .select('composio_connection_id')
-          .eq('team_id', activeTeamId)
+          .eq('team_id', activeTeamId!)
           .eq('app_id', storeRow.platform)
           .limit(1)
           .single()
@@ -169,31 +205,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         settings: (storeRow.settings ?? null) as Record<string, unknown> | null,
       }
     }
+  } else if (userEmail) {
+    pendingUserInvitations = await fetchPendingInvitationsForUser(supabase, userEmail)
   }
-
-  // Fetch team members and invitations
-  let members: Awaited<ReturnType<typeof fetchTeamMembers>> = []
-  let invitations: Awaited<ReturnType<typeof fetchTeamInvitations>> = []
-  let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
-
-  if (team) {
-    const [fetchedMembers, fetchedInvitations] = await Promise.all([
-      fetchTeamMembers(supabase, team.id),
-      fetchTeamInvitations(supabase, team.id),
-    ])
-    members = fetchedMembers
-    invitations = fetchedInvitations
-    const currentMember = fetchedMembers.find((m) => m.id === user.id)
-    if (currentMember) {
-      currentUserRole = currentMember.role
-    }
-  }
-
-  // Fetch pending invitations for the current user (invitations to join other teams)
-  const userEmail = profile?.email ?? user.email ?? ''
-  const pendingUserInvitations = userEmail
-    ? await fetchPendingInvitationsForUser(supabase, userEmail)
-    : []
 
   const userData = profile
     ? {
@@ -208,19 +222,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         fullName: null,
         avatarUrl: null,
       }
-
-  // Fetch orchestrator agent ID for "Chat" nav link in sidebar
-  let orchestratorId: string | null = null
-  if (activeTeamId) {
-    const { data: orchAgent } = await supabase
-      .from('agents')
-      .select('id')
-      .eq('team_id', activeTeamId)
-      .eq('is_orchestrator', true)
-      .limit(1)
-      .single()
-    orchestratorId = orchAgent?.id ?? null
-  }
 
   const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
 
