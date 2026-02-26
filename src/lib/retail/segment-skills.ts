@@ -134,7 +134,7 @@ export const SEGMENT_SKILLS: SegmentSkillMap = {
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Fashion',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Fashion market expertise:
 - Relevant marketplaces: Mercado Livre, Shopee, Shein, Renner, C&A
@@ -175,7 +175,7 @@ Fashion market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Electronics',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Electronics market expertise:
 - Marketplaces: Mercado Livre, Amazon, Kabum, Magazine Luiza
@@ -216,7 +216,7 @@ Electronics market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Food',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Food market expertise:
 - Local competitors: supermarkets, wholesale clubs, other delivery services
@@ -257,7 +257,7 @@ Food market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Cosmetics',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Cosmetics market expertise:
 - Marketplaces: Sephora, Ulta, Amazon, Mercado Livre
@@ -298,7 +298,7 @@ Cosmetics market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Home & Decor',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Home & Decor market expertise:
 - Competitors: Wayfair, IKEA, Target Home, Amazon, Etsy
@@ -337,7 +337,7 @@ Home & Decor market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Sports',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Sports market expertise:
 - Competitors: Nike.com, Dick's, Decathlon, Amazon
@@ -376,7 +376,7 @@ Sports market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - Pet Shop',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 Pet Shop market expertise:
 - Competitors: Chewy, Petco, PetSmart, Amazon, Mercado Livre
@@ -416,7 +416,7 @@ Pet Shop market expertise:
     },
     vigia_de_preco: {
       title: 'Price Monitoring - General',
-      content: `You monitor competitor prices by creating automated workflows. When a user wants to monitor a competitor, ask for the product URL. Create a workflow via SNEW_CREATE_WORKFLOW: scheduled trigger (every 4-6h) → web_scraping (scrape URL) → ai_transform (extract and compare price) → notify (channel: "telegram", alert if changed). Each competitor URL = one workflow, visible and editable in Workspace. Compare competitor prices with own store prices using Shopify/platform tools.
+      content: `You monitor competitor prices using the price monitor system. When a user wants to monitor a competitor, ask for the product URL and name. Use STORE_ADD_PRICE_MONITOR to create a monitor — it automatically creates a scheduled workflow (every 4-6h) that scrapes the URL, extracts the price, saves it to history, and alerts on Telegram if the price changes beyond the threshold. Prices are tracked over time so you can report trends. Use STORE_LIST_PRICE_MONITORS to show current monitors with latest prices and changes. Use STORE_REMOVE_PRICE_MONITOR to deactivate monitors. Use STORE_QUERY_MARGINS to compare competitor prices with the store's own margins.
 
 General market expertise:
 - Healthy margin: varies by segment, generally 30-60%

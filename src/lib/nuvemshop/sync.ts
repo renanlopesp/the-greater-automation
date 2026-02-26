@@ -93,9 +93,30 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
         last_synced_at: new Date().toISOString(),
       }
 
-      const { error } = await supabase
-        .from('store_products')
-        .upsert(productData, { onConflict: 'store_id,external_id' })
+      // Use manual INSERT/UPDATE to preserve cost_price (not overwritten by sync)
+      let error: { message: string } | null = null
+      if ((existingCount ?? 0) > 0) {
+        // UPDATE: exclude cost_price from the update set
+        const { error: updateErr } = await supabase
+          .from('store_products')
+          .update({
+            name: productData.name,
+            sku: productData.sku,
+            price: productData.price,
+            stock_quantity: productData.stock_quantity,
+            variants: productData.variants,
+            images: productData.images,
+            is_published: productData.is_published,
+            last_synced_at: productData.last_synced_at,
+          })
+          .eq('store_id', storeId)
+          .eq('external_id', String(product.id))
+        error = updateErr
+      } else {
+        // INSERT: cost_price defaults to null
+        const { error: insertErr } = await supabase.from('store_products').insert(productData)
+        error = insertErr
+      }
 
       if (error) {
         console.error(`[sync] Error upserting product ${product.id}:`, error.message)
@@ -214,27 +235,44 @@ export async function syncSingleProduct(storeId: string, externalProductId: stri
     const product = await client.getProduct(parseInt(externalProductId, 10))
     const totalStock = product.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0)
 
-    await supabase.from('store_products').upsert(
-      {
+    // Check if product exists to decide insert vs update (preserve cost_price)
+    const { count: existsCount } = await supabase
+      .from('store_products')
+      .select('id', { count: 'exact', head: true })
+      .eq('store_id', storeId)
+      .eq('external_id', String(product.id))
+
+    const syncData = {
+      name: product.name?.pt ?? product.name?.es ?? product.name?.en ?? 'Sem nome',
+      sku: product.variants[0]?.sku ?? null,
+      price: product.variants[0]?.price ? parseFloat(product.variants[0].price) : null,
+      stock_quantity: totalStock,
+      variants: product.variants.map((v) => ({
+        id: String(v.id),
+        name: v.values?.map((val) => val.pt ?? val.es ?? val.en ?? '').join(' / ') ?? '',
+        sku: v.sku,
+        price: v.price ? parseFloat(v.price) : null,
+        stock: v.stock ?? 0,
+      })),
+      images: product.images?.map((img) => img.src) ?? [],
+      is_published: product.published ?? true,
+      last_synced_at: new Date().toISOString(),
+    }
+
+    if ((existsCount ?? 0) > 0) {
+      // UPDATE: preserve cost_price
+      await supabase
+        .from('store_products')
+        .update(syncData)
+        .eq('store_id', storeId)
+        .eq('external_id', String(product.id))
+    } else {
+      await supabase.from('store_products').insert({
         store_id: storeId,
         external_id: String(product.id),
-        name: product.name?.pt ?? product.name?.es ?? product.name?.en ?? 'Sem nome',
-        sku: product.variants[0]?.sku ?? null,
-        price: product.variants[0]?.price ? parseFloat(product.variants[0].price) : null,
-        stock_quantity: totalStock,
-        variants: product.variants.map((v) => ({
-          id: String(v.id),
-          name: v.values?.map((val) => val.pt ?? val.es ?? val.en ?? '').join(' / ') ?? '',
-          sku: v.sku,
-          price: v.price ? parseFloat(v.price) : null,
-          stock: v.stock ?? 0,
-        })),
-        images: product.images?.map((img) => img.src) ?? [],
-        is_published: product.published ?? true,
-        last_synced_at: new Date().toISOString(),
-      },
-      { onConflict: 'store_id,external_id' }
-    )
+        ...syncData,
+      })
+    }
 
     // Check stock alert for this specific product
     const { data: dbProduct } = await supabase

@@ -63,7 +63,7 @@ export async function generateStockReport(storeId: string): Promise<string | nul
 
 /**
  * Generate a price monitoring report for the Price Monitor agent.
- * Lists the agent's monitoring workflows with their status and last run time.
+ * Now includes real price data from store_price_monitors.
  * Returns a Markdown-formatted string or null if nothing to report.
  */
 export async function generatePriceReport(storeId: string): Promise<string | null> {
@@ -77,7 +77,17 @@ export async function generatePriceReport(storeId: string): Promise<string | nul
 
   if (!store) return null
 
-  // Find the price monitor agent for this team
+  // Get price monitors with real data
+  const { data: monitors } = await supabase
+    .from('store_price_monitors')
+    .select(
+      'id, product_name, marketplace, last_price, previous_price, last_checked_at, is_active, price_changed_at, own_product_id'
+    )
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+    .order('price_changed_at', { ascending: false, nullsFirst: false })
+
+  // Also get agent workflows as fallback
   const { data: agent } = await supabase
     .from('agents')
     .select('id')
@@ -86,39 +96,86 @@ export async function generatePriceReport(storeId: string): Promise<string | nul
     .limit(1)
     .single()
 
-  if (!agent) return null
+  const hasMonitors = monitors && monitors.length > 0
 
-  // Get the agent's workflows
-  const { data: workflows } = await supabase
-    .from('agent_workflows')
-    .select('name, is_enabled, last_run_at')
-    .eq('agent_id', agent.id)
-    .order('created_at', { ascending: false })
+  if (!hasMonitors && !agent) return null
 
-  const wfs = workflows ?? []
+  const lines: string[] = [`👀 *Price Monitor Report — ${store.name}*`, '']
 
-  if (wfs.length === 0) {
-    return null // No workflows configured, skip report
-  }
+  if (hasMonitors) {
+    lines.push(`Monitores ativos: ${monitors.length}`)
+    lines.push('')
 
-  const lines: string[] = [
-    `👀 *Price Monitor Report — ${store.name}*`,
-    '',
-    `Monitoring workflows: ${wfs.length}`,
-    '',
-  ]
+    // Get own product prices for comparison
+    const ownProductIds = monitors.filter((m) => m.own_product_id).map((m) => m.own_product_id!)
+    const ownPrices = new Map<string, number>()
+    if (ownProductIds.length > 0) {
+      const { data: ownProducts } = await supabase
+        .from('store_products')
+        .select('id, price')
+        .in('id', ownProductIds)
+      for (const p of ownProducts ?? []) {
+        if (p.price) ownPrices.set(p.id, Number(p.price))
+      }
+    }
 
-  for (const wf of wfs) {
-    const status = wf.is_enabled ? '✅' : '⏸️'
-    const lastRun = wf.last_run_at
-      ? new Date(wf.last_run_at).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : 'never'
-    lines.push(`${status} *${wf.name}* — last run: ${lastRun}`)
+    for (const m of monitors) {
+      const price = m.last_price ? `R$ ${Number(m.last_price).toFixed(2)}` : 'sem preço'
+      let change = ''
+      if (m.previous_price && m.last_price) {
+        const diff =
+          ((Number(m.last_price) - Number(m.previous_price)) / Number(m.previous_price)) * 100
+        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→'
+        change = ` (${arrow}${Math.abs(diff).toFixed(1)}%)`
+      }
+      let ownComparison = ''
+      if (m.own_product_id && m.last_price) {
+        const ownPrice = ownPrices.get(m.own_product_id)
+        if (ownPrice) {
+          const diff = ((ownPrice - Number(m.last_price)) / Number(m.last_price)) * 100
+          ownComparison =
+            diff > 0
+              ? ` | Seu: R$ ${ownPrice.toFixed(2)} (+${diff.toFixed(0)}%)`
+              : ` | Seu: R$ ${ownPrice.toFixed(2)} (${diff.toFixed(0)}%)`
+        }
+      }
+      const lastCheck = m.last_checked_at
+        ? new Date(m.last_checked_at).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'nunca'
+      lines.push(`• *${m.product_name}* (${m.marketplace}): ${price}${change}${ownComparison}`)
+      lines.push(`  Última checagem: ${lastCheck}`)
+    }
+  } else if (agent) {
+    // Fallback to workflow-based report
+    const { data: workflows } = await supabase
+      .from('agent_workflows')
+      .select('name, is_enabled, last_run_at')
+      .eq('agent_id', agent.id)
+      .order('created_at', { ascending: false })
+
+    const wfs = workflows ?? []
+    if (wfs.length === 0) return null
+
+    lines.push(`Monitoring workflows: ${wfs.length}`)
+    lines.push('')
+
+    for (const wf of wfs) {
+      const status = wf.is_enabled ? '✅' : '⏸️'
+      const lastRun = wf.last_run_at
+        ? new Date(wf.last_run_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'never'
+      lines.push(`${status} *${wf.name}* — last run: ${lastRun}`)
+    }
   }
 
   return lines.join('\n')

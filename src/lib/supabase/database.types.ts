@@ -1103,6 +1103,47 @@ export type Database = {
           },
         ]
       }
+      store_abandoned_cart_notifications: {
+        Row: {
+          checkout_id: number
+          checkout_total: number | null
+          customer_email: string | null
+          customer_name: string | null
+          id: string
+          notified_at: string
+          recovered_at: string | null
+          store_id: string
+        }
+        Insert: {
+          checkout_id: number
+          checkout_total?: number | null
+          customer_email?: string | null
+          customer_name?: string | null
+          id?: string
+          notified_at?: string
+          recovered_at?: string | null
+          store_id: string
+        }
+        Update: {
+          checkout_id?: number
+          checkout_total?: number | null
+          customer_email?: string | null
+          customer_name?: string | null
+          id?: string
+          notified_at?: string
+          recovered_at?: string | null
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'store_abandoned_cart_notifications_store_id_fkey'
+            columns: ['store_id']
+            isOneToOne: false
+            referencedRelation: 'stores'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       store_orders: {
         Row: {
           created_at: string
@@ -1159,39 +1200,86 @@ export type Database = {
           },
         ]
       }
+      store_price_history: {
+        Row: {
+          currency: string | null
+          id: string
+          monitor_id: string
+          price: number
+          scraped_at: string
+        }
+        Insert: {
+          currency?: string | null
+          id?: string
+          monitor_id: string
+          price: number
+          scraped_at?: string
+        }
+        Update: {
+          currency?: string | null
+          id?: string
+          monitor_id?: string
+          price?: number
+          scraped_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'store_price_history_monitor_id_fkey'
+            columns: ['monitor_id']
+            isOneToOne: false
+            referencedRelation: 'store_price_monitors'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       store_price_monitors: {
         Row: {
+          alert_threshold_pct: number | null
           created_at: string
           id: string
           is_active: boolean
           last_checked_at: string | null
           last_price: number | null
           marketplace: string
+          own_product_id: string | null
+          previous_price: number | null
+          price_changed_at: string | null
           product_name: string
           store_id: string
           url: string | null
+          workflow_id: string | null
         }
         Insert: {
+          alert_threshold_pct?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
           last_checked_at?: string | null
           last_price?: number | null
           marketplace: string
+          own_product_id?: string | null
+          previous_price?: number | null
+          price_changed_at?: string | null
           product_name: string
           store_id: string
           url?: string | null
+          workflow_id?: string | null
         }
         Update: {
+          alert_threshold_pct?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
           last_checked_at?: string | null
           last_price?: number | null
           marketplace?: string
+          own_product_id?: string | null
+          previous_price?: number | null
+          price_changed_at?: string | null
           product_name?: string
           store_id?: string
           url?: string | null
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -1201,10 +1289,25 @@ export type Database = {
             referencedRelation: 'stores'
             referencedColumns: ['id']
           },
+          {
+            foreignKeyName: 'store_price_monitors_own_product_id_fkey'
+            columns: ['own_product_id']
+            isOneToOne: false
+            referencedRelation: 'store_products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'store_price_monitors_workflow_id_fkey'
+            columns: ['workflow_id']
+            isOneToOne: false
+            referencedRelation: 'workflows'
+            referencedColumns: ['id']
+          },
         ]
       }
       store_products: {
         Row: {
+          cost_price: number | null
           created_at: string
           external_id: string
           external_updated_at: string | null
@@ -1220,6 +1323,7 @@ export type Database = {
           variants: Json
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string
           external_id: string
           external_updated_at?: string | null
@@ -1235,6 +1339,7 @@ export type Database = {
           variants?: Json
         }
         Update: {
+          cost_price?: number | null
           created_at?: string
           external_id?: string
           external_updated_at?: string | null

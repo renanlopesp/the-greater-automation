@@ -12,6 +12,7 @@ import {
   LogOut,
   MessageCircle,
   Moon,
+  Package,
   Play,
   Plug,
   Search,
@@ -56,6 +57,7 @@ interface AppSidebarProps {
   usage: UsageData | null
   planData?: PlanData | null
   orchestratorId?: string | null
+  hasStore?: boolean
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
   onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
@@ -79,6 +81,7 @@ export default function AppSidebar({
   userTeams,
   planData,
   orchestratorId,
+  hasStore,
   onOpenCommandMenu,
   onOpenSettings,
   onSwitchWorkspace,
@@ -114,8 +117,9 @@ export default function AppSidebar({
         : []),
       { label: 'Workspace', href: '/workspace', icon: FolderKanban },
       { label: 'Runs', href: '/runs', icon: Play },
+      ...(hasStore ? [{ label: 'Products', href: '/products', icon: Package }] : []),
     ],
-    [orchestratorId]
+    [orchestratorId, hasStore]
   )
 
   return (
