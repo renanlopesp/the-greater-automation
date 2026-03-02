@@ -1,6 +1,6 @@
 # Relay Platform - Documentacao Completa de Funcionalidades
 
-> **Ultima atualizacao**: 2026-02-27
+> **Ultima atualizacao**: 2026-03-02
 > **Versao**: Next.js 16.1.6, React 19.2.3, TypeScript 5
 
 Relay e uma plataforma de automacao com IA para e-commerce, construida com Next.js 16 e integrada com Nuvemshop, Shopify, Composio (200+ apps), Telegram e Stripe. O sistema combina agentes de IA especializados, workflows visuais e ferramentas de retail intelligence para automatizar operacoes de loja.
@@ -32,18 +32,25 @@ Relay e uma plataforma de automacao com IA para e-commerce, construida com Next.
 21. [Previsao de Demanda](#21-previsao-de-demanda)
 22. [Analise RFM de Clientes](#22-analise-rfm-de-clientes)
 23. [Analise ABC de Produtos](#23-analise-abc-de-produtos)
-24. [Integracao Composio](#24-integracao-composio)
-25. [Integracao Telegram](#25-integracao-telegram)
-26. [Paginas de Produtos](#26-paginas-de-produtos)
-27. [Historico de Execucoes (Runs)](#27-historico-de-execucoes-runs)
-28. [Configuracoes](#28-configuracoes)
-29. [Billing e Planos (Stripe)](#29-billing-e-planos-stripe)
-30. [Cron Jobs e Agendamento](#30-cron-jobs-e-agendamento)
-31. [Esquema do Banco de Dados](#31-esquema-do-banco-de-dados)
-32. [Rotas de API](#32-rotas-de-api)
-33. [Infraestrutura e Stack Tecnico](#33-infraestrutura-e-stack-tecnico)
-34. [Gerenciamento de Estado](#34-gerenciamento-de-estado)
-35. [Componentes UI Customizados](#35-componentes-ui-customizados)
+24. [Estimativa de LTV](#24-estimativa-de-ltv)
+25. [Sugestao de Bundles](#25-sugestao-de-bundles)
+26. [Sugestao de Preco](#26-sugestao-de-preco)
+27. [Previsao de Churn](#27-previsao-de-churn)
+28. [Analise de Cohort](#28-analise-de-cohort)
+29. [Markdown Optimization](#29-markdown-optimization)
+30. [Simulacao de Elasticidade](#30-simulacao-de-elasticidade)
+31. [Integracao Composio](#31-integracao-composio)
+32. [Integracao Telegram](#32-integracao-telegram)
+33. [Paginas de Produtos](#33-paginas-de-produtos)
+34. [Historico de Execucoes (Runs)](#34-historico-de-execucoes-runs)
+35. [Configuracoes](#35-configuracoes)
+36. [Billing e Planos (Stripe)](#36-billing-e-planos-stripe)
+37. [Cron Jobs e Agendamento](#37-cron-jobs-e-agendamento)
+38. [Esquema do Banco de Dados](#38-esquema-do-banco-de-dados)
+39. [Rotas de API](#39-rotas-de-api)
+40. [Infraestrutura e Stack Tecnico](#40-infraestrutura-e-stack-tecnico)
+41. [Gerenciamento de Estado](#41-gerenciamento-de-estado)
+42. [Componentes UI Customizados](#42-componentes-ui-customizados)
 
 ---
 
@@ -55,7 +62,7 @@ Relay e uma plataforma de automacao com IA para e-commerce, construida com Next.
 - **Workflows visuais** com 8 tipos de steps e 9 tipos de triggers
 - **Integracao nativa** com Nuvemshop, Shopify e 200+ apps via Composio
 - **Messaging via Telegram** para alertas e interacao com agentes
-- **Retail Intelligence** com RFM, ABC, previsao de demanda e monitoramento de precos
+- **Retail Intelligence** com RFM, ABC, LTV, churn, cohort, bundles, pricing, markdown, elasticidade, previsao de demanda e monitoramento de precos
 
 **Arquivo principal de configuracao**: `src/app/layout.tsx`
 
@@ -431,11 +438,11 @@ Wizard de 6 etapas que configura a loja e cria agentes automaticamente:
 
 ## 12. Ferramentas de Retail (STORE\_\*)
 
-**Arquivo**: `src/lib/ai/retail-tools.ts` (3.878 linhas)
+**Arquivo**: `src/lib/ai/retail-tools.ts` (6.187 linhas)
 
 **Entry point**: `buildRetailTools(storeId, teamId, supabaseClient?, userId?, imageAttachments?)`
 
-### Ferramentas de Consulta (Read-Only) — 13 tools
+### Ferramentas de Consulta (Read-Only) — 20 tools
 
 #### STORE_QUERY_STOCK
 
@@ -527,6 +534,55 @@ Wizard de 6 etapas que configura a loja e cria agentes automaticamente:
 - **Parametros**: `days` (default: 30, max: 365), `include_dead_stock` (default: true), `limit` (default: 15)
 - **Retorna**: Classes A/B/C com receita, margem, giro + estoque parado
 - **Fonte**: NuvemshopClient.getOrders() + getAllProducts() + store_products
+
+#### STORE_ESTIMATE_LTV
+
+- **O que faz**: Estima Customer Lifetime Value por segmento RFM
+- **Parametros**: `days` (default: 180, max: 365), `projected_years` (default: 2, max: 5), `limit` (default: 10)
+- **Retorna**: LTV medio/total, distribuicao por segmento (VIP/Loyal/Promising/At Risk/Lost/New), top clientes, faixas de distribuicao
+- **Fonte**: NuvemshopClient.getOrders() + store_products (cost_price para profit LTV)
+
+#### STORE_SUGGEST_BUNDLES
+
+- **O que faz**: Identifica produtos comprados juntos e sugere kits/combos
+- **Parametros**: `days` (default: 90, max: 365), `min_orders` (default: 3, max: 20), `limit` (default: 10)
+- **Retorna**: Pares co-ocorrentes com tipo (estrategico/cross-sell/complementar), preco sugerido com desconto, margem estimada
+- **Fonte**: NuvemshopClient.getOrders() + store_products (price, cost_price, stock)
+
+#### STORE_SUGGEST_PRICE
+
+- **O que faz**: Sugere precos otimizados baseado em custo, concorrencia e demanda
+- **Parametros**: `strategy` ('competitivo'|'margem_alvo'|'baseado_demanda'|'auto'), `target_margin` (default: 30%), `min_margin` (default: 15%), `search`
+- **Retorna**: Sugestoes com preco atual vs sugerido, margem atual vs nova, motivo, estrategia, confianca
+- **Fonte**: store_products + store_price_monitors + store_price_history + store_orders (100% Supabase)
+
+#### STORE_PREDICT_CHURN
+
+- **O que faz**: Previso de churn com composite decay scoring (recency/frequency/monetary)
+- **Parametros**: `days` (default: 180, max: 365), `threshold` (default: 50, score 0-100), `limit` (default: 15)
+- **Retorna**: Score de risco (0-100), componentes (recency_decay, frequency_decline, monetary_decline), segmentacao por urgencia (critico/alto/medio/baixo)
+- **Fonte**: NuvemshopClient.getOrders()
+
+#### STORE_COHORT_ANALYSIS
+
+- **O que faz**: Analise de cohort por mes/trimestre de primeira compra
+- **Parametros**: `days` (default: 180, max: 365), `granularity` ('monthly'|'quarterly'), `limit` (default: 12)
+- **Retorna**: Cohorts com retencao M1-M6, ticket medio, recorrencia%, receita total, comparativo entre cohorts
+- **Fonte**: NuvemshopClient.getOrders()
+
+#### STORE_MARKDOWN_OPTIMIZATION
+
+- **O que faz**: Identifica estoque parado e sugere descontos escalonados por urgencia
+- **Parametros**: `days` (default: 60, max: 180), `max_discount` (default: 50%), `min_stock` (default: 5), `limit` (default: 20)
+- **Retorna**: Candidatos com dias_sem_venda, estoque, desconto sugerido (%), preco_novo, urgencia (critica/alta/media/baixa), nunca abaixo de cost_price
+- **Fonte**: NuvemshopClient.getOrders() + getAllProducts() + store_products (cost_price)
+
+#### STORE_SIMULATE_ELASTICITY
+
+- **O que faz**: Simula impacto de mudanca de preco nas vendas usando elasticidade estimada
+- **Parametros**: `price_change_pct` (default: 10, range: -50 a +100), `days` (default: 180, max: 365), `search`, `limit` (default: 20)
+- **Retorna**: Por produto: elasticidade estimada, receita atual vs simulada, variacao%, confianca (baseada_em_dados/dados_limitados/estimativa_padrao)
+- **Fonte**: NuvemshopClient.getOrders() + store_products
 
 ### Ferramentas de Gerenciamento (Create/Update/Delete) — 18 tools
 
@@ -1040,7 +1096,199 @@ Itens:
 
 ---
 
-## 24. Integracao Composio
+## 24. Estimativa de LTV
+
+**Ferramenta**: STORE_ESTIMATE_LTV em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 180 dias) via API
+2. Agrupa por `customer_email`, calcula RFM scores (reusa helpers existentes)
+3. Por cliente: `ticket_medio × compras_por_ano × anos_projetados`
+4. Se cost_price disponivel: calcula profit-based LTV (margem × receita)
+5. Agrega por segmento RFM (VIP, Loyal, Promising, At Risk, Lost, New)
+6. Constroi faixas de distribuicao (R$0-500, 500-1k, 1k-2.5k, 2.5k-5k, 5k+)
+
+### Output
+
+| Campo             | Descricao                                                 |
+| ----------------- | --------------------------------------------------------- |
+| `resumo`          | Periodo, clientes analisados, ticket medio, LTV medio     |
+| `por_segmento`    | LTV medio, receita atual, % da receita por segmento       |
+| `top_clientes`    | Nome, email, pedidos, total gasto, LTV estimado, segmento |
+| `distribuicao`    | Faixas de LTV com contagem e percentual                   |
+| `acoes_sugeridas` | Recomendacoes por segmento                                |
+
+---
+
+## 25. Sugestao de Bundles
+
+**Ferramenta**: STORE_SUGGEST_BUNDLES em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 90 dias) via API
+2. Filtra pedidos com 2+ produtos distintos
+3. Constroi matriz de co-ocorrencia: para cada pedido, conta pares (pidA, pidB)
+4. Cap de 6 produtos por pedido para evitar explosao O(n^2)
+5. Filtra pares por `min_orders`, ranqueia por contagem
+6. Enriquece com dados de store_products (preco, custo, estoque)
+7. Classifica tipo: "estrategico" (A+C), "cross-sell", "complementar"
+8. Calcula pricing: 10% desconto (12-15% para bundles estrategicos)
+
+### Tipos de Bundle
+
+| Tipo         | Criterio                          | Desconto |
+| ------------ | --------------------------------- | -------- |
+| Estrategico  | Produto classe A + classe C       | 12-15%   |
+| Cross-sell   | Produtos de categorias diferentes | 10%      |
+| Complementar | Produtos da mesma categoria       | 10%      |
+
+---
+
+## 26. Sugestao de Preco
+
+**Ferramenta**: STORE_SUGGEST_PRICE em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca store_products com cost_price (Supabase)
+2. Busca price_monitors linkados via `own_product_id`
+3. Busca price_history para trend analysis (ultimos 10 pontos por monitor)
+4. Busca store_orders (ultimos 30 dias) para velocidade de vendas
+5. Por produto, seleciona estrategia (auto-detectada ou escolhida pelo usuario)
+6. Limita sugestoes a `min_margin` floor
+
+### Estrategias
+
+| Estrategia        | Criterio             | Logica                                      |
+| ----------------- | -------------------- | ------------------------------------------- |
+| `competitivo`     | Tem monitor de preco | Igualar/undercut concorrente (min margem)   |
+| `margem_alvo`     | Tem cost_price       | Atingir margem % alvo a partir do custo     |
+| `baseado_demanda` | Tem dados de vendas  | Alta demanda + baixo estoque → subir preco  |
+| `auto`            | Selecao automatica   | Usa a estrategia mais relevante por produto |
+
+### Fonte de dados
+
+100% Supabase (sem chamadas API): store_products + store_price_monitors + store_price_history + store_orders
+
+---
+
+## 27. Previsao de Churn
+
+**Ferramenta**: STORE_PREDICT_CHURN em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 180 dias) via API
+2. Filtra clientes recorrentes (2+ pedidos)
+3. Calcula score composto (0-100) a partir de 3 componentes:
+   - **Recency decay** (0-40 pts): baseado em ratio de atraso vs intervalo medio
+   - **Frequency decline** (0-30 pts): compara taxa de compra 1a vs 2a metade
+   - **Monetary decline** (0-30 pts): compara valor medio 1a vs 2a metade
+4. Classifica por urgencia baseado no score
+
+### Niveis de Urgencia
+
+| Nivel   | Score  | Significado                       |
+| ------- | ------ | --------------------------------- |
+| Critico | 75-100 | Cliente quase certamente vai sair |
+| Alto    | 50-74  | Risco alto, acao imediata         |
+| Medio   | 30-49  | Sinais de desengajamento          |
+| Baixo   | 0-29   | Saudavel, sem risco imediato      |
+
+---
+
+## 28. Analise de Cohort
+
+**Ferramenta**: STORE_COHORT_ANALYSIS em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 180 dias) via API
+2. Identifica primeira compra de cada cliente → define cohort (mes ou trimestre)
+3. Para cada cohort, calcula retencao nos meses seguintes (M1-M6)
+4. Metricas por cohort: clientes, ticket medio, recorrencia%, receita total
+5. Compara cohorts entre si para identificar tendencias
+
+### Metricas de Retencao
+
+| Metrica        | Calculo                                          |
+| -------------- | ------------------------------------------------ |
+| Retencao M1    | % dos clientes do cohort que compraram no mes +1 |
+| Retencao M2-M6 | Idem para meses +2 a +6                          |
+| Ticket medio   | Receita total do cohort / numero de clientes     |
+| Recorrencia %  | % dos clientes com 2+ pedidos                    |
+
+### Granularidade
+
+- **Monthly**: Cohorts por mes de primeira compra (default)
+- **Quarterly**: Cohorts por trimestre de primeira compra
+
+---
+
+## 29. Markdown Optimization
+
+**Ferramenta**: STORE_MARKDOWN_OPTIMIZATION em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 60 dias) via API para velocidade de vendas
+2. Busca todos os produtos via `getAllProducts()`
+3. Cruza vendas (unidades/dia) com estoque atual → calcula dias de estoque
+4. Identifica candidatos: estoque > `min_stock` e baixa velocidade de vendas
+5. Sugere desconto escalonado por urgencia (nunca abaixo do cost_price)
+6. Calcula: valor parado no estoque, receita potencial com desconto
+
+### Tiers de Urgencia
+
+| Urgencia | Criterio                  | Desconto Sugerido |
+| -------- | ------------------------- | ----------------- |
+| Critica  | Zero vendas no periodo    | 40-50%            |
+| Alta     | Vendas < 0.1 unidades/dia | 25-35%            |
+| Media    | Estoque para 90+ dias     | 15-25%            |
+| Baixa    | Estoque para 60-90 dias   | 10-15%            |
+
+### Protecao de margem
+
+- Se `cost_price` disponivel: desconto nunca leva preco abaixo do custo
+- Se `cost_price` nulo: aplica desconto sem protecao (aviso no output)
+
+---
+
+## 30. Simulacao de Elasticidade
+
+**Ferramenta**: STORE_SIMULATE_ELASTICITY em `retail-tools.ts`
+
+### Como funciona
+
+1. Busca pedidos do periodo (default: 180 dias) via API
+2. Constroi dados semanais por produto: preco medio × volume vendido
+3. Estima elasticidade a partir de variancia preco/volume entre semanas (mediana de point elasticities)
+4. Simula impacto da mudanca de preco proposta na receita
+5. Classifica confianca baseado na qualidade dos dados
+
+### Niveis de Confianca
+
+| Confianca         | Criterio                                        |
+| ----------------- | ----------------------------------------------- |
+| Baseada em dados  | 4+ semanas com variacao de preco suficiente     |
+| Dados limitados   | 2-3 semanas com alguma variacao                 |
+| Estimativa padrao | Sem variacao de preco → elasticidade default -1 |
+
+### Output por Produto
+
+| Campo            | Descricao                        |
+| ---------------- | -------------------------------- |
+| elasticidade     | Coeficiente estimado (ex: -1.2)  |
+| receita_atual    | Receita semanal media atual      |
+| receita_simulada | Receita estimada com novo preco  |
+| variacao_pct     | % de mudanca na receita          |
+| confianca        | Nivel de confianca da estimativa |
+
+---
+
+## 31. Integracao Composio
 
 **Arquivo**: `src/lib/composio/`
 
@@ -1079,7 +1327,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 25. Integracao Telegram
+## 32. Integracao Telegram
 
 **Arquivo**: `src/lib/messaging/telegram.ts`, `src/lib/messaging/telegram-processor.ts`
 
@@ -1112,7 +1360,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 26. Paginas de Produtos
+## 33. Paginas de Produtos
 
 **Arquivo**: `src/app/(dashboard)/products/page.tsx`
 
@@ -1125,7 +1373,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 27. Historico de Execucoes (Runs)
+## 34. Historico de Execucoes (Runs)
 
 **Arquivo**: `src/app/(dashboard)/runs/page.tsx`
 
@@ -1139,7 +1387,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 28. Configuracoes
+## 35. Configuracoes
 
 **Arquivo**: `src/components/settings/`
 
@@ -1159,7 +1407,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 29. Billing e Planos (Stripe)
+## 36. Billing e Planos (Stripe)
 
 **Arquivos**: `src/lib/stripe/`, `src/app/api/stripe/`
 
@@ -1187,7 +1435,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 30. Cron Jobs e Agendamento
+## 37. Cron Jobs e Agendamento
 
 **Arquivo**: `src/lib/cron/schedule-matcher.ts`
 
@@ -1209,7 +1457,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 31. Esquema do Banco de Dados
+## 38. Esquema do Banco de Dados
 
 ### Tabelas Core
 
@@ -1275,7 +1523,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 32. Rotas de API
+## 39. Rotas de API
 
 ### Workflows (12 rotas)
 
@@ -1354,7 +1602,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 33. Infraestrutura e Stack Tecnico
+## 40. Infraestrutura e Stack Tecnico
 
 ### Hosting e Servicos
 
@@ -1433,7 +1681,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 34. Gerenciamento de Estado
+## 41. Gerenciamento de Estado
 
 ### Zustand Store (Workflow Editor)
 
@@ -1475,7 +1723,7 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ---
 
-## 35. Componentes UI Customizados
+## 42. Componentes UI Customizados
 
 ### Componentes de Layout
 
@@ -1532,7 +1780,7 @@ Incluem: `useAgentChat`, `useWorkflowRuns`, `useNotifications`, `usePresence`, `
 | ----------------------- | ---------- |
 | Paginas UI              | 13         |
 | Rotas de API            | 39+        |
-| Ferramentas STORE\_\*   | 31         |
+| Ferramentas STORE\_\*   | 38         |
 | Ferramentas SNEW\_\*    | 13         |
 | Metodos NuvemshopClient | 38+        |
 | Schemas Zod             | 17         |
@@ -1543,5 +1791,6 @@ Incluem: `useAgentChat`, `useWorkflowRuns`, `useNotifications`, `usePresence`, `
 | Componentes React       | 200+       |
 | Apps Composio           | 200+       |
 | Funcoes helper retail   | 7          |
+| Ferramentas analytics   | 9          |
 | Skills por segmento     | 32         |
 | Cron jobs               | 4          |
