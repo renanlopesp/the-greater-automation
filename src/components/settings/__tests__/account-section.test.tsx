@@ -34,7 +34,7 @@ describe('AccountSection', () => {
   it('renders account form with user info', () => {
     render(<AccountSection {...defaultProps} />)
 
-    expect(screen.getByRole('heading', { name: 'Account' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Conta' })).toBeInTheDocument()
     expect(screen.getByDisplayValue('Renan Lopes')).toBeInTheDocument()
     expect(screen.getByDisplayValue('renan@example.com')).toBeInTheDocument()
   })
@@ -48,7 +48,7 @@ describe('AccountSection', () => {
   it('has disabled save button initially', () => {
     render(<AccountSection {...defaultProps} />)
 
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar alterações' })).toBeDisabled()
   })
 
   it('enables save button when name is changed', async () => {
@@ -59,7 +59,7 @@ describe('AccountSection', () => {
     await user.clear(input)
     await user.type(input, 'New Name')
 
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Salvar alterações' })).toBeEnabled()
   })
 
   it('shows email field as disabled', () => {
@@ -80,6 +80,6 @@ describe('AccountSection', () => {
   it('shows upload hint text', () => {
     render(<AccountSection {...defaultProps} />)
 
-    expect(screen.getByText('Click avatar to upload a new image')).toBeInTheDocument()
+    expect(screen.getByText('Clique no avatar para enviar uma nova imagem')).toBeInTheDocument()
   })
 })

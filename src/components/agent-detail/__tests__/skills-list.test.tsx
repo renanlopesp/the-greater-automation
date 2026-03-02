@@ -50,8 +50,8 @@ describe('SkillsList', () => {
     render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
     expect(screen.getByText('Product Guidelines')).toBeInTheDocument()
     expect(screen.getByText('Support Protocol')).toBeInTheDocument()
-    expect(screen.getByText('Knowledge')).toBeInTheDocument()
-    expect(screen.getByText('Procedure')).toBeInTheDocument()
+    expect(screen.getByText('Conhecimento')).toBeInTheDocument()
+    expect(screen.getByText('Procedimento')).toBeInTheDocument()
   })
 
   it('shows description when available', () => {
@@ -61,12 +61,12 @@ describe('SkillsList', () => {
 
   it('shows step count for procedure skills', () => {
     render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText(/3 steps/)).toBeInTheDocument()
+    expect(screen.getByText(/3 etapas/)).toBeInTheDocument()
   })
 
   it('shows parameter count for procedure skills', () => {
     render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText(/1 parameters/)).toBeInTheDocument()
+    expect(screen.getByText(/1 parâmetros/)).toBeInTheDocument()
   })
 
   it('shows enable/disable toggle for skills', () => {
@@ -77,14 +77,14 @@ describe('SkillsList', () => {
 
   it('shows "Add skill" button', () => {
     render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText('Add skill')).toBeInTheDocument()
+    expect(screen.getByText('Adicionar skill')).toBeInTheDocument()
   })
 
   it('shows empty state when no skills', () => {
     render(<SkillsList skills={[]} agentId="agent-1" />)
-    expect(screen.getByText('No skills yet')).toBeInTheDocument()
+    expect(screen.getByText('Nenhum skill ainda')).toBeInTheDocument()
     expect(
-      screen.getByText('Add skills to teach your agent specialized knowledge')
+      screen.getByText('Adicione skills para ensinar conhecimentos especializados ao agente')
     ).toBeInTheDocument()
   })
 

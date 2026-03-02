@@ -6,9 +6,9 @@ import SearchTrigger from '@/components/search-trigger'
 describe('SearchTrigger', () => {
   it('renders with search text', () => {
     render(<SearchTrigger onOpen={vi.fn()} />)
-    // Text is now split across multiple elements: "Type" + <kbd> + "to search"
-    expect(screen.getByText('Type')).toBeInTheDocument()
-    expect(screen.getByText('to search')).toBeInTheDocument()
+    // Text is now split across multiple elements: "Digite" + <kbd> + "para buscar"
+    expect(screen.getByText('Digite')).toBeInTheDocument()
+    expect(screen.getByText('para buscar')).toBeInTheDocument()
   })
 
   it('calls onOpen when clicked', async () => {

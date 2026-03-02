@@ -27,8 +27,8 @@ describe('InviteMemberDialog - T017', () => {
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText('Invite member')).toBeInTheDocument()
-    expect(screen.getByText(/Send an invitation to join your team/)).toBeInTheDocument()
+    expect(screen.getByText('Convidar membro')).toBeInTheDocument()
+    expect(screen.getByText(/Envie um convite para entrar na sua equipe/)).toBeInTheDocument()
   })
 
   it('does not render dialog when closed', () => {
@@ -40,7 +40,7 @@ describe('InviteMemberDialog - T017', () => {
   it('renders email input with correct attributes', () => {
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address')
+    const emailInput = screen.getByLabelText('Endereço de e-mail')
     expect(emailInput).toBeInTheDocument()
     expect(emailInput).toHaveAttribute('type', 'email')
     expect(emailInput).toHaveAttribute('placeholder', 'colleague@company.com')
@@ -50,12 +50,12 @@ describe('InviteMemberDialog - T017', () => {
   it('renders role select with member as default', () => {
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    expect(screen.getByText('Role')).toBeInTheDocument()
+    expect(screen.getByText('Função')).toBeInTheDocument()
     // The Select component renders as a combobox
     const roleSelect = screen.getByRole('combobox')
     expect(roleSelect).toBeInTheDocument()
     // Default value is member (visible in the select trigger)
-    expect(roleSelect).toHaveTextContent('Member')
+    expect(roleSelect).toHaveTextContent('Membro')
   })
 
   // Note: Tests for role selection interaction are skipped due to happy-dom compatibility issues
@@ -65,15 +65,15 @@ describe('InviteMemberDialog - T017', () => {
   it('renders cancel and submit buttons', () => {
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Send invitation' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar convite' })).toBeInTheDocument()
   })
 
   it('calls onOpenChange when cancel button is clicked', async () => {
     const user = userEvent.setup()
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const cancelButton = screen.getByRole('button', { name: 'Cancel' })
+    const cancelButton = screen.getByRole('button', { name: 'Cancelar' })
     await user.click(cancelButton)
 
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
@@ -86,10 +86,10 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address')
+    const emailInput = screen.getByLabelText('Endereço de e-mail')
     await user.type(emailInput, 'test@example.com')
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -106,10 +106,10 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address')
+    const emailInput = screen.getByLabelText('Endereço de e-mail')
     await user.type(emailInput, 'new.member@example.com')
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -123,7 +123,7 @@ describe('InviteMemberDialog - T017', () => {
 
     // Verify success toast
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Invitation sent successfully')
+      expect(toast.success).toHaveBeenCalledWith('Convite enviado com sucesso')
     })
 
     // Verify dialog closed
@@ -147,16 +147,16 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address')
+    const emailInput = screen.getByLabelText('Endereço de e-mail')
     await user.type(emailInput, 'test@example.com')
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     // Check loading state
     await waitFor(() => {
-      expect(screen.getByText('Sending...')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled()
+      expect(screen.getByText('Enviando...')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Enviando...' })).toBeDisabled()
     })
 
     // Resolve the action
@@ -164,7 +164,7 @@ describe('InviteMemberDialog - T017', () => {
 
     // Wait for loading to finish
     await waitFor(() => {
-      expect(screen.queryByText('Sending...')).not.toBeInTheDocument()
+      expect(screen.queryByText('Enviando...')).not.toBeInTheDocument()
     })
   })
 
@@ -176,10 +176,10 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address') as HTMLInputElement
+    const emailInput = screen.getByLabelText('Endereço de e-mail') as HTMLInputElement
     await user.type(emailInput, 'test@example.com')
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     // Dialog should close after successful submission
@@ -194,7 +194,7 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     // HTML5 validation should prevent submission
@@ -225,10 +225,10 @@ describe('InviteMemberDialog - T017', () => {
 
     render(<InviteMemberDialog open={true} onOpenChange={mockOnOpenChange} />)
 
-    const emailInput = screen.getByLabelText('Email address')
+    const emailInput = screen.getByLabelText('Endereço de e-mail')
     await user.type(emailInput, 'existing@example.com')
 
-    const submitButton = screen.getByRole('button', { name: 'Send invitation' })
+    const submitButton = screen.getByRole('button', { name: 'Enviar convite' })
     await user.click(submitButton)
 
     await waitFor(() => {
