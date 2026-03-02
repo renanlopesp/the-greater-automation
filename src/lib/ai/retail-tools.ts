@@ -5980,6 +5980,690 @@ export function buildRetailTools(
         }
       },
     },
+
+    // ── Supplier Management Tools ────────────────────────────────────────
+
+    STORE_MANAGE_SUPPLIERS: {
+      description:
+        'Manage store suppliers (CRUD). Create, list, update, or deactivate suppliers. Use when user asks about suppliers, fornecedores, or wants to register a new supplier.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['list', 'create', 'update', 'deactivate'],
+            description: 'Action to perform',
+          },
+          id: { type: 'string', description: 'Supplier ID (for update/deactivate)' },
+          name: { type: 'string', description: 'Supplier name (for create, or search on list)' },
+          contact_email: { type: 'string', description: 'Contact email' },
+          contact_phone: { type: 'string', description: 'Contact phone' },
+          lead_time_days: {
+            type: 'number',
+            description: 'Lead time in days (required for create)',
+          },
+          min_order_value: { type: 'number', description: 'Minimum order value in BRL' },
+          payment_terms: { type: 'string', description: 'Payment terms (free text)' },
+          notes: { type: 'string', description: 'Notes about the supplier' },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: 'list' | 'create' | 'update' | 'deactivate'
+        id?: string
+        name?: string
+        contact_email?: string
+        contact_phone?: string
+        lead_time_days?: number
+        min_order_value?: number
+        payment_terms?: string
+        notes?: string
+      }) => {
+        try {
+          const client = getClient()
+
+          if (params.action === 'list') {
+            let query = client
+              .from('store_suppliers')
+              .select('*')
+              .eq('store_id', storeId)
+              .eq('is_active', true)
+              .order('name')
+            if (params.name) query = query.ilike('name', `%${params.name}%`)
+            const { data, error } = await query
+            if (error) return { error: `Falha: ${error.message}` }
+            if (!data?.length) return { message: 'Nenhum fornecedor encontrado.' }
+            return {
+              fornecedores: data.map((s) => ({
+                id: s.id,
+                nome: s.name,
+                email: s.contact_email,
+                telefone: s.contact_phone,
+                lead_time: `${s.lead_time_days} dias`,
+                pedido_minimo: s.min_order_value
+                  ? `R$ ${Number(s.min_order_value).toFixed(2)}`
+                  : null,
+                condicoes_pagamento: s.payment_terms,
+                notas: s.notes,
+              })),
+              total: data.length,
+            }
+          }
+
+          if (params.action === 'create') {
+            if (!params.name || !params.lead_time_days) {
+              return { error: 'Nome e lead_time_days são obrigatórios para criar fornecedor.' }
+            }
+            const { data, error } = await client
+              .from('store_suppliers')
+              .insert({
+                store_id: storeId,
+                name: params.name,
+                contact_email: params.contact_email ?? null,
+                contact_phone: params.contact_phone ?? null,
+                lead_time_days: params.lead_time_days,
+                min_order_value: params.min_order_value ?? null,
+                payment_terms: params.payment_terms ?? null,
+                notes: params.notes ?? null,
+              })
+              .select()
+              .single()
+            if (error) return { error: `Falha ao criar: ${error.message}` }
+            return {
+              message: `Fornecedor "${data.name}" criado com sucesso.`,
+              fornecedor: {
+                id: data.id,
+                nome: data.name,
+                lead_time: `${data.lead_time_days} dias`,
+                pedido_minimo: data.min_order_value
+                  ? `R$ ${Number(data.min_order_value).toFixed(2)}`
+                  : null,
+              },
+            }
+          }
+
+          if (params.action === 'update') {
+            let supplierId = params.id
+            if (!supplierId && params.name) {
+              const { data: found } = await client
+                .from('store_suppliers')
+                .select('id')
+                .eq('store_id', storeId)
+                .ilike('name', `%${params.name}%`)
+                .limit(1)
+                .single()
+              if (found) supplierId = found.id
+            }
+            if (!supplierId) return { error: 'Fornecedor não encontrado. Informe id ou nome.' }
+            const updates: Record<string, unknown> = {}
+            if (params.name) updates.name = params.name
+            if (params.contact_email !== undefined) updates.contact_email = params.contact_email
+            if (params.contact_phone !== undefined) updates.contact_phone = params.contact_phone
+            if (params.lead_time_days) updates.lead_time_days = params.lead_time_days
+            if (params.min_order_value !== undefined)
+              updates.min_order_value = params.min_order_value
+            if (params.payment_terms !== undefined) updates.payment_terms = params.payment_terms
+            if (params.notes !== undefined) updates.notes = params.notes
+            const { data, error } = await client
+              .from('store_suppliers')
+              .update(updates)
+              .eq('id', supplierId)
+              .eq('store_id', storeId)
+              .select()
+              .single()
+            if (error) return { error: `Falha ao atualizar: ${error.message}` }
+            return {
+              message: `Fornecedor "${data.name}" atualizado.`,
+              fornecedor: { id: data.id, nome: data.name },
+            }
+          }
+
+          if (params.action === 'deactivate') {
+            let supplierId = params.id
+            if (!supplierId && params.name) {
+              const { data: found } = await client
+                .from('store_suppliers')
+                .select('id, name')
+                .eq('store_id', storeId)
+                .ilike('name', `%${params.name}%`)
+                .limit(1)
+                .single()
+              if (found) supplierId = found.id
+            }
+            if (!supplierId) return { error: 'Fornecedor não encontrado.' }
+            const { error } = await client
+              .from('store_suppliers')
+              .update({ is_active: false })
+              .eq('id', supplierId)
+              .eq('store_id', storeId)
+            if (error) return { error: `Falha ao desativar: ${error.message}` }
+            return { message: 'Fornecedor desativado com sucesso.' }
+          }
+
+          return { error: 'Ação inválida. Use: list, create, update, deactivate.' }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_LINK_PRODUCT_SUPPLIER: {
+      description:
+        'Link/unlink products to suppliers with cost price. Use when user says "o fornecedor X fornece o produto Y" or wants to manage product-supplier relationships.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['link', 'unlink', 'update', 'list'],
+            description: 'Action to perform',
+          },
+          supplier_name: { type: 'string', description: 'Supplier name (resolved to ID)' },
+          product_name: { type: 'string', description: 'Product name (resolved to ID)' },
+          cost_price: { type: 'number', description: 'Cost price from this supplier' },
+          is_preferred: {
+            type: 'boolean',
+            description: 'Mark as preferred supplier for this product',
+          },
+        },
+        required: ['action'],
+      }),
+      execute: async (params: {
+        action: 'link' | 'unlink' | 'update' | 'list'
+        supplier_name?: string
+        product_name?: string
+        cost_price?: number
+        is_preferred?: boolean
+      }) => {
+        try {
+          const client = getClient()
+
+          // Resolve supplier by name
+          const resolveSupplier = async (name: string) => {
+            const { data } = await client
+              .from('store_suppliers')
+              .select('id, name')
+              .eq('store_id', storeId)
+              .eq('is_active', true)
+              .ilike('name', `%${name}%`)
+              .limit(1)
+              .single()
+            return data
+          }
+
+          // Resolve product by name
+          const resolveProduct = async (name: string) => {
+            const { data } = await client
+              .from('store_products')
+              .select('id, name, price, cost_price')
+              .eq('store_id', storeId)
+              .ilike('name', `%${name}%`)
+              .limit(1)
+              .single()
+            return data
+          }
+
+          if (params.action === 'list') {
+            if (params.supplier_name) {
+              const supplier = await resolveSupplier(params.supplier_name)
+              if (!supplier)
+                return { error: `Fornecedor "${params.supplier_name}" não encontrado.` }
+              const { data: links } = await client
+                .from('store_product_suppliers')
+                .select('*, store_products!inner(name, price, cost_price)')
+                .eq('supplier_id', supplier.id)
+              return {
+                fornecedor: supplier.name,
+                produtos: (links ?? []).map((l) => ({
+                  produto: (l as Record<string, unknown>).store_products
+                    ? ((l as Record<string, unknown>).store_products as { name: string }).name
+                    : 'Desconhecido',
+                  custo_fornecedor: l.cost_price ? `R$ ${Number(l.cost_price).toFixed(2)}` : null,
+                  preferencial: l.is_preferred,
+                  ultima_compra: l.last_order_at,
+                })),
+                total: links?.length ?? 0,
+              }
+            }
+            if (params.product_name) {
+              const product = await resolveProduct(params.product_name)
+              if (!product) return { error: `Produto "${params.product_name}" não encontrado.` }
+              const { data: links } = await client
+                .from('store_product_suppliers')
+                .select('*, store_suppliers!inner(name, lead_time_days, min_order_value)')
+                .eq('product_id', product.id)
+              return {
+                produto: product.name,
+                fornecedores: (links ?? []).map((l) => ({
+                  fornecedor: (l as Record<string, unknown>).store_suppliers
+                    ? ((l as Record<string, unknown>).store_suppliers as { name: string }).name
+                    : 'Desconhecido',
+                  custo: l.cost_price ? `R$ ${Number(l.cost_price).toFixed(2)}` : null,
+                  preferencial: l.is_preferred,
+                })),
+                total: links?.length ?? 0,
+              }
+            }
+            return { error: 'Informe supplier_name ou product_name para listar vínculos.' }
+          }
+
+          if (params.action === 'link') {
+            if (!params.supplier_name || !params.product_name) {
+              return { error: 'supplier_name e product_name são obrigatórios para vincular.' }
+            }
+            const [supplier, product] = await Promise.all([
+              resolveSupplier(params.supplier_name),
+              resolveProduct(params.product_name),
+            ])
+            if (!supplier) return { error: `Fornecedor "${params.supplier_name}" não encontrado.` }
+            if (!product) return { error: `Produto "${params.product_name}" não encontrado.` }
+
+            // Upsert: update if already exists
+            const { data, error } = await client
+              .from('store_product_suppliers')
+              .upsert(
+                {
+                  store_id: storeId,
+                  supplier_id: supplier.id,
+                  product_id: product.id,
+                  cost_price: params.cost_price ?? null,
+                  is_preferred: params.is_preferred ?? false,
+                },
+                { onConflict: 'supplier_id,product_id' }
+              )
+              .select()
+              .single()
+            if (error) return { error: `Falha ao vincular: ${error.message}` }
+
+            // If preferred, unset others
+            if (params.is_preferred) {
+              await client
+                .from('store_product_suppliers')
+                .update({ is_preferred: false })
+                .eq('product_id', product.id)
+                .eq('store_id', storeId)
+                .neq('id', data.id)
+            }
+
+            return {
+              message: `Produto "${product.name}" vinculado ao fornecedor "${supplier.name}".`,
+              custo: params.cost_price ? `R$ ${params.cost_price.toFixed(2)}` : null,
+              preferencial: params.is_preferred ?? false,
+            }
+          }
+
+          if (params.action === 'unlink') {
+            if (!params.supplier_name || !params.product_name) {
+              return { error: 'supplier_name e product_name são obrigatórios para desvincular.' }
+            }
+            const [supplier, product] = await Promise.all([
+              resolveSupplier(params.supplier_name),
+              resolveProduct(params.product_name),
+            ])
+            if (!supplier) return { error: `Fornecedor "${params.supplier_name}" não encontrado.` }
+            if (!product) return { error: `Produto "${params.product_name}" não encontrado.` }
+            const { error } = await client
+              .from('store_product_suppliers')
+              .delete()
+              .eq('supplier_id', supplier.id)
+              .eq('product_id', product.id)
+              .eq('store_id', storeId)
+            if (error) return { error: `Falha ao desvincular: ${error.message}` }
+            return { message: `Vínculo entre "${product.name}" e "${supplier.name}" removido.` }
+          }
+
+          if (params.action === 'update') {
+            if (!params.supplier_name || !params.product_name) {
+              return { error: 'supplier_name e product_name são obrigatórios para atualizar.' }
+            }
+            const [supplier, product] = await Promise.all([
+              resolveSupplier(params.supplier_name),
+              resolveProduct(params.product_name),
+            ])
+            if (!supplier) return { error: `Fornecedor "${params.supplier_name}" não encontrado.` }
+            if (!product) return { error: `Produto "${params.product_name}" não encontrado.` }
+            const updates: Record<string, unknown> = {}
+            if (params.cost_price !== undefined) updates.cost_price = params.cost_price
+            if (params.is_preferred !== undefined) updates.is_preferred = params.is_preferred
+            const { data, error } = await client
+              .from('store_product_suppliers')
+              .update(updates)
+              .eq('supplier_id', supplier.id)
+              .eq('product_id', product.id)
+              .eq('store_id', storeId)
+              .select()
+              .single()
+            if (error) return { error: `Falha ao atualizar: ${error.message}` }
+            if (params.is_preferred) {
+              await client
+                .from('store_product_suppliers')
+                .update({ is_preferred: false })
+                .eq('product_id', product.id)
+                .eq('store_id', storeId)
+                .neq('id', data.id)
+            }
+            return { message: `Vínculo atualizado.` }
+          }
+
+          return { error: 'Ação inválida. Use: link, unlink, update, list.' }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_SUGGEST_REORDER: {
+      description:
+        'Suggest products that need reordering based on stock levels, sales velocity, and supplier lead times. Use when user asks "o que preciso comprar?", "reposição", "reorder", or "pedidos pendentes".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Sales history window in days (default: 30, max: 90)',
+          },
+          urgency: {
+            type: 'string',
+            enum: ['all', 'critical', 'warning'],
+            description: 'Filter by urgency level (default: all)',
+          },
+          supplier_name: { type: 'string', description: 'Filter by specific supplier name' },
+        },
+      }),
+      execute: async (params: {
+        days?: number
+        urgency?: 'all' | 'critical' | 'warning'
+        supplier_name?: string
+      }) => {
+        try {
+          const client = getClient()
+          const days = Math.min(Math.max(params.days ?? 30, 7), 90)
+          const urgencyFilter = params.urgency ?? 'all'
+
+          // Get store credentials for API access
+          const { data: store } = await client
+            .from('stores')
+            .select('platform_store_id, platform_access_token')
+            .eq('id', storeId)
+            .single()
+          if (!store?.platform_store_id || !store?.platform_access_token) {
+            return { error: 'Loja não conectada à Nuvemshop.' }
+          }
+
+          // Get all product-supplier links with supplier and product data
+          let linksQuery = client
+            .from('store_product_suppliers')
+            .select(
+              '*, store_suppliers!inner(id, name, lead_time_days, min_order_value, is_active), store_products!inner(id, name, stock_quantity, price, external_id)'
+            )
+            .eq('store_id', storeId)
+          if (params.supplier_name) {
+            linksQuery = linksQuery.ilike('store_suppliers.name', `%${params.supplier_name}%`)
+          }
+          const { data: links } = await linksQuery
+          if (!links?.length) {
+            return {
+              message:
+                'Nenhum produto com fornecedor vinculado. Vincule produtos a fornecedores primeiro.',
+            }
+          }
+
+          // Filter active suppliers only
+          const activeLinks = links.filter((l) => {
+            const sup = l.store_suppliers as unknown as { is_active: boolean }
+            return sup.is_active
+          })
+
+          // Fetch orders from Nuvemshop for sales velocity
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const nuvemshop = new NuvemshopClient(
+            store.platform_store_id,
+            store.platform_access_token
+          )
+          const sinceDate = new Date()
+          sinceDate.setDate(sinceDate.getDate() - days)
+
+          // Paginate orders
+          const allOrders: Awaited<ReturnType<typeof nuvemshop.getOrders>> = []
+          let page = 1
+          while (true) {
+            const batch = await nuvemshop.getOrders(page, 200, {
+              created_at_min: sinceDate.toISOString(),
+            })
+            allOrders.push(...batch)
+            if (batch.length < 200) break
+            page++
+          }
+          const orders = allOrders
+
+          // Calculate daily sales per product (by external_id)
+          const salesByExternalId: Record<string, number> = {}
+          for (const order of orders) {
+            if (order.payment_status !== 'paid') continue
+            for (const item of order.products || []) {
+              const eid = String(item.product_id)
+              salesByExternalId[eid] = (salesByExternalId[eid] || 0) + (Number(item.quantity) || 1)
+            }
+          }
+
+          // Build reorder suggestions
+          type SuggestionItem = {
+            produto: string
+            estoque_atual: number
+            fornecedor: string
+            lead_time: string
+            media_diaria: string
+            dias_estoque: string
+            quantidade_sugerida: number
+            valor_sugerido: string
+            urgencia: string
+            pedir_ate: string
+          }
+
+          const suggestions: SuggestionItem[] = []
+
+          for (const link of activeLinks) {
+            const product = link.store_products as unknown as {
+              id: string
+              name: string
+              stock_quantity: number
+              price: number | null
+              external_id: string
+            }
+            const supplier = link.store_suppliers as unknown as {
+              id: string
+              name: string
+              lead_time_days: number
+              min_order_value: number | null
+            }
+
+            const totalSold = salesByExternalId[product.external_id] || 0
+            const avgDaily = totalSold / days
+            if (avgDaily <= 0) continue // no sales = no reorder needed
+
+            const daysOfStock = product.stock_quantity / avgDaily
+            const reorderPoint = avgDaily * supplier.lead_time_days * 1.2
+            const suggestedQty = Math.ceil(avgDaily * 30)
+            const costPerUnit = link.cost_price
+              ? Number(link.cost_price)
+              : product.price
+                ? Number(product.price) * 0.6
+                : 0
+            const suggestedValue = suggestedQty * costPerUnit
+
+            let urgency: string
+            if (daysOfStock < supplier.lead_time_days) urgency = 'CRÍTICO'
+            else if (daysOfStock < supplier.lead_time_days * 1.5) urgency = 'ATENÇÃO'
+            else urgency = 'Saudável'
+
+            if (urgencyFilter === 'critical' && urgency !== 'CRÍTICO') continue
+            if (urgencyFilter === 'warning' && urgency === 'Saudável') continue
+
+            const orderByDate = new Date()
+            orderByDate.setDate(
+              orderByDate.getDate() + Math.max(0, Math.floor(daysOfStock - supplier.lead_time_days))
+            )
+
+            suggestions.push({
+              produto: product.name,
+              estoque_atual: product.stock_quantity,
+              fornecedor: supplier.name,
+              lead_time: `${supplier.lead_time_days} dias`,
+              media_diaria: avgDaily.toFixed(1),
+              dias_estoque: daysOfStock.toFixed(1),
+              quantidade_sugerida: suggestedQty,
+              valor_sugerido: `R$ ${suggestedValue.toFixed(2)}`,
+              urgencia: urgency,
+              pedir_ate: orderByDate.toISOString().split('T')[0],
+            })
+          }
+
+          // Sort by urgency (critical first), then days of stock
+          const urgencyOrder: Record<string, number> = { CRÍTICO: 0, ATENÇÃO: 1, Saudável: 2 }
+          suggestions.sort((a, b) => {
+            const ua = urgencyOrder[a.urgencia] ?? 2
+            const ub = urgencyOrder[b.urgencia] ?? 2
+            if (ua !== ub) return ua - ub
+            return parseFloat(a.dias_estoque) - parseFloat(b.dias_estoque)
+          })
+
+          if (!suggestions.length) {
+            return { message: 'Nenhum produto precisa de reposição no momento. Estoque saudável!' }
+          }
+
+          const critical = suggestions.filter((s) => s.urgencia === 'CRÍTICO').length
+          const warning = suggestions.filter((s) => s.urgencia === 'ATENÇÃO').length
+
+          return {
+            resumo: {
+              periodo: `Últimos ${days} dias`,
+              produtos_analisados: activeLinks.length,
+              criticos: critical,
+              atencao: warning,
+              saudaveis: suggestions.length - critical - warning,
+            },
+            sugestoes: suggestions,
+            acoes_sugeridas: [
+              ...(critical > 0
+                ? [`⚠️ ${critical} produto(s) em situação CRÍTICA — faça o pedido hoje!`]
+                : []),
+              ...(warning > 0
+                ? [`${warning} produto(s) precisam de atenção nos próximos dias.`]
+                : []),
+              'Acesse /suppliers → Reposição para ver a timeline completa.',
+            ],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_COMPARE_SUPPLIERS: {
+      description:
+        'Compare suppliers for a specific product side by side (price, lead time, min order, last purchase). Use when user asks "compara fornecedores" or "qual melhor fornecedor para X".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          product_name: {
+            type: 'string',
+            description: 'Product name to compare suppliers for',
+          },
+        },
+        required: ['product_name'],
+      }),
+      execute: async (params: { product_name: string }) => {
+        try {
+          const client = getClient()
+
+          // Find product
+          const { data: product } = await client
+            .from('store_products')
+            .select('id, name, price, cost_price')
+            .eq('store_id', storeId)
+            .ilike('name', `%${params.product_name}%`)
+            .limit(1)
+            .single()
+          if (!product) return { error: `Produto "${params.product_name}" não encontrado.` }
+
+          // Get all supplier links for this product
+          const { data: links } = await client
+            .from('store_product_suppliers')
+            .select(
+              '*, store_suppliers!inner(id, name, lead_time_days, min_order_value, contact_email, contact_phone)'
+            )
+            .eq('product_id', product.id)
+            .eq('store_id', storeId)
+
+          if (!links?.length) {
+            return {
+              produto: product.name,
+              message: 'Nenhum fornecedor vinculado a este produto. Vincule fornecedores primeiro.',
+            }
+          }
+
+          if (links.length === 1) {
+            const sup = links[0].store_suppliers as unknown as { name: string }
+            return {
+              produto: product.name,
+              message: `Apenas 1 fornecedor vinculado: "${sup.name}". Cadastre mais fornecedores para comparar.`,
+            }
+          }
+
+          const comparacao = links.map((l) => {
+            const sup = l.store_suppliers as unknown as {
+              name: string
+              lead_time_days: number
+              min_order_value: number | null
+              contact_email: string | null
+              contact_phone: string | null
+            }
+            return {
+              fornecedor: sup.name,
+              custo: l.cost_price ? `R$ ${Number(l.cost_price).toFixed(2)}` : 'Não informado',
+              lead_time: `${sup.lead_time_days} dias`,
+              pedido_minimo: sup.min_order_value
+                ? `R$ ${Number(sup.min_order_value).toFixed(2)}`
+                : 'Sem mínimo',
+              preferencial: l.is_preferred ? 'Sim' : 'Não',
+              ultima_compra: l.last_order_at
+                ? new Date(l.last_order_at).toLocaleDateString('pt-BR')
+                : 'Sem registro',
+              contato: sup.contact_email || sup.contact_phone || 'Não informado',
+            }
+          })
+
+          // Identify best options
+          const withCost = links.filter((l) => l.cost_price != null)
+          const cheapest =
+            withCost.length > 0
+              ? withCost.reduce((a, b) => (Number(a.cost_price) < Number(b.cost_price) ? a : b))
+              : null
+          const fastest = links.reduce((a, b) => {
+            const aLt = (a.store_suppliers as unknown as { lead_time_days: number }).lead_time_days
+            const bLt = (b.store_suppliers as unknown as { lead_time_days: number }).lead_time_days
+            return aLt < bLt ? a : b
+          })
+
+          return {
+            produto: product.name,
+            preco_venda: product.price ? `R$ ${Number(product.price).toFixed(2)}` : null,
+            custo_registrado: product.cost_price
+              ? `R$ ${Number(product.cost_price).toFixed(2)}`
+              : null,
+            comparacao,
+            destaques: {
+              menor_custo: cheapest
+                ? (cheapest.store_suppliers as unknown as { name: string }).name
+                : null,
+              menor_lead_time: (fastest.store_suppliers as unknown as { name: string }).name,
+            },
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
   }
 }
 

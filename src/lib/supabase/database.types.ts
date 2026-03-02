@@ -1305,6 +1305,67 @@ export type Database = {
           },
         ]
       }
+      store_product_suppliers: {
+        Row: {
+          cost_price: number | null
+          created_at: string
+          id: string
+          is_preferred: boolean
+          last_order_at: string | null
+          last_order_qty: number | null
+          product_id: string
+          store_id: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          is_preferred?: boolean
+          last_order_at?: string | null
+          last_order_qty?: number | null
+          product_id: string
+          store_id: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          is_preferred?: boolean
+          last_order_at?: string | null
+          last_order_qty?: number | null
+          product_id?: string
+          store_id?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'store_product_suppliers_product_id_fkey'
+            columns: ['product_id']
+            isOneToOne: false
+            referencedRelation: 'store_products'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'store_product_suppliers_store_id_fkey'
+            columns: ['store_id']
+            isOneToOne: false
+            referencedRelation: 'stores'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'store_product_suppliers_supplier_id_fkey'
+            columns: ['supplier_id']
+            isOneToOne: false
+            referencedRelation: 'store_suppliers'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       store_products: {
         Row: {
           cost_price: number | null
@@ -1405,6 +1466,59 @@ export type Database = {
           },
           {
             foreignKeyName: 'store_stock_alerts_store_id_fkey'
+            columns: ['store_id']
+            isOneToOne: false
+            referencedRelation: 'stores'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      store_suppliers: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          lead_time_days: number
+          min_order_value: number | null
+          name: string
+          notes: string | null
+          payment_terms: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lead_time_days: number
+          min_order_value?: number | null
+          name: string
+          notes?: string | null
+          payment_terms?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lead_time_days?: number
+          min_order_value?: number | null
+          name?: string
+          notes?: string | null
+          payment_terms?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'store_suppliers_store_id_fkey'
             columns: ['store_id']
             isOneToOne: false
             referencedRelation: 'stores'
