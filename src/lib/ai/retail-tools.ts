@@ -3665,6 +3665,1060 @@ export function buildRetailTools(
         }
       },
     },
+
+    STORE_ESTIMATE_LTV: {
+      description:
+        'Estimate Customer Lifetime Value (LTV) by segment. Uses order history and optionally cost data for profit-based LTV. Use when user asks "qual o LTV dos meus clientes?", "valor vitalício", "quanto vale cada cliente?", "lifetime value", "LTV por segmento".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of order history to analyze (default: 180, max: 365)',
+          },
+          projected_years: {
+            type: 'number',
+            description: 'Years to project LTV forward (default: 2, max: 5)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max top customers to return (default: 10, max: 30)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; projected_years?: number; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 180, 30), 365)
+        const projectedYears = Math.min(Math.max(params.projected_years ?? 2, 1), 5)
+        const topLimit = Math.min(Math.max(params.limit ?? 10, 1), 30)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          // 1. Fetch orders in the analysis period
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            customer_email: string | null
+            customer_name: string | null
+            total: string
+            created_at: string
+            products: Array<{ product_id: number | null; quantity: string; price: string }>
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  customer_email: o.customer?.email ?? null,
+                  customer_name: o.customer?.name ?? null,
+                  total: o.total ?? '0',
+                  created_at: o.created_at,
+                  products: (o.products ?? []).map((p) => ({
+                    product_id: p.product_id,
+                    quantity: String(p.quantity ?? '1'),
+                    price: String(p.price ?? '0'),
+                  })),
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when there are no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico de vendas pra estimar LTV.`,
+              pedidos_analisados: 0,
+            }
+          }
+
+          // 2. Group orders by customer email
+          const customerMap = new Map<
+            string,
+            {
+              name: string
+              email: string
+              orderDates: string[]
+              totalSpent: number
+              orderCount: number
+              productRevenue: Map<number, number>
+            }
+          >()
+
+          for (const order of allOrders) {
+            if (!order.customer_email) continue
+            const key = order.customer_email.toLowerCase()
+            if (!customerMap.has(key)) {
+              customerMap.set(key, {
+                name: order.customer_name ?? order.customer_email,
+                email: order.customer_email,
+                orderDates: [],
+                totalSpent: 0,
+                orderCount: 0,
+                productRevenue: new Map(),
+              })
+            }
+            const cust = customerMap.get(key)!
+            cust.orderDates.push(order.created_at)
+            cust.totalSpent += parseFloat(order.total) || 0
+            cust.orderCount++
+            if (order.customer_name) cust.name = order.customer_name
+
+            for (const p of order.products) {
+              if (p.product_id) {
+                const qty = parseInt(p.quantity, 10) || 1
+                const price = parseFloat(p.price) || 0
+                cust.productRevenue.set(
+                  p.product_id,
+                  (cust.productRevenue.get(p.product_id) ?? 0) + qty * price
+                )
+              }
+            }
+          }
+
+          if (customerMap.size === 0) {
+            return {
+              message: `${allOrders.length} pedidos encontrados, mas nenhum com email de cliente.`,
+              pedidos_analisados: allOrders.length,
+            }
+          }
+
+          const customers = [...customerMap.values()]
+
+          // 3. Calculate RFM scores
+          const now = new Date()
+          const recencyValues = customers.map((c) => {
+            const lastOrder = c.orderDates
+              .map((d) => new Date(d).getTime())
+              .sort((a, b) => b - a)[0]
+            return Math.round((now.getTime() - lastOrder) / (1000 * 60 * 60 * 24))
+          })
+          const frequencyValues = customers.map((c) => c.orderCount)
+          const monetaryValues = customers.map((c) => c.totalSpent)
+
+          const rScores = calculateQuintiles(recencyValues, false)
+          const fScores = calculateQuintiles(frequencyValues, true)
+          const mScores = calculateQuintiles(monetaryValues, true)
+
+          // 4. Fetch cost_price for profit-based LTV
+          const { data: storeProducts } = await supabase
+            .from('store_products')
+            .select('external_id, cost_price')
+            .eq('store_id', storeId)
+            .not('cost_price', 'is', null)
+
+          const costMap = new Map<string, number>()
+          if (storeProducts) {
+            for (const sp of storeProducts) {
+              if (sp.external_id && sp.cost_price != null) {
+                costMap.set(String(sp.external_id), Number(sp.cost_price))
+              }
+            }
+          }
+          const hasCostData = costMap.size > 0
+
+          // 5. Calculate LTV per customer
+          const annualizationFactor = 365 / historyDays
+          const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0)
+
+          type LtvCustomer = {
+            name: string
+            email: string
+            segment: string
+            orderCount: number
+            totalSpent: number
+            avgOrderValue: number
+            purchasesPerYear: number
+            ltvRevenue: number
+            ltvProfit: number | null
+          }
+
+          const ltvCustomers: LtvCustomer[] = customers.map((c, i) => {
+            const segment = mapRfmSegment(rScores[i], fScores[i], mScores[i])
+            const avgOrderValue = c.totalSpent / c.orderCount
+            const purchasesPerYear = c.orderCount * annualizationFactor
+            const ltvRevenue = avgOrderValue * purchasesPerYear * projectedYears
+
+            // Profit LTV: compute weighted margin from products bought
+            let ltvProfit: number | null = null
+            if (hasCostData) {
+              let revenueWithCost = 0
+              let profitWithCost = 0
+              for (const [pid, rev] of c.productRevenue) {
+                const cost = costMap.get(String(pid))
+                if (cost != null && cost > 0) {
+                  revenueWithCost += rev
+                  // Estimate units from revenue/cost to approximate profit
+                  const estimatedUnits = rev / cost
+                  profitWithCost += rev - estimatedUnits * cost
+                }
+              }
+              if (revenueWithCost > 0) {
+                const marginRatio = profitWithCost / revenueWithCost
+                ltvProfit = ltvRevenue * Math.max(0, marginRatio)
+              }
+            }
+
+            return {
+              name: c.name,
+              email: c.email,
+              segment,
+              orderCount: c.orderCount,
+              totalSpent: c.totalSpent,
+              avgOrderValue,
+              purchasesPerYear,
+              ltvRevenue,
+              ltvProfit,
+            }
+          })
+
+          // 6. Aggregate by segment
+          const segmentNames = ['VIP', 'Loyal', 'Promising', 'At Risk', 'Lost', 'New'] as const
+          const segmentAgg: Record<
+            string,
+            { clientes: number; ltvTotal: number; ltvProfitTotal: number; receita: number }
+          > = {}
+          for (const name of segmentNames) {
+            segmentAgg[name] = { clientes: 0, ltvTotal: 0, ltvProfitTotal: 0, receita: 0 }
+          }
+
+          for (const c of ltvCustomers) {
+            const seg = segmentAgg[c.segment] ?? {
+              clientes: 0,
+              ltvTotal: 0,
+              ltvProfitTotal: 0,
+              receita: 0,
+            }
+            if (!segmentAgg[c.segment]) segmentAgg[c.segment] = seg
+            seg.clientes++
+            seg.ltvTotal += c.ltvRevenue
+            if (c.ltvProfit != null) seg.ltvProfitTotal += c.ltvProfit
+            seg.receita += c.totalSpent
+          }
+
+          const porSegmento: Record<
+            string,
+            {
+              clientes: number
+              ltv_medio: string
+              ltv_lucro_medio?: string
+              receita_atual: string
+              pct_receita: string
+            }
+          > = {}
+
+          for (const name of segmentNames) {
+            const seg = segmentAgg[name]
+            if (seg.clientes === 0) continue
+            const key = name.toLowerCase().replace(' ', '_')
+            porSegmento[key] = {
+              clientes: seg.clientes,
+              ltv_medio: `R$ ${(seg.ltvTotal / seg.clientes).toFixed(2)}`,
+              ...(hasCostData && seg.ltvProfitTotal > 0
+                ? {
+                    ltv_lucro_medio: `R$ ${(seg.ltvProfitTotal / seg.clientes).toFixed(2)}`,
+                  }
+                : {}),
+              receita_atual: `R$ ${seg.receita.toFixed(2)}`,
+              pct_receita:
+                totalRevenue > 0 ? `${Math.round((seg.receita / totalRevenue) * 100)}%` : '0%',
+            }
+          }
+
+          // 7. Top customers by LTV
+          const topCustomers = ltvCustomers
+            .sort((a, b) => b.ltvRevenue - a.ltvRevenue)
+            .slice(0, topLimit)
+            .map((c) => ({
+              nome: c.name,
+              email: c.email,
+              pedidos: c.orderCount,
+              total_gasto: `R$ ${c.totalSpent.toFixed(2)}`,
+              ticket_medio: `R$ ${c.avgOrderValue.toFixed(2)}`,
+              ltv_estimado: `R$ ${c.ltvRevenue.toFixed(2)}`,
+              ...(c.ltvProfit != null ? { ltv_lucro: `R$ ${c.ltvProfit.toFixed(2)}` } : {}),
+              segmento: c.segment,
+            }))
+
+          // 8. Distribution bands
+          const bands = [
+            { label: 'R$ 0–500', min: 0, max: 500 },
+            { label: 'R$ 500–1.000', min: 500, max: 1000 },
+            { label: 'R$ 1.000–2.500', min: 1000, max: 2500 },
+            { label: 'R$ 2.500–5.000', min: 2500, max: 5000 },
+            { label: 'R$ 5.000+', min: 5000, max: Infinity },
+          ]
+          const distribution = bands.map((b) => {
+            const count = ltvCustomers.filter(
+              (c) => c.ltvRevenue >= b.min && c.ltvRevenue < b.max
+            ).length
+            return {
+              faixa: b.label,
+              clientes: count,
+              pct:
+                ltvCustomers.length > 0
+                  ? `${Math.round((count / ltvCustomers.length) * 100)}%`
+                  : '0%',
+            }
+          })
+
+          // 9. Overall metrics
+          const avgOrderValue = totalRevenue / allOrders.length
+          const avgFrequencyAnnual =
+            (customers.reduce((sum, c) => sum + c.orderCount, 0) / customers.length) *
+            annualizationFactor
+          const avgLtv =
+            ltvCustomers.reduce((sum, c) => sum + c.ltvRevenue, 0) / ltvCustomers.length
+          const totalLtv = ltvCustomers.reduce((sum, c) => sum + c.ltvRevenue, 0)
+
+          // 10. Action suggestions
+          const acoes: string[] = []
+          if (segmentAgg['VIP'].clientes > 0) {
+            acoes.push(
+              `${segmentAgg['VIP'].clientes} clientes VIP com LTV médio de R$ ${(segmentAgg['VIP'].ltvTotal / segmentAgg['VIP'].clientes).toFixed(2)} — programa de fidelidade pode aumentar retenção`
+            )
+          }
+          if (segmentAgg['At Risk'].clientes > 0) {
+            acoes.push(
+              `${segmentAgg['At Risk'].clientes} clientes Em Risco — reativação pode recuperar R$ ${segmentAgg['At Risk'].ltvTotal.toFixed(2)} em LTV`
+            )
+          }
+          if (segmentAgg['Promising'].clientes > 0) {
+            acoes.push(
+              `${segmentAgg['Promising'].clientes} clientes Promissores — incentive segunda compra pra aumentar frequência`
+            )
+          }
+          if (hasCostData) {
+            const totalLtvProfit = ltvCustomers.reduce((sum, c) => sum + (c.ltvProfit ?? 0), 0)
+            if (totalLtvProfit > 0) {
+              acoes.push(
+                `LTV baseado em lucro: R$ ${totalLtvProfit.toFixed(2)} total — foque em produtos de maior margem`
+              )
+            }
+          } else {
+            acoes.push(
+              'Cadastre preço de custo nos produtos pra ver o LTV baseado em lucro (não só receita)'
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              projecao: `${projectedYears} anos`,
+              clientes_analisados: customers.length,
+              ticket_medio: `R$ ${avgOrderValue.toFixed(2)}`,
+              frequencia_media_anual: `${Math.round(avgFrequencyAnnual * 10) / 10}x`,
+              ltv_medio: `R$ ${avgLtv.toFixed(2)}`,
+              ltv_total_estimado: `R$ ${totalLtv.toFixed(2)}`,
+            },
+            por_segmento: porSegmento,
+            top_clientes: topCustomers,
+            distribuicao: { faixas: distribution },
+            acoes_sugeridas: acoes,
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_SUGGEST_BUNDLES: {
+      description:
+        'Identify co-purchased products and suggest kits/combos with pricing. Analyzes multi-product orders to find natural product pairings. Use when user asks "sugira bundles", "kits de produtos", "quais produtos são comprados juntos?", "combinações de produtos", "montar kit", "cross-sell".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of order history to analyze (default: 90, max: 365)',
+          },
+          min_orders: {
+            type: 'number',
+            description: 'Minimum co-purchases to consider a pair (default: 3, max: 20)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max bundle suggestions to return (default: 10, max: 20)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; min_orders?: number; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 90, 30), 365)
+        const minOrders = Math.min(Math.max(params.min_orders ?? 3, 2), 20)
+        const resultLimit = Math.min(Math.max(params.limit ?? 10, 1), 20)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          // 1. Fetch orders
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            products: Array<{
+              product_id: number | null
+              name: string
+              quantity: string
+              price: string
+            }>
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  products: (o.products ?? []).map((p) => ({
+                    product_id: p.product_id,
+                    name: p.name ?? 'Produto',
+                    quantity: String(p.quantity ?? '1'),
+                    price: String(p.price ?? '0'),
+                  })),
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when there are no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias.`,
+              pedidos_analisados: 0,
+            }
+          }
+
+          // 2. Filter to multi-product orders and collect product info
+          const productInfo = new Map<
+            number,
+            { name: string; totalRevenue: number; orderCount: number }
+          >()
+          const multiProductOrders: Array<number[]> = []
+
+          for (const order of allOrders) {
+            const validProducts = order.products.filter((p) => p.product_id != null)
+            const uniqueIds = [...new Set(validProducts.map((p) => p.product_id!))]
+
+            for (const p of validProducts) {
+              const pid = p.product_id!
+              if (!productInfo.has(pid)) {
+                productInfo.set(pid, { name: p.name, totalRevenue: 0, orderCount: 0 })
+              }
+              const info = productInfo.get(pid)!
+              info.totalRevenue += (parseInt(p.quantity, 10) || 1) * (parseFloat(p.price) || 0)
+              info.orderCount++
+            }
+
+            if (uniqueIds.length >= 2) {
+              // Cap at 6 products per order to avoid O(n^2) explosion
+              multiProductOrders.push(uniqueIds.slice(0, 6))
+            }
+          }
+
+          if (multiProductOrders.length === 0) {
+            return {
+              message: `${allOrders.length} pedidos encontrados, mas nenhum com 2+ produtos diferentes. Não há combinações para sugerir.`,
+              pedidos_analisados: allOrders.length,
+              pedidos_multiplos: 0,
+            }
+          }
+
+          // 3. Build co-occurrence matrix (unordered pairs)
+          const pairCounts = new Map<string, number>()
+          for (const ids of multiProductOrders) {
+            for (let i = 0; i < ids.length; i++) {
+              for (let j = i + 1; j < ids.length; j++) {
+                const key = ids[i] < ids[j] ? `${ids[i]}:${ids[j]}` : `${ids[j]}:${ids[i]}`
+                pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1)
+              }
+            }
+          }
+
+          // 4. Filter by min_orders and rank
+          const qualifiedPairs = [...pairCounts.entries()]
+            .filter(([, count]) => count >= minOrders)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, resultLimit * 2) // extra to account for enrichment gaps
+
+          if (qualifiedPairs.length === 0) {
+            return {
+              message: `Nenhuma combinação com ${minOrders}+ pedidos juntos nos últimos ${historyDays} dias. Tente reduzir min_orders ou aumentar o período.`,
+              pedidos_analisados: allOrders.length,
+              pedidos_multiplos: multiProductOrders.length,
+            }
+          }
+
+          // 5. Fetch cost/stock from store_products for enrichment
+          const involvedIds = new Set<number>()
+          for (const [key] of qualifiedPairs) {
+            const [a, b] = key.split(':').map(Number)
+            involvedIds.add(a)
+            involvedIds.add(b)
+          }
+
+          const { data: dbProducts } = await supabase
+            .from('store_products')
+            .select('external_id, name, price, cost_price, stock_quantity')
+            .eq('store_id', storeId)
+            .in('external_id', [...involvedIds].map(String))
+
+          const enrichMap = new Map<number, { price: number; cost: number | null; stock: number }>()
+          if (dbProducts) {
+            for (const sp of dbProducts) {
+              enrichMap.set(Number(sp.external_id), {
+                price: Number(sp.price ?? 0),
+                cost: sp.cost_price != null ? Number(sp.cost_price) : null,
+                stock: sp.stock_quantity ?? 0,
+              })
+            }
+          }
+
+          // 6. Lightweight ABC classification for involved products
+          const totalRevenueAll = [...productInfo.values()].reduce(
+            (sum, p) => sum + p.totalRevenue,
+            0
+          )
+          const rankedProducts = [...productInfo.entries()].sort(
+            (a, b) => b[1].totalRevenue - a[1].totalRevenue
+          )
+          let cumRev = 0
+          const abcMap = new Map<number, 'A' | 'B' | 'C'>()
+          for (const [pid, info] of rankedProducts) {
+            cumRev += info.totalRevenue
+            const cumPct = totalRevenueAll > 0 ? (cumRev / totalRevenueAll) * 100 : 0
+            if (cumPct <= 80) abcMap.set(pid, 'A')
+            else if (cumPct <= 95) abcMap.set(pid, 'B')
+            else abcMap.set(pid, 'C')
+          }
+          if (rankedProducts.length > 0) abcMap.set(rankedProducts[0][0], 'A')
+
+          // 7. Build bundle suggestions
+          type BundleProduct = {
+            nome: string
+            preco: string
+            custo?: string
+            estoque: number
+            classe: string
+          }
+
+          const bundles: Array<{
+            produtos: BundleProduct[]
+            pedidos_juntos: number
+            preco_separado: string
+            preco_sugerido: string
+            economia_cliente: string
+            margem_estimada?: string
+            tipo: string
+          }> = []
+
+          for (const [key, count] of qualifiedPairs) {
+            if (bundles.length >= resultLimit) break
+
+            const [idA, idB] = key.split(':').map(Number)
+            const infoA = productInfo.get(idA)
+            const infoB = productInfo.get(idB)
+            if (!infoA || !infoB) continue
+
+            const enrichA = enrichMap.get(idA)
+            const enrichB = enrichMap.get(idB)
+
+            const priceA = enrichA?.price ?? 0
+            const priceB = enrichB?.price ?? 0
+            const totalPrice = priceA + priceB
+
+            if (totalPrice === 0) continue
+
+            const classA = abcMap.get(idA) ?? 'C'
+            const classB = abcMap.get(idB) ?? 'C'
+
+            // Classify bundle type
+            let tipo: string
+            if ((classA === 'A' && classB === 'C') || (classA === 'C' && classB === 'A')) {
+              tipo = 'estratégico'
+            } else if (classA !== classB) {
+              tipo = 'cross-sell'
+            } else {
+              tipo = 'complementar'
+            }
+
+            // Discount: 10% default, 13% for strategic bundles
+            const discount = tipo === 'estratégico' ? 0.13 : 0.1
+            const suggestedPrice = totalPrice * (1 - discount)
+
+            // Margin calculation
+            let marginPct: number | null = null
+            const costA = enrichA?.cost ?? null
+            const costB = enrichB?.cost ?? null
+            if (costA != null && costB != null && suggestedPrice > 0) {
+              marginPct =
+                Math.round(((suggestedPrice - costA - costB) / suggestedPrice) * 1000) / 10
+            }
+
+            bundles.push({
+              produtos: [
+                {
+                  nome: infoA.name,
+                  preco: `R$ ${priceA.toFixed(2)}`,
+                  ...(costA != null ? { custo: `R$ ${costA.toFixed(2)}` } : {}),
+                  estoque: enrichA?.stock ?? 0,
+                  classe: classA,
+                },
+                {
+                  nome: infoB.name,
+                  preco: `R$ ${priceB.toFixed(2)}`,
+                  ...(costB != null ? { custo: `R$ ${costB.toFixed(2)}` } : {}),
+                  estoque: enrichB?.stock ?? 0,
+                  classe: classB,
+                },
+              ],
+              pedidos_juntos: count,
+              preco_separado: `R$ ${totalPrice.toFixed(2)}`,
+              preco_sugerido: `R$ ${suggestedPrice.toFixed(2)}`,
+              economia_cliente: `R$ ${(totalPrice - suggestedPrice).toFixed(2)} (${Math.round(discount * 100)}%)`,
+              ...(marginPct != null ? { margem_estimada: `${marginPct}%` } : {}),
+              tipo,
+            })
+          }
+
+          // 8. Action suggestions
+          const acoes: string[] = []
+          const strategicBundles = bundles.filter((b) => b.tipo === 'estratégico')
+          if (strategicBundles.length > 0) {
+            acoes.push(
+              `${strategicBundles.length} bundles estratégicos (Classe A + C) — ajudam a girar estoque parado com produtos top`
+            )
+          }
+          const lowStockBundles = bundles.filter((b) =>
+            b.produtos.some((p) => p.estoque <= 5 && p.estoque > 0)
+          )
+          if (lowStockBundles.length > 0) {
+            acoes.push(
+              `${lowStockBundles.length} bundles têm produtos com estoque baixo — reponha antes de criar o kit`
+            )
+          }
+          if (bundles.length > 0) {
+            const avgSavings =
+              bundles.reduce((sum, b) => {
+                return sum + parseFloat(b.economia_cliente.slice(3).split(' ')[0])
+              }, 0) / bundles.length
+            acoes.push(
+              `Economia média de R$ ${avgSavings.toFixed(2)} por bundle — atrativo para aumentar ticket médio`
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              pedidos_multiplos: multiProductOrders.length,
+              combinacoes_encontradas: qualifiedPairs.length,
+            },
+            bundles_sugeridos:
+              bundles.length > 0 ? bundles : 'Nenhuma combinação qualificada encontrada',
+            acoes_sugeridas:
+              acoes.length > 0
+                ? acoes
+                : ['Poucos pedidos multi-produto — incentive cross-sell na loja'],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_SUGGEST_PRICE: {
+      description:
+        'Suggest optimal prices based on cost, competitors, and demand. Uses store products, price monitors, price history, and recent orders. Use when user asks "sugestão de preço", "como precificar?", "preço ideal", "ajustar preços", "precificação", "quanto cobrar?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          strategy: {
+            type: 'string',
+            enum: ['competitivo', 'margem_alvo', 'baseado_demanda', 'auto'],
+            description:
+              'Pricing strategy: competitivo (match competitors), margem_alvo (target margin), baseado_demanda (demand-based), auto (picks best per product). Default: auto',
+          },
+          target_margin: {
+            type: 'number',
+            description: 'Target margin % for margem_alvo strategy (default: 30, range: 5-80)',
+          },
+          min_margin: {
+            type: 'number',
+            description: 'Minimum margin % floor for all suggestions (default: 15, range: 5-50)',
+          },
+          search: {
+            type: 'string',
+            description: 'Filter by product name (optional)',
+          },
+        },
+      }),
+      execute: async (params: {
+        strategy?: string
+        target_margin?: number
+        min_margin?: number
+        search?: string
+      }) => {
+        const supabase = getClient()
+
+        const strategy = params.strategy ?? 'auto'
+        const targetMargin = Math.min(Math.max(params.target_margin ?? 30, 5), 80) / 100
+        const minMargin = Math.min(Math.max(params.min_margin ?? 15, 5), 50) / 100
+
+        try {
+          // 1. Fetch store_products with cost_price
+          let productsQuery = supabase
+            .from('store_products')
+            .select('id, external_id, name, price, cost_price, stock_quantity')
+            .eq('store_id', storeId)
+            .not('cost_price', 'is', null)
+
+          if (params.search) {
+            productsQuery = productsQuery.ilike('name', `%${params.search}%`)
+          }
+
+          const { data: products } = await productsQuery.limit(100)
+
+          if (!products || products.length === 0) {
+            return {
+              message: params.search
+                ? `Nenhum produto com custo cadastrado encontrado para "${params.search}". Cadastre o preço de custo primeiro.`
+                : 'Nenhum produto com preço de custo cadastrado. Cadastre o custo dos produtos primeiro.',
+            }
+          }
+
+          // 2. Fetch active price_monitors linked via own_product_id
+          const productIds = products.map((p) => p.id)
+          const { data: monitors } = await supabase
+            .from('store_price_monitors')
+            .select('id, own_product_id, product_name, marketplace, last_price, is_active')
+            .eq('store_id', storeId)
+            .eq('is_active', true)
+            .in('own_product_id', productIds)
+
+          const monitorMap = new Map<
+            string,
+            Array<{
+              monitorId: string
+              marketplace: string
+              lastPrice: number
+              productName: string
+            }>
+          >()
+          if (monitors) {
+            for (const m of monitors) {
+              if (!m.own_product_id || m.last_price == null) continue
+              if (!monitorMap.has(m.own_product_id)) monitorMap.set(m.own_product_id, [])
+              monitorMap.get(m.own_product_id)!.push({
+                monitorId: m.id,
+                marketplace: m.marketplace,
+                lastPrice: Number(m.last_price),
+                productName: m.product_name,
+              })
+            }
+          }
+
+          // 3. Fetch price_history for trend analysis (last 10 per monitor)
+          const monitorIds = monitors?.map((m) => m.id) ?? []
+          const trendMap = new Map<string, 'subindo' | 'descendo' | 'estável'>()
+
+          if (monitorIds.length > 0) {
+            const { data: history } = await supabase
+              .from('store_price_history')
+              .select('monitor_id, price, scraped_at')
+              .in('monitor_id', monitorIds)
+              .order('scraped_at', { ascending: false })
+              .limit(monitorIds.length * 10)
+
+            if (history && history.length > 0) {
+              const byMonitor = new Map<string, Array<{ price: number; date: string }>>()
+              for (const h of history) {
+                if (!byMonitor.has(h.monitor_id)) byMonitor.set(h.monitor_id, [])
+                byMonitor.get(h.monitor_id)!.push({
+                  price: Number(h.price),
+                  date: h.scraped_at,
+                })
+              }
+
+              for (const [mid, points] of byMonitor) {
+                if (points.length < 2) {
+                  trendMap.set(mid, 'estável')
+                  continue
+                }
+                const newest = points[0].price
+                const oldest = points[points.length - 1].price
+                const changePct = oldest > 0 ? ((newest - oldest) / oldest) * 100 : 0
+                if (changePct > 5) trendMap.set(mid, 'subindo')
+                else if (changePct < -5) trendMap.set(mid, 'descendo')
+                else trendMap.set(mid, 'estável')
+              }
+            }
+          }
+
+          // 4. Fetch store_orders for sales velocity (last 30 days)
+          const thirtyDaysAgo = new Date()
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+          const { data: recentOrders } = await supabase
+            .from('store_orders')
+            .select('items')
+            .eq('store_id', storeId)
+            .gte('ordered_at', thirtyDaysAgo.toISOString())
+
+          // Build sales velocity by normalized product name
+          const salesVelocity = new Map<string, number>()
+          if (recentOrders) {
+            for (const order of recentOrders) {
+              const items = Array.isArray(order.items)
+                ? (order.items as Array<{ name?: string; quantity?: string }>)
+                : []
+              for (const item of items) {
+                if (item.name) {
+                  const normalizedName = normalizeAccents(item.name)
+                  const qty = parseInt(String(item.quantity ?? '1'), 10) || 1
+                  salesVelocity.set(normalizedName, (salesVelocity.get(normalizedName) ?? 0) + qty)
+                }
+              }
+            }
+          }
+
+          // 5. Generate suggestions per product
+          type Suggestion = {
+            produto: string
+            preco_atual: string
+            custo: string
+            margem_atual: string
+            preco_sugerido: string
+            margem_nova: string
+            motivo: string
+            estrategia: string
+            concorrente?: string
+            demanda?: string
+            confianca: 'alta' | 'média' | 'baixa'
+          }
+
+          const suggestions: Suggestion[] = []
+          let withMonitor = 0
+          let withoutMonitor = 0
+          const marginValues: number[] = []
+
+          for (const product of products) {
+            const currentPrice = Number(product.price ?? 0)
+            const costPrice = Number(product.cost_price)
+            if (costPrice <= 0 || currentPrice <= 0) continue
+
+            const currentMargin = (currentPrice - costPrice) / currentPrice
+            marginValues.push(currentMargin * 100)
+
+            const monitorData = monitorMap.get(product.id)
+            const hasMonitor = monitorData && monitorData.length > 0
+            if (hasMonitor) withMonitor++
+            else withoutMonitor++
+
+            // Find sales velocity for this product
+            const normalizedProductName = normalizeAccents(product.name)
+            let demandQty = 0
+            for (const [name, qty] of salesVelocity) {
+              if (name.includes(normalizedProductName) || normalizedProductName.includes(name)) {
+                demandQty += qty
+                break
+              }
+            }
+            const demandLevel = demandQty >= 10 ? 'alta' : demandQty >= 3 ? 'média' : 'baixa'
+
+            // Pick strategy
+            let chosenStrategy = strategy
+            if (strategy === 'auto') {
+              if (hasMonitor) chosenStrategy = 'competitivo'
+              else if (demandQty >= 5) chosenStrategy = 'baseado_demanda'
+              else chosenStrategy = 'margem_alvo'
+            }
+
+            let suggestedPrice = currentPrice
+            let motivo = ''
+            let confidence: 'alta' | 'média' | 'baixa' = 'média'
+            let competitorInfo: string | undefined
+
+            if (chosenStrategy === 'competitivo' && hasMonitor) {
+              const cheapest = monitorData!.sort((a, b) => a.lastPrice - b.lastPrice)[0]
+              const trend = trendMap.get(cheapest.monitorId)
+              competitorInfo = `${cheapest.marketplace}: R$ ${cheapest.lastPrice.toFixed(2)}${trend ? ` (${trend})` : ''}`
+
+              if (cheapest.lastPrice < currentPrice) {
+                suggestedPrice = cheapest.lastPrice * 0.99
+                motivo = `Concorrente mais barato em ${cheapest.marketplace}`
+              } else if (cheapest.lastPrice > currentPrice * 1.05) {
+                suggestedPrice = currentPrice * 1.03
+                motivo = `Preço abaixo do concorrente — margem para aumento`
+              } else {
+                suggestedPrice = currentPrice
+                motivo = 'Preço competitivo com o mercado'
+              }
+              confidence = 'alta'
+            } else if (chosenStrategy === 'baseado_demanda') {
+              const stock = product.stock_quantity ?? 0
+              if (demandLevel === 'alta' && stock < 20) {
+                suggestedPrice = currentPrice * 1.08
+                motivo = `Demanda alta (${demandQty} vendas/30d) + estoque baixo (${stock}) — elevar preço`
+              } else if (demandLevel === 'baixa' && stock > 50) {
+                suggestedPrice = currentPrice * 0.9
+                motivo = `Demanda baixa (${demandQty} vendas/30d) + estoque alto (${stock}) — reduzir pra girar`
+              } else {
+                suggestedPrice = currentPrice
+                motivo = 'Demanda e estoque equilibrados'
+              }
+              confidence = demandQty > 0 ? 'média' : 'baixa'
+            } else {
+              // margem_alvo
+              suggestedPrice = costPrice / (1 - targetMargin)
+              motivo = `Margem alvo de ${Math.round(targetMargin * 100)}%`
+              confidence = 'alta'
+            }
+
+            // Clamp to min_margin floor
+            const minPrice = costPrice / (1 - minMargin)
+            if (suggestedPrice < minPrice) {
+              suggestedPrice = minPrice
+              motivo += ` (ajustado para margem mínima de ${Math.round(minMargin * 100)}%)`
+            }
+
+            suggestedPrice = Math.round(suggestedPrice * 100) / 100
+            const newMargin = suggestedPrice > 0 ? (suggestedPrice - costPrice) / suggestedPrice : 0
+
+            // Skip if no meaningful change
+            const priceDiff = Math.abs(suggestedPrice - currentPrice)
+            if (priceDiff < 0.5 && chosenStrategy !== 'margem_alvo') continue
+
+            suggestions.push({
+              produto: product.name,
+              preco_atual: `R$ ${currentPrice.toFixed(2)}`,
+              custo: `R$ ${costPrice.toFixed(2)}`,
+              margem_atual: `${Math.round(currentMargin * 1000) / 10}%`,
+              preco_sugerido: `R$ ${suggestedPrice.toFixed(2)}`,
+              margem_nova: `${Math.round(newMargin * 1000) / 10}%`,
+              motivo,
+              estrategia: chosenStrategy,
+              ...(competitorInfo ? { concorrente: competitorInfo } : {}),
+              ...(demandQty > 0 ? { demanda: `${demandQty} vendas/30d (${demandLevel})` } : {}),
+              confianca: confidence,
+            })
+          }
+
+          // 6. Categorize opportunities
+          const aumentar = suggestions.filter(
+            (s) => parseFloat(s.preco_sugerido.slice(3)) > parseFloat(s.preco_atual.slice(3))
+          )
+          const diminuir = suggestions.filter(
+            (s) => parseFloat(s.preco_sugerido.slice(3)) < parseFloat(s.preco_atual.slice(3))
+          )
+          const manter = products.length - aumentar.length - diminuir.length
+
+          // Sort by biggest price impact first
+          suggestions.sort((a, b) => {
+            const diffA = Math.abs(
+              parseFloat(a.preco_sugerido.slice(3)) - parseFloat(a.preco_atual.slice(3))
+            )
+            const diffB = Math.abs(
+              parseFloat(b.preco_sugerido.slice(3)) - parseFloat(b.preco_atual.slice(3))
+            )
+            return diffB - diffA
+          })
+
+          // 7. Action suggestions
+          const acoes: string[] = []
+          if (aumentar.length > 0) {
+            acoes.push(
+              `${aumentar.length} produtos podem subir de preço — oportunidade de receita adicional`
+            )
+          }
+          if (diminuir.length > 0) {
+            acoes.push(
+              `${diminuir.length} produtos devem baixar preço pra competir ou girar estoque`
+            )
+          }
+          if (withoutMonitor > 0) {
+            acoes.push(
+              `${withoutMonitor} produtos sem monitor de concorrente — crie monitores pra sugestões mais precisas`
+            )
+          }
+          const avgMargin =
+            marginValues.length > 0
+              ? marginValues.reduce((a, b) => a + b, 0) / marginValues.length
+              : 0
+          if (avgMargin < minMargin * 100) {
+            acoes.push(
+              `Margem média atual (${Math.round(avgMargin)}%) abaixo do mínimo (${Math.round(minMargin * 100)}%) — ajuste urgente`
+            )
+          }
+
+          return {
+            resumo: {
+              produtos_analisados: products.length,
+              com_monitor: withMonitor,
+              sem_monitor: withoutMonitor,
+              margem_media_atual: `${Math.round(avgMargin * 10) / 10}%`,
+            },
+            sugestoes:
+              suggestions.length > 0
+                ? suggestions.slice(0, 20)
+                : 'Todos os produtos com preço adequado — nenhuma alteração sugerida',
+            oportunidades: {
+              aumentar_preco: aumentar.length,
+              diminuir_preco: diminuir.length,
+              manter,
+            },
+            acoes_sugeridas: acoes.length > 0 ? acoes : ['Preços bem calibrados!'],
+          }
+        } catch (err) {
+          return {
+            error: `Falha: ${err instanceof Error ? err.message : String(err)}`,
+          }
+        }
+      },
+    },
   }
 }
 
