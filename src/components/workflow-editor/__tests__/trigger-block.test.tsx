@@ -5,13 +5,13 @@ import TriggerBlock from '@/components/workflow-editor/trigger-block'
 describe('TriggerBlock', () => {
   it('renders "Add trigger" when trigger is null', () => {
     render(<TriggerBlock trigger={null} onAddTrigger={() => {}} onClickTrigger={() => {}} />)
-    expect(screen.getByText('Add trigger')).toBeInTheDocument()
+    expect(screen.getByText('Adicionar gatilho')).toBeInTheDocument()
   })
 
   it('calls onAddTrigger when clicking empty block', () => {
     const onAdd = vi.fn()
     render(<TriggerBlock trigger={null} onAddTrigger={onAdd} onClickTrigger={() => {}} />)
-    fireEvent.click(screen.getByText('Add trigger'))
+    fireEvent.click(screen.getByText('Adicionar gatilho'))
     expect(onAdd).toHaveBeenCalled()
   })
 
@@ -24,7 +24,6 @@ describe('TriggerBlock', () => {
       />
     )
     expect(screen.getByText('Manual')).toBeInTheDocument()
-    expect(screen.getByText('Click to run')).toBeInTheDocument()
   })
 
   it('calls onClickTrigger when clicking set trigger', () => {

@@ -12,18 +12,18 @@ vi.mock('@/lib/actions/auth', () => ({
 describe('LoginForm', () => {
   it('renders email and password inputs', () => {
     render(<LoginForm />)
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument()
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument()
   })
 
   it('renders submit button', () => {
     render(<LoginForm />)
-    expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeInTheDocument()
   })
 
   it('renders sign up link', () => {
     render(<LoginForm />)
-    const link = screen.getByRole('link', { name: /sign up/i })
+    const link = screen.getByRole('link', { name: /criar conta/i })
     expect(link).toHaveAttribute('href', '/signup')
   })
 
@@ -31,7 +31,7 @@ describe('LoginForm', () => {
     const user = userEvent.setup()
     render(<LoginForm />)
 
-    await user.click(screen.getByRole('button', { name: /log in/i }))
+    await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
     // Zod validation should show errors
     expect(await screen.findByText(/valid email/i)).toBeInTheDocument()
@@ -39,6 +39,6 @@ describe('LoginForm', () => {
 
   it('renders Google OAuth button', () => {
     render(<LoginForm />)
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /entrar com google/i })).toBeInTheDocument()
   })
 })
