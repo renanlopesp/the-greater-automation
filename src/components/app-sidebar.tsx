@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Sun,
+  Truck,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -117,7 +118,12 @@ export default function AppSidebar({
         : []),
       { label: 'Workspace', href: '/workspace', icon: FolderKanban },
       { label: 'Runs', href: '/runs', icon: Play },
-      ...(hasStore ? [{ label: 'Products', href: '/products', icon: Package }] : []),
+      ...(hasStore
+        ? [
+            { label: 'Products', href: '/products', icon: Package },
+            { label: 'Fornecedores', href: '/suppliers', icon: Truck },
+          ]
+        : []),
     ],
     [orchestratorId, hasStore]
   )
