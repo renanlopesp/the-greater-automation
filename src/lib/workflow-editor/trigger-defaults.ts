@@ -114,8 +114,8 @@ export function getTriggerDefaultConfig(type: TriggerType): TriggerConfig {
     },
     form: {
       fields: [],
-      submit_button_text: 'Submit',
-      success_message: 'Form submitted successfully',
+      submit_button_text: 'Enviar',
+      success_message: 'Formulário enviado com sucesso',
     },
     rss: { feed_url: '', check_interval_minutes: 15, max_items_per_check: 10 },
     mailhook: { address: '', save_attachments: true },

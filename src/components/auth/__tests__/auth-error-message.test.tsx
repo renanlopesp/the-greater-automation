@@ -18,20 +18,18 @@ describe('AuthErrorMessage', () => {
   it('renders error message for oauth_error', () => {
     mockSearchParams.set('error', 'oauth_error')
     render(<AuthErrorMessage />)
-    expect(screen.getByText('Authentication failed. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('Falha na autenticação. Tente novamente.')).toBeInTheDocument()
   })
 
   it('renders error message for expired_code', () => {
     mockSearchParams.set('error', 'expired_code')
     render(<AuthErrorMessage />)
-    expect(
-      screen.getByText('Authentication session expired. Please try again.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Sessão expirada. Tente novamente.')).toBeInTheDocument()
   })
 
   it('renders generic message for unknown error code', () => {
     mockSearchParams.set('error', 'unknown_error')
     render(<AuthErrorMessage />)
-    expect(screen.getByText('An error occurred. Please try again.')).toBeInTheDocument()
+    expect(screen.getByText('Ocorreu um erro. Tente novamente.')).toBeInTheDocument()
   })
 })

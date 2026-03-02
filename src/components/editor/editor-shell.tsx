@@ -62,11 +62,11 @@ export default function EditorShell() {
             </TabsTrigger>
             <TabsTrigger value="runs" className="gap-2">
               <Layers className="h-4 w-4" />
-              Runs
+              Execuções
             </TabsTrigger>
             <TabsTrigger value="tests" className="gap-2">
               <FlaskConical className="h-4 w-4" />
-              Tests
+              Testes
             </TabsTrigger>
           </TabsList>
         </div>
@@ -128,7 +128,7 @@ export default function EditorShell() {
                   </svg>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">AI Assistant</TooltipContent>
+              <TooltipContent side="right">Assistente de IA</TooltipContent>
             </Tooltip>
           </div>
         </TabsContent>

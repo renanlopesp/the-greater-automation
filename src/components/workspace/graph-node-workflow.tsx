@@ -7,7 +7,7 @@ import type { WorkflowNode } from '@/lib/workspace/graph-types'
 
 function GraphNodeWorkflow({ data }: NodeProps<WorkflowNode>) {
   const { name, emoji, status, agentId } = data
-  const statusLabel = status === 'published' ? 'Published' : 'Draft'
+  const statusLabel = status === 'published' ? 'Publicado' : 'Rascunho'
   const statusVariant = status === 'published' ? 'default' : 'secondary'
 
   return (

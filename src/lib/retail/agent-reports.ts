@@ -42,19 +42,19 @@ export async function generateStockReport(storeId: string): Promise<string | nul
   const lowStockCount = products?.length ?? 0
 
   const lines: string[] = [
-    `📦 *Stock Manager Report — ${store.name}*`,
+    `📦 *Relatório de Estoque — ${store.name}*`,
     '',
-    `Total products: ${totalProducts ?? 0}`,
-    `Low stock (≤${threshold} units): ${lowStockCount}`,
+    `Total de produtos: ${totalProducts ?? 0}`,
+    `Estoque baixo (≤${threshold} unidades): ${lowStockCount}`,
   ]
 
   if (lowStockCount === 0) {
-    lines.push('', 'All products are above the stock threshold.')
+    lines.push('', 'Todos os produtos estão acima do limite de estoque.')
   } else {
     lines.push('')
     for (const p of products ?? []) {
       const sku = p.sku ? ` (${p.sku})` : ''
-      lines.push(`• *${p.name}*${sku} — ${p.stock_quantity} units`)
+      lines.push(`• *${p.name}*${sku} — ${p.stock_quantity} unidades`)
     }
   }
 
@@ -100,7 +100,7 @@ export async function generatePriceReport(storeId: string): Promise<string | nul
 
   if (!hasMonitors && !agent) return null
 
-  const lines: string[] = [`👀 *Price Monitor Report — ${store.name}*`, '']
+  const lines: string[] = [`👀 *Relatório de Preços — ${store.name}*`, '']
 
   if (hasMonitors) {
     lines.push(`Monitores ativos: ${monitors.length}`)
@@ -161,20 +161,20 @@ export async function generatePriceReport(storeId: string): Promise<string | nul
     const wfs = workflows ?? []
     if (wfs.length === 0) return null
 
-    lines.push(`Monitoring workflows: ${wfs.length}`)
+    lines.push(`Automações de monitoramento: ${wfs.length}`)
     lines.push('')
 
     for (const wf of wfs) {
       const status = wf.is_enabled ? '✅' : '⏸️'
       const lastRun = wf.last_run_at
-        ? new Date(wf.last_run_at).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
+        ? new Date(wf.last_run_at).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
           })
-        : 'never'
-      lines.push(`${status} *${wf.name}* — last run: ${lastRun}`)
+        : 'nunca'
+      lines.push(`${status} *${wf.name}* — última execução: ${lastRun}`)
     }
   }
 

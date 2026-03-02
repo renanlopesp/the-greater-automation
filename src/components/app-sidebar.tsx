@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Sun,
+  Truck,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -46,8 +47,8 @@ import type { UsageData, UserData, TeamData, PlanData } from '@/types/navigation
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
 
 const TOOL_ITEMS = [
-  { label: 'Search', icon: Search, action: 'command-menu' as const },
-  { label: 'Integrations', icon: Plug, action: 'settings' as const },
+  { label: 'Buscar', icon: Search, action: 'command-menu' as const },
+  { label: 'Integrações', icon: Plug, action: 'settings' as const },
 ]
 
 interface AppSidebarProps {
@@ -111,13 +112,18 @@ export default function AppSidebar({
 
   const platformItems = useMemo(
     () => [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Painel', href: '/dashboard', icon: LayoutDashboard },
       ...(orchestratorId
         ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
         : []),
-      { label: 'Workspace', href: '/workspace', icon: FolderKanban },
-      { label: 'Runs', href: '/runs', icon: Play },
-      ...(hasStore ? [{ label: 'Products', href: '/products', icon: Package }] : []),
+      { label: 'Área de Trabalho', href: '/workspace', icon: FolderKanban },
+      { label: 'Execuções', href: '/runs', icon: Play },
+      ...(hasStore
+        ? [
+            { label: 'Produtos', href: '/products', icon: Package },
+            { label: 'Fornecedores', href: '/suppliers', icon: Truck },
+          ]
+        : []),
     ],
     [orchestratorId, hasStore]
   )
@@ -129,7 +135,7 @@ export default function AppSidebar({
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={team?.name ?? 'Select workspace'}>
+                <SidebarMenuButton size="lg" tooltip={team?.name ?? 'Selecionar workspace'}>
                   <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -152,7 +158,7 @@ export default function AppSidebar({
                     <span className="text-muted-foreground truncate text-xs">
                       {team
                         ? (userTeams.find((t) => t.id === team.id)?.role ?? 'member')
-                        : 'No workspace'}
+                        : 'Sem workspace'}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
@@ -176,7 +182,7 @@ export default function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>Plataforma</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {platformItems.map((item) => (
@@ -198,7 +204,7 @@ export default function AppSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {TOOL_ITEMS.map((item) => (
@@ -224,12 +230,12 @@ export default function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              tooltip={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             >
               <Sun className="dark:hidden" />
               <Moon className="hidden dark:block" />
-              <span>Toggle theme</span>
+              <span>Alternar tema</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {planData && planData.planId !== 'free' && (
@@ -283,12 +289,12 @@ export default function AppSidebar({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onOpenSettings?.()}>
                   <Settings className="mr-2 size-4" />
-                  Settings
+                  Configurações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 size-4" />
-                  Log out
+                  Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

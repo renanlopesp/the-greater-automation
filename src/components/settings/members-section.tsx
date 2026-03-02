@@ -50,31 +50,31 @@ const ROLE_ORDER: Record<string, number> = { owner: 0, admin: 1, member: 2 }
 
 const ROLE_DESCRIPTION: Record<string, { title: string; permissions: string[] }> = {
   owner: {
-    title: 'Owner',
+    title: 'Proprietário',
     permissions: [
-      'Full access to all resources',
-      'Create, edit, and delete workflows and agents',
-      'Manage team members and roles',
-      'Change workspace settings',
-      'Transfer ownership',
+      'Acesso total a todos os recursos',
+      'Criar, editar e excluir automações e agentes',
+      'Gerenciar membros e funções da equipe',
+      'Alterar configurações do workspace',
+      'Transferir propriedade',
     ],
   },
   admin: {
-    title: 'Admin',
+    title: 'Administrador',
     permissions: [
-      'Create, edit, and delete workflows and agents',
-      'Invite and remove members',
-      'Change workspace settings',
-      'Cannot change owner role',
+      'Criar, editar e excluir automações e agentes',
+      'Convidar e remover membros',
+      'Alterar configurações do workspace',
+      'Não pode alterar a função de proprietário',
     ],
   },
   member: {
-    title: 'Member',
+    title: 'Membro',
     permissions: [
-      'View workflows, agents, and runs',
-      'Run published workflows',
-      'Cannot create, edit, or delete resources',
-      'Cannot invite members or change settings',
+      'Visualizar automações, agentes e execuções',
+      'Executar automações publicadas',
+      'Não pode criar, editar ou excluir recursos',
+      'Não pode convidar membros ou alterar configurações',
     ],
   },
 }
@@ -110,7 +110,7 @@ export default function MembersSection({
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success('Role updated')
+        toast.success('Função atualizada')
       }
     })
   }
@@ -121,7 +121,7 @@ export default function MembersSection({
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success('Member removed')
+        toast.success('Membro removido')
       }
     })
   }
@@ -132,7 +132,7 @@ export default function MembersSection({
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success('Invitation cancelled')
+        toast.success('Convite cancelado')
       }
     })
   }
@@ -141,20 +141,22 @@ export default function MembersSection({
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Members</h2>
-          <p className="text-muted-foreground text-sm">Manage who has access to this workspace</p>
+          <h2 className="text-lg font-semibold">Membros</h2>
+          <p className="text-muted-foreground text-sm">Gerencie quem tem acesso a este workspace</p>
         </div>
         {canManage &&
           (planData?.planId === 'free' ? (
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-xs">Upgrade to invite members</span>
+              <span className="text-muted-foreground text-xs">
+                Faça upgrade para convidar membros
+              </span>
               <Button
                 variant="default"
                 size="sm"
                 onClick={() => {
-                  toast('Upgrade to Pro to invite team members', {
+                  toast('Faça upgrade para Pro para convidar membros da equipe', {
                     action: {
-                      label: 'View plans',
+                      label: 'Ver planos',
                       onClick: () => {
                         window.dispatchEvent(
                           new CustomEvent('switch-settings-tab', { detail: 'billing' })
@@ -164,20 +166,20 @@ export default function MembersSection({
                   })
                 }}
               >
-                Upgrade
+                Fazer upgrade
               </Button>
             </div>
           ) : (
             <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
-              Invite member
+              Convidar membro
             </Button>
           ))}
       </div>
 
       {planData && members.length >= planData.maxTeamMembers && planData.planId !== 'free' && (
         <div className="rounded-lg bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:bg-yellow-950/20 dark:text-yellow-200">
-          You&apos;ve reached your plan&apos;s limit of {planData.maxTeamMembers} members. Upgrade
-          for more seats.
+          Você atingiu o limite do seu plano de {planData.maxTeamMembers} membros. Faça upgrade para
+          mais vagas.
         </div>
       )}
 
@@ -185,7 +187,7 @@ export default function MembersSection({
       <div className="flex flex-col">
         {members.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center text-sm">
-            No team members yet. Invite someone to get started.
+            Nenhum membro ainda. Convide alguém para começar.
           </p>
         ) : (
           members
@@ -212,7 +214,7 @@ export default function MembersSection({
                   <div className="flex flex-1 flex-col">
                     <span className="text-sm font-medium">
                       {member.fullName}
-                      {isSelf && <span className="text-muted-foreground ml-1 text-xs">(you)</span>}
+                      {isSelf && <span className="text-muted-foreground ml-1 text-xs">(você)</span>}
                     </span>
                     <span className="text-muted-foreground text-xs">{member.email}</span>
                   </div>
@@ -232,13 +234,13 @@ export default function MembersSection({
                           onClick={() => handleRoleChange(member.id, 'admin')}
                           disabled={member.role === 'admin'}
                         >
-                          Admin
+                          Administrador
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleRoleChange(member.id, 'member')}
                           disabled={member.role === 'member'}
                         >
-                          Member
+                          Membro
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -282,16 +284,16 @@ export default function MembersSection({
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remove member</AlertDialogTitle>
+                          <AlertDialogTitle>Remover membro</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to remove {member.fullName} from the team? They
-                            will lose access to all team resources.
+                            Tem certeza que deseja remover {member.fullName} da equipe? Ele perderá
+                            o acesso a todos os recursos da equipe.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction onClick={() => handleRemoveMember(member.id)}>
-                            Remove
+                            Remover
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -306,7 +308,7 @@ export default function MembersSection({
       {/* Pending invitations */}
       {canManage && invitations.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium">Pending invitations</h3>
+          <h3 className="text-sm font-medium">Convites pendentes</h3>
           {invitations.map((invitation) => (
             <div
               key={invitation.id}
@@ -319,10 +321,12 @@ export default function MembersSection({
               </Avatar>
               <div className="flex flex-1 flex-col">
                 <span className="text-sm font-medium">{invitation.email}</span>
-                <span className="text-muted-foreground text-xs">Invited as {invitation.role}</span>
+                <span className="text-muted-foreground text-xs">
+                  Convidado como {invitation.role}
+                </span>
               </div>
               <Badge variant="outline" className="text-yellow-600">
-                Pending
+                Pendente
               </Badge>
               <Button
                 variant="ghost"

@@ -42,10 +42,10 @@ export function DeleteFolderDialog({
         toast.error(result.error)
         return
       }
-      toast.success('Folder deleted successfully')
+      toast.success('Pasta excluída com sucesso')
       onOpenChange(false)
     } catch {
-      toast.error('Failed to delete folder')
+      toast.error('Falha ao excluir pasta')
     } finally {
       setIsDeleting(false)
     }
@@ -55,22 +55,22 @@ export function DeleteFolderDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete folder &quot;{folderName}&quot;</AlertDialogTitle>
+          <AlertDialogTitle>Excluir pasta &quot;{folderName}&quot;</AlertDialogTitle>
           <AlertDialogDescription>
             {isEmpty
-              ? 'This folder is empty. Are you sure you want to delete it?'
-              : `This folder contains ${workflowCount} workflow${workflowCount !== 1 ? 's' : ''} and ${subfolderCount} subfolder${subfolderCount !== 1 ? 's' : ''}. Choose what to do with the contents.`}
+              ? 'Esta pasta está vazia. Tem certeza que deseja excluí-la?'
+              : `Esta pasta contém ${workflowCount} automação${workflowCount !== 1 ? 'ões' : ''} e ${subfolderCount} subpasta${subfolderCount !== 1 ? 's' : ''}. Escolha o que fazer com o conteúdo.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
           {isEmpty ? (
             <Button
               variant="destructive"
               onClick={() => handleDelete('delete-all')}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
             </Button>
           ) : (
             <>
@@ -79,14 +79,14 @@ export function DeleteFolderDialog({
                 onClick={() => handleDelete('move-to-root')}
                 disabled={isDeleting}
               >
-                Move contents to root
+                Mover conteúdo para raiz
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => handleDelete('delete-all')}
                 disabled={isDeleting}
               >
-                {isDeleting ? 'Deleting...' : 'Delete all'}
+                {isDeleting ? 'Excluindo...' : 'Excluir tudo'}
               </Button>
             </>
           )}

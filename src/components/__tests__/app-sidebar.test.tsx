@@ -54,20 +54,20 @@ function renderSidebar(props = {}) {
 describe('AppSidebar', () => {
   it('renders platform navigation links', () => {
     renderSidebar()
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Workspace')).toBeInTheDocument()
-    expect(screen.getByText('Runs')).toBeInTheDocument()
+    expect(screen.getByText('Painel')).toBeInTheDocument()
+    expect(screen.getByText('Área de Trabalho')).toBeInTheDocument()
+    expect(screen.getByText('Execuções')).toBeInTheDocument()
   })
 
   it('renders tool menu items', () => {
     renderSidebar()
-    expect(screen.getByText('Search')).toBeInTheDocument()
-    expect(screen.getByText('Integrations')).toBeInTheDocument()
+    expect(screen.getByText('Buscar')).toBeInTheDocument()
+    expect(screen.getByText('Integrações')).toBeInTheDocument()
   })
 
   it('renders theme toggle', () => {
     renderSidebar()
-    expect(screen.getByText('Toggle theme')).toBeInTheDocument()
+    expect(screen.getByText('Alternar tema')).toBeInTheDocument()
   })
 
   it('renders user info in footer', () => {
@@ -85,8 +85,8 @@ describe('AppSidebar', () => {
     // Click the one that is inside the trigger (first occurrence)
     await user.click(userButtons[0])
 
-    expect(screen.getByText('Settings')).toBeInTheDocument()
-    expect(screen.getByText('Log out')).toBeInTheDocument()
+    expect(screen.getByText('Configurações')).toBeInTheDocument()
+    expect(screen.getByText('Sair')).toBeInTheDocument()
   })
 
   it('calls onOpenCommandMenu when Search is clicked', async () => {
@@ -94,7 +94,7 @@ describe('AppSidebar', () => {
     const onOpen = vi.fn()
     renderSidebar({ onOpenCommandMenu: onOpen })
 
-    await user.click(screen.getByText('Search'))
+    await user.click(screen.getByText('Buscar'))
     expect(onOpen).toHaveBeenCalled()
   })
 })

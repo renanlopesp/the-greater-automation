@@ -33,7 +33,7 @@ export default function WorkflowListItem({
   sparklineData = EMPTY_SPARKLINE,
 }: WorkflowListItemProps) {
   // const edited = formatRelativeTime(workflow.updated_at ?? workflow.created_at)
-  const lastRun = lastRunAt ? formatRelativeTime(lastRunAt) : 'No runs completed yet'
+  const lastRun = lastRunAt ? formatRelativeTime(lastRunAt) : 'Nenhuma execução concluída'
 
   return (
     <Link href={`/workflows/${workflow.id}/edit`} className="group flex items-center gap-3">
@@ -43,10 +43,10 @@ export default function WorkflowListItem({
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex items-center gap-2">
             {workflow.status === 'published' ? (
-              <Badge className="text-[10px]">Published</Badge>
+              <Badge className="text-[10px]">Publicado</Badge>
             ) : (
               <Badge variant="secondary" className="text-[10px]">
-                Draft
+                Rascunho
               </Badge>
             )}
             <span className="truncate text-sm font-medium group-hover:underline">

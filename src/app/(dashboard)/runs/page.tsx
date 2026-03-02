@@ -18,7 +18,9 @@ export default async function RunsPage() {
   if (!teamId) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground">No team found. Please contact support.</p>
+        <p className="text-muted-foreground">
+          Nenhuma equipe encontrada. Entre em contato com o suporte.
+        </p>
       </div>
     )
   }

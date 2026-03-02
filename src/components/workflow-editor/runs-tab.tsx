@@ -95,9 +95,9 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
           <Play className="text-muted-foreground h-10 w-10" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">No runs yet</h3>
+          <h3 className="text-lg font-semibold">Nenhuma execução ainda</h3>
           <p className="text-muted-foreground text-sm">
-            Start your first workflow run to see execution history
+            Inicie a primeira execução da automação para ver o histórico
           </p>
         </div>
         <Button onClick={handleRunNow} disabled={startRun.isPending} className="gap-2">
@@ -106,7 +106,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
           ) : (
             <Play className="h-4 w-4" />
           )}
-          Run now
+          Executar agora
         </Button>
       </div>
     )
@@ -118,9 +118,9 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Run history</h2>
+            <h2 className="text-lg font-semibold">Histórico de execuções</h2>
             <p className="text-muted-foreground text-sm">
-              {runs.length} run{runs.length !== 1 ? 's' : ''}
+              {runs.length} execuç{runs.length !== 1 ? 'ões' : 'ão'}
             </p>
           </div>
           <Button onClick={handleRunNow} disabled={startRun.isPending} size="sm" className="gap-2">
@@ -129,7 +129,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            Run now
+            Executar agora
           </Button>
         </div>
       </div>
@@ -148,7 +148,13 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
-            {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+            {status === 'all'
+              ? 'Todos'
+              : status === 'completed'
+                ? 'Concluído'
+                : status === 'failed'
+                  ? 'Falhou'
+                  : 'Em execução'}
           </button>
         ))}
         <div className="bg-border mx-1 h-4 w-px" />
@@ -164,7 +170,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
-            {source === 'all' ? 'All' : source.charAt(0).toUpperCase() + source.slice(1)}
+            {source === 'all' ? 'Todos' : source === 'event' ? 'Evento' : 'Manual'}
           </button>
         ))}
       </div>
@@ -189,7 +195,9 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">Run {run.id.substring(0, 8)}</p>
+                      <p className="truncate text-sm font-medium">
+                        Execução {run.id.substring(0, 8)}
+                      </p>
                       {run.event_log_id && (
                         <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                           {formatTriggerLabel(run.trigger_data)}
@@ -209,7 +217,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                   <div className="bg-muted/20 min-w-0 border-t px-6 py-3">
                     {run.error && (
                       <div className="mb-3">
-                        <p className="text-destructive text-xs font-medium">Error</p>
+                        <p className="text-destructive text-xs font-medium">Erro</p>
                         <p className="text-muted-foreground mt-1 text-xs break-words">
                           {run.error}
                         </p>
@@ -226,7 +234,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                           }}
                           className="h-7 text-xs"
                         >
-                          Retry
+                          Tentar novamente
                         </Button>
                       </div>
                     )}
@@ -234,7 +242,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                     <WorkflowStepsLive runId={run.id} />
                     {run.trigger_data && Object.keys(run.trigger_data).length > 0 && (
                       <div className="mb-3">
-                        <p className="text-foreground text-xs font-medium">Trigger data</p>
+                        <p className="text-foreground text-xs font-medium">Dados do gatilho</p>
                         <pre className="bg-background text-muted-foreground mt-1 max-h-[300px] overflow-auto rounded border p-2 text-xs break-all whitespace-pre-wrap">
                           {JSON.stringify(run.trigger_data, null, 2)}
                         </pre>
@@ -243,7 +251,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                     {run.step_count > 0 && (
                       <div className="mb-3">
                         <p className="text-foreground text-xs font-medium">
-                          {run.steps_completed}/{run.step_count} steps completed
+                          {run.steps_completed}/{run.step_count} etapas concluídas
                         </p>
                       </div>
                     )}
@@ -256,7 +264,7 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
                         className="h-7 gap-1.5 text-xs"
                       >
                         <ExternalLink className="h-3 w-3" />
-                        View details
+                        Ver detalhes
                       </Button>
                     )}
                   </div>
@@ -266,7 +274,9 @@ export default function RunsTab({ workflowId }: RunsTabProps) {
           })}
           {filteredRuns.length === 0 && (
             <div className="px-6 py-8 text-center">
-              <p className="text-muted-foreground text-sm">No runs match the current filters</p>
+              <p className="text-muted-foreground text-sm">
+                Nenhuma execução corresponde aos filtros
+              </p>
             </div>
           )}
         </div>
@@ -305,7 +315,7 @@ function WorkflowSteps({ steps }: { steps: RunStep[] }) {
   return (
     <div className="mb-3">
       <p className="text-foreground mb-2 text-xs font-medium">
-        Steps ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
+        Etapas ({steps.filter((s) => s.status === 'completed').length}/{steps.length})
       </p>
       <div className="space-y-1">
         {steps.map((step, idx) => (
@@ -325,7 +335,7 @@ function WorkflowSteps({ steps }: { steps: RunStep[] }) {
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-medium">
-                Step {step.step_index + 1}: {step.name}
+                Etapa {step.step_index + 1}: {step.name}
               </p>
               {step.error && <p className="text-destructive truncate text-[10px]">{step.error}</p>}
             </div>
@@ -343,7 +353,19 @@ function WorkflowSteps({ steps }: { steps: RunStep[] }) {
                 'text-yellow-600': step.status === 'waiting_for_input',
               })}
             >
-              {step.status === 'waiting_for_input' ? 'waiting' : step.status}
+              {step.status === 'waiting_for_input'
+                ? 'aguardando'
+                : step.status === 'pending'
+                  ? 'pendente'
+                  : step.status === 'running'
+                    ? 'executando'
+                    : step.status === 'completed'
+                      ? 'concluído'
+                      : step.status === 'failed'
+                        ? 'falhou'
+                        : step.status === 'skipped'
+                          ? 'ignorado'
+                          : step.status}
             </span>
           </div>
         ))}
@@ -363,31 +385,31 @@ function getStatusBadge(status: string) {
     case 'completed':
       return (
         <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-700">
-          Completed
+          Concluído
         </Badge>
       )
     case 'failed':
       return (
         <Badge variant="outline" className="border-red-500/50 bg-red-500/10 text-red-700">
-          Failed
+          Falhou
         </Badge>
       )
     case 'pending':
       return (
         <Badge variant="outline" className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700">
-          Pending
+          Pendente
         </Badge>
       )
     case 'running':
       return (
         <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-700">
-          Running
+          Em execução
         </Badge>
       )
     case 'waiting':
       return (
         <Badge variant="outline" className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700">
-          Waiting
+          Aguardando
         </Badge>
       )
     default:

@@ -43,14 +43,16 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 sm:max-w-[480px]">
         <DialogHeader className="sr-only">
-          <DialogTitle>Add a step</DialogTitle>
-          <DialogDescription>Choose a step type to add to your workflow</DialogDescription>
+          <DialogTitle>Adicionar uma etapa</DialogTitle>
+          <DialogDescription>
+            Escolha um tipo de etapa para adicionar à sua automação
+          </DialogDescription>
         </DialogHeader>
         <Command>
-          <CommandInput placeholder="Search steps..." />
+          <CommandInput placeholder="Buscar etapas..." />
           <CommandList>
-            <CommandEmpty>No steps found.</CommandEmpty>
-            <CommandGroup heading="Steps">
+            <CommandEmpty>Nenhuma etapa encontrada.</CommandEmpty>
+            <CommandGroup heading="Etapas">
               {STEP_TYPES.map((s) => {
                 return (
                   <CommandItem
@@ -76,7 +78,7 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
             {connectedApps.length > 0 && (
               <>
                 <CommandSeparator />
-                <CommandGroup heading="Connected Apps">
+                <CommandGroup heading="Aplicativos conectados">
                   {connectedApps.map((app) => {
                     return (
                       <CommandItem

@@ -15,14 +15,14 @@ export const SEGMENTS = [
 export type Segment = (typeof SEGMENTS)[number]
 
 export const SEGMENT_LABELS: Record<Segment, string> = {
-  roupas: 'Clothing & Accessories',
-  eletronicos: 'Electronics',
-  alimentos: 'Food & Beverages',
-  cosmeticos: 'Cosmetics & Beauty',
-  casa_decoracao: 'Home & Decor',
-  esportes: 'Sports & Fitness',
+  roupas: 'Roupas e Acessórios',
+  eletronicos: 'Eletrônicos',
+  alimentos: 'Alimentos e Bebidas',
+  cosmeticos: 'Cosméticos e Beleza',
+  casa_decoracao: 'Casa e Decoração',
+  esportes: 'Esportes e Fitness',
   pet: 'Pet Shop',
-  outros: 'Other',
+  outros: 'Outros',
 }
 
 export const PLATFORMS = ['nuvemshop', 'shopify', 'mercadolivre', 'manual'] as const
@@ -32,7 +32,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   nuvemshop: 'Nuvemshop',
   shopify: 'Shopify',
   mercadolivre: 'Mercado Livre',
-  manual: 'No online store',
+  manual: 'Sem loja online',
 }
 
 /** Which platforms are currently available for connection */
@@ -53,11 +53,11 @@ export const PRIORITIES = [
 export type Priority = (typeof PRIORITIES)[number]
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
-  controle_de_estoque: 'Stock Control',
-  monitorar_concorrencia: 'Competitor Monitoring',
-  resumo_de_vendas: 'Sales Summary',
-  atendimento: 'Customer Service',
-  alertas_de_pedidos: 'Order Alerts',
+  controle_de_estoque: 'Controle de Estoque',
+  monitorar_concorrencia: 'Monitorar Concorrência',
+  resumo_de_vendas: 'Resumo de Vendas',
+  atendimento: 'Atendimento ao Cliente',
+  alertas_de_pedidos: 'Alertas de Pedidos',
 }
 
 // Agent role definitions with visual config
@@ -75,37 +75,37 @@ export const AGENT_ROLES: AgentRoleConfig[] = [
     role: 'orchestrator',
     name: 'Snew',
     description:
-      'Your central assistant. Ask anything — it routes to the right specialist or answers directly.',
+      'Seu assistente central — pergunte qualquer coisa e ele direciona ao especialista certo ou responde diretamente.',
     palette: 'indigo',
     icon: '🧠',
     is_orchestrator: true,
   },
   {
     role: 'estoquista',
-    name: 'Stock Manager',
+    name: 'Estoquista',
     description:
-      'Monitors your inventory, alerts when products are running low, and helps plan restocking.',
+      'Monitora seu estoque, alerta quando produtos estão acabando e ajuda a planejar reposições.',
     palette: 'green',
     icon: '📦',
   },
   {
     role: 'vigia_de_preco',
-    name: 'Price Monitor',
-    description: 'Tracks competitor prices and alerts you about pricing opportunities.',
+    name: 'Vigia de Preço',
+    description: 'Acompanha preços dos concorrentes e alerta sobre oportunidades de precificação.',
     palette: 'orange',
     icon: '👀',
   },
   {
     role: 'caixa',
-    name: 'Sales Analyst',
-    description: 'Generates sales reports, daily summaries, and financial analysis for your store.',
+    name: 'Analista de Vendas',
+    description: 'Gera relatórios de vendas, resumos diários e análises financeiras da sua loja.',
     palette: 'blue',
     icon: '💰',
   },
   {
     role: 'atendente',
-    name: 'Customer Service',
-    description: 'Helps respond to customers, create standard replies, and manage communication.',
+    name: 'Atendente',
+    description: 'Ajuda a responder clientes, criar respostas padrão e gerenciar comunicação.',
     palette: 'purple',
     icon: '💬',
   },

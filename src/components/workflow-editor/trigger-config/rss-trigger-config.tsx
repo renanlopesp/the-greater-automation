@@ -24,7 +24,7 @@ export function RSSTriggerConfigForm({
       </div>
 
       <div>
-        <Label>Check interval</Label>
+        <Label>Intervalo de verificação</Label>
         <div className="mt-1 flex items-center gap-2">
           <Input
             type="number"
@@ -38,12 +38,12 @@ export function RSSTriggerConfigForm({
             }
             className="flex-1"
           />
-          <span className="text-muted-foreground text-sm">minutes</span>
+          <span className="text-muted-foreground text-sm">minutos</span>
         </div>
       </div>
 
       <div>
-        <Label>Max items per check</Label>
+        <Label>Máximo de itens por verificação</Label>
         <Input
           type="number"
           min={1}
@@ -57,7 +57,9 @@ export function RSSTriggerConfigForm({
           }
           className="mt-1"
         />
-        <p className="text-muted-foreground mt-1 text-xs">Maximum number of new items to process</p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Número máximo de novos itens para processar
+        </p>
       </div>
     </div>
   )

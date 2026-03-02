@@ -74,11 +74,11 @@ export default function WorkflowRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/workflows/${workflow.id}/edit`}>Edit</Link>
+              <Link href={`/workflows/${workflow.id}/edit`}>Editar</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>Duplicate</DropdownMenuItem>
-            <DropdownMenuItem>Move to folder</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+            <DropdownMenuItem>Duplicar</DropdownMenuItem>
+            <DropdownMenuItem>Mover para pasta</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>

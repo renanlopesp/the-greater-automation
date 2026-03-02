@@ -57,12 +57,12 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
     if (!file) return
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be less than 5MB')
+      toast.error('O arquivo deve ter menos de 5MB')
       return
     }
 
     if (!file.type.startsWith('image/')) {
-      toast.error('File must be an image')
+      toast.error('O arquivo deve ser uma imagem')
       return
     }
 
@@ -92,7 +92,7 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
       setCurrentAvatarUrl(result.avatarUrl)
       setCropDialogOpen(false)
       setCropImageSrc(null)
-      toast.success('Avatar updated')
+      toast.success('Avatar atualizado')
     }
   }
 
@@ -107,13 +107,13 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
     if (result.error) {
       toast.error(result.error)
     } else {
-      toast.success('Profile updated')
+      toast.success('Perfil atualizado')
     }
   }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-lg font-semibold">Account</h2>
+      <h2 className="text-lg font-semibold">Conta</h2>
 
       <div className="flex items-center gap-4">
         <button type="button" onClick={handleAvatarClick} className="rounded-full">
@@ -129,12 +129,14 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
           className="hidden"
           onChange={handleFileChange}
         />
-        <p className="text-muted-foreground text-sm">Click avatar to upload a new image</p>
+        <p className="text-muted-foreground text-sm">
+          Clique no avatar para enviar uma nova imagem
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex max-w-md flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="fullName">Full name</Label>
+          <Label htmlFor="fullName">Nome completo</Label>
           <Input id="fullName" {...register('fullName')} />
           {errors.fullName && <p className="text-destructive text-sm">{errors.fullName.message}</p>}
         </div>
@@ -146,7 +148,7 @@ export default function AccountSection({ fullName, email, avatarUrl }: AccountSe
 
         <Button type="submit" className="w-fit" disabled={!isDirty || pending}>
           {pending && <Loader2 className="animate-spin" />}
-          {pending ? 'Saving...' : 'Save changes'}
+          {pending ? 'Salvando...' : 'Salvar alterações'}
         </Button>
       </form>
 

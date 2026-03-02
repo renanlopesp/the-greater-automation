@@ -46,7 +46,7 @@ export function CreateFolderDialog({
       setName('')
       onOpenChange(false)
     } catch {
-      toast.error('Failed to create folder')
+      toast.error('Falha ao criar pasta')
     } finally {
       setIsCreating(false)
     }
@@ -57,17 +57,17 @@ export function CreateFolderDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>New folder</DialogTitle>
-            <DialogDescription>Create a folder to organize your workflows.</DialogDescription>
+            <DialogTitle>Nova pasta</DialogTitle>
+            <DialogDescription>Crie uma pasta para organizar suas automações.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="folder-name">Name</Label>
+              <Label htmlFor="folder-name">Nome</Label>
               <Input
                 id="folder-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="My folder"
+                placeholder="Minha pasta"
                 maxLength={100}
                 autoFocus
               />
@@ -80,10 +80,10 @@ export function CreateFolderDialog({
               onClick={() => onOpenChange(false)}
               disabled={isCreating}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" disabled={!name.trim() || isCreating}>
-              {isCreating ? 'Creating...' : 'Create'}
+              {isCreating ? 'Criando...' : 'Criar'}
             </Button>
           </DialogFooter>
         </form>

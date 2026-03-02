@@ -31,10 +31,10 @@ interface DashboardClientProps {
 }
 
 const stats = [
-  { label: 'Workers', icon: Bot, value: 0 },
-  { label: 'Workflows', icon: GitBranch, value: 0 },
-  { label: 'Runs today', icon: Play, value: 0 },
-  { label: 'Starred', icon: Star, value: 0 },
+  { label: 'Agentes', icon: Bot, value: 0 },
+  { label: 'Automações', icon: GitBranch, value: 0 },
+  { label: 'Execuções hoje', icon: Play, value: 0 },
+  { label: 'Favoritos', icon: Star, value: 0 },
 ]
 
 export default function DashboardClient({
@@ -53,11 +53,11 @@ export default function DashboardClient({
     if (connectedApp) {
       toastShown.current = true
       toast.success(
-        `${connectedApp.charAt(0).toUpperCase() + connectedApp.slice(1)} connected successfully`
+        `${connectedApp.charAt(0).toUpperCase() + connectedApp.slice(1)} conectado com sucesso`
       )
     } else if (connectionError) {
       toastShown.current = true
-      toast.error(`Connection failed: ${connectionError.replace(/_/g, ' ')}`)
+      toast.error(`Falha na conexão: ${connectionError.replace(/_/g, ' ')}`)
     }
   }, [connectedApp, connectionError])
 
@@ -75,9 +75,9 @@ export default function DashboardClient({
     <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-12 pb-12">
       {/* Page header */}
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Painel</h2>
         <p className="text-muted-foreground text-sm">
-          Overview of your team&apos;s workers and workflows.
+          Visão geral dos agentes e automações da sua equipe.
         </p>
       </div>
 
@@ -110,11 +110,12 @@ export default function DashboardClient({
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-semibold">{orchestrator.name}</h3>
                   <p className="text-muted-foreground text-sm">
-                    {orchestrator.description ?? 'Your central assistant — ask anything.'}
+                    {orchestrator.description ??
+                      'Seu assistente central — pergunte qualquer coisa.'}
                   </p>
                 </div>
                 <span className="text-primary text-sm font-medium whitespace-nowrap">
-                  Open Chat &rarr;
+                  Abrir Chat &rarr;
                 </span>
               </CardContent>
             </Card>

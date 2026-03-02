@@ -41,9 +41,9 @@ export function PlatformStep({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Where is your online store?</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Onde fica sua loja online?</h2>
         <p className="text-muted-foreground">
-          We connect to your platform to sync products and orders.
+          Conectamos à sua plataforma para sincronizar produtos e pedidos.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -65,7 +65,7 @@ export function PlatformStep({
               <span className="text-2xl">{PLATFORM_ICONS[p]}</span>
               <div className="flex flex-col">
                 <span className="text-sm font-medium">{PLATFORM_LABELS[p]}</span>
-                {!available && <span className="text-muted-foreground text-xs">Coming soon</span>}
+                {!available && <span className="text-muted-foreground text-xs">Em breve</span>}
               </div>
             </button>
           )
@@ -78,7 +78,7 @@ export function PlatformStep({
             <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950">
               <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
               <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                Nuvemshop connected
+                Nuvemshop conectada
               </span>
             </div>
           ) : (
@@ -93,7 +93,7 @@ export function PlatformStep({
               ) : (
                 <ExternalLink className="h-4 w-4" />
               )}
-              Connect your Nuvemshop store
+              Conectar sua loja Nuvemshop
             </Button>
           )}
         </div>
@@ -101,7 +101,7 @@ export function PlatformStep({
 
       {platform === 'shopify' && (
         <div className="space-y-2">
-          <Label htmlFor="platform-url">Your store URL</Label>
+          <Label htmlFor="platform-url">URL da sua loja</Label>
           <Input
             id="platform-url"
             placeholder="Ex: https://minhaloja.myshopify.com"

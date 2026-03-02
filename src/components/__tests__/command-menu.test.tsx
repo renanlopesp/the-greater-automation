@@ -35,13 +35,15 @@ function renderWithQuery(ui: React.ReactElement) {
 describe('CommandMenu', () => {
   it('renders dialog when open', () => {
     renderWithQuery(<CommandMenu teamId="team-1" open={true} onOpenChange={vi.fn()} />)
-    expect(screen.getByPlaceholderText('Search workflows, agents, runs...')).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText('Buscar automações, agentes, execuções...')
+    ).toBeInTheDocument()
   })
 
   it('does not render dialog when closed', () => {
     renderWithQuery(<CommandMenu teamId="team-1" open={false} onOpenChange={vi.fn()} />)
     expect(
-      screen.queryByPlaceholderText('Search workflows, agents, runs...')
+      screen.queryByPlaceholderText('Buscar automações, agentes, execuções...')
     ).not.toBeInTheDocument()
   })
 

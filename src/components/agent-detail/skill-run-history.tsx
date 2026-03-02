@@ -40,13 +40,13 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
       case 'completed':
         return (
           <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-green-700">
-            Completed
+            Concluído
           </Badge>
         )
       case 'failed':
         return (
           <Badge variant="outline" className="border-red-500/50 bg-red-500/10 text-red-700">
-            Failed
+            Falhou
           </Badge>
         )
       case 'pending':
@@ -55,19 +55,19 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
             variant="outline"
             className="border-yellow-500/50 bg-yellow-500/10 text-yellow-700"
           >
-            Pending
+            Pendente
           </Badge>
         )
       case 'skipped':
         return (
           <Badge variant="outline" className="border-gray-500/50 bg-gray-500/10 text-gray-700">
-            Skipped
+            Ignorado
           </Badge>
         )
       case 'running':
         return (
           <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-700">
-            Running
+            Em execução
           </Badge>
         )
       default:
@@ -78,10 +78,10 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
   if (runs.length === 0) {
     return (
       <div className="space-y-3">
-        <h2 className="text-foreground text-[15px] font-semibold">Workflow run history</h2>
+        <h2 className="text-foreground text-[15px] font-semibold">Histórico de execuções</h2>
         <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
           <div className="px-4 py-8 text-center">
-            <p className="text-muted-foreground text-sm">No workflow runs yet</p>
+            <p className="text-muted-foreground text-sm">Nenhuma execução ainda</p>
           </div>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-foreground text-[15px] font-semibold">Workflow run history</h2>
+      <h2 className="text-foreground text-[15px] font-semibold">Histórico de execuções</h2>
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
         <div className="divide-y">
           {runs.map((run) => {
@@ -125,7 +125,7 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
                   <div className="bg-muted/20 min-w-0 border-t px-4 py-3">
                     {run.error && (
                       <div className="mb-3">
-                        <p className="text-destructive text-xs font-medium">Error</p>
+                        <p className="text-destructive text-xs font-medium">Erro</p>
                         <p className="text-muted-foreground mt-1 text-xs break-words">
                           {run.error}
                         </p>
@@ -133,7 +133,7 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
                     )}
                     {run.trigger_data && (
                       <div className="mb-3">
-                        <p className="text-foreground text-xs font-medium">Trigger data</p>
+                        <p className="text-foreground text-xs font-medium">Dados do gatilho</p>
                         <pre className="bg-background text-muted-foreground mt-1 rounded border p-2 text-xs break-all whitespace-pre-wrap">
                           {JSON.stringify(run.trigger_data, null, 2)}
                         </pre>
@@ -142,7 +142,7 @@ export default function SkillRunHistory({ runs }: SkillRunHistoryProps) {
                     {run.actions_executed && Array.isArray(run.actions_executed) && (
                       <div>
                         <p className="text-foreground text-xs font-medium">
-                          Actions executed ({run.actions_executed.length})
+                          Ações executadas ({run.actions_executed.length})
                         </p>
                         <div className="mt-1 space-y-1">
                           {run.actions_executed.map((action: unknown, idx: number) => (

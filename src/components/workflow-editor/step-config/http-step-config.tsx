@@ -50,7 +50,7 @@ export default function HTTPStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="method" className="text-sm font-medium">
-          Method
+          Método
         </Label>
         <Select
           value={config.method}
@@ -84,13 +84,13 @@ export default function HTTPStepConfigForm({
 
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <Label className="text-sm font-medium">Headers</Label>
+          <Label className="text-sm font-medium">Cabeçalhos</Label>
           <Button variant="outline" size="sm" onClick={addHeader}>
             <Plus className="h-3 w-3" />
           </Button>
         </div>
         {headerEntries.length === 0 ? (
-          <p className="text-muted-foreground text-xs">No headers added</p>
+          <p className="text-muted-foreground text-xs">Nenhum cabeçalho adicionado</p>
         ) : (
           <div className="flex flex-col gap-2">
             {headerEntries.map(([key, value]) => (
@@ -98,13 +98,13 @@ export default function HTTPStepConfigForm({
                 <Input
                   value={key}
                   onChange={(e) => updateHeaderKey(key, e.target.value)}
-                  placeholder="Key"
+                  placeholder="Chave"
                   className="flex-1"
                 />
                 <Input
                   value={value}
                   onChange={(e) => updateHeaderValue(key, e.target.value)}
-                  placeholder="Value"
+                  placeholder="Valor"
                   className="flex-1"
                 />
                 <Button variant="ghost" size="icon" onClick={() => removeHeader(key)}>
@@ -125,7 +125,7 @@ export default function HTTPStepConfigForm({
             id="body"
             value={config.body ?? ''}
             onChange={(e) => onUpdate({ ...config, body: e.target.value })}
-            placeholder="JSON, form data, or raw body"
+            placeholder="JSON, dados de formulário ou corpo bruto"
             rows={4}
             className="mt-1"
           />
@@ -134,7 +134,7 @@ export default function HTTPStepConfigForm({
 
       <div>
         <Label htmlFor="auth-type" className="text-sm font-medium">
-          Authentication
+          Autenticação
         </Label>
         <Select
           value={config.auth?.type ?? 'none'}
@@ -152,7 +152,7 @@ export default function HTTPStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="none">Nenhum</SelectItem>
             <SelectItem value="bearer">Bearer Token</SelectItem>
             <SelectItem value="basic">Basic Auth</SelectItem>
             <SelectItem value="api_key">API Key</SelectItem>
@@ -164,7 +164,7 @@ export default function HTTPStepConfigForm({
             onChange={(e) =>
               onUpdate({ ...config, auth: { ...config.auth!, value: e.target.value } })
             }
-            placeholder="Authentication value"
+            placeholder="Valor de autenticação"
             className="mt-2"
           />
         )}
@@ -173,7 +173,7 @@ export default function HTTPStepConfigForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="timeout" className="text-sm font-medium">
-            Timeout (seconds)
+            Timeout (segundos)
           </Label>
           <Input
             id="timeout"
@@ -188,7 +188,7 @@ export default function HTTPStepConfigForm({
         </div>
         <div>
           <Label htmlFor="retry" className="text-sm font-medium">
-            Retry count
+            Tentativas de retry
           </Label>
           <Input
             id="retry"

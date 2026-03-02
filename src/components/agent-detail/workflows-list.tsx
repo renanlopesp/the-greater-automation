@@ -128,7 +128,7 @@ export default function WorkflowsList({
             sub.is_enabled ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground'
           )}
         />
-        {sub.is_enabled ? 'Listening' : 'Paused'}
+        {sub.is_enabled ? 'Escutando' : 'Pausado'}
       </span>
     )
   }
@@ -171,8 +171,8 @@ export default function WorkflowsList({
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {workflow.last_run_at
-                      ? `Last ran ${formatDistanceToNow(new Date(workflow.last_run_at), { addSuffix: true })}`
-                      : 'Never ran'}
+                      ? `Executado ${formatDistanceToNow(new Date(workflow.last_run_at), { addSuffix: true })}`
+                      : 'Nunca executou'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export default function WorkflowsList({
                       disabled={executingWorkflows.has(workflow.id)}
                       className="h-8 px-2"
                     >
-                      {executingWorkflows.has(workflow.id) ? 'Running...' : 'Run'}
+                      {executingWorkflows.has(workflow.id) ? 'Executando...' : 'Executar'}
                     </Button>
                   )}
                   <Switch
@@ -233,8 +233,8 @@ export default function WorkflowsList({
                     {workflow.description
                       ? workflow.description
                       : workflow.last_run_at
-                        ? `Last ran ${formatDistanceToNow(new Date(workflow.last_run_at), { addSuffix: true })}`
-                        : 'Never ran'}
+                        ? `Executado ${formatDistanceToNow(new Date(workflow.last_run_at), { addSuffix: true })}`
+                        : 'Nunca executou'}
                   </p>
                 </div>
                 <button
@@ -252,15 +252,15 @@ export default function WorkflowsList({
           {/* Help text for creating new workflows */}
           {workflows.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-muted-foreground text-sm">No workflows yet</p>
+              <p className="text-muted-foreground text-sm">Nenhuma automação ainda</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Chat with your agent to create new workflows
+                Converse com seu agente para criar novas automações
               </p>
             </div>
           ) : (
             <div className="bg-muted/20 px-4 py-3">
               <p className="text-muted-foreground text-center text-xs">
-                Chat with your agent to create new workflows
+                Converse com seu agente para criar novas automações
               </p>
             </div>
           )}

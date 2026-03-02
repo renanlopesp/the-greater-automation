@@ -4,8 +4,8 @@ import { useSearchParams } from 'next/navigation'
 import { AlertCircle } from 'lucide-react'
 
 const ERROR_MESSAGES: Record<string, string> = {
-  oauth_error: 'Authentication failed. Please try again.',
-  expired_code: 'Authentication session expired. Please try again.',
+  oauth_error: 'Falha na autenticação. Tente novamente.',
+  expired_code: 'Sessão expirada. Tente novamente.',
 }
 
 export default function AuthErrorMessage() {
@@ -14,7 +14,7 @@ export default function AuthErrorMessage() {
 
   if (!errorCode) return null
 
-  const message = ERROR_MESSAGES[errorCode] ?? 'An error occurred. Please try again.'
+  const message = ERROR_MESSAGES[errorCode] ?? 'Ocorreu um erro. Tente novamente.'
 
   return (
     <div className="bg-destructive/10 text-destructive flex items-center gap-2 rounded-md px-3 py-2 text-sm">

@@ -57,14 +57,14 @@ export function WebhookTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Label>Webhook URL</Label>
+        <Label>URL do Webhook</Label>
         {webhookUrl ? (
           <div className="mt-1 flex gap-2">
             <Input value={webhookUrl} readOnly className="flex-1" />
             <Button
               size="icon"
               variant="outline"
-              title="Copy URL"
+              title="Copiar URL"
               onClick={() => copyToClipboard(webhookUrl, 'url')}
             >
               {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -72,13 +72,13 @@ export function WebhookTriggerConfigForm({
           </div>
         ) : (
           <p className="text-muted-foreground mt-1 text-sm">
-            Publish the workflow to generate the webhook URL
+            Publique a automação para gerar a URL do webhook
           </p>
         )}
       </div>
 
       <div>
-        <Label>Method</Label>
+        <Label>Método</Label>
         <Select
           value={config.method}
           onValueChange={(v) =>
@@ -98,7 +98,7 @@ export function WebhookTriggerConfigForm({
       </div>
 
       <div>
-        <Label>Secret key</Label>
+        <Label>Chave secreta</Label>
         {config.secret ? (
           <>
             <div className="mt-1 flex gap-2">
@@ -112,7 +112,7 @@ export function WebhookTriggerConfigForm({
                 size="icon"
                 variant="outline"
                 onClick={() => setShowSecret(!showSecret)}
-                title={showSecret ? 'Hide secret' : 'Show secret'}
+                title={showSecret ? 'Ocultar segredo' : 'Mostrar segredo'}
               >
                 {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
@@ -120,7 +120,7 @@ export function WebhookTriggerConfigForm({
                 size="icon"
                 variant="outline"
                 onClick={() => copyToClipboard(config.secret!, 'secret')}
-                title="Copy secret"
+                title="Copiar segredo"
               >
                 {copiedSecret ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
@@ -128,25 +128,26 @@ export function WebhookTriggerConfigForm({
                 size="icon"
                 variant="outline"
                 onClick={handleRegenerateSecret}
-                title="Generate new secret"
+                title="Gerar nova chave"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
             <p className="text-muted-foreground mt-1 text-xs">
-              Send this value in the <code className="bg-muted rounded px-1">x-webhook-secret</code>{' '}
-              header to authenticate requests
+              Envie este valor no header{' '}
+              <code className="bg-muted rounded px-1">x-webhook-secret</code> para autenticar
+              requisições
             </p>
           </>
         ) : (
           <p className="text-muted-foreground mt-1 text-sm">
-            Publish the workflow to generate a secret key
+            Publique a automação para gerar uma chave secreta
           </p>
         )}
       </div>
 
       <div>
-        <Label>Response status code</Label>
+        <Label>Código de status da resposta</Label>
         <Select
           value={String(config.response_status)}
           onValueChange={(v) => onUpdate({ ...config, response_status: parseInt(v) })}
@@ -163,17 +164,17 @@ export function WebhookTriggerConfigForm({
           </SelectContent>
         </Select>
         <p className="text-muted-foreground mt-1 text-xs">
-          HTTP status code to return after receiving the webhook
+          Código de status HTTP retornado após receber o webhook
         </p>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <Label htmlFor="response-mode">Include all steps in response</Label>
+          <Label htmlFor="response-mode">Incluir todas as etapas na resposta</Label>
           <p className="text-muted-foreground text-xs">
             {config.response_mode === 'all_steps'
-              ? 'Returns output from every step'
-              : 'Returns only the final step output'}
+              ? 'Retorna o resultado de cada etapa'
+              : 'Retorna apenas o resultado da etapa final'}
           </p>
         </div>
         <Switch

@@ -13,7 +13,7 @@ export default function NewChatButton() {
           <Plus className="h-4 w-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>New chat</TooltipContent>
+      <TooltipContent>Novo chat</TooltipContent>
     </Tooltip>
   )
 }

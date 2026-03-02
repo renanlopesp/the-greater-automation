@@ -37,15 +37,17 @@ export default function RunsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-muted-foreground text-xs font-medium">Run ID</TableHead>
-              <TableHead className="text-muted-foreground text-xs font-medium">Workflow</TableHead>
-              <TableHead className="text-muted-foreground text-xs font-medium">Status</TableHead>
-              <TableHead className="text-muted-foreground text-xs font-medium">Duration</TableHead>
-              <TableHead className="text-muted-foreground text-xs font-medium">Steps</TableHead>
               <TableHead className="text-muted-foreground text-xs font-medium">
-                AI Credits
+                ID da Execução
               </TableHead>
-              <TableHead className="text-muted-foreground text-xs font-medium">Timestamp</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Automação</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Status</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Duração</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Etapas</TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">
+                Créditos IA
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium">Data/Hora</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -61,7 +63,7 @@ export default function RunsTable({
         <div className="flex justify-center">
           <Button variant="outline" onClick={onLoadMore} disabled={isFetchingNextPage}>
             {isFetchingNextPage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Load more
+            Carregar mais
           </Button>
         </div>
       )}

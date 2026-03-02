@@ -59,25 +59,25 @@ describe('WorkflowsSection', () => {
 
   it('renders all 4 tab triggers', () => {
     renderWithProviders(<WorkflowsSection initialWorkflows={mockWorkflows} teamId="team-1" />)
-    expect(screen.getByRole('tab', { name: 'Needs attention' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Recently edited' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Recently run' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Starred' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Precisa de atenção' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Editado recentemente' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Execução recente' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Favoritos' })).toBeInTheDocument()
   })
 
-  it('renders "View all" link to workspace', () => {
+  it('renders "Ver tudo" link to workspace', () => {
     renderWithProviders(<WorkflowsSection initialWorkflows={mockWorkflows} teamId="team-1" />)
-    const viewAllLinks = screen.getAllByText('View all')
+    const viewAllLinks = screen.getAllByText('Ver tudo')
     expect(viewAllLinks.length).toBeGreaterThan(0)
   })
 
   it('renders Workflows heading', () => {
     renderWithProviders(<WorkflowsSection initialWorkflows={mockWorkflows} teamId="team-1" />)
-    expect(screen.getByText('Workflows')).toBeInTheDocument()
+    expect(screen.getByText('Automações')).toBeInTheDocument()
   })
 
   it('shows empty state when no workflows', () => {
     renderWithProviders(<WorkflowsSection initialWorkflows={[]} teamId="team-1" />)
-    expect(screen.getByText('No workflows found')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma automação encontrada')).toBeInTheDocument()
   })
 })

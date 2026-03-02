@@ -43,7 +43,7 @@ export function TemplateDialog({ open, onOpenChange, teamId, userId }: TemplateD
         router.push(`/workflows/${result.id}/edit`)
       }
     } catch {
-      toast.error('Failed to create workflow from template')
+      toast.error('Falha ao criar automação a partir de modelo')
     } finally {
       setLoadingId(null)
     }
@@ -53,9 +53,9 @@ export function TemplateDialog({ open, onOpenChange, teamId, userId }: TemplateD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create from template</DialogTitle>
+          <DialogTitle>Criar a partir de modelo</DialogTitle>
           <DialogDescription>
-            Choose a template to get started quickly with a pre-configured workflow.
+            Escolha um modelo para começar rapidamente com uma automação pré-configurada.
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">

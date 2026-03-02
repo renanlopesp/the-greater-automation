@@ -46,7 +46,7 @@ export default function FlowControlStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="control-type" className="text-sm font-medium">
-          Control Type
+          Tipo de controle
         </Label>
         <Select
           value={config.control_type}
@@ -58,9 +58,9 @@ export default function FlowControlStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="path">Conditional Path</SelectItem>
+            <SelectItem value="path">Caminho condicional</SelectItem>
             <SelectItem value="loop">Loop</SelectItem>
-            <SelectItem value="wait">Wait</SelectItem>
+            <SelectItem value="wait">Espera</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -69,13 +69,13 @@ export default function FlowControlStepConfigForm({
         <>
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <Label className="text-sm font-medium">Conditions</Label>
+              <Label className="text-sm font-medium">Condições</Label>
               <Button variant="outline" size="sm" onClick={addCondition}>
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
             {conditions.length === 0 ? (
-              <p className="text-muted-foreground text-xs">No conditions added</p>
+              <p className="text-muted-foreground text-xs">Nenhuma condição adicionada</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {conditions.map((condition, index) => (
@@ -84,7 +84,7 @@ export default function FlowControlStepConfigForm({
                       <Input
                         value={condition.field}
                         onChange={(e) => updateCondition(index, { field: e.target.value })}
-                        placeholder="Field (e.g., step_2.output)"
+                        placeholder="Campo (ex: step_2.output)"
                         className="flex-1"
                       />
                       <Button variant="ghost" size="icon" onClick={() => removeCondition(index)}>
@@ -100,18 +100,18 @@ export default function FlowControlStepConfigForm({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="equals">Equals</SelectItem>
-                          <SelectItem value="contains">Contains</SelectItem>
-                          <SelectItem value="gt">Greater than</SelectItem>
-                          <SelectItem value="lt">Less than</SelectItem>
-                          <SelectItem value="exists">Exists</SelectItem>
-                          <SelectItem value="not_exists">Not exists</SelectItem>
+                          <SelectItem value="equals">Igual</SelectItem>
+                          <SelectItem value="contains">Contém</SelectItem>
+                          <SelectItem value="gt">Maior que</SelectItem>
+                          <SelectItem value="lt">Menor que</SelectItem>
+                          <SelectItem value="exists">Existe</SelectItem>
+                          <SelectItem value="not_exists">Não existe</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
                         value={condition.value}
                         onChange={(e) => updateCondition(index, { value: e.target.value })}
-                        placeholder="Value"
+                        placeholder="Valor"
                         className="flex-1"
                       />
                     </div>
@@ -122,13 +122,13 @@ export default function FlowControlStepConfigForm({
           </div>
           <div>
             <Label htmlFor="default-path" className="text-sm font-medium">
-              Default Path
+              Caminho padrão
             </Label>
             <Input
               id="default-path"
               value={config.default_path ?? ''}
               onChange={(e) => onUpdate({ ...config, default_path: e.target.value })}
-              placeholder="Step to execute if no conditions match"
+              placeholder="Etapa a executar se nenhuma condição corresponder"
               className="mt-1"
             />
           </div>
@@ -139,7 +139,7 @@ export default function FlowControlStepConfigForm({
         <>
           <div>
             <Label htmlFor="loop-source" className="text-sm font-medium">
-              Loop Source
+              Fonte do loop
             </Label>
             <Input
               id="loop-source"
@@ -151,7 +151,7 @@ export default function FlowControlStepConfigForm({
           </div>
           <div>
             <Label htmlFor="loop-count" className="text-sm font-medium">
-              Or Loop Count
+              Ou contagem do loop
             </Label>
             <Input
               id="loop-count"
@@ -160,7 +160,7 @@ export default function FlowControlStepConfigForm({
               onChange={(e) =>
                 onUpdate({ ...config, loop_count: parseInt(e.target.value) || undefined })
               }
-              placeholder="Number of iterations"
+              placeholder="Número de iterações"
               className="mt-1"
             />
           </div>
@@ -171,7 +171,7 @@ export default function FlowControlStepConfigForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="wait-duration" className="text-sm font-medium">
-              Duration
+              Duração
             </Label>
             <Input
               id="wait-duration"
@@ -180,13 +180,13 @@ export default function FlowControlStepConfigForm({
               onChange={(e) =>
                 onUpdate({ ...config, wait_duration: parseInt(e.target.value) || undefined })
               }
-              placeholder="Amount"
+              placeholder="Quantidade"
               className="mt-1"
             />
           </div>
           <div>
             <Label htmlFor="wait-unit" className="text-sm font-medium">
-              Unit
+              Unidade
             </Label>
             <Select
               value={config.wait_unit ?? 'seconds'}
@@ -198,9 +198,9 @@ export default function FlowControlStepConfigForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="seconds">Seconds</SelectItem>
-                <SelectItem value="minutes">Minutes</SelectItem>
-                <SelectItem value="hours">Hours</SelectItem>
+                <SelectItem value="seconds">Segundos</SelectItem>
+                <SelectItem value="minutes">Minutos</SelectItem>
+                <SelectItem value="hours">Horas</SelectItem>
               </SelectContent>
             </Select>
           </div>

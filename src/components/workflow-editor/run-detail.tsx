@@ -87,24 +87,24 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
         <div className="mb-4">
           <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Back to runs
+            Voltar às execuções
           </Button>
         </div>
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h2 className="font-mono text-xl font-semibold">Run {run.id.substring(0, 8)}</h2>
+              <h2 className="font-mono text-xl font-semibold">Execução {run.id.substring(0, 8)}</h2>
               <RunStatusBadge status={run.status} />
             </div>
             <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-sm">
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                Started {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
+                Iniciado {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
               </span>
-              <span>Duration: {formatDuration(duration)}</span>
-              <span>Trigger: {run.trigger_type}</span>
+              <span>Duração: {formatDuration(duration)}</span>
+              <span>Gatilho: {run.trigger_type}</span>
               <span>
-                {run.summary.completed_steps}/{run.summary.total_steps} steps completed
+                {run.summary.completed_steps}/{run.summary.total_steps} etapas concluídas
               </span>
             </div>
           </div>
@@ -115,7 +115,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              Retry
+              Tentar novamente
             </Button>
           )}
         </div>
@@ -123,7 +123,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
           <div className="bg-destructive/10 border-destructive/20 text-destructive mt-4 flex items-start gap-2 rounded-md border p-3 text-sm">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div>
-              <div className="font-medium">Run failed</div>
+              <div className="font-medium">Execução falhou</div>
               <div className="text-destructive/70 mt-1">{run.error}</div>
             </div>
           </div>
@@ -132,9 +132,9 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
           <div className="bg-chart-3/10 border-chart-3/20 text-chart-3 mt-4 flex items-start gap-2 rounded-md border p-3 text-sm">
             <UserCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div>
-              <div className="font-medium">Waiting for human input</div>
+              <div className="font-medium">Aguardando intervenção humana</div>
               <div className="text-chart-3/70 mt-1">
-                This run is paused and waiting for a response before continuing.
+                Esta execução está pausada e aguardando uma resposta antes de continuar.
               </div>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
       {/* Steps timeline */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-4">
-          <h3 className="mb-4 text-sm font-semibold">Step timeline</h3>
+          <h3 className="mb-4 text-sm font-semibold">Linha do tempo das etapas</h3>
           <div className="space-y-2">
             {run.steps.map((step, index) => (
               <div key={step.id}>
@@ -194,7 +194,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                           {step.input && (
                             <div>
                               <div className="text-muted-foreground mb-1 text-xs font-medium">
-                                Input
+                                Entrada
                               </div>
                               <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                                 {JSON.stringify(step.input, null, 2)}
@@ -204,7 +204,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                           {step.output && (
                             <div>
                               <div className="text-muted-foreground mb-1 text-xs font-medium">
-                                Output
+                                Resultado
                               </div>
                               <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                                 {JSON.stringify(step.output, null, 2)}
@@ -213,7 +213,7 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                           )}
                           {!step.input && !step.output && (
                             <div className="text-muted-foreground text-xs italic">
-                              No input/output data available
+                              Nenhum dado de entrada/saída disponível
                             </div>
                           )}
                         </div>
@@ -252,7 +252,7 @@ function ApprovalCard({
     approval_id?: string
   } | null
   const actionType = output?.action_type || 'approval'
-  const prompt = output?.prompt || 'Awaiting response...'
+  const prompt = output?.prompt || 'Aguardando resposta...'
   const approvalId = approval?.id || output?.approval_id
 
   const handleApprove = async () => {
@@ -306,7 +306,7 @@ function ApprovalCard({
         approval?.context_data &&
         Object.keys(approval.context_data).length > 0 && (
           <div className="mt-3">
-            <div className="text-muted-foreground mb-1 text-xs font-medium">Context</div>
+            <div className="text-muted-foreground mb-1 text-xs font-medium">Contexto</div>
             <pre className="bg-muted border-chart-3/20 max-h-[200px] overflow-auto rounded-md border p-2 text-xs break-all whitespace-pre-wrap">
               {JSON.stringify(approval.context_data, null, 2)}
             </pre>
@@ -318,7 +318,7 @@ function ApprovalCard({
           <textarea
             value={inputData}
             onChange={(e) => setInputData(e.target.value)}
-            placeholder="Enter your input..."
+            placeholder="Digite sua resposta..."
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             rows={3}
           />
@@ -333,7 +333,7 @@ function ApprovalCard({
             ) : (
               <Send className="h-4 w-4" />
             )}
-            Submit
+            Enviar
           </Button>
         </div>
       ) : (
@@ -341,7 +341,7 @@ function ApprovalCard({
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Add a comment (optional)..."
+            placeholder="Adicionar um comentário (opcional)..."
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             rows={2}
           />
@@ -357,7 +357,7 @@ function ApprovalCard({
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              {actionType === 'review' ? 'Approve' : 'Approve'}
+              {actionType === 'review' ? 'Aprovar' : 'Aprovar'}
             </Button>
             <Button
               onClick={handleReject}
@@ -371,7 +371,7 @@ function ApprovalCard({
               ) : (
                 <XCircle className="h-4 w-4" />
               )}
-              {actionType === 'review' ? 'Request Changes' : 'Reject'}
+              {actionType === 'review' ? 'Solicitar alterações' : 'Rejeitar'}
             </Button>
           </div>
         </div>

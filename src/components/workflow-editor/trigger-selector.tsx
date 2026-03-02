@@ -33,13 +33,13 @@ export default function TriggerSelector({ open, onOpenChange, onSelect }: Trigge
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 sm:max-w-[480px]">
         <DialogHeader className="sr-only">
-          <DialogTitle>Select a trigger</DialogTitle>
-          <DialogDescription>Choose a trigger type for your workflow</DialogDescription>
+          <DialogTitle>Selecionar um gatilho</DialogTitle>
+          <DialogDescription>Escolha um tipo de gatilho para sua automação</DialogDescription>
         </DialogHeader>
         <Command>
-          <CommandInput placeholder="Search triggers..." />
+          <CommandInput placeholder="Buscar gatilhos..." />
           <CommandList>
-            <CommandEmpty>No triggers found.</CommandEmpty>
+            <CommandEmpty>Nenhum gatilho encontrado.</CommandEmpty>
             <CommandGroup>
               {TRIGGER_TYPES.map((t) => {
                 return (

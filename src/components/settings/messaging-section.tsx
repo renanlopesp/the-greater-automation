@@ -45,14 +45,14 @@ export default function MessagingSection() {
       const res = await fetch('/api/messaging/link', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Failed to generate code')
+        setError(data.error ?? 'Falha ao gerar código')
         return
       }
       setCode(data.code)
       setInstructions(data.instructions)
       queryClient.invalidateQueries({ queryKey: ['messaging-link'] })
     } catch {
-      setError('Failed to generate code')
+      setError('Falha ao gerar código')
     } finally {
       setIsGenerating(false)
     }
@@ -64,13 +64,13 @@ export default function MessagingSection() {
     try {
       const res = await fetch('/api/messaging/link', { method: 'DELETE' })
       if (!res.ok) {
-        setError('Failed to unlink')
+        setError('Falha ao desvincular')
         return
       }
       queryClient.setQueryData(['messaging-link'], { status: 'not_linked' })
       setCode(null)
     } catch {
-      setError('Failed to unlink')
+      setError('Falha ao desvincular')
     } finally {
       setIsUnlinking(false)
     }
@@ -86,9 +86,9 @@ export default function MessagingSection() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h2 className="text-lg font-semibold">Messaging</h2>
+        <h2 className="text-lg font-semibold">Mensagens</h2>
         <p className="text-muted-foreground text-sm">
-          Connect your Telegram to manage your entire workspace from anywhere
+          Conecte seu Telegram para gerenciar todo o seu workspace de qualquer lugar
         </p>
       </div>
 
@@ -105,15 +105,15 @@ export default function MessagingSection() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageCircle className="size-5" />
-                <span className="font-medium">Telegram Connected</span>
+                <span className="font-medium">Telegram Conectado</span>
               </div>
               <Badge variant="secondary" className="bg-green-100 text-green-700">
-                Active
+                Ativo
               </Badge>
             </div>
             <p className="text-muted-foreground mt-2 text-sm">
-              Your Telegram is linked to your workspace. You can manage agents, workflows, and
-              skills directly from Telegram.
+              Seu Telegram está vinculado ao seu workspace. Você pode gerenciar agentes, automações
+              e skills diretamente pelo Telegram.
             </p>
             <div className="bg-muted mt-4 rounded-lg p-4 text-sm">
               {linkStatus.telegramUsername && (
@@ -123,7 +123,7 @@ export default function MessagingSection() {
                 </div>
               )}
               <div className="mt-2 flex justify-between">
-                <span className="text-muted-foreground">Linked</span>
+                <span className="text-muted-foreground">Vinculado</span>
                 <span className="font-medium">
                   {new Date(linkStatus.createdAt).toLocaleDateString()}
                 </span>
@@ -142,7 +142,7 @@ export default function MessagingSection() {
               ) : (
                 <Unlink className="mr-2 size-4" />
               )}
-              Unlink Telegram
+              Desvincular Telegram
             </Button>
           </div>
         </div>
@@ -154,11 +154,11 @@ export default function MessagingSection() {
           <div className="border-border rounded-lg border p-4">
             <div className="flex items-center gap-2">
               <MessageCircle className="size-5" />
-              <span className="font-medium">Link your Telegram</span>
+              <span className="font-medium">Vincular seu Telegram</span>
             </div>
             <p className="text-muted-foreground mt-2 text-sm">
-              Connect your Telegram account to manage your workspace via chat — create agents,
-              workflows, check integrations, and more.
+              Conecte sua conta do Telegram para gerenciar seu workspace pelo chat — crie agentes,
+              automações, verifique integrações e muito mais.
             </p>
           </div>
 
@@ -166,7 +166,7 @@ export default function MessagingSection() {
           {code && (
             <div className="flex flex-col gap-4">
               <div className="bg-muted rounded-lg p-4 text-center">
-                <p className="text-muted-foreground mb-2 text-sm">Your verification code</p>
+                <p className="text-muted-foreground mb-2 text-sm">Seu código de verificação</p>
                 <div className="flex items-center justify-center gap-2">
                   <code className="text-3xl font-bold tracking-widest">{code}</code>
                   <Button variant="ghost" size="icon" onClick={handleCopyCode}>
@@ -180,7 +180,7 @@ export default function MessagingSection() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-medium">Instructions</p>
+                <p className="text-sm font-medium">Instruções</p>
                 <ol className="text-muted-foreground list-inside list-decimal text-sm">
                   {instructions.map((step) => (
                     <li key={step} className="py-0.5">
@@ -192,7 +192,7 @@ export default function MessagingSection() {
 
               <div className="flex items-center gap-2 text-sm">
                 <Loader2 className="text-primary size-4 animate-spin" />
-                <span className="text-muted-foreground">Waiting for verification...</span>
+                <span className="text-muted-foreground">Aguardando verificação...</span>
               </div>
             </div>
           )}
@@ -203,11 +203,11 @@ export default function MessagingSection() {
             {!code ? (
               <Button onClick={handleGenerateCode} disabled={isGenerating}>
                 {isGenerating && <Loader2 className="mr-2 size-4 animate-spin" />}
-                Generate Code
+                Gerar Código
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setCode(null)}>
-                Cancel
+                Cancelar
               </Button>
             )}
           </div>

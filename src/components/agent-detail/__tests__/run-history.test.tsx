@@ -35,15 +35,15 @@ const mockRuns = [
 describe('RunHistory', () => {
   it('renders empty state when no runs', () => {
     render(<RunHistory runs={[]} />)
-    expect(screen.getByText('No runs yet')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma execução ainda')).toBeInTheDocument()
   })
 
   it('renders status badges', () => {
     render(<RunHistory runs={mockRuns} />)
     // Filter buttons also render these labels, so expect multiple matches
-    expect(screen.getAllByText('Completed').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getAllByText('Failed').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getAllByText('Running').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Concluído').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Falhou').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Em execução').length).toBeGreaterThanOrEqual(2)
   })
 
   it('renders workflow names with emojis', () => {

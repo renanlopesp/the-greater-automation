@@ -50,41 +50,41 @@ export default function SignupForm() {
         )}
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="fullName">Full name</Label>
-          <Input id="fullName" type="text" placeholder="Jane Doe" {...register('fullName')} />
+          <Label htmlFor="fullName">Nome completo</Label>
+          <Input id="fullName" type="text" placeholder="Maria Silva" {...register('fullName')} />
           {errors.fullName && <p className="text-destructive text-sm">{errors.fullName.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />
           {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Senha</Label>
           <Input id="password" type="password" {...register('password')} />
           {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
         </div>
 
         <Button type="submit" className="w-full" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}
-          {pending ? 'Creating account...' : 'Create account'}
+          {pending ? 'Criando conta...' : 'Criar conta'}
         </Button>
       </form>
 
       <div className="relative flex items-center">
         <Separator className="flex-1" />
-        <span className="text-muted-foreground bg-muted/50 px-3 text-xs">or</span>
+        <span className="text-muted-foreground bg-muted/50 px-3 text-xs">ou</span>
         <Separator className="flex-1" />
       </div>
 
       <OAuthButton />
 
       <p className="text-muted-foreground text-center text-sm">
-        Already have an account?{' '}
+        Já tem uma conta?{' '}
         <Link href="/login" className="text-foreground underline-offset-4 hover:underline">
-          Log in
+          Entrar
         </Link>
       </p>
     </div>

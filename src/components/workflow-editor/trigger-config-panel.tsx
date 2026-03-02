@@ -40,7 +40,7 @@ export default function TriggerConfigPanel() {
           onClick={() => setSelectorOpen(true)}
         >
           <RefreshCw className="mr-1 h-3 w-3" />
-          Change type
+          Alterar tipo
         </Button>
       </div>
 
@@ -57,7 +57,7 @@ export default function TriggerConfigPanel() {
 
       <div className="flex items-center justify-end border-t px-4 py-3">
         <Button size="sm" onClick={closeTriggerConfig}>
-          Done
+          Concluído
         </Button>
       </div>
 

@@ -3,7 +3,7 @@ import { Workflow, Mail, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const indicators = [
-  { icon: Workflow, label: 'Automations', tone: 'primary' as const },
+  { icon: Workflow, label: 'Automações', tone: 'primary' as const },
   { icon: Mail, label: 'Email', tone: 'secondary' as const },
   { icon: MessageSquare, label: 'Slack', tone: 'muted' as const },
 ]
@@ -53,9 +53,9 @@ export default function RunsEmptyState() {
         ))}
       </div>
       <p className="text-muted-foreground text-sm">
-        No runs yet.{' '}
+        Nenhuma execução ainda.{' '}
         <Link href="/workspace" className="text-primary underline underline-offset-2">
-          View workflows
+          Ver automações
         </Link>
       </p>
     </div>

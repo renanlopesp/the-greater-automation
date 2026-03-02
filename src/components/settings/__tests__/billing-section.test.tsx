@@ -57,13 +57,11 @@ describe('BillingSection', () => {
         />
       )
 
-      expect(screen.getByRole('heading', { name: 'Billing' })).toBeInTheDocument()
-      // Current plan summary shows "Free" in the bold plan name span
-      expect(screen.getAllByText('Free').length).toBeGreaterThan(0)
+      expect(screen.getByRole('heading', { name: 'Cobrança' })).toBeInTheDocument()
+      // Current plan summary shows "Gratuito" in the bold plan name span
+      expect(screen.getAllByText('Gratuito').length).toBeGreaterThan(0)
       // Free plan description appears in the summary
-      expect(
-        screen.getAllByText('Basic features for individuals and small teams').length
-      ).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Recursos básicos para indivíduos/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -83,7 +81,7 @@ describe('BillingSection', () => {
       expect(screen.getAllByText('Pro').length).toBeGreaterThan(0)
 
       // Description appears in both summary and plan card
-      expect(screen.getAllByText('Advanced tools for growing teams').length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Ferramentas avançadas para equipes/i).length).toBeGreaterThan(0)
     })
   })
 
@@ -99,7 +97,7 @@ describe('BillingSection', () => {
         />
       )
 
-      expect(screen.getByText('Steps')).toBeInTheDocument()
+      expect(screen.getByText('Etapas')).toBeInTheDocument()
       expect(screen.getByText('250 / 1,000')).toBeInTheDocument()
     })
 
@@ -134,7 +132,7 @@ describe('BillingSection', () => {
       // "Current plan" appears both in the summary label and as the Badge on the card
       // Verify the Badge element specifically (data-slot="badge")
       const badges = document.querySelectorAll('[data-slot="badge"]')
-      const currentPlanBadge = Array.from(badges).find((b) => b.textContent === 'Current plan')
+      const currentPlanBadge = Array.from(badges).find((b) => b.textContent === 'Plano atual')
       expect(currentPlanBadge).toBeTruthy()
     })
 
@@ -150,11 +148,13 @@ describe('BillingSection', () => {
       )
 
       const badges = document.querySelectorAll('[data-slot="badge"]')
-      const currentPlanBadge = Array.from(badges).find((b) => b.textContent === 'Current plan')
+      const currentPlanBadge = Array.from(badges).find((b) => b.textContent === 'Plano atual')
       expect(currentPlanBadge).toBeTruthy()
 
       // Upgrade to Pro button should NOT be present (it's the current plan)
-      expect(screen.queryByRole('button', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Fazer upgrade para Pro' })
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -170,8 +170,10 @@ describe('BillingSection', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Upgrade to Enterprise' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Fazer upgrade para Pro' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Fazer upgrade para Enterprise' })
+      ).toBeInTheDocument()
     })
 
     it('does not show upgrade button for the current free plan card', () => {
@@ -186,7 +188,9 @@ describe('BillingSection', () => {
       )
 
       // Free plan card should show disabled "Current plan" button, not "Upgrade to Free"
-      expect(screen.queryByRole('button', { name: 'Upgrade to Free' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Fazer upgrade para Gratuito' })
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -202,7 +206,7 @@ describe('BillingSection', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Manage subscription' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Gerenciar assinatura' })).toBeInTheDocument()
     })
 
     it('shows disabled "Current plan" button when no Stripe subscription', () => {
@@ -216,7 +220,7 @@ describe('BillingSection', () => {
         />
       )
 
-      const currentPlanButton = screen.getByRole('button', { name: 'Current plan' })
+      const currentPlanButton = screen.getByRole('button', { name: 'Plano atual' })
       expect(currentPlanButton).toBeInTheDocument()
       expect(currentPlanButton).toBeDisabled()
     })
@@ -235,9 +239,7 @@ describe('BillingSection', () => {
       )
 
       expect(
-        screen.getByText(
-          'Your subscription will be cancelled at the end of the current billing period.'
-        )
+        screen.getByText('Sua assinatura será cancelada ao final do período de cobrança atual.')
       ).toBeInTheDocument()
     })
 
@@ -253,9 +255,7 @@ describe('BillingSection', () => {
       )
 
       expect(
-        screen.queryByText(
-          'Your subscription will be cancelled at the end of the current billing period.'
-        )
+        screen.queryByText('Sua assinatura será cancelada ao final do período de cobrança atual.')
       ).not.toBeInTheDocument()
     })
 
@@ -271,9 +271,7 @@ describe('BillingSection', () => {
       )
 
       expect(
-        screen.queryByText(
-          'Your subscription will be cancelled at the end of the current billing period.'
-        )
+        screen.queryByText('Sua assinatura será cancelada ao final do período de cobrança atual.')
       ).not.toBeInTheDocument()
     })
   })
@@ -312,7 +310,7 @@ describe('BillingSection', () => {
       expect(screen.getByText('$29')).toBeInTheDocument()
 
       // Click Yearly button
-      const yearlyButton = screen.getByRole('button', { name: /Yearly/i })
+      const yearlyButton = screen.getByRole('button', { name: /Anual/i })
       await user.click(yearlyButton)
 
       // After toggling, yearly prices should show: Pro $23, Enterprise $79
@@ -336,7 +334,7 @@ describe('BillingSection', () => {
         />
       )
 
-      expect(screen.getByText('Save 20%')).toBeInTheDocument()
+      expect(screen.getByText('Economize 20%')).toBeInTheDocument()
     })
   })
 
@@ -365,7 +363,7 @@ describe('BillingSection', () => {
         />
       )
 
-      const upgradeButton = screen.getByRole('button', { name: 'Upgrade to Pro' })
+      const upgradeButton = screen.getByRole('button', { name: 'Fazer upgrade para Pro' })
       await user.click(upgradeButton)
 
       await waitFor(() => {
@@ -398,10 +396,10 @@ describe('BillingSection', () => {
       )
 
       // Switch to yearly
-      const yearlyButton = screen.getByRole('button', { name: /Yearly/i })
+      const yearlyButton = screen.getByRole('button', { name: /Anual/i })
       await user.click(yearlyButton)
 
-      const upgradeButton = screen.getByRole('button', { name: 'Upgrade to Pro' })
+      const upgradeButton = screen.getByRole('button', { name: 'Fazer upgrade para Pro' })
       await user.click(upgradeButton)
 
       await waitFor(() => {
@@ -432,7 +430,7 @@ describe('BillingSection', () => {
         />
       )
 
-      const upgradeButton = screen.getByRole('button', { name: 'Upgrade to Pro' })
+      const upgradeButton = screen.getByRole('button', { name: 'Fazer upgrade para Pro' })
       await user.click(upgradeButton)
 
       await waitFor(() => {

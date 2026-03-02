@@ -123,11 +123,11 @@ function OnboardingContent() {
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
-          throw new Error(data.error || 'Failed to create store')
+          throw new Error(data.error || 'Falha ao criar loja')
         }
         setStep('telegram')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error')
+        setError(err instanceof Error ? err.message : 'Erro desconhecido')
       } finally {
         setLoading(false)
       }
@@ -196,14 +196,14 @@ function OnboardingContent() {
         <CardFooter className="flex justify-between">
           {!isFirstStep && step !== 'telegram' ? (
             <Button variant="ghost" onClick={goBack}>
-              Back
+              Voltar
             </Button>
           ) : (
             <div />
           )}
           {step !== 'telegram' && (
             <Button onClick={goNext} disabled={!canProceed || loading}>
-              {loading ? 'Creating store...' : step === 'priorities' ? 'Create my store' : 'Next'}
+              {loading ? 'Criando loja...' : step === 'priorities' ? 'Criar minha loja' : 'Próximo'}
             </Button>
           )}
         </CardFooter>

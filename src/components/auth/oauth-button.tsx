@@ -43,7 +43,7 @@ export default function OAuthButton() {
           />
         </svg>
       )}
-      Sign in with Google
+      Entrar com Google
     </Button>
   )
 }
