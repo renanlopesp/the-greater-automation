@@ -33,12 +33,11 @@ function resolveTemplate(
 ): string {
   return template.replace(/\{\{([\w.]+)\}\}/g, (match, path: string) => {
     if (path.startsWith('trigger.')) {
-      const fieldPath = path.slice(8) // Remove 'trigger.'
-      const value = getNestedValue(triggerData, fieldPath)
+      const value = getNestedValue(triggerData, path.slice(8))
       return value !== undefined ? String(value) : match
-    } else if (path.startsWith('prev.')) {
-      const fieldPath = path.slice(5) // Remove 'prev.'
-      const value = getNestedValue(previousOutputs, fieldPath)
+    }
+    if (path.startsWith('prev.')) {
+      const value = getNestedValue(previousOutputs, path.slice(5))
       return value !== undefined ? String(value) : match
     }
     return match
@@ -110,9 +109,10 @@ async function executeComposioAction(
     const composio = getComposio()
     const tools = await composio.tools.getRawComposioTools({
       toolkits: [config.app_id],
-      limit: 200,
+      limit: 500,
     })
-    const toolMeta = tools.find((t) => t.slug === config.action)
+    const toolsBySlug = new Map(tools.map((t) => [t.slug, t]))
+    const toolMeta = toolsBySlug.get(config.action)
     const version = toolMeta?.version
 
     // Execute via composio.tools.execute() — requires version + userId for manual execution
@@ -254,7 +254,7 @@ async function executeClaudeAgentStep(
   triggerData: Record<string, unknown>,
   previousOutputs: Record<string, unknown>,
   userId: string,
-  supabaseClient: SupabaseClient
+  ...[]: [SupabaseClient]
 ): Promise<ActionExecutionResult> {
   const startTime = Date.now()
 
@@ -272,7 +272,11 @@ async function executeClaudeAgentStep(
     if (config.tools && config.tools.length > 0) {
       try {
         const { getComposioSession } = await import('@/lib/composio/composio-session')
-        const session = await getComposioSession(userId)
+        // Derive toolkit names from tool slugs (e.g. GITHUB_GET_PR → 'github')
+        const toolkitIds = [
+          ...new Set(config.tools.map((t: string) => t.split('_')[0].toLowerCase())),
+        ]
+        const session = await getComposioSession(userId, toolkitIds)
         const allTools = await session.tools()
 
         // Filter to only the requested tools

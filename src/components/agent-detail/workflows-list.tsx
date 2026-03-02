@@ -27,26 +27,29 @@ interface Workflow {
   run_count?: number
 }
 
+interface TriggerSubscription {
+  id: string
+  agent_workflow_id: string
+  trigger_slug: string
+  app_id: string
+  is_enabled: boolean
+  last_event_at: string | null
+  event_count: number
+}
+
 interface WorkflowsListProps {
   workflows: Workflow[]
   agentId: string
   teamId: string
-  triggerSubscriptions?: Array<{
-    id: string
-    agent_workflow_id: string
-    trigger_slug: string
-    app_id: string
-    is_enabled: boolean
-    last_event_at: string | null
-    event_count: number
-  }>
+  triggerSubscriptions?: TriggerSubscription[]
 }
+
+const EMPTY_SUBSCRIPTIONS: TriggerSubscription[] = []
 
 export default function WorkflowsList({
   workflows,
   agentId,
-  teamId,
-  triggerSubscriptions = [],
+  triggerSubscriptions = EMPTY_SUBSCRIPTIONS,
 }: WorkflowsListProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const [isPending, startTransition] = useTransition()
@@ -107,8 +110,33 @@ export default function WorkflowsList({
     }
   }
 
+  function TriggerStatusIndicator({ workflowId }: { workflowId: string }) {
+    const sub = triggerSubscriptions.find((ts) => ts.agent_workflow_id === workflowId)
+    if (!sub) return null
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+          sub.is_enabled
+            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
+            : 'bg-muted text-muted-foreground'
+        )}
+      >
+        <span
+          className={cn(
+            'h-1.5 w-1.5 rounded-full',
+            sub.is_enabled ? 'animate-pulse bg-emerald-500' : 'bg-muted-foreground'
+          )}
+        />
+        {sub.is_enabled ? 'Listening' : 'Paused'}
+      </span>
+    )
+  }
+
   // Separate legacy and rule workflows
-  const legacyWorkflows = workflows.filter((w) => w.source === 'manual' || w.source === 'dynamic')
+  const legacyWorkflows = workflows.filter(
+    (w) => w.source === 'manual' || w.source === 'dynamic' || w.source === 'provision'
+  )
   const ruleWorkflows = workflows.filter((w) => w.source === 'rule')
 
   return (
@@ -139,32 +167,7 @@ export default function WorkflowsList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{workflow.name}</p>
-                    {(() => {
-                      const sub = triggerSubscriptions.find(
-                        (ts) => ts.agent_workflow_id === workflow.id
-                      )
-                      if (!sub) return null
-                      return (
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
-                            sub.is_enabled
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
-                              : 'bg-muted text-muted-foreground'
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'h-1.5 w-1.5 rounded-full',
-                              sub.is_enabled
-                                ? 'animate-pulse bg-emerald-500'
-                                : 'bg-muted-foreground'
-                            )}
-                          />
-                          {sub.is_enabled ? 'Listening' : 'Paused'}
-                        </span>
-                      )
-                    })()}
+                    <TriggerStatusIndicator workflowId={workflow.id} />
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {workflow.last_run_at

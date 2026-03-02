@@ -29,6 +29,7 @@ export interface WorkspaceAgent {
   palette: string | null
   created_by: string
   workflows: WorkspaceWorkflow[]
+  automation_count: number
 }
 
 export interface WorkspaceFolder {
@@ -68,16 +69,22 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       .from('agents')
       .select('id, name, avatar_url, palette, created_by')
       .eq('team_id', teamId)
+      .eq('is_orchestrator', false)
       .order('name', { ascending: true }),
   ])
 
   const agentIds = (agents ?? []).map((a) => a.id)
   const workflowIds = (workflows ?? []).map((w) => w.id)
 
-  // Fetch workflows, step counts, and last runs in parallel (all depend on IDs from above)
+  // Fetch agent_workflows, step counts, and last runs in parallel (all depend on IDs from above)
   const [workflowsResult, stepsResult, runsResult] = await Promise.all([
     agentIds.length > 0
-      ? supabase.from('agent_workflows').select('agent_id, workflow_id').in('agent_id', agentIds)
+      ? supabase
+          .from('agent_workflows')
+          .select(
+            'id, agent_id, workflow_id, name, is_enabled, created_at, updated_at, last_run_at'
+          )
+          .in('agent_id', agentIds)
       : Promise.resolve({ data: null }),
     workflowIds.length > 0
       ? supabase.from('workflow_steps').select('workflow_id, type').in('workflow_id', workflowIds)
@@ -90,7 +97,7 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       : Promise.resolve({ data: null }),
   ])
 
-  // Build per-agent workflow ID sets from agent_workflows
+  // Build per-agent workflow ID sets from agent_workflows (only linked workflows)
   const agentWorkflowIds: Record<string, Set<string>> = {}
   if (workflowsResult.data) {
     for (const w of workflowsResult.data) {
@@ -155,6 +162,8 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       .map((w) => ({ ...w, agent_id: agent.id }))
     childWorkflows.forEach((w) => claimedWorkflows.add(w.id))
 
+    const allWorkflows = childWorkflows
+
     items.push({
       type: 'agent',
       id: agent.id,
@@ -162,7 +171,8 @@ export async function fetchWorkspaceItems(supabase: Client, teamId: string) {
       avatar_url: agent.avatar_url,
       palette: agent.palette ?? null,
       created_by: agent.created_by,
-      workflows: childWorkflows,
+      workflows: allWorkflows,
+      automation_count: allWorkflows.length,
     })
   }
 

@@ -10,6 +10,7 @@ import {
   deleteTrigger,
 } from '@/lib/composio/triggers'
 import type { Json } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult = { error?: string }
 
@@ -51,11 +52,12 @@ export interface CreateTriggerSubscriptionInput {
 }
 
 export async function createTriggerSubscription(params: CreateTriggerSubscriptionInput) {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Check subscription limit (50 active subscriptions per agent)
@@ -85,7 +87,7 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
 
     // Create trigger in Composio
     const composioTriggerId = await createTrigger({
-      userId: user.id,
+      userId: info.userId,
       triggerSlug: params.triggerSlug,
       connectedAccountId: connection.composio_connection_id,
       triggerConfig: params.triggerConfig,
@@ -98,7 +100,7 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
       .insert({
         agent_workflow_id: params.agentWorkflowId,
         agent_id: params.agentId,
-        user_id: user.id,
+        user_id: info.userId,
         composio_trigger_id: composioTriggerId,
         trigger_slug: params.triggerSlug,
         app_id: params.appId,
@@ -133,6 +135,10 @@ export async function createTriggerSubscription(params: CreateTriggerSubscriptio
 
 export async function getTriggerSubscriptions(agentId: string) {
   const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { subscriptions: [] }
 
   const { data } = await supabase
     .from('trigger_subscriptions')
@@ -174,11 +180,12 @@ export async function toggleTriggerSubscription(
   subscriptionId: string,
   enabled: boolean
 ): Promise<{ success?: boolean } & ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Fetch subscription to get composio_trigger_id
@@ -225,11 +232,12 @@ export async function toggleTriggerSubscription(
 export async function deleteTriggerSubscription(
   subscriptionId: string
 ): Promise<{ success?: boolean } & ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage trigger subscriptions' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
     // Fetch subscription to get composio_trigger_id
@@ -270,39 +278,96 @@ export async function deleteTriggerSubscription(
 // ---------------------------------------------------------------------------
 
 export async function retryWorkflowRun(runId: string) {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to retry workflow runs' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   try {
-    // Load original run
+    // Load original run from workflow_runs (unified table)
     const { data: originalRun } = await supabase
-      .from('agent_workflow_runs')
-      .select('*, agent_workflows(*)')
+      .from('workflow_runs')
+      .select('*, workflows(id, name, status, created_by)')
       .eq('id', runId)
       .single()
 
     if (!originalRun) return { error: 'Run not found' }
     if (originalRun.status !== 'failed') return { error: 'Can only retry failed runs' }
 
-    // Load the workflow
-    const workflow =
-      originalRun.agent_workflows as unknown as import('@/lib/workflows/types').AgentWorkflowRow
-    if (!workflow) return { error: 'Workflow not found' }
-
+    const workflowId = originalRun.workflow_id
     const triggerData = (originalRun.trigger_data as Record<string, unknown>) || {}
 
-    // Execute new pipeline run
-    const { executePipeline } = await import('@/lib/workflows/pipeline-executor')
-    const newRun = await executePipeline({
-      workflow,
+    // Load workflow steps
+    const { data: steps } = await supabase
+      .from('workflow_steps')
+      .select('id, position, type, name, config')
+      .eq('workflow_id', workflowId)
+      .order('position', { ascending: true })
+
+    if (!steps || steps.length === 0) return { error: 'No steps configured' }
+
+    // Create new run
+    const { data: newRun, error: runError } = await supabase
+      .from('workflow_runs')
+      .insert({
+        workflow_id: workflowId,
+        status: 'pending',
+        trigger_type: originalRun.trigger_type,
+        trigger_data: triggerData as unknown as import('@/lib/supabase/database.types').Json,
+        steps_used: 0,
+        ai_credits_used: 0,
+        agent_id: originalRun.agent_id,
+      })
+      .select()
+      .single()
+
+    if (runError || !newRun) return { error: 'Failed to create retry run' }
+
+    // Create run step records
+    const runSteps = steps.map((step) => ({
+      run_id: newRun.id,
+      step_id: step.id,
+      step_position: step.position,
+      step_type: step.type,
+      status: 'pending' as const,
+      input: {},
+      output: {},
+    }))
+
+    await supabase.from('workflow_run_steps').insert(runSteps)
+
+    // Execute through visual executor
+    const { executeVisualWorkflowSteps } = await import('@/lib/workflows/execute-visual-steps')
+    await executeVisualWorkflowSteps({
+      workflowId,
+      runId: newRun.id,
+      userId: info.userId,
       triggerData,
-      userId: user.id,
+      supabase,
     })
 
-    revalidatePath(`/agents/${workflow.agent_id}`)
+    // Update agent_workflows stats if agent-owned
+    if (originalRun.agent_id) {
+      const { data: agentLink } = await supabase
+        .from('agent_workflows')
+        .select('id, run_count')
+        .eq('workflow_id', workflowId)
+        .limit(1)
+        .single()
+
+      if (agentLink) {
+        await supabase
+          .from('agent_workflows')
+          .update({
+            last_run_at: new Date().toISOString(),
+            run_count: (agentLink.run_count ?? 0) + 1,
+          })
+          .eq('id', agentLink.id)
+      }
+    }
+
+    revalidatePath(`/agents`)
     return { success: true, new_run_id: newRun.id }
   } catch (error) {
     return {

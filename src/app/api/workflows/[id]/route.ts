@@ -28,13 +28,13 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Check if workflow has a scheduled trigger and remove the pg_cron job
-    const { data: trigger } = await supabase
-      .from('workflow_triggers')
-      .select('type')
-      .eq('workflow_id', workflowId)
-      .maybeSingle()
+    // Fetch trigger and runs in parallel (independent queries)
+    const [{ data: trigger }, { data: runs }] = await Promise.all([
+      supabase.from('workflow_triggers').select('type').eq('workflow_id', workflowId).maybeSingle(),
+      supabase.from('workflow_runs').select('id').eq('workflow_id', workflowId),
+    ])
 
+    // Remove pg_cron job if scheduled
     if (trigger?.type === 'scheduled') {
       const serviceClient = createServiceClient()
       const jobName = `scheduled_wf_${workflowId}`
@@ -46,24 +46,23 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     // so CASCADE fails if the parent row is already gone. Deleting children
     // first while the parent still exists lets RLS checks pass normally.
 
-    // 1. Get run IDs so we can delete grandchildren (workflow_run_steps)
-    const { data: runs } = await supabase
-      .from('workflow_runs')
-      .select('id')
-      .eq('workflow_id', workflowId)
-
+    // 1. Delete grandchildren (workflow_run_steps + human_approvals)
     if (runs && runs.length > 0) {
       const runIds = runs.map((r) => r.id)
-      await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-      await supabase.from('human_approvals').delete().in('run_id', runIds)
+      await Promise.all([
+        supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+        supabase.from('human_approvals').delete().in('run_id', runIds),
+      ])
     }
 
-    // 2. Delete direct children
-    await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
-    await supabase.from('agent_workflows').delete().eq('workflow_id', workflowId)
-    await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
-    await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
-    await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)
+    // 2. Delete direct children in parallel
+    await Promise.all([
+      supabase.from('step_test_results').delete().eq('workflow_id', workflowId),
+      supabase.from('agent_workflows').delete().eq('workflow_id', workflowId),
+      supabase.from('workflow_runs').delete().eq('workflow_id', workflowId),
+      supabase.from('workflow_steps').delete().eq('workflow_id', workflowId),
+      supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId),
+    ])
 
     // 3. Delete the workflow (no children left, CASCADE is a no-op)
     const { error: deleteError } = await supabase.from('workflows').delete().eq('id', workflowId)

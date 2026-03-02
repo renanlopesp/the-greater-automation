@@ -10,6 +10,8 @@ const ActivitySparkline = dynamic(() => import('@/components/dashboard/activity-
 })
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 
+const EMPTY_SPARKLINE: { day: number; count: number }[] = []
+
 export interface WorkflowListItemProps {
   workflow: {
     id: string
@@ -28,7 +30,7 @@ export default function WorkflowListItem({
   workflow,
   totalRuns = 0,
   lastRunAt = null,
-  sparklineData = [],
+  sparklineData = EMPTY_SPARKLINE,
 }: WorkflowListItemProps) {
   // const edited = formatRelativeTime(workflow.updated_at ?? workflow.created_at)
   const lastRun = lastRunAt ? formatRelativeTime(lastRunAt) : 'No runs completed yet'

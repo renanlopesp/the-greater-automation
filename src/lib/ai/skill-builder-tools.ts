@@ -13,6 +13,95 @@ type TriggerType = Database['public']['Enums']['trigger_type']
 type StepType = Database['public']['Enums']['step_type']
 
 // ---------------------------------------------------------------------------
+// flattenTriggerConfig — sanitize LLM-generated trigger configs
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert camelCase to snake_case.
+ * Composio's listTypes returns camelCase keys (e.g. "channelId") but
+ * triggers.create expects snake_case (e.g. "channel_id").
+ */
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+}
+
+/**
+ * Convert all keys in an object from camelCase to snake_case.
+ */
+function keysToSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(obj)) {
+    result[camelToSnake(key)] = val
+  }
+  return result
+}
+
+/**
+ * LLMs frequently copy Composio's trigger config JSON schema structure instead of
+ * passing flat key-value pairs. For example, the LLM sends:
+ *   { type: "object", title: "ActivityPayload", properties: "{\"channelId\":\"UCxxx\"}", ... }
+ * But Composio expects:
+ *   { channel_id: "UCxxx" }
+ *
+ * This function:
+ * 1. Detects schema-shaped configs and extracts the actual values
+ * 2. Converts camelCase keys to snake_case (Composio API convention)
+ */
+function flattenTriggerConfig(
+  config: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (!config || Object.keys(config).length === 0) return {}
+
+  // Detect JSON schema shape: has "type": "object" plus "properties" or "title"
+  const looksLikeSchema = config.type === 'object' && ('properties' in config || 'title' in config)
+
+  if (!looksLikeSchema) {
+    // Already flat — just convert keys to snake_case
+    return keysToSnakeCase(config)
+  }
+
+  // Known JSON schema metadata keys — anything matching these is NOT real config
+  const schemaMetaKeys = new Set(['type', 'title', 'properties', 'required', 'description'])
+
+  // Try to extract values from "properties"
+  let properties = config.properties
+  if (typeof properties === 'string') {
+    try {
+      properties = JSON.parse(properties)
+    } catch {
+      // properties is a non-JSON string — it's garbage, not real config
+      // Fall through to non-schema key extraction below
+      properties = undefined
+    }
+  }
+
+  if (typeof properties === 'object' && properties !== null) {
+    const flat: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(properties as Record<string, unknown>)) {
+      // If val is a schema descriptor ({ type: "string", ... }), skip it
+      if (typeof val === 'object' && val !== null && 'type' in (val as Record<string, unknown>)) {
+        continue
+      }
+      // Otherwise it's an actual value the LLM embedded
+      flat[camelToSnake(key)] = val
+    }
+    if (Object.keys(flat).length > 0) return flat
+  }
+
+  // Check for non-schema keys that might contain real config values
+  const nonSchemaEntries: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(config)) {
+    if (!schemaMetaKeys.has(key)) {
+      nonSchemaEntries[camelToSnake(key)] = val
+    }
+  }
+  if (Object.keys(nonSchemaEntries).length > 0) return nonSchemaEntries
+
+  // All keys are schema metadata — this is garbage, return empty to trigger validation
+  return {}
+}
+
+// ---------------------------------------------------------------------------
 // JSON Schema definitions for tool parameters
 // ---------------------------------------------------------------------------
 
@@ -49,10 +138,18 @@ const actionJsonSchema: Record<string, unknown> = {
   properties: {
     type: {
       type: 'string',
-      enum: ['composio_action', 'ai_transform', 'notify', 'claude_agent'],
+      enum: ['composio_action', 'ai_transform', 'notify', 'claude_agent', 'web_scraping'],
     },
     action: { type: 'string', description: 'Composio action ID like SLACK_SEND_MESSAGE' },
     app_id: { type: 'string', description: 'App ID like slack' },
+    url: { type: 'string', description: 'URL to scrape (for web_scraping type)' },
+    scraping_action: {
+      type: 'string',
+      enum: ['scrape', 'map', 'search'],
+      description:
+        "Scraping action: 'scrape' (extract page), 'map' (site URLs), 'search' (search query). Default: 'scrape'",
+    },
+    query: { type: 'string', description: 'Search query (for web_scraping search action)' },
     params: {
       type: 'object',
       additionalProperties: { type: 'string' },
@@ -62,7 +159,7 @@ const actionJsonSchema: Record<string, unknown> = {
     prompt: { type: 'string', description: 'AI prompt with {{trigger.field}} templates' },
     output_key: { type: 'string', description: 'Key to store AI output for next action' },
     model: { type: 'string' },
-    channel: { type: 'string', enum: ['internal', 'slack', 'email'] },
+    channel: { type: 'string', enum: ['internal', 'slack', 'email', 'telegram'] },
     message: { type: 'string', description: 'Notification message with templates' },
     target: { type: 'string', description: 'Channel name, email, etc.' },
     tools: {
@@ -76,8 +173,9 @@ const actionJsonSchema: Record<string, unknown> = {
     },
     output_format: {
       type: 'string',
-      enum: ['text', 'json'],
-      description: 'Output format for claude_agent (default: text)',
+      enum: ['text', 'json', 'markdown', 'html'],
+      description:
+        "Output format: 'text'/'json' for claude_agent, 'markdown'/'html' for web_scraping",
     },
   },
   required: ['type'],
@@ -94,19 +192,22 @@ interface ConditionParam {
 }
 
 interface ActionParam {
-  type: 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent'
+  type: 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent' | 'web_scraping'
   action?: string
   app_id?: string
   params?: Record<string, string>
   prompt?: string
   output_key?: string
   model?: string
-  channel?: 'internal' | 'slack' | 'email'
+  channel?: 'internal' | 'slack' | 'email' | 'telegram'
   message?: string
   target?: string
   tools?: string[]
   timeout_ms?: number
-  output_format?: 'text' | 'json'
+  output_format?: 'text' | 'json' | 'markdown' | 'html'
+  url?: string
+  scraping_action?: 'scrape' | 'map' | 'search'
+  query?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +231,8 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
         model: a.model,
       }
     } else if (a.type === 'claude_agent') {
+      const fmt =
+        a.output_format === 'text' || a.output_format === 'json' ? a.output_format : undefined
       return {
         type: 'claude_agent' as const,
         prompt: a.prompt || '',
@@ -137,12 +240,24 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
         tools: a.tools,
         model: a.model,
         timeout_ms: a.timeout_ms,
-        output_format: a.output_format,
+        output_format: fmt,
+      }
+    } else if (a.type === 'web_scraping') {
+      const fmt =
+        a.output_format === 'markdown' || a.output_format === 'html'
+          ? a.output_format
+          : ('markdown' as const)
+      return {
+        type: 'web_scraping' as const,
+        url: a.url || '',
+        scraping_action: a.scraping_action || 'scrape',
+        output_format: fmt,
+        query: a.query,
       }
     } else {
       return {
         type: 'notify' as const,
-        channel: (a.channel || 'internal') as 'internal' | 'slack' | 'email',
+        channel: (a.channel || 'internal') as 'internal' | 'slack' | 'email' | 'telegram',
         message: a.message || '',
         target: a.target,
       }
@@ -155,8 +270,13 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
 // compatibility. zodSchema() does not work with Zod v4.
 // ---------------------------------------------------------------------------
 
-export function buildSkillBuilderTools(agentId: string, userId: string, teamId: string) {
-  return {
+export function buildSkillBuilderTools(
+  agentId: string,
+  userId: string,
+  teamId: string,
+  toolMode: 'full' | 'chat' = 'full'
+) {
+  const allTools = {
     SNEW_LIST_APP_CAPABILITIES: {
       description:
         'List available Composio actions AND triggers for an app (e.g. github, slack, discord). ALWAYS call this before creating a workflow with composio_action to get the correct action names and required parameters. Never guess action names. Triggers are events the app can listen for (e.g. new message, new issue).',
@@ -177,7 +297,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
           // Query both tools (actions) and trigger types in parallel
           const [tools, triggerTypesResult] = await Promise.all([
-            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 200 }),
+            composio.tools.getRawComposioTools({ toolkits: [params.app_id], limit: 500 }),
             composio.triggers.listTypes({ toolkits: [params.app_id] }).catch(() => ({ items: [] })),
           ])
 
@@ -216,26 +336,72 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
               config?: Record<string, unknown>
               payload?: Record<string, unknown>
             }) => {
-              // Build lightweight sample payload (top 10 fields, truncate nested objects)
-              const samplePayload = t.payload
-                ? Object.fromEntries(
-                    Object.entries(t.payload)
-                      .slice(0, 10)
-                      .map(([key, val]) => [
-                        key,
-                        typeof val === 'object' && val !== null ? '(object)' : val,
-                      ])
-                  )
-                : null
+              // Build sample payload with dot-paths so the AI knows the exact template paths
+              // e.g. { "activity.snippet.title": "string", "activity.contentDetails.upload.videoId": "string" }
+              const flattenPayload = (
+                obj: Record<string, unknown>,
+                prefix = ''
+              ): Record<string, string> => {
+                const result: Record<string, string> = {}
+                let count = 0
+                for (const [key, val] of Object.entries(obj)) {
+                  if (count >= 30) break // cap total fields
+                  const path = prefix ? `${prefix}.${key}` : key
+                  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    const nested = flattenPayload(val as Record<string, unknown>, path)
+                    for (const [nk, nv] of Object.entries(nested)) {
+                      if (count >= 30) break
+                      result[nk] = nv
+                      count++
+                    }
+                  } else {
+                    result[path] = Array.isArray(val)
+                      ? 'array'
+                      : typeof val === 'string'
+                        ? val.slice(0, 40)
+                        : String(val ?? 'unknown')
+                    count++
+                  }
+                }
+                return result
+              }
+              const samplePayload = t.payload ? flattenPayload(t.payload) : null
+
+              // Build config details — extract simple key/type/description for LLM, NOT the raw JSON schema
+              const configDetails = t.config
+                ? Object.entries(t.config).map(([key, val]) => {
+                    const schema =
+                      typeof val === 'object' && val !== null
+                        ? (val as Record<string, unknown>)
+                        : {}
+                    return {
+                      key,
+                      type: (schema.type as string) || 'string',
+                      description: (schema.description as string) || '',
+                      required: true,
+                    }
+                  })
+                : []
+
+              const configKeys = configDetails.map((c) => c.key)
+              // Build an example showing the EXACT format: { key1: "user_value", key2: "user_value" }
+              const exampleConfig =
+                configKeys.length > 0
+                  ? `{ ${configKeys.map((k) => `${k}: "<user_provided_value>"`).join(', ')} }`
+                  : '{}'
 
               return {
                 trigger_name: t.slug,
                 display_name: t.name,
                 description: t.description?.slice(0, 120) || '',
-                config_params: t.config ? Object.keys(t.config) : [],
-                payload_fields: t.payload ? Object.keys(t.payload) : [],
+                config_params: configKeys,
+                config_details: configDetails,
+                payload_fields: samplePayload ? Object.keys(samplePayload) : [],
                 sample_payload: samplePayload,
-                _trigger_hint: `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Event data fields available via {{trigger.data.fieldName}} templates.`,
+                _trigger_hint:
+                  configKeys.length > 0
+                    ? `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. REQUIRED: You MUST pass trigger_config as a FLAT object with user-provided values like: ${exampleConfig}. Do NOT copy the schema — just pass the key-value pairs. NEVER leave trigger_config empty when config_params exist. For action params, use {{trigger.<path>}} where <path> is an EXACT dot-path from sample_payload.`
+                    : `Use trigger_slug '${t.slug}' with trigger_app_id '${params.app_id}' in SNEW_CREATE_WORKFLOW with trigger.type='app_event'. Use the sample_payload keys as template paths: {{trigger.<path>}} where <path> is the EXACT dot-path from sample_payload. NEVER guess field paths — only use paths shown in sample_payload.`,
               }
             }
           )
@@ -247,7 +413,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             triggers_count: triggers.length,
             triggers,
             _hint:
-              'Use action names from "actions" for composio_action steps. Use trigger names from "triggers" for event-driven workflows (Composio polls for events automatically). You MUST populate the params object with ALL required_params. Use {{trigger.field.path}} for webhook data, {{prev.key}} for previous action output, or ask the user for values you cannot derive from the trigger payload.',
+              'Use action names from "actions" for composio_action steps. Use trigger names from "triggers" for event-driven workflows (Composio polls for events automatically). You MUST populate the params object with ALL required_params. Use {{trigger.<exact_path>}} where <exact_path> is a dot-path from the trigger\'s sample_payload (e.g., {{trigger.activity.snippet.title}}). NEVER invent paths like {{trigger.data.X}} — always use the exact paths shown in sample_payload. Use {{prev.key}} for previous action output, or ask the user for values you cannot derive.',
           }
         } catch (error) {
           return {
@@ -294,7 +460,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
                 type: 'object',
                 additionalProperties: true,
                 description:
-                  'App-specific trigger configuration params — optional for app_event triggers',
+                  'App-specific trigger config — a FLAT key-value object, NOT a JSON schema. REQUIRED when config_params exist. Example: { "channelId": "UCxxxx" } for YouTube. Just pass the param name and the user-provided value. Do NOT include type/title/required/properties schema fields.',
               },
               filters: {
                 type: 'array',
@@ -349,6 +515,53 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         actions: ActionParam[]
         execution_mode?: string
       }) => {
+        // Sanitize trigger_config: LLMs often pass JSON schema structure instead of flat values
+        if (params.trigger.trigger_config) {
+          params.trigger.trigger_config = flattenTriggerConfig(params.trigger.trigger_config)
+        }
+
+        // Validate: app_event triggers MUST have trigger_config with actual values
+        if (params.trigger.type === 'app_event') {
+          const tc = params.trigger.trigger_config
+          if (!tc || Object.keys(tc).length === 0) {
+            // Try to fetch required config fields from Composio for a helpful error
+            let requiredFields = 'the required config fields'
+            try {
+              const { listTriggers } = await import('@/lib/composio/triggers')
+              const triggers = await listTriggers(params.trigger.trigger_app_id || '')
+              const match = triggers.find((t) => t.trigger_name === params.trigger.trigger_slug)
+              if (match && match.config_params) {
+                // config_params is a JSON schema — extract field names from properties
+                const schema = match.config_params as Record<string, unknown>
+                const props = schema.properties as Record<string, unknown> | undefined
+                if (props && typeof props === 'object') {
+                  const keys = Object.keys(props)
+                  requiredFields = keys.map((k) => camelToSnake(k)).join(', ')
+                } else {
+                  // Fallback: use top-level keys minus JSON schema metadata
+                  const schemaKeys = new Set([
+                    'type',
+                    'title',
+                    'properties',
+                    'required',
+                    'description',
+                  ])
+                  const keys = Object.keys(schema).filter((k) => !schemaKeys.has(k))
+                  if (keys.length > 0) {
+                    requiredFields = keys.map((k) => camelToSnake(k)).join(', ')
+                  }
+                }
+              }
+            } catch {
+              // Ignore — use generic message
+            }
+            return {
+              success: false,
+              error: `app_event triggers REQUIRE trigger_config with actual values. You are missing: ${requiredFields}. Pass trigger_config as a flat object like { "channel_id": "UCxxxx" } — do NOT use filters for config params. Each trigger subscription monitors ONE channel/repo/resource, so create separate workflows per channel.`,
+            }
+          }
+        }
+
         // Validate composio_action params are not empty
         const emptyParamActions = params.actions.filter(
           (a) => a.type === 'composio_action' && (!a.params || Object.keys(a.params).length === 0)
@@ -376,7 +589,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             try {
               const tools = await composio.tools.getRawComposioTools({
                 toolkits: [appId],
-                limit: 200,
+                limit: 500,
               })
               for (const t of tools) {
                 allSlugs.add((t as { slug: string }).slug)
@@ -442,6 +655,14 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             cron_expression: params.trigger.cron_expression || '0 9 * * *',
             timezone: params.trigger.timezone || 'America/Sao_Paulo',
           }
+        } else if (params.trigger.type === 'app_event') {
+          triggerType = 'app'
+          triggerConfig = {
+            app_id: params.trigger.trigger_app_id || '',
+            event: params.trigger.trigger_slug || '',
+            filters: {},
+            trigger_config: params.trigger.trigger_config || {},
+          }
         } else {
           triggerType = 'manual'
           triggerConfig = { run_inputs: [] }
@@ -478,13 +699,32 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
               temperature: 0.3,
               max_tokens: 500,
             }
-          } else {
-            // notify → utility with format template
-            stepType = 'utility'
-            stepName = `Notify: ${action.channel || 'internal'}`
+          } else if (action.type === 'web_scraping') {
+            stepType = 'web_scraping'
+            stepName = `Scrape: ${action.url ? new URL(action.url).hostname : 'URL'}`
             stepConfig = {
-              utility_type: 'format',
-              format_template: action.message || '',
+              action: action.scraping_action || 'scrape',
+              url: action.url || '',
+              output_format: action.output_format || 'markdown',
+              only_main_content: true,
+              ...(action.query ? { query: action.query } : {}),
+            }
+          } else {
+            // notify → utility step (send_telegram when channel is telegram, format otherwise)
+            stepType = 'utility'
+            if (action.channel === 'telegram') {
+              stepName = 'Send Telegram Alert'
+              stepConfig = {
+                utility_type: 'send_telegram',
+                telegram_template: action.message || '{{prev.output}}',
+                telegram_parse_mode: 'Markdown',
+              }
+            } else {
+              stepName = `Notify: ${action.channel || 'internal'}`
+              stepConfig = {
+                utility_type: 'format',
+                format_template: action.message || '',
+              }
             }
           }
 
@@ -617,14 +857,19 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
             revalidatePath(`/agents/${agentId}`)
             return result
           } catch (triggerError) {
-            // Workflow was created but trigger subscription failed
+            // Trigger subscription failed — rollback the workflow to avoid orphans
+            try {
+              await supabase.from('agent_workflows').delete().eq('id', skill.id)
+              await supabase.from('workflow_triggers').delete().eq('workflow_id', workflow.id)
+              await supabase.from('workflows').delete().eq('id', workflow.id)
+            } catch {
+              // Best-effort cleanup
+            }
             revalidatePath(`/agents/${agentId}`)
+            const errMsg = triggerError instanceof Error ? triggerError.message : 'Unknown error'
             return {
-              success: true,
-              skill_id: skill.id,
-              workflow_id: workflow.id,
-              name: skill.name,
-              trigger_warning: `Workflow created but trigger subscription failed: ${triggerError instanceof Error ? triggerError.message : 'Unknown error'}. You can retry by deleting and recreating the workflow.`,
+              success: false,
+              error: `Trigger subscription failed: ${errMsg}. The workflow was NOT saved — fix the trigger_config and try again.`,
             }
           }
         }
@@ -668,7 +913,8 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
     },
 
     SNEW_UPDATE_WORKFLOW: {
-      description: 'Update an existing workflow configuration.',
+      description:
+        'Update an existing workflow configuration. Prefer this over creating a new workflow when a similar one already exists.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
@@ -679,6 +925,20 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           execution_mode: { type: 'string', enum: ['auto', 'confirm', 'draft'] },
           conditions: { type: 'array', items: conditionJsonSchema },
           actions: { type: 'array', items: actionJsonSchema },
+          trigger_config: {
+            type: 'object',
+            description:
+              'Update the trigger configuration. Include type (manual, scheduled, webhook, app_event) and relevant fields (trigger_slug, trigger_app_id, trigger_config for app_event).',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['manual', 'scheduled', 'webhook', 'app_event'],
+              },
+              trigger_slug: { type: 'string' },
+              trigger_app_id: { type: 'string' },
+              trigger_config: { type: 'object', additionalProperties: true },
+            },
+          },
         },
         required: ['skill_id'],
       }),
@@ -690,7 +950,20 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         execution_mode?: string
         conditions?: ConditionParam[]
         actions?: ActionParam[]
+        trigger_config?: {
+          type?: string
+          trigger_slug?: string
+          trigger_app_id?: string
+          trigger_config?: Record<string, unknown>
+        }
       }) => {
+        // Sanitize nested trigger_config: LLMs often pass JSON schema structure
+        if (params.trigger_config?.trigger_config) {
+          params.trigger_config.trigger_config = flattenTriggerConfig(
+            params.trigger_config.trigger_config
+          )
+        }
+
         const supabase = await createServerClient()
         const update: Record<string, unknown> = {}
         if (params.name) update.name = params.name
@@ -699,6 +972,7 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
         if (params.execution_mode) update.execution_mode = params.execution_mode
         if (params.conditions) update.conditions = params.conditions
         if (params.actions) update.actions = buildActions(params.actions)
+        if (params.trigger_config) update.trigger_config = params.trigger_config
 
         const { error } = await supabase
           .from('agent_workflows')
@@ -706,6 +980,119 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
         if (error) return { success: false, error: error.message }
+
+        // Fetch the linked workflow_id for syncing to workflow tables
+        const { data: agentWorkflow } = await supabase
+          .from('agent_workflows')
+          .select('workflow_id')
+          .eq('id', params.skill_id)
+          .single()
+
+        if (agentWorkflow?.workflow_id) {
+          // Sync name/description to the workflows table
+          if (params.name || params.description) {
+            const wfUpdate: Record<string, unknown> = {}
+            if (params.name) wfUpdate.name = params.name
+            if (params.description) wfUpdate.description = params.description
+            await supabase.from('workflows').update(wfUpdate).eq('id', agentWorkflow.workflow_id)
+          }
+
+          // Sync actions to workflow_steps table (delete + re-create)
+          if (params.actions) {
+            await supabase
+              .from('workflow_steps')
+              .delete()
+              .eq('workflow_id', agentWorkflow.workflow_id)
+
+            for (let i = 0; i < params.actions.length; i++) {
+              const action = params.actions[i]
+              let stepType: StepType
+              let stepName: string
+              let stepConfig: Record<string, unknown>
+
+              if (action.type === 'composio_action') {
+                stepType = 'app'
+                stepName = action.action || 'App Action'
+                stepConfig = {
+                  app_id: action.app_id || '',
+                  action: action.action || '',
+                  inputs: action.params || {},
+                }
+              } else if (action.type === 'ai_transform') {
+                stepType = 'ai'
+                stepName = `AI: ${action.output_key || 'transform'}`
+                stepConfig = {
+                  ai_action: 'transform',
+                  prompt_template: action.prompt || '',
+                  output_format: 'text',
+                  temperature: 0.3,
+                  max_tokens: 500,
+                }
+              } else if (action.type === 'web_scraping') {
+                stepType = 'web_scraping'
+                stepName = `Scrape: ${action.url ? new URL(action.url).hostname : 'URL'}`
+                stepConfig = {
+                  action: action.scraping_action || 'scrape',
+                  url: action.url || '',
+                  output_format: action.output_format || 'markdown',
+                  only_main_content: true,
+                  ...(action.query ? { query: action.query } : {}),
+                }
+              } else {
+                // notify → utility step (send_telegram when channel is telegram, format otherwise)
+                stepType = 'utility'
+                if (action.channel === 'telegram') {
+                  stepName = 'Send Telegram Alert'
+                  stepConfig = {
+                    utility_type: 'send_telegram',
+                    telegram_template: action.message || '{{prev.output}}',
+                    telegram_parse_mode: 'Markdown',
+                  }
+                } else {
+                  stepName = `Notify: ${action.channel || 'internal'}`
+                  stepConfig = {
+                    utility_type: 'format',
+                    format_template: action.message || '',
+                  }
+                }
+              }
+
+              await supabase.from('workflow_steps').insert({
+                workflow_id: agentWorkflow.workflow_id,
+                position: i,
+                type: stepType,
+                name: stepName,
+                config: stepConfig as unknown as Json,
+              })
+            }
+          }
+
+          // Sync trigger_config to workflow_triggers table
+          if (params.trigger_config) {
+            let triggerType: TriggerType = 'manual'
+            let triggerConfig: Record<string, unknown> = {}
+
+            if (params.trigger_config.type === 'app_event') {
+              triggerType = 'app'
+              triggerConfig = {
+                app_id: params.trigger_config.trigger_app_id || '',
+                event: params.trigger_config.trigger_slug || '',
+                filters: {},
+                trigger_config: params.trigger_config.trigger_config || {},
+              }
+            } else if (params.trigger_config.type === 'webhook') {
+              triggerType = 'webhook'
+            } else if (params.trigger_config.type === 'scheduled') {
+              triggerType = 'scheduled'
+            }
+
+            await supabase
+              .from('workflow_triggers')
+              .update({ type: triggerType, config: triggerConfig as unknown as Json })
+              .eq('workflow_id', agentWorkflow.workflow_id)
+          }
+        }
+
         revalidatePath(`/agents/${agentId}`)
         return { success: true }
       },
@@ -722,12 +1109,42 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       }),
       execute: async (params: { skill_id: string }) => {
         const supabase = await createServerClient()
-        const { error } = await supabase
+
+        // 1. Load the agent_workflow to get the linked workflow_id
+        const { data: skill } = await supabase
           .from('agent_workflows')
-          .delete()
+          .select('id, workflow_id')
           .eq('id', params.skill_id)
           .eq('agent_id', agentId)
-        if (error) return { success: false, error: error.message }
+          .single()
+        if (!skill) return { success: false, error: 'Workflow not found' }
+
+        // 2. Delete Composio trigger subscription if one exists
+        const { data: subscriptions } = await supabase
+          .from('trigger_subscriptions')
+          .select('id, composio_trigger_id')
+          .eq('agent_workflow_id', skill.id)
+        if (subscriptions && subscriptions.length > 0) {
+          const { deleteTrigger } = await import('@/lib/composio/triggers')
+          for (const sub of subscriptions) {
+            if (sub.composio_trigger_id) {
+              try {
+                await deleteTrigger(sub.composio_trigger_id)
+              } catch {
+                // Best-effort — Composio trigger may already be gone
+              }
+            }
+          }
+          await supabase.from('trigger_subscriptions').delete().eq('agent_workflow_id', skill.id)
+        }
+
+        // 3. Delete DB records: agent_workflows, workflow_triggers, workflows
+        await supabase.from('agent_workflows').delete().eq('id', skill.id)
+        if (skill.workflow_id) {
+          await supabase.from('workflow_triggers').delete().eq('workflow_id', skill.workflow_id)
+          await supabase.from('workflows').delete().eq('id', skill.workflow_id)
+        }
+
         revalidatePath(`/agents/${agentId}`)
         return { success: true }
       },
@@ -777,45 +1194,95 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
 
     SNEW_CHECK_CONNECTIONS: {
       description:
-        'Check which apps the user has connected, including auth type (OAuth, Bot, API Key). Use this to verify required integrations are set up and have the right auth type before creating a workflow. Important: some actions/triggers require specific auth types (e.g. Discord channel polling needs a Bot token, not OAuth).',
+        'Check which apps are connected for this agent, including auth type (OAuth, Bot, API Key). Returns both your own connections and team connections from owners/admins. Use this to verify required integrations are set up and have the right auth type before creating a workflow. Important: some actions/triggers require specific auth types (e.g. Discord channel polling needs a Bot token, not OAuth).',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {},
       }),
       execute: async () => {
-        // Query Composio directly for real connected accounts with auth details
         try {
-          const composio = getComposio()
-          const { items } = await composio.connectedAccounts.list({ userIds: [userId] })
-          const activeAccounts = items
-            .filter((acc: { status: string }) => acc.status === 'ACTIVE')
-            .map(
-              (acc: {
-                id: string
+          const supabase = await createServerClient()
+
+          // Get all available connections for this agent (own + team owner/admin)
+          const { data: rpcConnections } = await supabase.rpc('get_agent_available_connections', {
+            p_agent_id: agentId,
+            p_user_id: userId,
+          })
+
+          const rpcRows = (rpcConnections ?? []) as Array<{
+            app_id: string
+            account_label: string | null
+            connection_user_id: string
+            is_own_connection: boolean
+          }>
+
+          // Try to enrich own connections with Composio auth details
+          const composioDetails: Record<string, { auth_type: string; scopes: string | null }> = {}
+          try {
+            const composio = getComposio()
+            const { items } = await composio.connectedAccounts.list({ userIds: [userId] })
+            for (const acc of items.filter((a: { status: string }) => a.status === 'ACTIVE')) {
+              const typed = acc as {
                 toolkit?: { slug?: string }
                 state?: { authScheme?: string }
                 data?: { scope?: string }
-              }) => ({
-                app_id: acc.toolkit?.slug || 'unknown',
-                connection_id: acc.id,
-                auth_type: acc.state?.authScheme || 'unknown',
-                scopes: acc.data?.scope || null,
-              })
-            )
+              }
+              const appId = typed.toolkit?.slug || 'unknown'
+              composioDetails[appId] = {
+                auth_type: typed.state?.authScheme || 'unknown',
+                scopes: typed.data?.scope || null,
+              }
+            }
+          } catch {
+            // Composio enrichment is optional
+          }
+
+          const connectedApps = rpcRows.map((row) => ({
+            app_id: row.app_id,
+            account_label: row.account_label,
+            is_own_connection: row.is_own_connection,
+            auth_type:
+              composioDetails[row.app_id]?.auth_type ||
+              (row.is_own_connection ? 'unknown' : 'managed_by_team'),
+            scopes: composioDetails[row.app_id]?.scopes || null,
+          }))
+
+          // Check for Telegram via SnewClaw (messaging_links) — not a Composio connection
+          // but available for workflow "notify" steps with channel: "telegram".
+          // Search by team_id so we find the team owner's link (not just the current user's).
+          const { data: messagingLink } = await supabase
+            .from('messaging_links')
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('channel_type', 'telegram')
+            .eq('is_verified', true)
+            .limit(1)
+            .maybeSingle()
+          if (messagingLink) {
+            connectedApps.push({
+              app_id: 'telegram',
+              account_label: 'Telegram (via messaging)',
+              is_own_connection: true,
+              auth_type: 'bot_token',
+              scopes: null,
+            })
+          }
 
           return {
-            connected_apps: activeAccounts,
+            connected_apps: connectedApps,
             _hint:
-              'Check auth_type before creating workflows. OAuth user tokens have limited permissions (e.g. cannot read guild channel messages on Discord — need Bot token). Bot/API Key connections generally have broader access. If the auth type is wrong for your intended action, tell the user they need a different connection type.',
+              'Apps with is_own_connection=true are yours. Apps with is_own_connection=false are connected by a team owner/admin and available to this agent. Check auth_type before creating workflows. Telegram via messaging is available for workflow "notify" steps — no Composio connection needed.',
           }
         } catch {
-          // Fallback to local DB
+          // Fallback to local DB — own connections only
           const supabase = await createServerClient()
           const { data: connections } = await supabase
             .from('app_connections')
             .select('app_id, account_label')
             .eq('user_id', userId)
-          return { connected_apps: connections || [] }
+          return {
+            connected_apps: (connections || []).map((c) => ({ ...c, is_own_connection: true })),
+          }
         }
       },
     },
@@ -1209,4 +1676,14 @@ export function buildSkillBuilderTools(agentId: string, userId: string, teamId: 
       },
     },
   }
+
+  // In 'chat' mode (no Composio apps), exclude Composio-specific tools to reduce
+  // token count but keep workflow tools — agents like Price Monitor need them to
+  // create automations (e.g. scheduled web scraping) even without Composio apps.
+  if (toolMode === 'chat') {
+    const excluded = new Set(['SNEW_LIST_APP_CAPABILITIES'])
+    return Object.fromEntries(Object.entries(allTools).filter(([name]) => !excluded.has(name)))
+  }
+
+  return allTools
 }

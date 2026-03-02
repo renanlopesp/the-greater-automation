@@ -3,7 +3,12 @@
 // ---------------------------------------------------------------------------
 
 export type WorkflowTriggerType = 'manual' | 'chat_command' | 'webhook' | 'scheduled' | 'app_event'
-export type WorkflowActionType = 'composio_action' | 'ai_transform' | 'notify' | 'claude_agent'
+export type WorkflowActionType =
+  | 'composio_action'
+  | 'ai_transform'
+  | 'notify'
+  | 'claude_agent'
+  | 'web_scraping'
 export type WorkflowExecutionMode = 'auto' | 'confirm' | 'draft'
 export type WorkflowSource = 'manual' | 'dynamic' | 'rule'
 
@@ -105,7 +110,7 @@ export interface AiTransformActionConfig {
 
 export interface NotifyActionConfig {
   type: 'notify'
-  channel: 'internal' | 'slack' | 'email'
+  channel: 'internal' | 'slack' | 'email' | 'telegram'
   message: string // supports {{trigger.field}} templates
   target?: string // channel name, email, etc.
 }
@@ -120,11 +125,20 @@ export interface ClaudeAgentActionConfig {
   output_format?: 'text' | 'json' // structured output format
 }
 
+export interface WebScrapingActionConfig {
+  type: 'web_scraping'
+  url: string
+  scraping_action: 'scrape' | 'map' | 'search'
+  output_format: 'markdown' | 'html'
+  query?: string
+}
+
 export type WorkflowActionConfig =
   | ComposioActionConfig
   | AiTransformActionConfig
   | NotifyActionConfig
   | ClaudeAgentActionConfig
+  | WebScrapingActionConfig
 
 // ---------------------------------------------------------------------------
 // Full Workflow Definition (what the AI builds via SNEW_CREATE_WORKFLOW)

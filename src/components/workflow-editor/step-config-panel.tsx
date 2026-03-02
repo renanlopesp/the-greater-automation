@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { Trash2, Play, Loader2, CheckCircle2, FlaskConical } from 'lucide-react'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
 import { isStepConfigComplete, TESTABLE_STEP_TYPES } from '@/lib/workflow-editor/step-defaults'
@@ -24,31 +24,31 @@ import type {
   UtilityStepConfig,
   SequenceStepConfig,
 } from '@/lib/workflow-editor/step-defaults'
-import AIStepConfigForm from './step-config/ai-step-config'
-import HTTPStepConfigForm from './step-config/http-step-config'
-import AppStepConfigForm from './step-config/app-step-config'
-import FlowControlStepConfigForm from './step-config/flow-control-step-config'
-import WebScrapingStepConfigForm from './step-config/web-scraping-step-config'
-import HumanInLoopStepConfigForm from './step-config/human-in-loop-step-config'
-import UtilityStepConfigForm from './step-config/utility-step-config'
-import SequenceStepConfigForm from './step-config/sequence-step-config'
+
+const AIStepConfigForm = lazy(() => import('./step-config/ai-step-config'))
+const HTTPStepConfigForm = lazy(() => import('./step-config/http-step-config'))
+const AppStepConfigForm = lazy(() => import('./step-config/app-step-config'))
+const FlowControlStepConfigForm = lazy(() => import('./step-config/flow-control-step-config'))
+const WebScrapingStepConfigForm = lazy(() => import('./step-config/web-scraping-step-config'))
+const HumanInLoopStepConfigForm = lazy(() => import('./step-config/human-in-loop-step-config'))
+const UtilityStepConfigForm = lazy(() => import('./step-config/utility-step-config'))
+const SequenceStepConfigForm = lazy(() => import('./step-config/sequence-step-config'))
 
 export default function StepConfigPanel() {
-  const { steps, selectedStepId, updateStep, deleteStep, selectStep, workflowId } =
-    useWorkflowEditorStore()
+  const selectedStep = useWorkflowEditorStore(
+    (s) => s.steps.find((step) => step.id === s.selectedStepId) ?? null
+  )
+  const updateStep = useWorkflowEditorStore((s) => s.updateStep)
+  const deleteStep = useWorkflowEditorStore((s) => s.deleteStep)
+  const selectStep = useWorkflowEditorStore((s) => s.selectStep)
+  const workflowId = useWorkflowEditorStore((s) => s.workflowId)
   const testStep = useTestStep(workflowId)
   const { data: currentUser } = useCurrentUser()
   const [testStarted, setTestStarted] = useState(false)
 
-  const selectedStep = steps.find((s) => s.id === selectedStepId)
   if (!selectedStep) return null
 
   const meta = getStepMeta(selectedStep.type)
-  const IconComponent = meta
-    ? (LucideIcons[meta.icon as keyof typeof LucideIcons] as React.ComponentType<{
-        className?: string
-      }>)
-    : null
 
   const isTestable = TESTABLE_STEP_TYPES.includes(selectedStep.type)
   const canTest = isStepConfigComplete(selectedStep) && !testStep.isPending
@@ -74,7 +74,7 @@ export default function StepConfigPanel() {
     <div className="flex h-full w-full flex-col border-l">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
-          {IconComponent && <IconComponent className="text-primary h-4 w-4" />}
+          {meta && <DynamicIcon name={meta.icon} className="text-primary h-4 w-4" />}
         </div>
         <Input
           value={selectedStep.name}
@@ -102,68 +102,76 @@ export default function StepConfigPanel() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="scrollbar-visible min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
           <p className="text-muted-foreground text-sm">{meta?.description}</p>
           <Separator />
 
-          {selectedStep.type === 'ai' && (
-            <AIStepConfigForm
-              config={selectedStep.config as AIStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+          <Suspense
+            fallback={
+              <div className="p-4">
+                <Skeleton className="h-32 w-full" />
+              </div>
+            }
+          >
+            {selectedStep.type === 'ai' && (
+              <AIStepConfigForm
+                config={selectedStep.config as AIStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'http' && (
-            <HTTPStepConfigForm
-              config={selectedStep.config as HTTPStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'http' && (
+              <HTTPStepConfigForm
+                config={selectedStep.config as HTTPStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'app' && (
-            <AppStepConfigForm
-              config={selectedStep.config as AppStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'app' && (
+              <AppStepConfigForm
+                config={selectedStep.config as AppStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'flow_control' && (
-            <FlowControlStepConfigForm
-              config={selectedStep.config as FlowControlStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'flow_control' && (
+              <FlowControlStepConfigForm
+                config={selectedStep.config as FlowControlStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'web_scraping' && (
-            <WebScrapingStepConfigForm
-              config={selectedStep.config as WebScrapingStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'web_scraping' && (
+              <WebScrapingStepConfigForm
+                config={selectedStep.config as WebScrapingStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'human_in_loop' && (
-            <HumanInLoopStepConfigForm
-              config={selectedStep.config as HumanInLoopStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'human_in_loop' && (
+              <HumanInLoopStepConfigForm
+                config={selectedStep.config as HumanInLoopStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'utility' && (
-            <UtilityStepConfigForm
-              config={selectedStep.config as UtilityStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'utility' && (
+              <UtilityStepConfigForm
+                config={selectedStep.config as UtilityStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
 
-          {selectedStep.type === 'sequence' && (
-            <SequenceStepConfigForm
-              config={selectedStep.config as SequenceStepConfig}
-              onUpdate={(config) => updateStep(selectedStep.id, { config })}
-            />
-          )}
+            {selectedStep.type === 'sequence' && (
+              <SequenceStepConfigForm
+                config={selectedStep.config as SequenceStepConfig}
+                onUpdate={(config) => updateStep(selectedStep.id, { config })}
+              />
+            )}
+          </Suspense>
         </div>
-      </ScrollArea>
+      </div>
 
       {testStarted && (
         <div className="flex items-center gap-2 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950/20">
@@ -184,7 +192,7 @@ export default function StepConfigPanel() {
       )}
 
       <div className="flex items-center justify-between border-t px-4 py-3">
-        <Badge variant="secondary">step_{selectedStep.position + 1}.output</Badge>
+        <Badge variant="secondary">step_{selectedStep.position + 2}.output</Badge>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={!canTest} onClick={handleTest}>
             {testStep.isPending ? (

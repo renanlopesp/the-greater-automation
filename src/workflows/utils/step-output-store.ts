@@ -43,10 +43,10 @@ export class StepOutputStore {
       context.trigger = { output: this.triggerOutput }
     }
 
-    // Add step outputs (step_1, step_2, etc.)
+    // Add step outputs (step_2, step_3, etc.) — trigger is step_1
     this.outputs.forEach((output, position) => {
-      // position 0 -> step_1, position 1 -> step_2, etc.
-      context[`step_${position + 1}`] = { output }
+      // position 0 -> step_2, position 1 -> step_3, etc. (trigger = step_1)
+      context[`step_${position + 2}`] = { output }
     })
 
     return context

@@ -32,21 +32,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // App-level cleanup: delete expired rows before querying
-    await supabase
-      .from('step_test_results')
-      .delete()
-      .eq('workflow_id', workflowId)
-      .lt('expires_at', new Date().toISOString())
-
-    // Safety: mark stale running results (>2 min) as failed to prevent infinite polling
+    // Cleanup: delete expired rows + mark stale running results (parallel — independent)
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-    await supabase
-      .from('step_test_results')
-      .update({ status: 'failed' as const, error: 'Test execution timed out' })
-      .eq('workflow_id', workflowId)
-      .eq('status', 'running')
-      .lt('created_at', twoMinutesAgo)
+    await Promise.all([
+      supabase
+        .from('step_test_results')
+        .delete()
+        .eq('workflow_id', workflowId)
+        .lt('expires_at', new Date().toISOString()),
+      supabase
+        .from('step_test_results')
+        .update({ status: 'failed' as const, error: 'Test execution timed out' })
+        .eq('workflow_id', workflowId)
+        .eq('status', 'running')
+        .lt('created_at', twoMinutesAgo),
+    ])
 
     // Get total count
     const { count, error: countError } = await supabase

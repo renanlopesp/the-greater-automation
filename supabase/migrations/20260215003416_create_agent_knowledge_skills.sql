@@ -1,0 +1,3 @@
+-- No-op: agent_knowledge_skills was superseded by real_agent_skills_system (20260214200000)
+-- which uses agent_skills table with a type column instead.
+-- This migration existed on the test branch but the table was dropped by later migrations.

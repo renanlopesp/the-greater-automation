@@ -44,12 +44,45 @@ export async function executeAIStep(
   const systemPrompt = systemPrompts[config.ai_action]
 
   // Interpolate context variables in prompt template
+  // Supports both simple {{key}} and dot-notation {{key.field}} placeholders
   let userPrompt = config.prompt_template
   if (context) {
-    Object.entries(context).forEach(([key, value]) => {
-      const placeholder = `{{${key}}}`
-      userPrompt = userPrompt.replace(new RegExp(placeholder, 'g'), String(value))
+    // First resolve dot-notation paths (e.g. {{prev.content}}, {{step_2.output.url}})
+    userPrompt = userPrompt.replace(/\{\{([\w.]+)\}\}/g, (match, path: string) => {
+      const keys = path.split('.')
+      let current: unknown = context
+      for (const k of keys) {
+        if (current == null || typeof current !== 'object') return match
+        current = (current as Record<string, unknown>)[k]
+      }
+      if (current === undefined) return match
+      return typeof current === 'object' && current !== null
+        ? JSON.stringify(current, null, 2)
+        : String(current)
     })
+
+    // Then resolve simple {{key}} placeholders for any remaining
+    for (const [key, value] of Object.entries(context)) {
+      const placeholder = `{{${key}}}`
+      const serialized =
+        typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
+      userPrompt = userPrompt.replaceAll(placeholder, serialized)
+    }
+
+    // Always append trigger data as context if available and not already interpolated
+    if (context.trigger && !config.prompt_template.includes('{{trigger}}')) {
+      const triggerJson = JSON.stringify(context.trigger, null, 2)
+      userPrompt += `\n\n--- Trigger Event Data ---\n${triggerJson}`
+    }
+
+    // Append previous step outputs as context if available
+    const stepKeys = Object.keys(context).filter((k) => k.startsWith('step_'))
+    for (const key of stepKeys) {
+      if (!config.prompt_template.includes(`{{${key}}}`)) {
+        const stepJson = JSON.stringify(context[key], null, 2)
+        userPrompt += `\n\n--- ${key} output ---\n${stepJson}`
+      }
+    }
   }
 
   // Add output format instruction

@@ -41,25 +41,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Get total count of runs
-    const { count, error: countError } = await supabase
-      .from('workflow_runs')
-      .select('id', { count: 'exact', head: true })
-      .eq('workflow_id', workflowId)
+    // Fetch count and paginated runs in parallel (both independent)
+    const [{ count, error: countError }, { data: runs, error: runsError }] = await Promise.all([
+      supabase
+        .from('workflow_runs')
+        .select('id', { count: 'exact', head: true })
+        .eq('workflow_id', workflowId),
+      supabase
+        .from('workflow_runs')
+        .select(
+          'id, status, trigger_type, trigger_data, steps_used, ai_credits_used, started_at, completed_at, created_at, error'
+        )
+        .eq('workflow_id', workflowId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+    ])
 
     if (countError) {
       return NextResponse.json({ error: 'Failed to count runs' }, { status: 500 })
     }
-
-    // Get workflow runs with pagination
-    const { data: runs, error: runsError } = await supabase
-      .from('workflow_runs')
-      .select(
-        'id, status, trigger_type, steps_used, ai_credits_used, started_at, completed_at, created_at, error'
-      )
-      .eq('workflow_id', workflowId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
 
     if (runsError) {
       return NextResponse.json({ error: 'Failed to load workflow runs' }, { status: 500 })

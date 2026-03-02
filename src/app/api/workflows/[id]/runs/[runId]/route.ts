@@ -19,39 +19,59 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify workflow exists
-    const { data: workflow, error: workflowError } = await supabase
-      .from('workflows')
-      .select('id, team_id, name')
-      .eq('id', workflowId)
-      .single()
+    // Fetch workflow, run, and steps in parallel (all independent)
+    const [
+      { data: workflow, error: workflowError },
+      { data: run, error: runError },
+      { data: rawSteps, error: stepsError },
+    ] = await Promise.all([
+      supabase.from('workflows').select('id, team_id, name').eq('id', workflowId).single(),
+      supabase
+        .from('workflow_runs')
+        .select('*')
+        .eq('id', runId)
+        .eq('workflow_id', workflowId)
+        .single(),
+      supabase
+        .from('workflow_run_steps')
+        .select('*')
+        .eq('run_id', runId)
+        .order('step_position', { ascending: true }),
+    ])
 
     if (workflowError || !workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Get the workflow run
-    const { data: run, error: runError } = await supabase
-      .from('workflow_runs')
-      .select('*')
-      .eq('id', runId)
-      .eq('workflow_id', workflowId)
-      .single()
-
     if (runError || !run) {
       return NextResponse.json({ error: 'Run not found' }, { status: 404 })
     }
 
-    // Get all step details for this run
-    const { data: steps, error: stepsError } = await supabase
-      .from('workflow_run_steps')
-      .select('*')
-      .eq('run_id', runId)
-      .order('step_position', { ascending: true })
-
     if (stepsError) {
       return NextResponse.json({ error: 'Failed to load run steps' }, { status: 500 })
     }
+
+    // Fetch step names from workflow_steps (no FK, so separate query)
+    const stepIds = (rawSteps ?? []).map((s) => s.step_id).filter(Boolean) as string[]
+    const stepNames: Record<string, string> = {}
+    if (stepIds.length > 0) {
+      const { data: wsData } = await supabase
+        .from('workflow_steps')
+        .select('id, name')
+        .in('id', stepIds)
+      for (const ws of wsData ?? []) {
+        stepNames[ws.id] = ws.name
+      }
+    }
+
+    // Map step_name from the lookup
+    const steps = (rawSteps ?? []).map((s) => ({
+      ...s,
+      step_name:
+        (s.step_id && stepNames[s.step_id]) ||
+        s.step_type?.toUpperCase() ||
+        `Step ${s.step_position + 1}`,
+    }))
 
     // Calculate summary statistics
     const totalSteps = steps?.length || 0

@@ -3,12 +3,14 @@
  * Supports variable references like {{trigger.output}}, {{step_1.output}}, {{step_1.output.field.nested}}
  */
 
+const VARIABLE_PATTERN = /\{\{([^}]+)\}\}/g
+
 /**
  * Resolves variable references in a template string.
  * Supports: {{trigger.output}}, {{step_N.output}}, {{step_N.output.field.nested}}
  */
 export function resolveVariables(template: string, context: Record<string, unknown>): string {
-  return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+  return template.replace(VARIABLE_PATTERN, (match, path) => {
     const trimmedPath = path.trim()
     const value = getNestedValue(context, trimmedPath)
 

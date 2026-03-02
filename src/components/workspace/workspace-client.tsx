@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   useReactTable,
@@ -108,6 +108,14 @@ export default function WorkspaceClient({
   const memberNameById = useMemo(() => {
     return new Map(teamMembers.map((m) => [m.id, m.full_name ?? null]))
   }, [teamMembers])
+
+  const expandedAgentIdsRef = useRef(expandedAgentIds)
+  expandedAgentIdsRef.current = expandedAgentIds
+  const expandedFolderIdsRef = useRef(expandedFolderIds)
+  expandedFolderIdsRef.current = expandedFolderIds
+
+  const isAgentExpanded = useCallback((id: string) => expandedAgentIdsRef.current.has(id), [])
+  const isFolderExpanded = useCallback((id: string) => expandedFolderIdsRef.current.has(id), [])
 
   const handleToggleExpand = useCallback((id: string) => {
     setExpandedAgentIds((prev) => {
@@ -218,8 +226,8 @@ export default function WorkspaceClient({
       createColumns({
         userId,
         memberNameById,
-        expandedAgentIds,
-        expandedFolderIds,
+        isAgentExpanded,
+        isFolderExpanded,
         onToggleExpand: handleToggleExpand,
         onToggleFolderExpand: handleToggleFolderExpand,
         onDeleteWorkflow: handleDeleteWorkflow,
@@ -233,8 +241,8 @@ export default function WorkspaceClient({
     [
       userId,
       memberNameById,
-      expandedAgentIds,
-      expandedFolderIds,
+      isAgentExpanded,
+      isFolderExpanded,
       handleToggleExpand,
       handleToggleFolderExpand,
       handleDeleteWorkflow,
@@ -388,9 +396,8 @@ export default function WorkspaceClient({
   const selectedIds = Object.keys(rowSelection)
   const selectedCount = selectedIds.length
   const selectedItems = useMemo(() => {
-    return selectedIds
-      .map((id) => flatData.find((item) => item.id === id))
-      .filter(Boolean) as WorkspaceItem[]
+    const itemsById = new Map(flatData.map((item) => [item.id, item]))
+    return selectedIds.map((id) => itemsById.get(id)).filter(Boolean) as WorkspaceItem[]
   }, [selectedIds, flatData])
 
   const handleBulkDelete = useCallback(() => {
@@ -527,6 +534,14 @@ export default function WorkspaceClient({
         <ViewToggle activeView={activeView} onViewChange={setActiveView} />
       </div>
 
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onDelete={handleBulkDelete}
+        onChangeStatus={handleBulkChangeStatus}
+        onMoveToFolder={handleBulkMoveToFolder}
+        isLoading={isBulkLoading}
+      />
+
       {activeView === 'graph' ? (
         <Suspense
           fallback={
@@ -573,14 +588,6 @@ export default function WorkspaceClient({
         onOpenChange={setSidebarFolderDialogOpen}
         teamId={teamId}
         parentId={currentFolderId}
-      />
-
-      <BulkActionBar
-        selectedCount={selectedCount}
-        onDelete={handleBulkDelete}
-        onChangeStatus={handleBulkChangeStatus}
-        onMoveToFolder={handleBulkMoveToFolder}
-        isLoading={isBulkLoading}
       />
 
       {/* Single delete dialog */}

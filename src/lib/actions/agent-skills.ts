@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult = { error?: string }
 
@@ -11,11 +12,11 @@ export async function createSkill(
   content: string,
   description?: string
 ): Promise<ActionResult & { id?: string }> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { data, error } = await supabase
     .from('agent_skills')
@@ -44,11 +45,11 @@ export async function updateSkill(
   agentId: string,
   updates: { name?: string; description?: string; content?: string; is_enabled?: boolean }
 ): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Fetch current version if content is being updated
   let versionIncrement = {}
@@ -78,11 +79,11 @@ export async function updateSkill(
 }
 
 export async function deleteSkill(skillId: string, agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to manage agent skills' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase
     .from('agent_skills')

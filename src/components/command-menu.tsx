@@ -128,7 +128,7 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
   const hasResults = workflows.length > 0 || agents.length > 0 || runs.length > 0
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Search workflows, agents, runs..."
         value={query}

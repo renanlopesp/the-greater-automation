@@ -68,6 +68,20 @@ If you are about to start implementing a feature without a spec, **STOP** and as
 
 Existing specs are in `specs/` — always check if a spec already exists before creating a new one.
 
+## Agent Automation Rules
+
+- **Every automation an agent creates MUST be a workflow.** When a user asks an agent to automate something (monitor prices, check stock daily, send reports, etc.), the agent MUST use `SNEW_CREATE_WORKFLOW` to create a visible, editable, testable workflow — NOT custom tools that write directly to the database.
+- Workflows use the existing infrastructure: cron triggers, app steps (Composio), AI steps, utility steps (send_telegram). This makes automations visible in the workflow editor, editable by the user, and composable (e.g., detect price change → update own store price → notify on Telegram).
+- **Never create one-off tools or database tables for automation logic.** If the workflow system lacks a capability, extend the workflow step types — don't bypass the system with custom code.
+- Retail tools (`STORE_QUERY_STOCK`, `STORE_QUERY_SALES`, `STORE_LIST_ORDERS`) are READ-ONLY data access tools for answering questions in chat. They are NOT for creating automations.
+
+## Git Workflow
+
+- **Never push directly to `main`.** Always create a feature branch and open a PR.
+- Use **one branch per session/task** (e.g., `fix/nuvemshop-variant-coercion`, `feat/price-monitor`). Group all related commits in the same branch — do NOT create a separate branch for each individual commit or sub-task.
+- Branch naming: `fix/short-description`, `feat/short-description`, `refactor/short-description`.
+- When work is done: push the branch, create a PR, and let the user merge.
+
 ## Scripts
 
 - `bun dev` - Start dev server
@@ -76,6 +90,14 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 - `bun run lint` - Run ESLint
 
 ## Active Technologies
+
+- TypeScript 5 (strict mode) + Vercel AI SDK (`jsonSchema`), `@/lib/nuvemshop/client` (NuvemshopClient), `@/lib/supabase/server` (createServiceRoleClient) (028-retail-intelligence)
+- Nuvemshop API (orders, customers) + Supabase store_products (cost_price only) (028-retail-intelligence)
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, @supabase/ssr, Vercel AI SDK, TanStack React Query, Zod (027-retail-pivot)
+
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui, @supabase/ssr, TanStack React Query, Zod (024-team-members)
+- Supabase PostgreSQL (production: `djohaxwfketlsjurwqne`, test: `ejqumzvclfkbbzzdvmmi`) (024-team-members)
 
 - TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19 + `composio-core` ^0.6.3 (triggers API), `@ai-sdk/openai` (Claude agent steps), `@supabase/ssr` + `@supabase/supabase-js` (Realtime for progress), TanStack React Query (021-app-event-triggers)
 - Supabase PostgreSQL — new `trigger_subscriptions` table, extended `agent_workflows` and `agent_workflow_runs` (021-app-event-triggers)

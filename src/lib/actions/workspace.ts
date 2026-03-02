@@ -1,9 +1,11 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type WorkflowStatus = Database['public']['Enums']['workflow_status']
 type TriggerType = Database['public']['Enums']['trigger_type']
@@ -17,8 +19,24 @@ import {
   enableTrigger,
   deleteTrigger as deleteComposioTrigger,
 } from '@/lib/composio/triggers'
+import { createWorkflowNotification } from '@/lib/notifications/create-workflow-notification'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
+
+// ---------------------------------------------------------------------------
+// 0. switchWorkspaceAction
+// ---------------------------------------------------------------------------
+
+export async function switchWorkspaceAction(teamId: string) {
+  const cookieStore = await cookies()
+  cookieStore.set('selected_team_id', teamId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    httpOnly: true,
+    sameSite: 'lax',
+  })
+  revalidatePath('/', 'layout')
+}
 
 // ---------------------------------------------------------------------------
 // 1. createWorkflow
@@ -28,6 +46,11 @@ export async function createWorkflow(
   teamId: string,
   userId: string
 ): Promise<ActionResult<{ id: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create workflows', id: '' }
+
   const supabase = await createServerClient()
 
   const { data, error } = await supabase
@@ -62,6 +85,10 @@ export async function createWorkflow(
 // ---------------------------------------------------------------------------
 
 export async function deleteWorkflow(workflowId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete workflows' }
+
   const supabase = await createServerClient()
 
   // Verify user has access to this workflow (RLS enforces ownership)
@@ -101,17 +128,21 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 
   if (runs && runs.length > 0) {
     const runIds = runs.map((r) => r.id)
-    // Delete grandchildren first
-    await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-    await supabase.from('human_approvals').delete().in('run_id', runIds)
+    // Delete grandchildren first (parallel — independent tables)
+    await Promise.all([
+      supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+      supabase.from('human_approvals').delete().in('run_id', runIds),
+    ])
   }
 
-  // 2. Delete direct children
-  await supabase.from('step_test_results').delete().eq('workflow_id', workflowId)
-  await supabase.from('agent_workflows').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_runs').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_steps').delete().eq('workflow_id', workflowId)
-  await supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId)
+  // 2. Delete direct children (parallel — independent tables, grandchildren already gone)
+  await Promise.all([
+    supabase.from('step_test_results').delete().eq('workflow_id', workflowId),
+    supabase.from('agent_workflows').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_runs').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_steps').delete().eq('workflow_id', workflowId),
+    supabase.from('workflow_triggers').delete().eq('workflow_id', workflowId),
+  ])
 
   // 3. Delete the workflow (no children left, CASCADE is a no-op)
   const { error } = await supabase.from('workflows').delete().eq('id', workflowId)
@@ -129,7 +160,19 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
 // ---------------------------------------------------------------------------
 
 export async function deleteAgent(agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete agents' }
+
   const supabase = await createServerClient()
+
+  // Block deletion of orchestrator agents
+  const { data: target } = await supabase
+    .from('agents')
+    .select('is_orchestrator')
+    .eq('id', agentId)
+    .single()
+  if (target?.is_orchestrator) return { error: 'The orchestrator agent cannot be deleted' }
 
   // Collect workflow IDs created by agent workflows before cascade deletes them
   const { data: workflows } = await supabase
@@ -168,18 +211,18 @@ export async function deleteAgent(agentId: string): Promise<ActionResult> {
  * - "My Workflow (copy 2)"  -> "My Workflow (copy 3)"
  * - "My Workflow (copy 42)" -> "My Workflow (copy 43)"
  */
-function generateCopyName(name: string): string {
-  const numberedCopyRegex = /^(.+)\s\(copy\s(\d+)\)$/
-  const simpleCopyRegex = /^(.+)\s\(copy\)$/
+const NUMBERED_COPY_REGEX = /^(.+)\s\(copy\s(\d+)\)$/
+const SIMPLE_COPY_REGEX = /^(.+)\s\(copy\)$/
 
-  const numberedMatch = name.match(numberedCopyRegex)
+function generateCopyName(name: string): string {
+  const numberedMatch = name.match(NUMBERED_COPY_REGEX)
   if (numberedMatch) {
     const baseName = numberedMatch[1]
     const currentNumber = parseInt(numberedMatch[2], 10)
     return `${baseName} (copy ${currentNumber + 1})`
   }
 
-  const simpleMatch = name.match(simpleCopyRegex)
+  const simpleMatch = name.match(SIMPLE_COPY_REGEX)
   if (simpleMatch) {
     return `${simpleMatch[1]} (copy 2)`
   }
@@ -192,6 +235,11 @@ export async function duplicateWorkflow(
   teamId: string,
   userId: string
 ): Promise<ActionResult<{ id: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to duplicate workflows', id: '' }
+
   const supabase = await createServerClient()
 
   // Fetch the source workflow
@@ -264,11 +312,11 @@ export async function duplicateWorkflow(
       triggerConfig &&
       typeof triggerConfig === 'object'
     ) {
-      const { webhook_token, secret, encrypted_secret, ...rest } = triggerConfig as Record<
-        string,
-        unknown
-      >
-      triggerConfig = rest as typeof triggerConfig
+      const cleaned = { ...(triggerConfig as Record<string, unknown>) }
+      delete cleaned.webhook_token
+      delete cleaned.secret
+      delete cleaned.encrypted_secret
+      triggerConfig = cleaned as typeof triggerConfig
     }
 
     const { error: triggerInsertError } = await supabase.from('workflow_triggers').insert({
@@ -298,6 +346,10 @@ export async function renameWorkflow(workflowId: string, name: string): Promise<
     return { error: 'Workflow name cannot be empty' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to edit workflows' }
+
   const supabase = await createServerClient()
 
   const { error } = await supabase
@@ -326,6 +378,11 @@ export async function createWorkflowFromTemplate(
   if (!template) {
     return { error: 'Template not found', id: '' }
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create workflows', id: '' }
 
   const supabase = await createServerClient()
 
@@ -392,8 +449,16 @@ export async function bulkDeleteItems(
     return {}
   }
 
-  const workflowIds = items.filter((i) => i.type === 'workflow').map((i) => i.id)
-  const agentIds = items.filter((i) => i.type === 'agent').map((i) => i.id)
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete items' }
+
+  const workflowIds: string[] = []
+  const agentIds: string[] = []
+  for (const item of items) {
+    if (item.type === 'workflow') workflowIds.push(item.id)
+    else agentIds.push(item.id)
+  }
 
   const supabase = await createServerClient()
   const errors: string[] = []
@@ -408,15 +473,19 @@ export async function bulkDeleteItems(
 
     if (runs && runs.length > 0) {
       const runIds = runs.map((r) => r.id)
-      await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-      await supabase.from('human_approvals').delete().in('run_id', runIds)
+      await Promise.all([
+        supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+        supabase.from('human_approvals').delete().in('run_id', runIds),
+      ])
     }
 
-    await supabase.from('step_test_results').delete().in('workflow_id', workflowIds)
-    await supabase.from('agent_workflows').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_runs').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_steps').delete().in('workflow_id', workflowIds)
-    await supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds)
+    await Promise.all([
+      supabase.from('step_test_results').delete().in('workflow_id', workflowIds),
+      supabase.from('agent_workflows').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_runs').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_steps').delete().in('workflow_id', workflowIds),
+      supabase.from('workflow_triggers').delete().in('workflow_id', workflowIds),
+    ])
 
     const { error } = await supabase.from('workflows').delete().in('id', workflowIds)
 
@@ -427,26 +496,48 @@ export async function bulkDeleteItems(
 
   // Delete agents and their workflow-created workflows
   if (agentIds.length > 0) {
-    // Collect workflow IDs created by agent workflows before cascade deletes them
-    const { data: agentWorkflows } = await supabase
-      .from('agent_workflows')
-      .select('workflow_id')
-      .in('agent_id', agentIds)
-      .not('workflow_id', 'is', null)
+    // Filter out orchestrator agents — they cannot be deleted
+    const { data: orchestrators } = await supabase
+      .from('agents')
+      .select('id')
+      .in('id', agentIds)
+      .eq('is_orchestrator', true)
+    const orchestratorIds = new Set((orchestrators ?? []).map((o) => o.id))
+    const safeAgentIds = agentIds.filter((id) => !orchestratorIds.has(id))
 
-    const agentWorkflowIds = (
-      agentWorkflows?.map((w) => w.workflow_id).filter(Boolean) as string[] | undefined
-    )?.filter((id) => !workflowIds.includes(id)) // exclude already-deleted workflows
-
-    const { error } = await supabase.from('agents').delete().in('id', agentIds)
-
-    if (error) {
-      errors.push(`Failed to delete agents: ${error.message}`)
+    if (orchestratorIds.size > 0 && safeAgentIds.length === 0 && workflowIds.length === 0) {
+      return { error: 'The orchestrator agent cannot be deleted' }
     }
 
-    // Clean up orphaned workflows that were created by agent workflows
-    if (agentWorkflowIds && agentWorkflowIds.length > 0) {
-      await supabase.from('workflows').delete().in('id', agentWorkflowIds)
+    // Collect workflow IDs created by agent workflows before cascade deletes them
+    const { data: agentWorkflows } =
+      safeAgentIds.length > 0
+        ? await supabase
+            .from('agent_workflows')
+            .select('workflow_id')
+            .in('agent_id', safeAgentIds)
+            .not('workflow_id', 'is', null)
+        : { data: null }
+
+    const deletedSet = new Set(workflowIds)
+    const agentWorkflowIds: string[] = []
+    if (agentWorkflows) {
+      for (const w of agentWorkflows) {
+        if (w.workflow_id && !deletedSet.has(w.workflow_id)) agentWorkflowIds.push(w.workflow_id)
+      }
+    }
+
+    if (safeAgentIds.length > 0) {
+      const { error } = await supabase.from('agents').delete().in('id', safeAgentIds)
+
+      if (error) {
+        errors.push(`Failed to delete agents: ${error.message}`)
+      }
+
+      // Clean up orphaned workflows that were created by agent workflows
+      if (agentWorkflowIds.length > 0) {
+        await supabase.from('workflows').delete().in('id', agentWorkflowIds)
+      }
     }
   }
 
@@ -469,6 +560,11 @@ export async function bulkToggleStatus(
   if (workflowIds.length === 0) {
     return {}
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to change workflow status' }
 
   const supabase = await createServerClient()
 
@@ -503,6 +599,11 @@ export async function createFolder(
   if (trimmedName.length > 100) {
     return { error: 'Folder name must be 100 characters or less', id: '' }
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to create folders', id: '' }
 
   const supabase = await createServerClient()
 
@@ -553,6 +654,10 @@ export async function renameFolder(folderId: string, name: string): Promise<Acti
     return { error: 'Folder name is required' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to edit folders' }
+
   const supabase = await createServerClient()
 
   const { error } = await supabase.from('folders').update({ name: trimmedName }).eq('id', folderId)
@@ -573,6 +678,10 @@ export async function deleteFolder(
   folderId: string,
   mode: 'move-to-root' | 'delete-all'
 ): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to delete folders' }
+
   const supabase = await createServerClient()
 
   if (mode === 'move-to-root') {
@@ -633,15 +742,19 @@ export async function deleteFolder(
 
         if (runs && runs.length > 0) {
           const runIds = runs.map((r) => r.id)
-          await supabase.from('workflow_run_steps').delete().in('run_id', runIds)
-          await supabase.from('human_approvals').delete().in('run_id', runIds)
+          await Promise.all([
+            supabase.from('workflow_run_steps').delete().in('run_id', runIds),
+            supabase.from('human_approvals').delete().in('run_id', runIds),
+          ])
         }
 
-        await supabase.from('step_test_results').delete().in('workflow_id', wfIds)
-        await supabase.from('agent_workflows').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_runs').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_steps').delete().in('workflow_id', wfIds)
-        await supabase.from('workflow_triggers').delete().in('workflow_id', wfIds)
+        await Promise.all([
+          supabase.from('step_test_results').delete().in('workflow_id', wfIds),
+          supabase.from('agent_workflows').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_runs').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_steps').delete().in('workflow_id', wfIds),
+          supabase.from('workflow_triggers').delete().in('workflow_id', wfIds),
+        ])
 
         const { error: deleteWorkflowsError } = await supabase
           .from('workflows')
@@ -654,9 +767,9 @@ export async function deleteFolder(
       }
     }
 
-    // Delete descendant folders (deepest first)
-    for (const id of descendantIds.reverse()) {
-      await supabase.from('folders').delete().eq('id', id)
+    // Delete descendant folders (single atomic query — Postgres handles FK order)
+    if (descendantIds.length > 0) {
+      await supabase.from('folders').delete().in('id', descendantIds)
     }
   }
 
@@ -682,6 +795,10 @@ export async function moveToFolder(
   if (itemIds.length === 0) {
     return { error: 'At least one item must be selected' }
   }
+
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to move items' }
 
   const supabase = await createServerClient()
 
@@ -753,16 +870,12 @@ export async function saveWorkflow(
     }>
   }
 ): Promise<ActionResult<{ savedAt: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', savedAt: '' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to edit workflows', savedAt: '' }
+
   const supabase = await createServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return { error: 'Unauthorized', savedAt: '' }
-  }
 
   // Update workflow metadata
   const { error: workflowError } = await supabase
@@ -842,13 +955,13 @@ export async function saveWorkflow(
           const { data: connection } = await supabase
             .from('app_connections')
             .select('composio_connection_id')
-            .eq('user_id', user.id)
+            .eq('user_id', info.userId)
             .eq('app_id', appConfig.app_id)
             .single()
 
           if (connection?.composio_connection_id) {
             const composioTriggerId = await createTrigger({
-              userId: user.id,
+              userId: info.userId,
               triggerSlug: appConfig.event,
               connectedAccountId: connection.composio_connection_id,
               triggerConfig: (appConfig.trigger_config as Record<string, unknown>) ?? {},
@@ -913,16 +1026,11 @@ export async function publishWorkflow(
   workflowId: string,
   status: WorkflowStatus
 ): Promise<ActionResult<{ webhookToken?: string; webhookSecret?: string }>> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to publish workflows' }
+
   const supabase = await createServerClient()
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return { error: 'Unauthorized' }
-  }
 
   let generatedWebhookToken: string | undefined
   let generatedWebhookSecret: string | undefined
@@ -1007,7 +1115,7 @@ export async function publishWorkflow(
         try {
           const triggerConfig = (config.trigger_config ?? {}) as Record<string, unknown>
           const composioTriggerId = await createTrigger({
-            userId: user.id,
+            userId: info.userId,
             triggerSlug: event,
             connectedAccountId: connection.composio_connection_id,
             triggerConfig,
@@ -1070,12 +1178,13 @@ export async function publishWorkflow(
           // Best-effort cleanup
         })
         // Remove composio_trigger_id from config
-        const { composio_trigger_id: _, ...restConfig } = config
+        const cleanedConfig = { ...config }
+        delete (cleanedConfig as Record<string, unknown>).composio_trigger_id
         await supabase
           .from('workflow_triggers')
           .update({
             config:
-              restConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
+              cleanedConfig as Database['public']['Tables']['workflow_triggers']['Update']['config'],
           })
           .eq('id', trigger.id)
       }
@@ -1089,6 +1198,23 @@ export async function publishWorkflow(
 
   if (updateError) {
     return { error: updateError.message }
+  }
+
+  // Fire-and-forget notification for publish/unpublish
+  const { data: workflow } = await supabase
+    .from('workflows')
+    .select('name, team_id')
+    .eq('id', workflowId)
+    .single()
+
+  if (workflow) {
+    createWorkflowNotification({
+      userId: info.userId,
+      teamId: workflow.team_id,
+      workflowId,
+      workflowName: workflow.name,
+      type: status === 'published' ? 'workflow_published' : 'workflow_unpublished',
+    }).catch(() => {})
   }
 
   revalidatePath('/workspace')

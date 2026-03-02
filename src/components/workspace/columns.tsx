@@ -34,8 +34,8 @@ import type {
 export interface ColumnMeta {
   userId: string
   memberNameById: Map<string, string | null>
-  expandedAgentIds: Set<string>
-  expandedFolderIds: Set<string>
+  isAgentExpanded: (id: string) => boolean
+  isFolderExpanded: (id: string) => boolean
   onToggleExpand: (id: string) => void
   onToggleFolderExpand: (id: string) => void
   onDeleteWorkflow?: (id: string, name: string) => void
@@ -111,9 +111,11 @@ function InlineRenameCell({
     )
   }
 
+  const href = `/workflows/${workflow.id}/edit`
+
   return (
     <Link
-      href={`/workflows/${workflow.id}/edit`}
+      href={href}
       className="flex max-w-[300px] items-center gap-2 truncate"
       onDoubleClick={(e) => {
         if (onRename) {
@@ -175,7 +177,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
 
         if (item.type === 'folder') {
           const folder = item as WorkspaceFolder
-          const isExpanded = meta.expandedFolderIds.has(folder.id)
+          const isExpanded = meta.isFolderExpanded(folder.id)
           return (
             <div className="flex items-center gap-2">
               <button
@@ -206,7 +208,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
 
         if (item.type === 'agent') {
           const agent = item as WorkspaceAgent
-          const isExpanded = meta.expandedAgentIds.has(agent.id)
+          const isExpanded = meta.isAgentExpanded(agent.id)
           return (
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => meta.onToggleExpand(agent.id)} className="p-0.5">
@@ -225,6 +227,11 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 />
               </div>
               <span className="text-sm font-semibold">{agent.name}</span>
+              {agent.workflows.length > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  {agent.workflows.length} workflow{agent.workflows.length !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           )
         }
@@ -369,6 +376,32 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
         if (item.type === 'folder') {
           const folder = item as WorkspaceFolder
           return (
+            <div className="flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => meta.onNavigateFolder?.(folder.id)}>
+                    Open
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => meta.onDeleteFolder?.(folder.id)}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        }
+
+        return (
+          <div className="flex justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -377,62 +410,40 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => meta.onNavigateFolder?.(folder.id)}>
-                  Open
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => meta.onDeleteFolder?.(folder.id)}
-                >
-                  Delete
-                </DropdownMenuItem>
+                {item.type === 'workflow' ? (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/workflows/${item.id}/edit`}>Edit</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
+                      Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
+                      Move to folder
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/agents/${item.id}`}>Edit</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => meta.onDeleteAgent?.(item.id, item.name)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-          )
-        }
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {item.type === 'workflow' ? (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/workflows/${item.id}/edit`}>Edit</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
-                    Move to folder
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/agents/${item.id}`}>Edit</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => meta.onDeleteAgent?.(item.id, item.name)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          </div>
         )
       },
     },

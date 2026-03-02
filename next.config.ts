@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.simpleicons.org',
       },
+      {
+        protocol: 'https',
+        hostname: '**.composio.dev',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.githubusercontent.com',
+      },
     ],
   },
 }

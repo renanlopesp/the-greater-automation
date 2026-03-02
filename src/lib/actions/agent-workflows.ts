@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult = { error?: string }
 
@@ -12,6 +13,11 @@ type ActionResult = { error?: string }
 
 export async function getAgentWorkflows(agentId: string) {
   const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data } = await supabase
     .from('agent_workflows')
     .select(
@@ -52,11 +58,12 @@ export interface SaveWorkflowInput {
 }
 
 export async function addWorkflow(agentId: string, workflowId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Get workflow name for the workflow name
   const { data: workflow } = await supabase
@@ -83,11 +90,12 @@ export async function addWorkflow(agentId: string, workflowId: string): Promise<
 }
 
 export async function removeWorkflow(workflowId: string, agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 
@@ -128,11 +136,12 @@ function detectPlaceholder(key: string, value: unknown): string {
 }
 
 export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to manage agent workflows' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Build action_template from toolExecutions
   let actionTemplate: Json
@@ -195,11 +204,12 @@ export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promi
 }
 
 export async function deleteWorkflow(workflowId: string, agentId: string): Promise<ActionResult> {
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role))
+    return { error: 'You do not have permission to delete agent workflows' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 

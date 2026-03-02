@@ -24,27 +24,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ executed: 0 })
   }
 
-  // Execute each workflow
-  const results = []
-  for (const workflow of workflows) {
-    const agent = workflow.agents as { created_by: string } | null
-    if (!agent) continue
+  // Execute all workflows in parallel
+  const timestamp = new Date().toISOString()
+  const settled = await Promise.allSettled(
+    workflows
+      .filter((w) => (w.agents as { created_by: string } | null) !== null)
+      .map(async (workflow) => {
+        const agent = workflow.agents as { created_by: string }
+        const run = await executeWorkflow({
+          workflow: workflow as unknown as AgentWorkflowRow,
+          triggerData: { _cron: { timestamp } },
+          userId: agent.created_by,
+          supabaseClient: supabase,
+        })
+        return { workflow_id: workflow.id, run_id: run.id, status: run.status }
+      })
+  )
 
-    try {
-      const run = await executeWorkflow({
-        workflow: workflow as unknown as AgentWorkflowRow,
-        triggerData: { _cron: { timestamp: new Date().toISOString() } },
-        userId: agent.created_by,
-        supabaseClient: supabase,
-      })
-      results.push({ workflow_id: workflow.id, run_id: run.id, status: run.status })
-    } catch (error) {
-      results.push({
-        workflow_id: workflow.id,
-        error: error instanceof Error ? error.message : 'Failed',
-      })
-    }
-  }
+  const results = settled.map((r, i) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : {
+          workflow_id: workflows[i].id,
+          error: r.reason instanceof Error ? r.reason.message : 'Failed',
+        }
+  )
 
   return NextResponse.json({ executed: results.length, results })
 }

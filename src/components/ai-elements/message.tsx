@@ -10,10 +10,23 @@ import { cn } from '@/lib/utils'
 import { cjk } from '@streamdown/cjk'
 import { code } from '@streamdown/code'
 import { math } from '@streamdown/math'
-import { mermaid } from '@streamdown/mermaid'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Streamdown } from 'streamdown'
+import { type DiagramPlugin, Streamdown } from 'streamdown'
+
+// Mermaid is large (~200KB gz) — load asynchronously
+let _mermaid: DiagramPlugin | undefined
+const _mermaidPromise = import('@streamdown/mermaid').then((m) => {
+  _mermaid = m.mermaid as DiagramPlugin
+})
+
+function useMermaidPlugin() {
+  const [ready, setReady] = useState(!!_mermaid)
+  useEffect(() => {
+    if (!ready) _mermaidPromise.then(() => setReady(true))
+  }, [ready])
+  return ready ? _mermaid : undefined
+}
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']
@@ -22,8 +35,8 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      'group flex w-full max-w-[95%] flex-col gap-2',
-      from === 'user' ? 'is-user ml-auto justify-end' : 'is-assistant',
+      'group flex w-full flex-col gap-2',
+      from === 'user' ? 'is-user ml-auto max-w-[95%] justify-end' : 'is-assistant',
       className
     )}
     {...props}
@@ -35,7 +48,7 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      'is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm',
+      'is-user:dark flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-x-auto text-sm',
       'group-[.is-user]:bg-secondary group-[.is-user]:text-secondary-foreground group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:px-4 group-[.is-user]:py-3',
       'group-[.is-assistant]:text-foreground',
       className
@@ -49,7 +62,13 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
 export type MessageActionsProps = ComponentProps<'div'>
 
 export const MessageActions = ({ className, children, ...props }: MessageActionsProps) => (
-  <div className={cn('flex items-center gap-1', className)} {...props}>
+  <div
+    className={cn(
+      'flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100',
+      className
+    )}
+    {...props}
+  >
     {children}
   </div>
 )
@@ -165,15 +184,13 @@ export const MessageBranch = ({
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>
 
 export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
-  const { currentBranch, setBranches, branches } = useMessageBranch()
+  const { currentBranch, setBranches } = useMessageBranch()
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children])
 
-  // Use useEffect to update branches when they change
+  // Sync branch list to context when the number of branches changes
   useEffect(() => {
-    if (branches.length !== childrenArray.length) {
-      setBranches(childrenArray)
-    }
-  }, [childrenArray, branches, setBranches])
+    setBranches(childrenArray)
+  }, [childrenArray.length, setBranches])
 
   return childrenArray.map((branch, index) => (
     <div
@@ -268,16 +285,20 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const basePlugins = { cjk, code, math }
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  ({ className, ...props }: MessageResponseProps) => {
+    const mermaid = useMermaidPlugin()
+    const plugins = useMemo(() => (mermaid ? { ...basePlugins, mermaid } : basePlugins), [mermaid])
+    return (
+      <Streamdown
+        className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+        plugins={plugins}
+        {...props}
+      />
+    )
+  },
   (prevProps, nextProps) => prevProps.children === nextProps.children
 )
 

@@ -3,40 +3,28 @@
 import { Bell } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-
-interface Notification {
-  id: string
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-}
-
-// Mock data for now
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Workflow published',
-    message: 'Your workflow "Send welcome email" was published successfully.',
-    timestamp: '2 hours ago',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Workflow run completed',
-    message: 'Workflow "Daily report" completed with 15 successful steps.',
-    timestamp: '5 hours ago',
-    read: true,
-  },
-]
+import { Skeleton } from '@/components/ui/skeleton'
+import { useNotifications, useUnreadNotificationCount } from '@/hooks/use-notifications'
+import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 
 interface NotificationsPopoverProps {
   children: React.ReactNode
 }
 
 export default function NotificationsPopover({ children }: NotificationsPopoverProps) {
-  const unreadCount = mockNotifications.filter((n) => !n.read).length
+  const { notifications, isLoading, markAsRead, markAllAsRead, isMarkingAllRead } =
+    useNotifications()
+  const { count: unreadCount } = useUnreadNotificationCount()
+
+  const handleNotificationClick = (notificationId: string, read: boolean) => {
+    if (!read) {
+      markAsRead(notificationId)
+    }
+  }
+
+  const handleMarkAllAsRead = () => {
+    markAllAsRead()
+  }
 
   return (
     <Popover>
@@ -44,12 +32,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
         <div className="relative">
           {children}
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs"
-            >
-              {unreadCount}
-            </Badge>
+            <span className="bg-destructive absolute top-0 right-0 h-2 w-2 rounded-full" />
           )}
         </div>
       </PopoverTrigger>
@@ -57,24 +40,41 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">Notifications</h4>
-            {mockNotifications.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs">
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={handleMarkAllAsRead}
+                disabled={isMarkingAllRead}
+              >
                 Mark all as read
               </Button>
             )}
           </div>
 
-          {mockNotifications.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-md border p-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="mt-2 h-3 w-full" />
+                  <Skeleton className="mt-2 h-3 w-1/3" />
+                </div>
+              ))}
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="text-muted-foreground mb-2 h-8 w-8" />
               <p className="text-muted-foreground text-sm">No notifications</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {mockNotifications.map((notification) => (
-                <div
+              {notifications.slice(0, 5).map((notification) => (
+                <button
                   key={notification.id}
-                  className={`rounded-md border p-3 text-sm ${!notification.read ? 'bg-accent/50' : ''}`}
+                  onClick={() => handleNotificationClick(notification.id, notification.read)}
+                  className={`hover:bg-accent/30 w-full rounded-md border p-3 text-left text-sm transition-colors ${!notification.read ? 'bg-accent/50' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
@@ -83,14 +83,14 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
                         {notification.message}
                       </div>
                       <div className="text-muted-foreground mt-2 text-xs">
-                        {notification.timestamp}
+                        {formatRelativeTime(notification.created_at)}
                       </div>
                     </div>
                     {!notification.read && (
                       <div className="bg-primary mt-1 h-2 w-2 flex-shrink-0 rounded-full" />
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

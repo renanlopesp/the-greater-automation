@@ -45,8 +45,16 @@ vi.mock('@/components/ai-elements/prompt-input', () => ({
   PromptInputTextarea: ({ placeholder, ...props }: any) => (
     <input data-testid="prompt-input-textarea" placeholder={placeholder} {...props} />
   ),
+  PromptInputHeader: ({ children }: any) => <div data-testid="prompt-input-header">{children}</div>,
   PromptInputFooter: ({ children }: any) => <div data-testid="prompt-input-footer">{children}</div>,
+  PromptInputTools: ({ children }: any) => <div data-testid="prompt-input-tools">{children}</div>,
+  PromptInputButton: ({ children, ...props }: any) => (
+    <button data-testid="prompt-input-button" {...props}>
+      {children}
+    </button>
+  ),
   PromptInputSubmit: (props: any) => <button data-testid="prompt-input-submit" {...props} />,
+  usePromptInputAttachments: () => ({ files: [], openFileDialog: vi.fn() }),
 }))
 
 vi.mock('@/components/ai-elements/reasoning', () => ({
@@ -55,9 +63,7 @@ vi.mock('@/components/ai-elements/reasoning', () => ({
   ReasoningContent: ({ children }: any) => <div data-testid="reasoning-content">{children}</div>,
 }))
 
-vi.mock('@/components/ai-elements/shimmer', () => ({
-  Shimmer: ({ children }: any) => <div data-testid="shimmer">{children}</div>,
-}))
+// Shimmer is no longer directly used — Reasoning component handles the working indicator
 
 vi.mock('@/components/ai-elements/suggestion', () => ({
   Suggestion: ({ suggestion, ...props }: any) => (
@@ -108,6 +114,13 @@ vi.mock('@/hooks/use-agent-chat', () => ({
   useAgentChat: vi.fn(),
 }))
 
+vi.mock('@/hooks/use-message-feedback', () => ({
+  useMessageFeedback: () => ({
+    getFeedback: () => null,
+    toggleFeedback: vi.fn(),
+  }),
+}))
+
 const mockUseAgentChat = useAgentChat as ReturnType<typeof vi.fn>
 
 const defaultProps = {
@@ -115,6 +128,16 @@ const defaultProps = {
   agentName: 'Test Agent',
   agentPalette: 'blue',
   conversationStarters: ['Hello', 'Help me'],
+  currentUserId: 'user-1',
+  initialConversationId: null as string | null,
+  initialMessages: [] as {
+    id: string
+    role: string
+    content: string
+    sender_id: string | null
+    sender_name: string | null
+    sender_avatar: string | null
+  }[],
 }
 
 function mockChatState(overrides: Partial<ReturnType<typeof useAgentChat>> = {}) {
@@ -123,7 +146,6 @@ function mockChatState(overrides: Partial<ReturnType<typeof useAgentChat>> = {})
     status: 'ready' as any,
     isLoading: false,
     isStreaming: false,
-    isLoadingHistory: false,
     error: null,
     conversationId: null,
     sendMessage: vi.fn(),
@@ -157,20 +179,19 @@ describe('ChatPanel', () => {
       expect(screen.getByText('Help me')).toBeInTheDocument()
     })
 
-    it('should not show starters when messages exist', () => {
+    it('should show starters even when messages exist', () => {
       mockChatState({
         messages: [
           {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('suggestion')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('suggestion')).toHaveLength(2)
     })
 
     it('should not show empty state when messages exist', () => {
@@ -180,28 +201,9 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello' }],
-            createdAt: new Date(),
           },
         ],
       })
-      render(<ChatPanel {...defaultProps} />)
-
-      expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Loading History', () => {
-    it('should show skeleton placeholders when loading history', () => {
-      mockChatState({ isLoadingHistory: true })
-      const { container } = render(<ChatPanel {...defaultProps} />)
-
-      // Should show skeleton divs with animate-pulse class
-      const skeletons = container.querySelectorAll('.animate-pulse')
-      expect(skeletons.length).toBeGreaterThan(0)
-    })
-
-    it('should not show empty state when loading history', () => {
-      mockChatState({ isLoadingHistory: true })
       render(<ChatPanel {...defaultProps} />)
 
       expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument()
@@ -216,7 +218,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'Hello world' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -233,7 +234,6 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Hi there!' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -251,19 +251,16 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'user',
             parts: [{ type: 'text', text: 'First' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-2',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Second' }],
-            createdAt: new Date(),
           },
           {
             id: 'msg-3',
             role: 'user',
             parts: [{ type: 'text', text: 'Third' }],
-            createdAt: new Date(),
           },
         ],
       })
@@ -283,7 +280,6 @@ describe('ChatPanel', () => {
               { type: 'reasoning', text: 'Thinking...' },
               { type: 'text', text: 'Answer' },
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -303,12 +299,11 @@ describe('ChatPanel', () => {
               {
                 type: 'tool-search',
                 toolCallId: 'call-1',
-                toolName: 'search',
-                state: 'call',
-                args: { query: 'test' },
-              },
+                state: 'output-available' as const,
+                input: { query: 'test' },
+                output: null,
+              } as any,
             ],
-            createdAt: new Date(),
           },
         ],
       })
@@ -349,25 +344,47 @@ describe('ChatPanel', () => {
   })
 
   describe('Streaming Indicator', () => {
-    it('should show shimmer "Thinking..." when streaming with no text content', () => {
+    it('should not show reasoning indicator when streaming with no reasoning parts', () => {
       mockChatState({
         isStreaming: true,
         messages: [
           {
             id: 'msg-1',
             role: 'assistant',
-            parts: [], // No content yet
-            createdAt: new Date(),
+            parts: [], // No content yet — reasoning only shows when model produces reasoning parts
           },
         ],
       })
       render(<ChatPanel {...defaultProps} />)
 
-      const shimmer = screen.getByTestId('shimmer')
-      expect(shimmer).toBeInTheDocument()
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
 
-    it('should not show shimmer when streaming but has text content', () => {
+    it('should not show reasoning indicator when streaming with tool parts but no reasoning', () => {
+      mockChatState({
+        isStreaming: true,
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool-search',
+                toolCallId: 'call-1',
+                state: 'input-available' as const,
+                input: { query: 'test' },
+              } as any,
+            ],
+          },
+        ],
+      })
+      render(<ChatPanel {...defaultProps} />)
+
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
+      expect(screen.getByTestId('tool')).toBeInTheDocument()
+    })
+
+    it('should not show reasoning indicator when streaming but has text content', () => {
       mockChatState({
         isStreaming: true,
         messages: [
@@ -375,16 +392,16 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [{ type: 'text', text: 'Some text' }],
-            createdAt: new Date(),
           },
         ],
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('shimmer')).not.toBeInTheDocument()
+      // The reasoning for model thinking is separate — the working indicator should not show
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
 
-    it('should not show shimmer when not streaming', () => {
+    it('should not show reasoning indicator when not streaming', () => {
       mockChatState({
         isStreaming: false,
         messages: [
@@ -392,13 +409,12 @@ describe('ChatPanel', () => {
             id: 'msg-1',
             role: 'assistant',
             parts: [],
-            createdAt: new Date(),
           },
         ],
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.queryByTestId('shimmer')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('reasoning')).not.toBeInTheDocument()
     })
   })
 

@@ -6,9 +6,11 @@ export type SettingsSection =
   | 'account'
   | 'notifications'
   | 'manage-apps'
+  | 'messaging'
   | 'general'
   | 'members'
   | 'billing'
+  | 'store'
 
 interface SettingsSidebarProps {
   activeSection: SettingsSection
@@ -22,11 +24,13 @@ const SECTIONS: { group: string; items: { id: SettingsSection; label: string }[]
       { id: 'account', label: 'Account' },
       { id: 'notifications', label: 'Notifications' },
       { id: 'manage-apps', label: 'Manage apps' },
+      { id: 'messaging', label: 'Messaging' },
     ],
   },
   {
     group: 'WORKSPACE',
     items: [
+      { id: 'store', label: 'Store' },
       { id: 'general', label: 'General' },
       { id: 'members', label: 'Members' },
       { id: 'billing', label: 'Billing' },

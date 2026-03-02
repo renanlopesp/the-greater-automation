@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
 import { Check, ChevronsUpDown, Linkedin, Loader2, Plus, Trash2, Zap } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -16,14 +17,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
-import { APP_INTEGRATIONS } from '@/lib/data/app-integrations'
 import { useAppConnections } from '@/hooks/use-app-connections'
 import { useAppResources } from '@/hooks/use-app-resources'
 import { listAvailableTriggers } from '@/lib/actions/trigger-subscriptions'
 import { getAppModule } from '@/lib/composio/modules'
 import type { AppsTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 
-const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
 
 interface AvailableTrigger {
   slug: string
@@ -32,20 +32,41 @@ interface AvailableTrigger {
   config_schema: Record<string, unknown>
 }
 
+interface ConfigFieldInfo {
+  name: string
+  required: boolean
+  description?: string
+}
+
 /**
- * Extract required field names from a Composio trigger config schema.
+ * Extract config fields from a Composio trigger config schema,
+ * distinguishing required from optional.
  */
-function getRequiredConfigFields(schema: Record<string, unknown>): string[] {
-  if (Array.isArray(schema.required)) {
-    return schema.required.filter((r): r is string => typeof r === 'string')
-  }
+function getConfigFields(schema: Record<string, unknown>): ConfigFieldInfo[] {
+  const requiredSet = new Set(
+    Array.isArray(schema.required)
+      ? schema.required.filter((r): r is string => typeof r === 'string')
+      : []
+  )
+
   if (schema.properties && typeof schema.properties === 'object') {
-    return Object.keys(schema.properties as Record<string, unknown>)
+    const props = schema.properties as Record<string, Record<string, unknown>>
+    return Object.keys(props).map((key) => ({
+      name: key,
+      required: requiredSet.has(key),
+      description:
+        typeof props[key]?.description === 'string'
+          ? (props[key].description as string)
+          : undefined,
+    }))
   }
-  const fields: string[] = []
+
+  // Fallback: treat all top-level keys as fields (legacy schemas)
+  const fields: ConfigFieldInfo[] = []
   for (const [key, value] of Object.entries(schema)) {
+    if (key === 'required' || key === 'type') continue
     if (typeof value === 'string' || (typeof value === 'object' && value !== null)) {
-      fields.push(key)
+      fields.push({ name: key, required: requiredSet.has(key) })
     }
   }
   return fields
@@ -65,8 +86,6 @@ export function AppTriggerConfigForm({
   config: AppsTriggerConfig
   onUpdate: (config: AppsTriggerConfig) => void
 }) {
-  const [triggers, setTriggers] = useState<AvailableTrigger[]>([])
-  const [loadingTriggers, startLoadingTriggers] = useTransition()
   const [repoPickerOpen, setRepoPickerOpen] = useState(false)
 
   const { data: connectionsData, isLoading: isLoadingConnections } = useAppConnections()
@@ -74,11 +93,32 @@ export function AppTriggerConfigForm({
     () => connectionsData?.connections ?? [],
     [connectionsData?.connections]
   )
+  const composioApps = useMemo(
+    () => connectionsData?.composioApps ?? [],
+    [connectionsData?.composioApps]
+  )
 
   const connectedApps = useMemo(() => {
     const connectedIds = new Set(connections.map((c) => c.app_id))
-    return APP_INTEGRATIONS.filter((app) => connectedIds.has(app.id))
-  }, [connections])
+    return composioApps.filter((app) => connectedIds.has(app.id))
+  }, [connections, composioApps])
+
+  // Load triggers when app changes
+  const appId = config.app_id
+  const { data: triggers = [], isLoading: loadingTriggers } = useQuery({
+    queryKey: ['available-triggers', appId],
+    queryFn: async () => {
+      const result = await listAvailableTriggers(appId!)
+      return (result.triggers ?? []).map((t) => ({
+        slug: String(t.slug ?? ''),
+        name: String(t.name ?? t.slug ?? ''),
+        description: String(t.description ?? ''),
+        config_schema: (t.config_schema ?? {}) as Record<string, unknown>,
+      }))
+    },
+    enabled: !!appId,
+    staleTime: 60_000,
+  })
 
   const filterEntries = Object.entries(config.filters)
 
@@ -87,14 +127,17 @@ export function AppTriggerConfigForm({
     [triggers, config.event]
   )
   const configFields = useMemo(
-    () => (selectedTrigger ? getRequiredConfigFields(selectedTrigger.config_schema) : []),
+    () => (selectedTrigger ? getConfigFields(selectedTrigger.config_schema) : []),
     [selectedTrigger]
   )
+  const configFieldNames = useMemo(() => configFields.map((f) => f.name), [configFields])
 
-  const showRepoPicker = hasRepoFields(configFields)
+  const showRepoPicker = hasRepoFields(configFieldNames)
   const nonRepoFields = useMemo(
     () =>
-      showRepoPicker ? configFields.filter((f) => f !== 'owner' && f !== 'repo') : configFields,
+      showRepoPicker
+        ? configFields.filter((f) => f.name !== 'owner' && f.name !== 'repo')
+        : configFields,
     [configFields, showRepoPicker]
   )
 
@@ -130,25 +173,6 @@ export function AppTriggerConfigForm({
     if (owner && repo) return `${owner}/${repo}`
     return ''
   }, [config.trigger_config?.owner, config.trigger_config?.repo])
-
-  // Load triggers when app changes
-  const appId = config.app_id
-  useEffect(() => {
-    if (!appId) return
-    startLoadingTriggers(async () => {
-      const result = await listAvailableTriggers(appId)
-      if (result.triggers) {
-        setTriggers(
-          result.triggers.map((t) => ({
-            slug: String(t.slug ?? ''),
-            name: String(t.name ?? t.slug ?? ''),
-            description: String(t.description ?? ''),
-            config_schema: (t.config_schema ?? {}) as Record<string, unknown>,
-          }))
-        )
-      }
-    })
-  }, [appId])
 
   // Clear triggers when app is deselected
   const triggersForApp = appId ? triggers : []
@@ -218,41 +242,52 @@ export function AppTriggerConfigForm({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {connectedApps.map((app) => {
-              const iconSlug = app.iconSlug
-
-              return (
-                <button
-                  key={app.id}
-                  type="button"
-                  onClick={() => handleAppSelect(app.id)}
-                  className={cn(
-                    'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
-                    config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
-                  )}
-                >
-                  {iconSlug && !SIMPLEICONS_UNAVAILABLE.has(iconSlug) ? (
+            {connectedApps.map((app) => (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => handleAppSelect(app.id)}
+                className={cn(
+                  'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
+                  config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
+                )}
+              >
+                {app.logoUrl ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
                     <Image
-                      src={`https://cdn.simpleicons.org/${iconSlug}/black`}
+                      src={app.logoUrl}
                       alt={app.name}
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 shrink-0 dark:invert"
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
                       unoptimized
                     />
-                  ) : iconSlug === 'linkedin' ? (
-                    <Linkedin className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <div className="bg-muted flex h-5 w-5 items-center justify-center rounded text-[10px] font-medium">
-                      {app.name[0]}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{app.name}</div>
                   </div>
-                </button>
-              )
-            })}
+                ) : app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Image
+                      src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
+                      alt={app.name}
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
+                      unoptimized
+                    />
+                  </div>
+                ) : app.iconSlug === 'linkedin' ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Linkedin className="h-[18px] w-[18px] text-black" />
+                  </div>
+                ) : (
+                  <div className="bg-muted flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-medium">
+                    {app.name[0]}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{app.name}</div>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -280,7 +315,7 @@ export function AppTriggerConfigForm({
               </p>
             </div>
           ) : (
-            <div className="mt-1 flex max-h-[280px] flex-col gap-0.5 overflow-y-auto rounded-md border p-1">
+            <div className="scrollbar-visible mt-1 flex max-h-[280px] flex-col gap-0.5 overflow-y-scroll rounded-md border p-1">
               {triggersForApp.map((trigger) => (
                 <button
                   key={trigger.slug}
@@ -383,14 +418,21 @@ export function AppTriggerConfigForm({
 
           {/* Other config fields (non owner/repo) */}
           {nonRepoFields.map((field) => (
-            <div key={field}>
-              <Label className="text-muted-foreground mb-1 block text-xs capitalize">
-                {field.replace(/_/g, ' ')}
+            <div key={field.name}>
+              <Label className="text-muted-foreground mb-1 flex items-baseline gap-1 text-xs capitalize">
+                {field.name.replace(/_/g, ' ')}
+                {!field.required && (
+                  <span className="text-muted-foreground/60 text-[10px] normal-case">
+                    (optional)
+                  </span>
+                )}
               </Label>
               <Input
-                value={config.trigger_config?.[field] ?? ''}
-                onChange={(e) => updateTriggerConfig(field, e.target.value)}
-                placeholder={field}
+                value={config.trigger_config?.[field.name] ?? ''}
+                onChange={(e) => updateTriggerConfig(field.name, e.target.value)}
+                placeholder={
+                  field.description ?? (field.required ? field.name : `Leave empty for all`)
+                }
               />
             </div>
           ))}

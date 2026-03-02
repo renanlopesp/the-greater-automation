@@ -9,9 +9,12 @@ export interface AgentMessage {
   content: string
   metadata: Record<string, unknown>
   created_at: string | null
+  sender_id: string | null
+  sender_name: string | null
+  sender_avatar: string | null
 }
 
-export async function getLatestConversation(
+export async function getActiveConversation(
   supabase: Client,
   agentId: string,
   userId: string
@@ -21,7 +24,8 @@ export async function getLatestConversation(
     .select('*')
     .eq('agent_id', agentId)
     .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
     .limit(1)
     .single()
 
@@ -49,11 +53,27 @@ export async function getConversationMessages(
 
   if (!messages) return []
 
+  const senderIds = [...new Set(messages.map((m) => m.sender_id).filter(Boolean))] as string[]
+
+  const profiles: Record<string, { full_name: string | null; avatar_url: string | null }> = {}
+  if (senderIds.length > 0) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', senderIds)
+    for (const p of profileData ?? []) {
+      profiles[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url }
+    }
+  }
+
   return messages.map((msg) => ({
     id: msg.id,
     role: msg.role as 'user' | 'assistant' | 'system' | 'tool',
     content: msg.content,
     metadata: (msg.metadata as Record<string, unknown>) ?? {},
     created_at: msg.created_at,
+    sender_id: msg.sender_id ?? null,
+    sender_name: msg.sender_id ? (profiles[msg.sender_id]?.full_name ?? null) : null,
+    sender_avatar: msg.sender_id ? (profiles[msg.sender_id]?.avatar_url ?? null) : null,
   }))
 }

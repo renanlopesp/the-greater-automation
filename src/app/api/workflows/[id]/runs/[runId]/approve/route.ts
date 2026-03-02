@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { submitApprovalResponse } from '@/lib/workflow-editor/human-in-loop-executor'
 import type { Json } from '@/lib/supabase/database.types'
@@ -134,15 +134,22 @@ export async function POST(
       .eq('step_id', approval.step_id)
   }
 
-  // Resume workflow execution (fire-and-forget)
+  // Resume workflow execution after response is sent (non-blocking)
   const baseUrl =
     request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || ''
-  if (baseUrl) {
-    fetch(`${baseUrl}/api/workflows/${workflowId}/runs/${runId}/execute`, {
-      method: 'POST',
-      headers: { cookie: request.headers.get('cookie') || '' },
-    }).catch(console.error)
-  }
+  const cookieHeader = request.headers.get('cookie') || ''
+
+  after(async () => {
+    if (!baseUrl) return
+    try {
+      await fetch(`${baseUrl}/api/workflows/${workflowId}/runs/${runId}/execute`, {
+        method: 'POST',
+        headers: { cookie: cookieHeader },
+      })
+    } catch (err) {
+      console.error('Failed to resume workflow after approval:', err)
+    }
+  })
 
   return NextResponse.json({ success: true, resumed: true })
 }

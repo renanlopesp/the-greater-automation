@@ -23,6 +23,26 @@ vi.mock('@/hooks/use-app-connections', () => ({
         },
       ],
       availableApps: [],
+      composioApps: [
+        {
+          id: 'github',
+          name: 'GitHub',
+          logoUrl: '',
+          iconSlug: 'github',
+          category: 'Development',
+          authType: 'oauth',
+          hasTriggers: true,
+        },
+        {
+          id: 'slack',
+          name: 'Slack',
+          logoUrl: '',
+          iconSlug: 'slack',
+          category: 'Communication',
+          authType: 'oauth',
+          hasTriggers: true,
+        },
+      ],
     },
     isLoading: false,
   }),
@@ -129,9 +149,9 @@ vi.mock('@/lib/composio/actions/categorize', () => ({
   }),
 }))
 
-// Mock next/image
+// Mock next/image — filter Next.js-specific props to avoid DOM warnings
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => <img {...props} />,
+  default: ({ unoptimized: _u, ...props }: Record<string, unknown>) => <img {...props} />,
 }))
 
 describe('AppStepConfigForm', () => {
@@ -155,6 +175,26 @@ describe('AppStepConfigForm', () => {
           { id: '2', app_id: 'slack', account_label: 'myworkspace', created_at: '2026-01-01' },
         ],
         availableApps: [],
+        composioApps: [
+          {
+            id: 'github',
+            name: 'GitHub',
+            logoUrl: '',
+            iconSlug: 'github',
+            category: 'Development',
+            authType: 'oauth',
+            hasTriggers: true,
+          },
+          {
+            id: 'slack',
+            name: 'Slack',
+            logoUrl: '',
+            iconSlug: 'slack',
+            category: 'Communication',
+            authType: 'oauth',
+            hasTriggers: true,
+          },
+        ],
       },
       isLoading: false,
     })
@@ -184,6 +224,7 @@ describe('AppStepConfigForm', () => {
       data: {
         connections: [],
         availableApps: [],
+        composioApps: [],
       },
       isLoading: false,
     })
@@ -222,10 +263,14 @@ describe('AppStepConfigForm', () => {
     expect(screen.getByRole('status')).toBeInTheDocument()
   })
 
-  it('shows auto-categorized action list after selecting app', () => {
+  it('shows auto-categorized action list after selecting app', async () => {
+    const user = userEvent.setup()
     const config = { ...defaultConfig, app_id: 'github' }
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
+
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
 
     // Categories are auto-derived from action names via categorizeAction
     expect(screen.getByText('Branch')).toBeInTheDocument()
@@ -238,29 +283,36 @@ describe('AppStepConfigForm', () => {
     expect(screen.getByText('Delete Branch')).toBeInTheDocument()
   })
 
-  it('groups actions by auto-derived category', () => {
+  it('groups actions by auto-derived category', async () => {
+    const user = userEvent.setup()
     const config = { ...defaultConfig, app_id: 'github' }
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
-    // "Create Issue" should be under "Issue" category
-    // The Collapsible wrapper is the parent of the trigger button
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
+
+    // "Create Issue" should be under "Issue" category (CommandGroup)
     const issueHeader = screen.getByText('Issue')
-    const issueCollapsible = issueHeader.closest('[data-slot="collapsible"]') as HTMLElement
-    expect(issueCollapsible).toBeInTheDocument()
-    expect(within(issueCollapsible).getByText('Create Issue')).toBeInTheDocument()
+    const issueGroup = issueHeader.closest('[cmdk-group]') as HTMLElement
+    expect(issueGroup).toBeInTheDocument()
+    expect(within(issueGroup).getByText('Create Issue')).toBeInTheDocument()
 
     // "Delete Branch" should be under "Branch" category
     const branchHeader = screen.getByText('Branch')
-    const branchCollapsible = branchHeader.closest('[data-slot="collapsible"]') as HTMLElement
-    expect(branchCollapsible).toBeInTheDocument()
-    expect(within(branchCollapsible).getByText('Delete Branch')).toBeInTheDocument()
+    const branchGroup = branchHeader.closest('[cmdk-group]') as HTMLElement
+    expect(branchGroup).toBeInTheDocument()
+    expect(within(branchGroup).getByText('Delete Branch')).toBeInTheDocument()
   })
 
-  it('shows search input for filtering actions', () => {
+  it('shows search input for filtering actions', async () => {
+    const user = userEvent.setup()
     const config = { ...defaultConfig, app_id: 'github' }
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
+
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
 
     const searchInput = screen.getByPlaceholderText('Search actions...')
     expect(searchInput).toBeInTheDocument()
@@ -272,13 +324,16 @@ describe('AppStepConfigForm', () => {
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
+
     const searchInput = screen.getByPlaceholderText('Search actions...')
     await user.type(searchInput, 'Create')
 
-    // Only "Create Issue" should match
-    expect(screen.getByText('Create Issue')).toBeInTheDocument()
-    expect(screen.queryByText('List Repositories')).not.toBeInTheDocument()
-    expect(screen.queryByText('Delete Branch')).not.toBeInTheDocument()
+    // Only "Create Issue" should remain visible as an option
+    expect(screen.getByRole('option', { name: /Create Issue/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /List Repositories/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Delete Branch/ })).not.toBeInTheDocument()
   })
 
   it('shows no-results message when search has no matches', async () => {
@@ -287,22 +342,28 @@ describe('AppStepConfigForm', () => {
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
+
     const searchInput = screen.getByPlaceholderText('Search actions...')
     await user.type(searchInput, 'zzzznonexistent')
 
-    expect(screen.queryByText('Create Issue')).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Create Issue/ })).not.toBeInTheDocument()
+    expect(screen.getByText('No actions found.')).toBeInTheDocument()
   })
 
-  it('highlights selected action in the list', async () => {
+  it('calls onUpdate when action is selected from combobox', async () => {
     const user = userEvent.setup()
     const config = { ...defaultConfig, app_id: 'github' }
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
-    const createIssueButton = screen.getByText('Create Issue').closest('button')
-    expect(createIssueButton).not.toHaveClass('bg-accent')
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
 
-    await user.click(createIssueButton!)
+    // Click "Create Issue" option
+    const option = screen.getByRole('option', { name: /Create Issue/ })
+    await user.click(option)
 
     expect(mockOnUpdate).toHaveBeenCalledWith({
       app_id: 'github',
@@ -475,8 +536,13 @@ describe('AppStepConfigForm', () => {
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
-    const listReposButton = screen.getByText('List Repositories').closest('button')
-    await user.click(listReposButton!)
+    // Open the action combobox (first combobox — the action selector)
+    const comboboxes = screen.getAllByRole('combobox')
+    await user.click(comboboxes[0])
+
+    // Select a different action
+    const option = screen.getByRole('option', { name: /List Repositories/ })
+    await user.click(option)
 
     expect(mockOnUpdate).toHaveBeenCalledWith({
       app_id: 'github',
@@ -485,16 +551,20 @@ describe('AppStepConfigForm', () => {
     })
   })
 
-  it('displays action type icons next to action names', () => {
+  it('displays action type icons next to action names', async () => {
+    const user = userEvent.setup()
     const config = { ...defaultConfig, app_id: 'github' }
 
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
-    // Each action button should contain an SVG icon
-    const createIssueButton = screen.getByText('Create Issue').closest('button')
-    expect(createIssueButton?.querySelector('svg')).toBeInTheDocument()
+    // Open the action combobox
+    await user.click(screen.getByRole('combobox'))
 
-    const deleteButton = screen.getByText('Delete Branch').closest('button')
-    expect(deleteButton?.querySelector('svg')).toBeInTheDocument()
+    // Each action option should contain an SVG icon
+    const createIssueOption = screen.getByRole('option', { name: /Create Issue/ })
+    expect(createIssueOption?.querySelector('svg')).toBeInTheDocument()
+
+    const deleteOption = screen.getByRole('option', { name: /Delete Branch/ })
+    expect(deleteOption?.querySelector('svg')).toBeInTheDocument()
   })
 })

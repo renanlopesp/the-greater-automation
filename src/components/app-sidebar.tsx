@@ -1,15 +1,18 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
-  Bot,
+  Check,
   ChevronsUpDown,
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Moon,
+  Package,
   Play,
   Plug,
   Search,
@@ -17,7 +20,7 @@ import {
   Sun,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,13 +42,25 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import type { UsageData, UserData } from '@/types/navigation'
+import type { UsageData, UserData, TeamData, PlanData } from '@/types/navigation'
+import { switchWorkspaceAction } from '@/lib/actions/workspace'
+
+const TOOL_ITEMS = [
+  { label: 'Search', icon: Search, action: 'command-menu' as const },
+  { label: 'Integrations', icon: Plug, action: 'settings' as const },
+]
 
 interface AppSidebarProps {
   user: UserData
+  team: TeamData | null
+  userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
+  planData?: PlanData | null
+  orchestratorId?: string | null
+  hasStore?: boolean
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
+  onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
 }
 
 function getInitials(name: string | null, email: string): string {
@@ -60,7 +75,17 @@ function getInitials(name: string | null, email: string): string {
   return email[0].toUpperCase()
 }
 
-export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: AppSidebarProps) {
+export default function AppSidebar({
+  user,
+  team,
+  userTeams,
+  planData,
+  orchestratorId,
+  hasStore,
+  onOpenCommandMenu,
+  onOpenSettings,
+  onSwitchWorkspace,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -71,33 +96,80 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
     router.push('/login')
   }
 
-  const platformItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Workspace', href: '/workspace', icon: FolderKanban },
-    { label: 'Runs', href: '/runs', icon: Play },
-  ]
+  function handleSwitchWorkspace(teamId: string) {
+    if (team?.id === teamId) return
+    const targetTeam = userTeams.find((t) => t.id === teamId)
+    if (onSwitchWorkspace) {
+      onSwitchWorkspace(targetTeam?.name ?? 'workspace', async () => {
+        await switchWorkspaceAction(teamId)
+        router.refresh()
+      })
+    } else {
+      switchWorkspaceAction(teamId).then(() => router.refresh())
+    }
+  }
 
-  const toolItems = [
-    { label: 'Search', icon: Search, action: 'command-menu' as const },
-    { label: 'Integrations', icon: Plug, action: 'settings' as const },
-  ]
+  const platformItems = useMemo(
+    () => [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      ...(orchestratorId
+        ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
+        : []),
+      { label: 'Workspace', href: '/workspace', icon: FolderKanban },
+      { label: 'Runs', href: '/runs', icon: Play },
+      ...(hasStore ? [{ label: 'Products', href: '/products', icon: Package }] : []),
+    ],
+    [orchestratorId, hasStore]
+  )
 
   return (
     <Sidebar collapsible="icon" side="left">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="Home">
-              <Link href="/dashboard">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Bot className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Workflows</span>
-                  <span className="text-muted-foreground truncate text-xs">Platform</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg" tooltip={team?.name ?? 'Select workspace'}>
+                  <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 535 323"
+                      fill="none"
+                      className="size-4"
+                    >
+                      <path
+                        d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                        fill="currentColor"
+                      />
+                      <path
+                        d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{team?.name ?? 'Snew'}</span>
+                    <span className="text-muted-foreground truncate text-xs">
+                      {team
+                        ? (userTeams.find((t) => t.id === team.id)?.role ?? 'member')
+                        : 'No workspace'}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-56 rounded-lg" side="bottom" align="start">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {userTeams.map((t) => (
+                  <DropdownMenuItem key={t.id} onClick={() => handleSwitchWorkspace(t.id)}>
+                    <span className="flex-1">{t.name}</span>
+                    <span className="text-muted-foreground text-xs capitalize">{t.role}</span>
+                    {team?.id === t.id && <Check className="ml-2 size-4" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -129,7 +201,7 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
           <SidebarGroupLabel>Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolItems.map((item) => (
+              {TOOL_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton
                     tooltip={item.label}
@@ -160,12 +232,26 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
               <span>Toggle theme</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {planData && planData.planId !== 'free' && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip={`${planData.planName} plan`}
+                onClick={() => onOpenSettings?.()}
+              >
+                <span className="bg-primary/10 text-primary flex size-4 shrink-0 items-center justify-center rounded text-[10px] leading-none font-bold">
+                  {planData.planId === 'enterprise' ? 'E' : 'P'}
+                </span>
+                <span>{planData.planName} plan</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip={user.fullName ?? user.email}>
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarFallback className="rounded-lg">
+                  <Avatar className="size-8 rounded-full">
+                    <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? 'User'} />
+                    <AvatarFallback className="rounded-full">
                       {getInitials(user.fullName, user.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -179,8 +265,12 @@ export default function AppSidebar({ user, onOpenCommandMenu, onOpenSettings }: 
               <DropdownMenuContent side="right" align="end" className="min-w-56 rounded-lg">
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="size-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg">
+                    <Avatar className="size-8 rounded-full">
+                      <AvatarImage
+                        src={user.avatarUrl ?? undefined}
+                        alt={user.fullName ?? 'User'}
+                      />
+                      <AvatarFallback className="rounded-full">
                         {getInitials(user.fullName, user.email)}
                       </AvatarFallback>
                     </Avatar>

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T
 
@@ -61,11 +62,11 @@ export async function createAgent(data: {
     return { error: 'Agent name is required', id: '' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated', id: '' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to create agents', id: '' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized', id: '' }
 
   // Insert with only original columns (PostgREST schema cache safe)
   const { data: agent, error } = await supabase
@@ -120,11 +121,11 @@ export async function updateAgent(
     return { error: 'Agent name cannot be empty' }
   }
 
+  const info = await getUserTeamRole()
+  if (!info) return { error: 'Not authenticated' }
+  if (!canMutate(info.role)) return { error: 'You do not have permission to edit agents' }
+
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Unauthorized' }
 
   // Build update payload — only original columns (PostgREST schema cache safe)
   const updatePayload: Record<string, unknown> = {

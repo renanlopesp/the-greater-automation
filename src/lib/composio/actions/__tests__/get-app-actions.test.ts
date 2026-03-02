@@ -122,6 +122,7 @@ describe('getAppActions', () => {
   })
 
   it('returns empty array when Composio fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const { getComposio } = await import('../../client')
     const mockComposio = getComposio()
     const mockGetTools = mockComposio.tools.getRawComposioTools as ReturnType<typeof vi.fn>

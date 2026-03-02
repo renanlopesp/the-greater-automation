@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import {
   Dialog,
   DialogContent,
@@ -52,9 +52,6 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
             <CommandEmpty>No steps found.</CommandEmpty>
             <CommandGroup heading="Steps">
               {STEP_TYPES.map((s) => {
-                const IconComponent = LucideIcons[
-                  s.icon as keyof typeof LucideIcons
-                ] as React.ComponentType<{ className?: string }>
                 return (
                   <CommandItem
                     key={s.type}
@@ -66,7 +63,7 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
                     className="flex items-center gap-3 p-3"
                   >
                     <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
-                      {IconComponent && <IconComponent className="h-4 w-4" />}
+                      <DynamicIcon name={s.icon} className="h-4 w-4" />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{s.name}</div>
@@ -81,9 +78,6 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
                 <CommandSeparator />
                 <CommandGroup heading="Connected Apps">
                   {connectedApps.map((app) => {
-                    const IconComponent = LucideIcons[
-                      app.icon as keyof typeof LucideIcons
-                    ] as React.ComponentType<{ className?: string }>
                     return (
                       <CommandItem
                         key={app.id}
@@ -95,7 +89,7 @@ export default function StepSelector({ open, onOpenChange, onSelect }: StepSelec
                         className="flex items-center gap-3 p-3"
                       >
                         <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
-                          {IconComponent && <IconComponent className="h-4 w-4" />}
+                          <DynamicIcon name={app.icon} className="h-4 w-4" />
                         </div>
                         <span className="text-sm font-medium">{app.name}</span>
                       </CommandItem>

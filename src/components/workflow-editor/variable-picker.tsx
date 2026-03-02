@@ -8,7 +8,7 @@ import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import { getTriggerMeta } from '@/lib/workflow-editor/trigger-metadata'
 import { getStepMeta } from '@/lib/workflow-editor/step-metadata'
 import { cn } from '@/lib/utils'
-import * as LucideIcons from 'lucide-react'
+import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 
 interface VariablePickerProps {
   currentStepPosition: number
@@ -59,7 +59,7 @@ export function VariablePicker({ currentStepPosition, onInsert }: VariablePicker
             {/* Step outputs */}
             {availableSteps.map((step) => {
               const stepMeta = getStepMeta(step.type)
-              const stepNum = step.position + 1
+              const stepNum = step.position + 2
               const variable = `step_${stepNum}.output`
 
               return (
@@ -94,10 +94,6 @@ interface VariableRowProps {
 }
 
 function VariableRow({ icon, name, variable, onClick }: VariableRowProps) {
-  const IconComponent =
-    (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[icon] ||
-    LucideIcons.Box
-
   return (
     <button
       type="button"
@@ -108,7 +104,7 @@ function VariableRow({ icon, name, variable, onClick }: VariableRowProps) {
       )}
     >
       <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-md">
-        <IconComponent className="h-4 w-4" />
+        <DynamicIcon name={icon} fallback="Box" className="h-4 w-4" />
       </div>
       <div className="flex-1 overflow-hidden">
         <div className="truncate text-sm font-medium">{name}</div>

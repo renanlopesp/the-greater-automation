@@ -13,20 +13,20 @@ interface KeyboardShortcutsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const SHORTCUTS = [
+  { keys: ['Ctrl', 'S'], mac: ['⌘', 'S'], description: 'Save workflow' },
+  { keys: ['Ctrl', 'Z'], mac: ['⌘', 'Z'], description: 'Undo' },
+  { keys: ['Ctrl', 'Shift', 'Z'], mac: ['⌘', '⇧', 'Z'], description: 'Redo' },
+  { keys: ['Delete'], mac: ['⌫'], description: 'Delete selected step' },
+  { keys: ['Backspace'], mac: ['⌫'], description: 'Delete selected step' },
+  { keys: ['Esc'], mac: ['Esc'], description: 'Deselect step' },
+  { keys: ['?'], mac: ['?'], description: 'Show keyboard shortcuts' },
+]
+
 export default function KeyboardShortcutsDialog({
   open,
   onOpenChange,
 }: KeyboardShortcutsDialogProps) {
-  const shortcuts = [
-    { keys: ['Ctrl', 'S'], mac: ['⌘', 'S'], description: 'Save workflow' },
-    { keys: ['Ctrl', 'Z'], mac: ['⌘', 'Z'], description: 'Undo' },
-    { keys: ['Ctrl', 'Shift', 'Z'], mac: ['⌘', '⇧', 'Z'], description: 'Redo' },
-    { keys: ['Delete'], mac: ['⌫'], description: 'Delete selected step' },
-    { keys: ['Backspace'], mac: ['⌫'], description: 'Delete selected step' },
-    { keys: ['Esc'], mac: ['Esc'], description: 'Deselect step' },
-    { keys: ['?'], mac: ['?'], description: 'Show keyboard shortcuts' },
-  ]
-
   const isMac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
@@ -38,7 +38,7 @@ export default function KeyboardShortcutsDialog({
           <DialogDescription>Boost your productivity with these shortcuts.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          {shortcuts.map((shortcut, index) => (
+          {SHORTCUTS.map((shortcut, index) => (
             <div key={index} className="flex items-center justify-between py-2">
               <span className="text-muted-foreground text-sm">{shortcut.description}</span>
               <div className="flex gap-1">

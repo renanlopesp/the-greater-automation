@@ -9,6 +9,9 @@ import NotificationsSection from '@/components/settings/notifications-section'
 import GeneralSection from '@/components/settings/general-section'
 import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
+import StoreSection from '@/components/settings/store-section'
+import MessagingSection from '@/components/settings/messaging-section'
+import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
 
 interface SettingsDialogProps {
   open: boolean
@@ -16,13 +19,27 @@ interface SettingsDialogProps {
   defaultSection?: SettingsSection
   profile: { fullName: string; email: string; avatarUrl: string | null }
   team: { name: string; slug: string } | null
+  teamId?: string
   usage: {
     stepsUsed: number
     stepsLimit: number
     aiCreditsUsed: number
     aiCreditsLimit: number
   } | null
-  members: { id: string; fullName: string; email: string; role: 'owner' | 'admin' | 'member' }[]
+  members: TeamMember[]
+  invitations: TeamInvitation[]
+  currentUserRole: 'owner' | 'admin' | 'member'
+  currentUserId: string
+  planData: PlanData | null
+  storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null
 }
 
 export default function SettingsDialog({
@@ -31,10 +48,21 @@ export default function SettingsDialog({
   defaultSection = 'manage-apps',
   profile,
   team,
+  teamId,
   usage,
   members,
+  invitations,
+  currentUserRole,
+  currentUserId,
+  planData,
+  storeData,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
+  const [prevDefault, setPrevDefault] = useState(defaultSection)
+  if (defaultSection !== prevDefault) {
+    setPrevDefault(defaultSection)
+    setActiveSection(defaultSection)
+  }
 
   function renderSection() {
     switch (activeSection) {
@@ -49,20 +77,34 @@ export default function SettingsDialog({
       case 'notifications':
         return <NotificationsSection />
       case 'manage-apps':
-        return <ManageAppsSection />
+        return <ManageAppsSection teamId={teamId} planFeatures={planData?.features} />
       case 'general':
         return <GeneralSection name={team?.name ?? ''} slug={team?.slug ?? ''} />
       case 'members':
-        return <MembersSection members={members} />
+        return (
+          <MembersSection
+            members={members}
+            invitations={invitations}
+            currentUserRole={currentUserRole}
+            currentUserId={currentUserId}
+            planData={planData}
+          />
+        )
       case 'billing':
         return (
           <BillingSection
+            teamId={teamId}
             stepsUsed={usage?.stepsUsed ?? 0}
             stepsLimit={usage?.stepsLimit ?? 0}
             aiCreditsUsed={usage?.aiCreditsUsed ?? 0}
             aiCreditsLimit={usage?.aiCreditsLimit ?? 0}
+            planData={planData}
           />
         )
+      case 'messaging':
+        return <MessagingSection />
+      case 'store':
+        return <StoreSection storeData={storeData} teamId={teamId} />
     }
   }
 

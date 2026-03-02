@@ -13,14 +13,13 @@ export interface WebScrapingResult {
 
 export function createFirecrawlClient(): InstanceType<typeof Firecrawl>['v1'] {
   const apiKey = process.env.FIRECRAWL_API_KEY
-  const apiUrl = process.env.FIRECRAWL_BASE_URL
 
   if (!apiKey) {
     throw new Error('FIRECRAWL_API_KEY environment variable is not set')
   }
 
-  // Use the v1 client which has scrapeUrl/mapUrl/search with success/error pattern
-  const client = new Firecrawl({ apiKey, apiUrl })
+  // Use the Firecrawl cloud API (no custom apiUrl — self-hosted is deprecated)
+  const client = new Firecrawl({ apiKey })
   return client.v1
 }
 

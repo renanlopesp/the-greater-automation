@@ -15,10 +15,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Check,
-  ChevronDown,
   ChevronsUpDown,
   Linkedin,
   Loader2,
@@ -28,8 +26,9 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react'
-import { APP_INTEGRATIONS } from '@/lib/data/app-integrations'
 import { useAppConnections } from '@/hooks/use-app-connections'
+import type { AppConnection } from '@/lib/composio/actions/get-app-connections'
+import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
 import { useAppActions } from '@/hooks/use-app-actions'
 import { useAppResources } from '@/hooks/use-app-resources'
 import { getAppModule } from '@/lib/composio/modules'
@@ -40,7 +39,10 @@ import type { AppStepConfig } from '@/lib/workflow-editor/step-defaults'
 import type { ComposioAppAction } from '@/lib/composio/actions/get-app-actions'
 import { cn } from '@/lib/utils'
 
-const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin'])
+const SIMPLEICONS_UNAVAILABLE = new Set(['linkedin', 'nuvemshop'])
+const EMPTY_ITEMS: { label: string; value: string }[] = []
+const EMPTY_CONNECTIONS: AppConnection[] = []
+const EMPTY_APPS: ComposioApp[] = []
 
 // --- Action type icon mapping ---
 
@@ -194,7 +196,7 @@ function DynamicField({ appId, param, override, value, inputs, onChange }: Dynam
     dependenciesMet
   )
 
-  const items = resourceData?.items ?? []
+  const items = resourceData?.items ?? EMPTY_ITEMS
 
   // Render searchable combobox for select fields
   if (override?.type === 'select') {
@@ -363,19 +365,17 @@ export default function AppStepConfigForm({
   config: AppStepConfig
   onUpdate: (config: AppStepConfig) => void
 }) {
-  const [actionSearch, setActionSearch] = useState('')
+  const [actionComboboxOpen, setActionComboboxOpen] = useState(false)
 
   const { data: connectionsData, isLoading: isLoadingConnections } = useAppConnections()
-  const connections = useMemo(
-    () => connectionsData?.connections ?? [],
-    [connectionsData?.connections]
-  )
+  const connections = connectionsData?.connections ?? EMPTY_CONNECTIONS
+  const composioApps = connectionsData?.composioApps ?? EMPTY_APPS
 
-  // Derive connected apps from connections
+  // Derive connected apps from connections + dynamic Composio catalog
   const connectedApps = useMemo(() => {
     const connectedIds = new Set(connections.map((c) => c.app_id))
-    return APP_INTEGRATIONS.filter((app) => connectedIds.has(app.id))
-  }, [connections])
+    return composioApps.filter((app) => connectedIds.has(app.id))
+  }, [connections, composioApps])
 
   // Fetch actions for selected app
   const { data: actions, isLoading: isLoadingActions } = useAppActions(config.app_id || null)
@@ -411,27 +411,6 @@ export default function AppStepConfigForm({
       .map(([name, items]) => ({ name, items }))
   }, [actions, config.app_id])
 
-  // Filter actions by search query
-  const filteredActions = useMemo(() => {
-    if (!actionSearch.trim()) return categorizedActions
-
-    const query = actionSearch.toLowerCase()
-    const filtered: typeof categorizedActions = []
-
-    for (const category of categorizedActions) {
-      const matchingItems = category.items.filter(
-        (item) =>
-          item.action.displayName.toLowerCase().includes(query) ||
-          item.action.name.toLowerCase().includes(query)
-      )
-      if (matchingItems.length > 0) {
-        filtered.push({ name: category.name, items: matchingItems })
-      }
-    }
-
-    return filtered
-  }, [categorizedActions, actionSearch])
-
   // Find selected action
   const selectedAction = useMemo(() => {
     if (!config.action || !actions) return undefined
@@ -439,7 +418,6 @@ export default function AppStepConfigForm({
   }, [config.action, actions])
 
   const handleAppSelect = (appId: string) => {
-    setActionSearch('')
     onUpdate({ app_id: appId, action: '', inputs: {} })
   }
 
@@ -472,46 +450,57 @@ export default function AppStepConfigForm({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {connectedApps.map((app) => {
-              const iconSlug = app.iconSlug
-
-              return (
-                <button
-                  key={app.id}
-                  type="button"
-                  onClick={() => handleAppSelect(app.id)}
-                  className={cn(
-                    'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
-                    config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
-                  )}
-                >
-                  {iconSlug && !SIMPLEICONS_UNAVAILABLE.has(iconSlug) ? (
+            {connectedApps.map((app) => (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => handleAppSelect(app.id)}
+                className={cn(
+                  'hover:bg-accent/50 flex items-center gap-2 rounded-md border bg-transparent p-3 text-left transition-all',
+                  config.app_id === app.id ? 'ring-primary border-primary ring-2' : 'border-input'
+                )}
+              >
+                {app.logoUrl ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
                     <Image
-                      src={`https://cdn.simpleicons.org/${iconSlug}/black`}
+                      src={app.logoUrl}
                       alt={app.name}
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 shrink-0 dark:invert"
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
                       unoptimized
                     />
-                  ) : iconSlug === 'linkedin' ? (
-                    <Linkedin className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <div className="bg-muted flex h-5 w-5 items-center justify-center rounded text-[10px] font-medium">
-                      {app.name[0]}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{app.name}</div>
                   </div>
-                </button>
-              )
-            })}
+                ) : app.iconSlug && !SIMPLEICONS_UNAVAILABLE.has(app.iconSlug) ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Image
+                      src={`https://cdn.simpleicons.org/${app.iconSlug}/black`}
+                      alt={app.name}
+                      width={18}
+                      height={18}
+                      className="h-[18px] w-[18px] object-contain"
+                      unoptimized
+                    />
+                  </div>
+                ) : app.iconSlug === 'linkedin' ? (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
+                    <Linkedin className="h-[18px] w-[18px] text-black" />
+                  </div>
+                ) : (
+                  <div className="bg-muted flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-medium">
+                    {app.name[0]}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{app.name}</div>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Section 2: Categorized Action List with Search */}
+      {/* Section 2: Action Combobox */}
       {config.app_id && (
         <div>
           <Label className="text-sm font-medium">Select Action</Label>
@@ -526,63 +515,49 @@ export default function AppStepConfigForm({
               <p className="text-muted-foreground text-sm">No actions available for this app.</p>
             </div>
           ) : (
-            <div className="mt-1">
-              {/* Search bar */}
-              <div className="border-input flex items-center gap-2 rounded-md border px-3 py-2">
-                <Search className="text-muted-foreground h-4 w-4 shrink-0" />
-                <input
-                  type="text"
-                  value={actionSearch}
-                  onChange={(e) => setActionSearch(e.target.value)}
-                  placeholder="Search actions..."
-                  className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
-                />
-              </div>
-
-              {/* Collapsible category drawers */}
-              <div className="mt-2 flex max-h-[300px] flex-col gap-1 overflow-y-auto">
-                {filteredActions.length === 0 ? (
-                  <div className="text-muted-foreground py-3 text-center text-sm">
-                    No actions match &ldquo;{actionSearch}&rdquo;
-                  </div>
-                ) : (
-                  filteredActions.map((category) => (
-                    <Collapsible key={category.name} defaultOpen>
-                      <CollapsibleTrigger className="hover:bg-accent/50 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors">
-                        <ChevronDown className="text-muted-foreground h-3.5 w-3.5 shrink-0 transition-transform [[data-state=closed]>&]:rotate-[-90deg]" />
-                        <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-                          {category.name}
-                        </span>
-                        <span className="text-muted-foreground/60 ml-auto text-[10px]">
-                          {category.items.length}
-                        </span>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="flex flex-col gap-0.5 py-0.5 pl-2">
-                          {category.items.map(({ action, actionType }) => (
-                            <button
-                              key={action.name}
-                              type="button"
-                              onClick={() => handleActionSelect(action.name)}
-                              className={cn(
-                                'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors',
-                                'hover:bg-accent/50',
-                                config.action === action.name
-                                  ? 'bg-accent font-medium'
-                                  : 'bg-transparent'
-                              )}
-                            >
-                              <ActionTypeIcon type={actionType} />
-                              <span className="min-w-0 flex-1 truncate">{action.displayName}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ))
-                )}
-              </div>
-            </div>
+            <Popover open={actionComboboxOpen} onOpenChange={setActionComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={actionComboboxOpen}
+                  className="mt-1 w-full justify-between font-normal"
+                >
+                  {selectedAction ? (
+                    <span className="truncate">{selectedAction.displayName}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Select an action...</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search actions..." />
+                  <CommandList className="scrollbar-visible">
+                    <CommandEmpty>No actions found.</CommandEmpty>
+                    {categorizedActions.map((category) => (
+                      <CommandGroup key={category.name} heading={category.name}>
+                        {category.items.map(({ action, actionType }) => (
+                          <CommandItem
+                            key={action.name}
+                            value={`${action.displayName} ${action.name}`}
+                            onSelect={() => {
+                              handleActionSelect(action.name)
+                              setActionComboboxOpen(false)
+                            }}
+                          >
+                            <ActionTypeIcon type={actionType} />
+                            <span className="truncate">{action.displayName}</span>
+                            {config.action === action.name && <Check className="ml-auto h-4 w-4" />}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
       )}

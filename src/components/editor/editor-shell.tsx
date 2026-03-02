@@ -2,21 +2,22 @@
 
 import { useSyncExternalStore } from 'react'
 import dynamic from 'next/dynamic'
-import { PencilLine, Layers, FlaskConical, Sparkles } from 'lucide-react'
+import { PencilLine, Layers, FlaskConical } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResizablePanelGroup, ResizablePanel } from '@/components/ui/resizable'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import EditorHeader from '@/components/editor/editor-header'
 import TriggerPanel from '@/components/editor/trigger-panel'
 import StepsPanel from '@/components/editor/steps-panel'
 import ConfigPanel from '@/components/editor/config-panel'
 import ConnectorLine from '@/components/workflow-editor/connector-line'
-import RunsTab from '@/components/workflow-editor/runs-tab'
-import TestsTab from '@/components/workflow-editor/tests-tab'
 import { cn } from '@/lib/utils'
+
+const RunsTab = dynamic(() => import('@/components/workflow-editor/runs-tab'))
+const TestsTab = dynamic(() => import('@/components/workflow-editor/tests-tab'))
 
 // Lazy-load assistant panel - only shown when toggled open
 const AIAssistantPanel = dynamic(() => import('@/components/workflow-editor/ai-assistant-panel'))
@@ -33,9 +34,14 @@ function useIsMobile() {
   )
 }
 
+const ASSISTANT_ICON_STYLE = { width: '43%', height: '43%' } as const
+
 export default function EditorShell() {
-  const { workflowId, isAssistantOpen, toggleAssistant, activeTab, setActiveTab } =
-    useWorkflowEditorStore()
+  const workflowId = useWorkflowEditorStore((s) => s.workflowId)
+  const isAssistantOpen = useWorkflowEditorStore((s) => s.isAssistantOpen)
+  const toggleAssistant = useWorkflowEditorStore((s) => s.toggleAssistant)
+  const activeTab = useWorkflowEditorStore((s) => s.activeTab)
+  const setActiveTab = useWorkflowEditorStore((s) => s.setActiveTab)
   const isMobile = useIsMobile()
 
   return (
@@ -94,7 +100,7 @@ export default function EditorShell() {
                 side={isMobile ? 'bottom' : 'left'}
                 className={cn(
                   'p-0',
-                  isMobile ? 'h-[80dvh] w-full sm:h-[70dvh]' : 'w-full sm:max-w-[360px]'
+                  isMobile ? 'h-[80dvh] w-full' : 'w-full sm:max-w-[440px] lg:max-w-[480px]'
                 )}
                 showCloseButton={false}
               >
@@ -102,15 +108,28 @@ export default function EditorShell() {
               </SheetContent>
             </Sheet>
 
-            <Button
-              type="button"
-              onClick={toggleAssistant}
-              size="icon"
-              className="fixed bottom-6 left-6 z-50 h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 text-white shadow-[0_24px_48px_-24px_rgba(37,99,235,0.9)] ring-1 ring-white/30 hover:opacity-95"
-              aria-label="Open assistant"
-            >
-              <Sparkles className="h-7 w-7" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleAssistant}
+                  className="bg-primary text-primary-foreground ring-primary/20 fixed bottom-6 left-6 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ring-1 transition-all hover:scale-105 hover:shadow-xl"
+                  aria-label="Open assistant"
+                >
+                  <svg viewBox="0 0 535 323" fill="none" style={ASSISTANT_ICON_STYLE}>
+                    <path
+                      d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">AI Assistant</TooltipContent>
+            </Tooltip>
           </div>
         </TabsContent>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { Plus, X, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -188,11 +188,21 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
     })
   }
 
+  const skillMeta = useMemo(
+    () =>
+      skills.map((skill) => ({
+        ...skill,
+        stepCount: countSteps(skill.content),
+        paramCount: countParameters(skill.parameters),
+      })),
+    [skills]
+  )
+
   return (
     <div className="space-y-3">
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
         <div className="divide-y">
-          {skills.map((skill) => (
+          {skillMeta.map((skill) => (
             <div key={skill.id} className="group px-4 py-3">
               <div className="flex items-center gap-3">
                 <div className="bg-background text-muted-foreground flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border shadow-sm">
@@ -210,8 +220,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
                   )}
                   {skill.type === 'procedure' && expandedId !== skill.id && (
                     <p className="text-muted-foreground mt-0.5 text-xs">
-                      {countParameters(skill.parameters)} parameters · {countSteps(skill.content)}{' '}
-                      steps
+                      {skill.paramCount} parameters · {skill.stepCount} steps
                     </p>
                   )}
                 </div>

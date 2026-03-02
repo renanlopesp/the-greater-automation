@@ -22,6 +22,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id: testResultId } = await params
   const supabase = await createServerClient()
 
+  const startTime = Date.now()
+
   try {
     // Verify authentication
     const {
@@ -47,8 +49,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (testResult.status !== 'running') {
       return NextResponse.json({ error: `Test is already ${testResult.status}` }, { status: 409 })
     }
-
-    const startTime = Date.now()
     let success: boolean
     let output: unknown
     let error: string | undefined
@@ -170,8 +170,75 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         success = false
         output = null
         error = 'App step requires app_id and action'
+      } else if (appConfig.app_id === 'nuvemshop') {
+        // Nuvemshop: direct API calls (not via Composio)
+        try {
+          const { data: wfForStore } = await supabase
+            .from('workflows')
+            .select('team_id')
+            .eq('id', testResult.workflow_id)
+            .single()
+
+          if (!wfForStore?.team_id) {
+            throw new Error('Cannot determine workflow team for Nuvemshop')
+          }
+
+          const { data: store } = await supabase
+            .from('stores')
+            .select('id, platform_store_id, platform_access_token')
+            .eq('team_id', wfForStore.team_id)
+            .eq('platform', 'nuvemshop')
+            .single()
+
+          if (!store?.platform_access_token || !store?.platform_store_id) {
+            throw new Error('No connected Nuvemshop store found for this team.')
+          }
+
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const nuvemClient = new NuvemshopClient(
+            store.platform_store_id,
+            store.platform_access_token
+          )
+
+          switch (appConfig.action) {
+            case 'NUVEMSHOP_GET_PRODUCTS':
+              output = await nuvemClient.getAllProducts()
+              break
+            case 'NUVEMSHOP_GET_ORDERS':
+              output = await nuvemClient.getOrders(
+                1,
+                50,
+                appConfig.inputs as { created_at_min?: string } | undefined
+              )
+              break
+            case 'NUVEMSHOP_GET_CUSTOMERS':
+              output = await nuvemClient.getCustomers(
+                appConfig.inputs as { q?: string } | undefined
+              )
+              break
+            case 'NUVEMSHOP_GET_CATEGORIES':
+              output = await nuvemClient.getCategories()
+              break
+            case 'NUVEMSHOP_GET_ABANDONED_CHECKOUTS':
+              output = await nuvemClient.getAbandonedCheckouts()
+              break
+            case 'NUVEMSHOP_GET_COUPONS':
+              output = await nuvemClient.getCoupons()
+              break
+            case 'NUVEMSHOP_GET_STORE_INFO':
+              output = await nuvemClient.getStoreInfo()
+              break
+            default:
+              throw new Error(`Unknown Nuvemshop action: ${appConfig.action}`)
+          }
+          success = true
+        } catch (err) {
+          success = false
+          output = null
+          error = err instanceof Error ? err.message : 'Nuvemshop action execution failed'
+        }
       } else {
-        // Look up the user's Composio connection for this app
+        // Non-Nuvemshop apps: use Composio
         const { data: connection } = await supabase
           .from('app_connections')
           .select('composio_connection_id')
@@ -237,7 +304,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success, output, error, duration_ms })
   } catch (error) {
-    const duration_ms = Date.now() - Date.now()
+    const duration_ms = Date.now() - startTime
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
     // Mark test as failed

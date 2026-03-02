@@ -1,106 +1,317 @@
+import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { subMonths, format } from 'date-fns'
-import { Pencil, ArrowLeft } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
+import { getActiveConversation } from '@/lib/queries/agent-conversations'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import AgentAvatar from '@/components/agent-detail/agent-avatar'
 import AgentStatus from '@/components/agent-detail/agent-status'
+import NewChatButton from '@/components/agent-detail/new-chat-button'
+import ChatHistoryButton from '@/components/agent-detail/chat-history-button'
+import PresenceIndicator from '@/components/agent-detail/presence-indicator'
 import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
+import SetupChecklist, { type SetupStep } from '@/components/agent-detail/setup-checklist'
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+
+  // Parallel: auth + agent + profile + conversation — no dependency between them
+  const [
+    {
+      data: { user },
+    },
+    { data: agent },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('agents').select('*').eq('id', id).single(),
+  ])
 
   if (!user) redirect('/login')
-
-  // Fetch agent
-  const { data: agent } = await supabase.from('agents').select('*').eq('id', id).single()
-
   if (!agent) notFound()
 
-  // Parallel data fetching
-  const sixMonthsAgo = subMonths(new Date(), 6)
+  // Parallel: profile + conversation history + team role + setup data (all depend on user/agent being resolved)
+  const [
+    { data: profile },
+    activeConversation,
+    { data: teamMember },
+    { data: storeData },
+    { data: messagingLink },
+    { count: skillCount },
+    { count: workflowCount },
+  ] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
+    getActiveConversation(supabase, id, user.id),
+    supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', agent.team_id)
+      .eq('user_id', user.id)
+      .single(),
+    supabase
+      .from('stores')
+      .select('id, platform, platform_store_id, settings')
+      .eq('team_id', agent.team_id)
+      .single(),
+    supabase.from('messaging_links').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+    supabase.from('agent_skills').select('id', { count: 'exact', head: true }).eq('agent_id', id),
+    supabase
+      .from('agent_workflows')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', id),
+  ])
+
+  const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
+
+  // Orchestrator agents skip setup checklist and get tailored conversation starters
+  const isOrchestrator = agent.is_orchestrator
+
+  // Build setup checklist based on agent role (skip for orchestrator)
+  const setupSteps = isOrchestrator
+    ? []
+    : buildSetupSteps(agent, storeData, messagingLink, skillCount ?? 0, workflowCount ?? 0)
+
+  // Orchestrator conversation starters
+  const orchestratorStarters = [
+    'Como está meu estoque?',
+    'Vendas de hoje',
+    'Previsão de demanda',
+    'Pedidos recentes',
+  ]
+
+  const conversationStarters = isOrchestrator
+    ? orchestratorStarters
+    : Array.isArray(agent.conversation_starters)
+      ? (agent.conversation_starters as string[])
+      : []
+
+  const currentUser = {
+    id: user.id,
+    fullName: profile?.full_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
+      {/* Compact agent header */}
+      <header className="flex items-center justify-between border-b px-4 py-2.5">
+        <div className="flex items-center gap-3">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <Link href="/dashboard">
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Back to dashboard</TooltipContent>
+          </Tooltip>
+          <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h1 className="truncate text-sm font-semibold">{agent.name}</h1>
+              <AgentStatus status={agent.status} isActive={agent.is_active} />
+            </div>
+            {agent.description && (
+              <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <PresenceIndicator agentId={id} currentUser={currentUser} />
+          {!isOrchestrator && (
+            <Suspense
+              fallback={
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" disabled>
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Settings</TooltipContent>
+                </Tooltip>
+              }
+            >
+              <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
+            </Suspense>
+          )}
+          <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
+          <NewChatButton />
+        </div>
+      </header>
+
+      {/* Setup checklist — shown when agent has incomplete setup steps (not for orchestrator) */}
+      {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
+
+      {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
+      <ChatPanel
+        agentId={id}
+        agentName={agent.name}
+        agentPalette={agent.palette}
+        conversationStarters={conversationStarters}
+        currentUserId={user.id}
+        initialConversationId={activeConversation?.conversationId ?? null}
+        initialMessages={activeConversation?.messages ?? []}
+      />
+    </div>
+  )
+}
+
+/**
+ * Builds setup checklist steps based on the agent's system_prompt (which encodes role)
+ * and the current store/messaging configuration.
+ */
+function buildSetupSteps(
+  agent: { name: string; system_prompt: string | null },
+  storeData: {
+    platform: string | null
+    platform_store_id: string | null
+    settings: unknown
+  } | null,
+  messagingLink: { id: string } | null,
+  skillCount: number,
+  workflowCount: number
+): SetupStep[] {
+  // "manual" platform means no online store — nothing to connect
+  const hasPlatform = storeData?.platform === 'manual' || !!storeData?.platform_store_id
+  const hasTelegram = !!messagingLink
+  const settings = (
+    typeof storeData?.settings === 'object' && storeData?.settings !== null
+      ? storeData.settings
+      : {}
+  ) as Record<string, unknown>
+
+  const connectPlatform: SetupStep = {
+    label: 'Connect e-commerce platform',
+    completed: hasPlatform,
+    action: { label: 'Connect', href: '/workspace?settings=store' },
+  }
+  const connectTelegram: SetupStep = {
+    label: 'Connect Telegram',
+    completed: hasTelegram,
+    action: { label: 'Connect', href: '/workspace?settings=store' },
+  }
+
+  // Determine role from agent name (set during provisioning)
+  const name = agent.name.toLowerCase()
+
+  if (name.includes('stock manager')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Set stock alert threshold',
+        completed: !!settings.stock_alerts_configured || hasPlatform,
+        action: { label: 'Configure', href: '/workspace?settings=store' },
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('price monitor')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Add competitor URLs to monitor',
+        completed: workflowCount >= 1,
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('sales analyst')) {
+    const steps = [
+      connectPlatform,
+      connectTelegram,
+      {
+        label: 'Configure daily summary time',
+        completed: !!settings.daily_summary_enabled,
+        action: { label: 'Configure', href: '/workspace?settings=store' },
+      },
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  if (name.includes('customer service')) {
+    const steps = [
+      connectPlatform,
+      {
+        label: 'Add FAQ or knowledge content',
+        completed: skillCount >= 2,
+      },
+      connectTelegram,
+    ]
+    return steps.some((s) => !s.completed) ? steps : []
+  }
+
+  // Non-retail agents or unknown roles — no checklist
+  return []
+}
+
+/** Async Server Component — sidebar data fetched independently, streamed via Suspense */
+async function AgentSidebarData({
+  agentId,
+  userId,
+  teamId,
+}: {
+  agentId: string
+  userId: string
+  teamId: string
+}) {
+  const supabase = await createServerClient()
 
   const [
     workflowsResult,
-    runsResult,
     recentRunsResult,
     connectionsResult,
-    workflowRunsResult,
     skillsResult,
     triggerSubsResult,
+    storeResult,
   ] = await Promise.all([
-    // Workflows (automations) with workflow info + new columns
     supabase
       .from('agent_workflows')
       .select(
         'id, name, description, source, last_run_at, workflow_id, action_template, trigger_config, conditions, actions, is_enabled, execution_mode, run_count, workflows(name, emoji)'
       )
-      .eq('agent_id', id)
+      .eq('agent_id', agentId)
       .order('created_at', { ascending: true }),
 
-    // Runs for heatmap (last 6 months)
-    supabase
-      .from('workflow_runs')
-      .select('started_at')
-      .eq('agent_id', id)
-      .gte('started_at', sixMonthsAgo.toISOString())
-      .order('started_at', { ascending: false }),
-
-    // Recent runs for history
     supabase
       .from('workflow_runs')
       .select(
-        'id, status, steps_used, ai_credits_used, started_at, completed_at, workflow_id, workflows(name, emoji)'
+        'id, status, steps_used, ai_credits_used, started_at, completed_at, trigger_data, trigger_type, error, workflow_id, workflows(name, emoji)'
       )
-      .eq('agent_id', id)
+      .eq('agent_id', agentId)
       .order('started_at', { ascending: false })
       .limit(20),
 
-    // User's app connections
-    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
+    supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', userId),
 
-    // Workflow runs
-    supabase
-      .from('agent_workflow_runs')
-      .select(
-        'id, workflow_id, status, trigger_data, actions_executed, error, duration_ms, created_at, pipeline_steps, event_log_id, agent_workflows(name)'
-      )
-      .eq('agent_id', id)
-      .order('created_at', { ascending: false })
-      .limit(20),
-
-    // Skills (knowledge)
     supabase
       .from('agent_skills')
       .select('id, name, description, content, source, is_enabled, type, parameters, version')
-      .eq('agent_id', id)
+      .eq('agent_id', agentId)
       .order('created_at', { ascending: true }),
 
-    // Trigger subscriptions
     supabase
       .from('trigger_subscriptions')
       .select('id, agent_workflow_id, trigger_slug, app_id, is_enabled, last_event_at, event_count')
-      .eq('agent_id', id),
+      .eq('agent_id', agentId),
+
+    supabase
+      .from('stores')
+      .select('platform, platform_store_id')
+      .eq('team_id', teamId)
+      .limit(1)
+      .maybeSingle(),
   ])
 
-  // Build heatmap data
-  const heatmapData = new Map<string, number>()
-  if (runsResult.data) {
-    for (const run of runsResult.data) {
-      if (run.started_at) {
-        const day = format(new Date(run.started_at), 'yyyy-MM-dd')
-        heatmapData.set(day, (heatmapData.get(day) ?? 0) + 1)
-      }
-    }
-  }
-
-  // Transform workflows for component (include both manual and dynamic workflows)
+  // Transform workflows
   const workflows = (workflowsResult.data ?? []).map((w) => ({
     id: w.id,
     name: w.name,
@@ -118,14 +329,46 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     run_count: w.run_count ?? undefined,
   }))
 
-  // Transform app connections for component
-  const connectedApps = (connectionsResult.data ?? []).map((c) => ({
+  // Derive which app_ids this agent uses (from workflows + store platform)
+  const usedAppIds = new Set<string>()
+  for (const w of workflowsResult.data ?? []) {
+    const tc = w.trigger_config as Record<string, unknown> | null
+    if (tc?.type === 'app_event' && typeof tc.app_id === 'string') {
+      usedAppIds.add(tc.app_id)
+    }
+    if (Array.isArray(w.actions)) {
+      for (const a of w.actions as Array<Record<string, unknown>>) {
+        if (a.type === 'composio_action' && typeof a.app_id === 'string') {
+          usedAppIds.add(a.app_id)
+        }
+      }
+    }
+  }
+  for (const ts of triggerSubsResult.data ?? []) {
+    if (ts.app_id) usedAppIds.add(ts.app_id)
+  }
+
+  // Also include the team's store platform (e.g. Shopify connected via Composio)
+  const storeRow = storeResult.data
+  if (storeRow?.platform && storeRow.platform !== 'manual' && storeRow.platform_store_id) {
+    usedAppIds.add(storeRow.platform)
+  }
+
+  // Build connected apps: prefer DB records, fall back to derived used apps
+  const dbConnections = (connectionsResult.data ?? []).map((c) => ({
     app_id: c.app_id,
     account_label: c.account_label,
   }))
+  // Show connections for apps used by this agent's workflows/triggers or store platform
+  const connectedApps =
+    usedAppIds.size > 0
+      ? dbConnections.filter((c) => usedAppIds.has(c.app_id)).length > 0
+        ? dbConnections.filter((c) => usedAppIds.has(c.app_id))
+        : [...usedAppIds].map((appId) => ({ app_id: appId, account_label: null }))
+      : []
 
-  // Transform recent runs for component
-  const recentRuns = (recentRunsResult.data ?? []).map((r) => ({
+  // Transform runs — unified from workflow_runs (both agent and visual workflows)
+  const allRuns = (recentRunsResult.data ?? []).map((r) => ({
     id: r.id,
     status: r.status,
     steps_used: r.steps_used,
@@ -133,24 +376,15 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     started_at: r.started_at ?? '',
     completed_at: r.completed_at,
     workflow: r.workflows as { name: string; emoji: string } | null,
-  }))
-
-  // Transform workflow runs for component
-  const workflowRuns = (workflowRunsResult.data ?? []).map((r) => ({
-    id: r.id,
-    workflow_id: r.workflow_id,
-    status: r.status,
     trigger_data: r.trigger_data as Record<string, unknown> | null,
-    actions_executed: Array.isArray(r.actions_executed) ? r.actions_executed : null,
+    trigger_type: r.trigger_type,
     error: r.error,
-    duration_ms: r.duration_ms,
-    created_at: r.created_at ?? new Date().toISOString(),
-    agent_workflows: r.agent_workflows as { name: string } | null,
-    pipeline_steps: Array.isArray(r.pipeline_steps) ? r.pipeline_steps : null,
-    event_log_id: r.event_log_id,
+    event_log_id: (r.trigger_data as Record<string, unknown> | null)?.event_log_id as
+      | string
+      | undefined,
   }))
 
-  // Transform skills (knowledge) for component
+  // Transform skills
   const skills = (skillsResult.data ?? []).map((s) => ({
     id: s.id,
     name: s.name,
@@ -163,7 +397,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     version: s.version,
   }))
 
-  // Transform trigger subscriptions for component
+  // Transform trigger subscriptions
   const triggerSubscriptions = (triggerSubsResult.data ?? []).map((ts) => ({
     id: ts.id,
     agent_workflow_id: ts.agent_workflow_id,
@@ -175,58 +409,14 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
   }))
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      {/* Compact agent header */}
-      <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className="truncate text-sm font-semibold">{agent.name}</h1>
-              <AgentStatus status={agent.status} isActive={agent.is_active} />
-            </div>
-            {agent.description && (
-              <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="h-8 rounded-full" asChild>
-            <Link href={`/agents/${id}/edit`}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit
-            </Link>
-          </Button>
-          <AgentSidebar
-            agentId={id}
-            teamId={agent.team_id}
-            initialWorkflows={workflows}
-            skills={skills}
-            connectedApps={connectedApps}
-            recentRuns={recentRuns}
-            workflowRuns={workflowRuns}
-            triggerSubscriptions={triggerSubscriptions}
-          />
-        </div>
-      </header>
-
-      {/* Chat takes all remaining space */}
-      <ChatPanel
-        agentId={id}
-        agentName={agent.name}
-        agentPalette={agent.palette}
-        conversationStarters={
-          Array.isArray(agent.conversation_starters)
-            ? (agent.conversation_starters as string[])
-            : []
-        }
-      />
-    </div>
+    <AgentSidebar
+      agentId={agentId}
+      teamId={teamId}
+      initialWorkflows={workflows}
+      skills={skills}
+      connectedApps={connectedApps}
+      allRuns={allRuns}
+      triggerSubscriptions={triggerSubscriptions}
+    />
   )
 }

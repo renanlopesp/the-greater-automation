@@ -1,11 +1,16 @@
 'use client'
 
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
+import { useEffect, useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
+import { usePathname, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
-import { SettingsDialog } from '@/components/settings'
+import type { SettingsSection } from '@/components/settings/settings-sidebar'
 import { CommandMenuContext } from '@/lib/command-menu-context'
+import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
+
+const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -15,14 +20,38 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
-import { Bell } from 'lucide-react'
-import type { UsageData, UserData, TeamData } from '@/types/navigation'
+import { Bell, Loader2 } from 'lucide-react'
+import PendingInvitationsBanner from '@/components/settings/pending-invitations-banner'
+import type {
+  UsageData,
+  UserData,
+  TeamData,
+  TeamMember,
+  TeamInvitation,
+  PlanData,
+} from '@/types/navigation'
 
 interface DashboardShellProps {
   user: UserData
   team: TeamData | null
+  userTeams: { id: string; name: string; role: string }[]
   usage: UsageData | null
+  members: TeamMember[]
+  invitations: TeamInvitation[]
+  pendingUserInvitations: (TeamInvitation & { teamName: string })[]
+  currentUserRole: 'owner' | 'admin' | 'member'
   defaultSidebarOpen?: boolean
+  planData: PlanData | null
+  storeData: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null
+  orchestratorId?: string | null
   children: ReactNode
 }
 
@@ -49,29 +78,70 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/workspace')) return 'Workspace'
   if (pathname.startsWith('/runs')) return 'Runs'
   if (pathname.startsWith('/agents')) return 'Agent Detail'
+  if (pathname.startsWith('/products')) return 'Products'
   return 'Dashboard'
 }
 
 export default function DashboardShell({
   user,
   team,
+  userTeams,
   usage,
+  members,
+  invitations,
+  pendingUserInvitations,
+  currentUserRole,
   defaultSidebarOpen = false,
+  planData,
+  storeData,
+  orchestratorId,
   children,
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
+  const [isSwitchingWorkspace, startWorkspaceTransition] = useTransition()
+  const [switchingToName, setSwitchingToName] = useState<string | null>(null)
   const currentTime = useCurrentTime()
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Auto-open settings from URL params (e.g. after OAuth callback or redirect)
+  // Read once on mount via window.location instead of useSearchParams() to avoid
+  // re-rendering the entire shell on every URL param change across the app.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const openSettingsParam = params.get('open_settings')
+    if (openSettingsParam) {
+      setSettingsSection(openSettingsParam as SettingsSection)
+      setSettingsOpen(true)
+      if (openSettingsParam === 'store') {
+        toast.success('Nuvemshop conectada com sucesso!')
+      }
+      params.delete('open_settings')
+      const newPath = params.size > 0 ? `${pathname}?${params}` : pathname
+      router.replace(newPath)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, [])
 
   return (
     <CommandMenuContext value={() => setCommandMenuOpen(true)}>
       <SidebarProvider defaultOpen={defaultSidebarOpen}>
         <AppSidebar
           user={user}
+          team={team}
+          userTeams={userTeams}
           usage={usage}
+          planData={planData}
+          orchestratorId={orchestratorId}
+          hasStore={!!storeData}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onSwitchWorkspace={(name, transition) => {
+            setSwitchingToName(name)
+            startWorkspaceTransition(transition)
+          }}
         />
         <SidebarInset>
           <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-30 flex h-10 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
@@ -85,9 +155,11 @@ export default function DashboardShell({
               </BreadcrumbList>
             </Breadcrumb>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
-                <Bell className="h-4 w-4" />
-              </Button>
+              <NotificationsPopover>
+                <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
+                  <Bell className="h-4 w-4" />
+                </Button>
+              </NotificationsPopover>
               {currentTime && (
                 <span className="text-muted-foreground hidden text-sm md:inline">
                   {currentTime}
@@ -95,7 +167,23 @@ export default function DashboardShell({
               )}
             </div>
           </header>
-          <div className="flex-1 overflow-auto">{children}</div>
+          <div className="relative flex-1 overflow-auto">
+            {isSwitchingWorkspace && (
+              <div className="bg-background/80 absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 backdrop-blur-sm transition-opacity">
+                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                <p className="text-muted-foreground text-sm">
+                  Switching to{' '}
+                  <span className="text-foreground font-medium">{switchingToName}</span>...
+                </p>
+              </div>
+            )}
+            {pendingUserInvitations.length > 0 && (
+              <div className="border-b px-4 py-3">
+                <PendingInvitationsBanner invitations={pendingUserInvitations} />
+              </div>
+            )}
+            {children}
+          </div>
         </SidebarInset>
         <CommandMenu
           teamId={team?.id ?? null}
@@ -105,12 +193,14 @@ export default function DashboardShell({
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
+          defaultSection={settingsSection}
           profile={{
             fullName: user.fullName ?? '',
             email: user.email,
             avatarUrl: user.avatarUrl,
           }}
           team={team ? { name: team.name, slug: team.slug } : null}
+          teamId={team?.id}
           usage={
             usage
               ? {
@@ -121,14 +211,12 @@ export default function DashboardShell({
                 }
               : null
           }
-          members={[
-            {
-              id: user.id,
-              fullName: user.fullName ?? user.email,
-              email: user.email,
-              role: 'owner',
-            },
-          ]}
+          members={members}
+          invitations={invitations}
+          currentUserRole={currentUserRole}
+          currentUserId={user.id}
+          planData={planData}
+          storeData={storeData}
         />
       </SidebarProvider>
     </CommandMenuContext>
