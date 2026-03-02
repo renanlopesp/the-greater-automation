@@ -16,7 +16,7 @@ export default function AddStepButton({ onClick }: AddStepButtonProps) {
         className="text-primary hover:bg-muted/20 flex w-full items-center justify-center gap-2 px-6 py-4 text-sm font-medium"
       >
         <Plus className="h-4 w-4" />
-        Add step
+        Adicionar etapa
       </button>
     </Card>
   )

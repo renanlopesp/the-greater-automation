@@ -83,9 +83,9 @@ export default function AvatarCropDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Crop avatar</DialogTitle>
+          <DialogTitle>Recortar avatar</DialogTitle>
           <DialogDescription>
-            Adjust the crop area to select your avatar. The image will be saved as a square.
+            Ajuste a área de recorte para selecionar seu avatar. A imagem será salva como quadrada.
           </DialogDescription>
         </DialogHeader>
 
@@ -110,11 +110,11 @@ export default function AvatarCropDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Cancel
+            Cancelar
           </Button>
           <Button onClick={handleConfirm} disabled={!completedCrop || isSaving}>
             {isSaving && <Loader2 className="animate-spin" />}
-            {isSaving ? 'Saving...' : 'Save avatar'}
+            {isSaving ? 'Salvando...' : 'Salvar avatar'}
           </Button>
         </DialogFooter>
       </DialogContent>

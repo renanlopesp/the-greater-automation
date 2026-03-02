@@ -339,7 +339,7 @@ describe('ChatPanel', () => {
 
       const promptInput = screen.getByTestId('prompt-input-textarea')
       expect(promptInput).toBeInTheDocument()
-      expect(promptInput).toHaveAttribute('placeholder', 'Chat with Test Agent...')
+      expect(promptInput).toHaveAttribute('placeholder', 'Chat com Test Agent...')
     })
   })
 

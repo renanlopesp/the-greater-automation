@@ -134,7 +134,7 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
         const { error: skillError } = await supabase.from('agent_skills').insert({
           agent_id: agent.id,
           name: skill.title,
-          description: `Specialized segment knowledge for ${role.name}`,
+          description: `Conhecimento especializado do segmento para ${role.name}`,
           content: skill.content,
           type: 'knowledge',
           version: 1,
@@ -261,19 +261,19 @@ async function provisionWorkflows(
   if (priorities.includes('controle_de_estoque') && agentsByRole.estoquista) {
     defs.push({
       agentId: agentsByRole.estoquista,
-      name: 'Low Stock Alert',
+      name: 'Alerta de Estoque Baixo',
       emoji: '⚠️',
-      description: `Checks ${platformLabel} products every 6 hours and alerts on low stock via Telegram.`,
+      description: `Verifica produtos ${platformLabel} a cada 6 horas e alerta sobre estoque baixo via Telegram.`,
       cronExpression: '0 */6 * * *',
       steps: [
         {
           type: 'app',
-          name: `Fetch ${platformLabel} Products`,
+          name: `Buscar Produtos ${platformLabel}`,
           config: productsAppStep,
         },
         {
           type: 'ai',
-          name: 'Analyze Stock Levels',
+          name: 'Analisar Níveis de Estoque',
           config: {
             ai_action: 'transform',
             prompt_template: `You are a stock management assistant for a retail store. Analyze the following ${platformLabel} product inventory data and identify products with LOW STOCK (5 units or fewer across all variants).\n\nFormat the result as a concise Telegram message in Portuguese (BR) using Markdown formatting. Use emojis for visual clarity.\n\nIf products have low stock, list them with: product name, current stock quantity, and a ⚠️ warning.\nIf NO products have low stock, respond with: "✅ Estoque OK — nenhum produto com estoque baixo."\n\nProduct data:\n{{step_2}}`,
@@ -284,7 +284,7 @@ async function provisionWorkflows(
         },
         {
           type: 'utility',
-          name: 'Send Telegram Alert',
+          name: 'Enviar Alerta Telegram',
           config: {
             utility_type: 'send_telegram',
             telegram_template: '{{step_3.output.content}}',
@@ -299,19 +299,19 @@ async function provisionWorkflows(
   if (priorities.includes('resumo_de_vendas') && agentsByRole.caixa) {
     defs.push({
       agentId: agentsByRole.caixa,
-      name: 'Daily Sales Summary',
+      name: 'Resumo Diário de Vendas',
       emoji: '📈',
-      description: `Fetches ${platformLabel} orders daily at 9 PM and sends a sales summary via Telegram.`,
+      description: `Busca pedidos ${platformLabel} diariamente às 21h e envia um resumo de vendas via Telegram.`,
       cronExpression: '0 21 * * *',
       steps: [
         {
           type: 'app',
-          name: `Fetch ${platformLabel} Orders`,
+          name: `Buscar Pedidos ${platformLabel}`,
           config: ordersAppStep,
         },
         {
           type: 'ai',
-          name: 'Summarize Sales',
+          name: 'Resumir Vendas',
           config: {
             ai_action: 'summarize',
             prompt_template: `You are a sales analyst for a retail store. Analyze the following ${platformLabel} orders data and create a daily sales summary.\n\nFormat as a concise Telegram message in Portuguese (BR) using Markdown. Include:\n- Total number of orders today\n- Total revenue in R$\n- Top selling products (name and quantity)\n- Payment status breakdown\n\nUse 📈 emoji in the header. If no orders today, say "📈 Sem pedidos hoje."\n\nOrders data:\n{{step_2}}`,
@@ -322,7 +322,7 @@ async function provisionWorkflows(
         },
         {
           type: 'utility',
-          name: 'Send Telegram Summary',
+          name: 'Enviar Resumo Telegram',
           config: {
             utility_type: 'send_telegram',
             telegram_template: '{{step_3.output.content}}',
@@ -337,19 +337,19 @@ async function provisionWorkflows(
   if (priorities.includes('alertas_de_pedidos') && agentsByRole.caixa) {
     defs.push({
       agentId: agentsByRole.caixa,
-      name: 'New Order Notification',
+      name: 'Notificação de Novo Pedido',
       emoji: '🛒',
-      description: `Checks ${platformLabel} for new orders every hour and notifies via Telegram.`,
+      description: `Verifica novos pedidos ${platformLabel} a cada hora e notifica via Telegram.`,
       cronExpression: '0 * * * *',
       steps: [
         {
           type: 'app',
-          name: 'Fetch Recent Orders',
+          name: 'Buscar Pedidos Recentes',
           config: ordersAppStep,
         },
         {
           type: 'ai',
-          name: 'Check New Orders',
+          name: 'Verificar Novos Pedidos',
           config: {
             ai_action: 'transform',
             prompt_template: `You are an order notification assistant for a retail store. Analyze the following ${platformLabel} orders data and identify any NEW orders placed in the last hour.\n\nFormat each new order as a Telegram notification in Portuguese (BR) using Markdown. Include: order number, customer name, items ordered, total value in R$.\n\nUse 🛒 emoji in the header. If no new orders in the last hour, say "🛒 Sem novos pedidos na última hora."\n\nOrders data:\n{{step_2}}`,
@@ -360,7 +360,7 @@ async function provisionWorkflows(
         },
         {
           type: 'utility',
-          name: 'Send Telegram Notification',
+          name: 'Enviar Notificação Telegram',
           config: {
             utility_type: 'send_telegram',
             telegram_template: '{{step_3.output.content}}',

@@ -22,14 +22,14 @@ vi.mock('@/hooks/use-notification-preferences', () => ({
 describe('NotificationsSection', () => {
   it('renders all notification options', () => {
     render(<NotificationsSection />)
-    expect(screen.getByText('Email notifications')).toBeInTheDocument()
-    expect(screen.getByText('Workflow run failures')).toBeInTheDocument()
-    expect(screen.getByText('Weekly activity digest')).toBeInTheDocument()
+    expect(screen.getByText('Notificações por e-mail')).toBeInTheDocument()
+    expect(screen.getByText('Falhas em automações')).toBeInTheDocument()
+    expect(screen.getByText('Resumo semanal de atividades')).toBeInTheDocument()
   })
 
   it('renders heading', () => {
     render(<NotificationsSection />)
-    expect(screen.getByText('Notifications')).toBeInTheDocument()
+    expect(screen.getByText('Notificações')).toBeInTheDocument()
   })
 
   it('renders switches for each option', () => {
@@ -41,11 +41,11 @@ describe('NotificationsSection', () => {
   it('shows descriptions for each option', () => {
     render(<NotificationsSection />)
     expect(
-      screen.getByText('Receive email notifications for important updates')
+      screen.getByText('Receba notificações por e-mail sobre atualizações importantes')
     ).toBeInTheDocument()
-    expect(screen.getByText('Get notified when a workflow run fails')).toBeInTheDocument()
+    expect(screen.getByText('Seja notificado quando uma automação falhar')).toBeInTheDocument()
     expect(
-      screen.getByText('Receive a weekly summary of your workspace activity')
+      screen.getByText('Receba um resumo semanal das atividades do seu workspace')
     ).toBeInTheDocument()
   })
 })

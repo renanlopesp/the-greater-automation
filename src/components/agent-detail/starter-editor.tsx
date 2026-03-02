@@ -35,7 +35,7 @@ export default function StarterEditor({ starters, onChange }: StarterEditorProps
           <Input
             value={starter}
             onChange={(e) => handleUpdate(index, e.target.value)}
-            placeholder={`Starter ${index + 1}`}
+            placeholder={`Sugestão ${index + 1}`}
             className="flex-1"
           />
           <Button
@@ -52,7 +52,7 @@ export default function StarterEditor({ starters, onChange }: StarterEditorProps
       {starters.length < MAX_STARTERS && (
         <Button type="button" variant="outline" size="sm" onClick={handleAdd} className="w-full">
           <Plus className="mr-2 h-4 w-4" />
-          Add starter
+          Adicionar sugestão
         </Button>
       )}
     </div>

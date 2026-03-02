@@ -20,6 +20,6 @@ describe('WorkflowListItem', () => {
 
   it('renders status badge', () => {
     render(<WorkflowListItem workflow={mockWorkflow} />)
-    expect(screen.getByText('Published')).toBeInTheDocument()
+    expect(screen.getByText('Publicado')).toBeInTheDocument()
   })
 })

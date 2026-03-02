@@ -226,7 +226,7 @@ export default function ProductsClient({
       .map((l) => l.trim())
       .filter(Boolean)
     if (lines.length < 2) {
-      toast.error('CSV must have a header row and at least one data row')
+      toast.error('O CSV deve ter uma linha de cabeçalho e pelo menos uma linha de dados')
       return
     }
 
@@ -248,11 +248,11 @@ export default function ProductsClient({
     )
 
     if (costCol === -1) {
-      toast.error('CSV must have a cost column (cost, custo, cost_price, or preço de custo)')
+      toast.error('O CSV deve ter uma coluna de custo (cost, custo, cost_price ou preço de custo)')
       return
     }
     if (skuCol === -1 && nameCol === -1) {
-      toast.error('CSV must have a SKU or name/produto column to match products')
+      toast.error('O CSV deve ter uma coluna de SKU ou nome/produto para identificar os produtos')
       return
     }
 
@@ -290,7 +290,9 @@ export default function ProductsClient({
     }
 
     if (matched.length === 0) {
-      toast.error('No products matched from CSV. Check that SKU or product names match.')
+      toast.error(
+        'Nenhum produto correspondeu no CSV. Verifique se os SKUs ou nomes dos produtos coincidem.'
+      )
       return
     }
 
@@ -317,11 +319,11 @@ export default function ProductsClient({
           return newCost != null ? { ...p, cost_price: newCost } : p
         })
       )
-      toast.success(`Cost updated for ${updates.length} products`)
+      toast.success(`Custo atualizado para ${updates.length} produtos`)
       setCsvMatches(null)
       setCsvUnmatched([])
     } catch {
-      toast.error('Failed to apply CSV costs')
+      toast.error('Falha ao aplicar custos do CSV')
     } finally {
       setApplyingCsv(false)
     }
@@ -337,7 +339,7 @@ export default function ProductsClient({
     async (productId: string) => {
       const cost = parseFloat(editValue)
       if (isNaN(cost) || cost < 0) {
-        toast.error('Invalid cost value')
+        toast.error('Valor de custo inválido')
         return
       }
 
@@ -354,9 +356,9 @@ export default function ProductsClient({
           prev.map((p) => (p.id === productId ? { ...p, cost_price: cost } : p))
         )
         setEditingId(null)
-        toast.success('Cost updated')
+        toast.success('Custo atualizado')
       } catch {
-        toast.error('Failed to update cost')
+        toast.error('Falha ao atualizar custo')
       } finally {
         setSaving(null)
       }
@@ -368,13 +370,13 @@ export default function ProductsClient({
   const handleBulkApply = async () => {
     const marginPct = parseFloat(bulkMargin)
     if (isNaN(marginPct) || marginPct <= 0 || marginPct >= 100) {
-      toast.error('Enter a margin between 0 and 100')
+      toast.error('Insira uma margem entre 0 e 100')
       return
     }
 
     const selectedProducts = products.filter((p) => selected.has(p.id) && p.price)
     if (selectedProducts.length === 0) {
-      toast.error('Select products with prices first')
+      toast.error('Selecione produtos com preços primeiro')
       return
     }
 
@@ -401,9 +403,9 @@ export default function ProductsClient({
       )
       setSelected(new Set())
       setBulkMargin('')
-      toast.success(`Cost updated for ${updates.length} products`)
+      toast.success(`Custo atualizado para ${updates.length} produtos`)
     } catch {
-      toast.error('Failed to update costs')
+      toast.error('Falha ao atualizar custos')
     } finally {
       setApplyingBulk(false)
     }
@@ -431,8 +433,10 @@ export default function ProductsClient({
     <div className="mx-auto flex max-w-7xl flex-1 flex-col gap-6 px-6 pt-8 pb-8">
       {/* Header */}
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Products — {storeName}</h2>
-        <p className="text-muted-foreground text-sm">Manage product costs and profit margins.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">Produtos — {storeName}</h2>
+        <p className="text-muted-foreground text-sm">
+          Gerencie custos e margens de lucro dos produtos.
+        </p>
       </div>
 
       {/* Stats */}
@@ -440,7 +444,7 @@ export default function ProductsClient({
         <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
           <div className="flex flex-col">
             <span className="text-2xl font-semibold">{stats.total}</span>
-            <span className="text-muted-foreground text-xs">Total products</span>
+            <span className="text-muted-foreground text-xs">Total de produtos</span>
           </div>
         </div>
         <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
@@ -448,7 +452,7 @@ export default function ProductsClient({
             <span className="text-2xl font-semibold text-green-600 dark:text-green-400">
               {stats.withCost}
             </span>
-            <span className="text-muted-foreground text-xs">With cost</span>
+            <span className="text-muted-foreground text-xs">Com custo</span>
           </div>
         </div>
         <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
@@ -461,7 +465,7 @@ export default function ProductsClient({
             >
               {stats.noCost}
             </span>
-            <span className="text-muted-foreground text-xs">Without cost</span>
+            <span className="text-muted-foreground text-xs">Sem custo</span>
           </div>
         </div>
         <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-4">
@@ -481,7 +485,7 @@ export default function ProductsClient({
             >
               {stats.avgMargin != null ? `${stats.avgMargin.toFixed(1)}%` : '—'}
             </span>
-            <span className="text-muted-foreground text-xs">Avg. margin</span>
+            <span className="text-muted-foreground text-xs">Margem média</span>
           </div>
         </div>
       </div>
@@ -510,7 +514,7 @@ export default function ProductsClient({
         <div className="relative">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
           <Input
-            placeholder="Search by name or SKU..."
+            placeholder="Buscar por nome ou SKU..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -533,9 +537,9 @@ export default function ProductsClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All products</SelectItem>
-              <SelectItem value="no_cost">Without cost ({stats.noCost})</SelectItem>
-              <SelectItem value="has_cost">With cost ({stats.withCost})</SelectItem>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              <SelectItem value="no_cost">Sem custo ({stats.noCost})</SelectItem>
+              <SelectItem value="has_cost">Com custo ({stats.withCost})</SelectItem>
             </SelectContent>
           </Select>
 
@@ -551,10 +555,10 @@ export default function ProductsClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All margins</SelectItem>
-              <SelectItem value="low">Low (&lt;20%)</SelectItem>
-              <SelectItem value="medium">Medium (20–40%)</SelectItem>
-              <SelectItem value="high">High (&gt;40%)</SelectItem>
+              <SelectItem value="all">Todas as margens</SelectItem>
+              <SelectItem value="low">Baixa (&lt;20%)</SelectItem>
+              <SelectItem value="medium">Média (20–40%)</SelectItem>
+              <SelectItem value="high">Alta (&gt;40%)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -572,15 +576,15 @@ export default function ProductsClient({
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="mr-1 h-3 w-3" />
-            Import CSV
+            Importar CSV
           </Button>
         </div>
 
         {selected.size > 0 && (
           <div className="flex items-center gap-2 sm:ml-auto">
-            <span className="text-muted-foreground text-sm">{selected.size} selected</span>
+            <span className="text-muted-foreground text-sm">{selected.size} selecionados</span>
             <Input
-              placeholder="Margin %"
+              placeholder="Margem %"
               value={bulkMargin}
               onChange={(e) => setBulkMargin(e.target.value)}
               className="w-24"
@@ -594,7 +598,7 @@ export default function ProductsClient({
               ) : (
                 <Percent className="mr-1 h-3 w-3" />
               )}
-              Apply margin
+              Aplicar margem
             </Button>
           </div>
         )}
@@ -607,10 +611,10 @@ export default function ProductsClient({
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="text-muted-foreground h-4 w-4" />
               <h3 className="text-sm font-medium">
-                CSV Import — {csvMatches.length} matched
+                Importação CSV — {csvMatches.length} correspondentes
                 {csvUnmatched.length > 0 && (
                   <span className="text-muted-foreground font-normal">
-                    , {csvUnmatched.length} not found
+                    , {csvUnmatched.length} não encontrados
                   </span>
                 )}
               </h3>
@@ -631,10 +635,10 @@ export default function ProductsClient({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">New Cost</TableHead>
-                  <TableHead className="text-right">Margin %</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-right">Preço</TableHead>
+                  <TableHead className="text-right">Novo Custo</TableHead>
+                  <TableHead className="text-right">Margem %</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -679,7 +683,7 @@ export default function ProductsClient({
           </div>
           {csvUnmatched.length > 0 && (
             <p className="text-muted-foreground mb-3 text-xs">
-              Not found: {csvUnmatched.map((u) => u.label).join(', ')}
+              Não encontrados: {csvUnmatched.map((u) => u.label).join(', ')}
             </p>
           )}
           <div className="flex gap-2">
@@ -689,7 +693,7 @@ export default function ProductsClient({
               ) : (
                 <Upload className="mr-1 h-3 w-3" />
               )}
-              Apply {csvMatches.length} costs
+              Aplicar {csvMatches.length} custos
             </Button>
             <Button
               size="sm"
@@ -699,7 +703,7 @@ export default function ProductsClient({
                 setCsvUnmatched([])
               }}
             >
-              Cancel
+              Cancelar
             </Button>
           </div>
         </div>
@@ -720,7 +724,7 @@ export default function ProductsClient({
                 className="max-w-[280px] cursor-pointer select-none"
                 onClick={() => handleSort('name')}
               >
-                Product <SortIcon col="name" />
+                Produto <SortIcon col="name" />
               </TableHead>
               <TableHead
                 className="w-32 cursor-pointer select-none"
@@ -732,25 +736,25 @@ export default function ProductsClient({
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('price')}
               >
-                Price <SortIcon col="price" />
+                Preço <SortIcon col="price" />
               </TableHead>
               <TableHead
                 className="w-32 cursor-pointer text-right select-none"
                 onClick={() => handleSort('cost_price')}
               >
-                Cost <SortIcon col="cost_price" />
+                Custo <SortIcon col="cost_price" />
               </TableHead>
               <TableHead
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('margin_pct')}
               >
-                Margin % <SortIcon col="margin_pct" />
+                Margem % <SortIcon col="margin_pct" />
               </TableHead>
               <TableHead
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('margin_value')}
               >
-                Margin R$ <SortIcon col="margin_value" />
+                Margem R$ <SortIcon col="margin_value" />
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -759,8 +763,8 @@ export default function ProductsClient({
               <TableRow>
                 <TableCell colSpan={7} className="text-muted-foreground py-12 text-center">
                   {search || costFilter !== 'all' || marginFilter !== 'all'
-                    ? 'No products match your filters.'
-                    : 'No products found.'}
+                    ? 'Nenhum produto corresponde aos filtros.'
+                    : 'Nenhum produto encontrado.'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -816,7 +820,7 @@ export default function ProductsClient({
                         >
                           {p.cost_price != null
                             ? `R$ ${Number(p.cost_price).toFixed(2)}`
-                            : 'set cost'}
+                            : 'definir custo'}
                         </button>
                       )}
                     </TableCell>
@@ -851,8 +855,8 @@ export default function ProductsClient({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-sm">
           {filtered.length > 0
-            ? `Showing ${showingFrom}–${showingTo} of ${filtered.length} products`
-            : `${filtered.length} products`}
+            ? `Mostrando ${showingFrom}–${showingTo} de ${filtered.length} produtos`
+            : `${filtered.length} produtos`}
         </p>
         <div className="flex items-center gap-2">
           <Select
@@ -873,7 +877,7 @@ export default function ProductsClient({
               ))}
             </SelectContent>
           </Select>
-          <span className="text-muted-foreground text-sm">per page</span>
+          <span className="text-muted-foreground text-sm">por página</span>
           <Button
             variant="outline"
             size="icon"

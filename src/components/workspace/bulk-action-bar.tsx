@@ -30,27 +30,29 @@ export function BulkActionBar({
   return (
     <div className="bg-muted/50 flex items-center gap-3 rounded-lg border px-4 py-2.5">
       <span className="text-muted-foreground text-sm font-medium">
-        {hasSelection ? `${selectedCount} selected` : 'No selection'}
+        {hasSelection ? `${selectedCount} selecionado(s)` : 'Nenhuma seleção'}
       </span>
 
       <div className="bg-border h-4 w-px" />
 
       <Button variant="destructive" size="sm" onClick={onDelete} disabled={disabled}>
         <Trash2 className="h-4 w-4" />
-        Delete selected
+        Excluir selecionados
       </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" disabled={disabled}>
-            Change status
+            Alterar status
             <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => onChangeStatus('draft')}>Set as Draft</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onChangeStatus('draft')}>
+            Definir como rascunho
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeStatus('published')}>
-            Set as Published
+            Definir como publicado
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -58,7 +60,7 @@ export function BulkActionBar({
       {onMoveToFolder && (
         <Button variant="outline" size="sm" onClick={onMoveToFolder} disabled={disabled}>
           <FolderInput className="h-4 w-4" />
-          Move to folder
+          Mover para pasta
         </Button>
       )}
     </div>

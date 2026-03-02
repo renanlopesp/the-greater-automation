@@ -39,31 +39,31 @@ import type { SuggestedWorkflow } from '@/lib/ai/workflow-assistant'
 const USE_CASE_CARDS = [
   {
     emoji: '\ud83d\udcc4',
-    title: 'Meeting briefings',
-    description: 'Prepare for meetings with AI-generated context and summaries',
+    title: 'Resumos de reunião',
+    description: 'Prepare-se para reuniões com contexto e resumos gerados por IA',
     prompt:
-      'Build a workflow for daily meeting briefings that fetches my calendar events and creates an AI summary',
+      'Crie uma automação para resumos diários de reunião que busca meus eventos do calendário e gera um resumo com IA',
   },
   {
     emoji: '\ud83d\udd0d',
-    title: 'Competitor analysis',
-    description: 'Track competitor activity and get AI-powered insights',
+    title: 'Análise de concorrentes',
+    description: 'Monitore a atividade de concorrentes e obtenha insights com IA',
     prompt:
-      'Create a workflow to monitor competitor websites on a schedule and analyze changes with AI',
+      'Crie uma automação para monitorar sites de concorrentes periodicamente e analisar mudanças com IA',
   },
   {
     emoji: '\ud83d\udce7',
-    title: 'Email assistant',
-    description: 'Automatically draft, summarize, and categorize emails',
+    title: 'Assistente de e-mail',
+    description: 'Rascunhe, resuma e categorize e-mails automaticamente',
     prompt:
-      'Set up an email automation that receives emails via webhook, categorizes them with AI, and drafts responses',
+      'Configure uma automação de e-mail que recebe e-mails via webhook, categoriza com IA e rascunha respostas',
   },
   {
     emoji: '\ud83c\udfa5',
-    title: 'YouTube summarizer',
-    description: 'Get AI summaries of YouTube videos and channels',
+    title: 'Resumo de YouTube',
+    description: 'Obtenha resumos com IA de vídeos e canais do YouTube',
     prompt:
-      'Build a workflow that takes a YouTube URL, scrapes the transcript, and generates an AI summary',
+      'Crie uma automação que recebe uma URL do YouTube, extrai a transcrição e gera um resumo com IA',
   },
 ]
 
@@ -95,7 +95,7 @@ function AssistantMessageItem({
       {!isUser && (
         <div className="mb-1 flex items-center gap-2">
           <Diamond className="text-primary h-4 w-4" />
-          <span className="text-muted-foreground text-sm font-medium">Assistant</span>
+          <span className="text-muted-foreground text-sm font-medium">Assistente</span>
         </div>
       )}
 
@@ -141,7 +141,7 @@ function AssistantMessageItem({
             {textContent && <MessageResponse>{textContent}</MessageResponse>}
 
             {isStreaming && !textContent && toolParts.length === 0 && (
-              <Shimmer as="p">Thinking...</Shimmer>
+              <Shimmer as="p">Pensando...</Shimmer>
             )}
 
             {suggestion && (
@@ -151,7 +151,7 @@ function AssistantMessageItem({
                 onClick={() => onApply(suggestion)}
                 className="mt-2"
               >
-                Apply to editor
+                Aplicar no editor
               </Button>
             )}
           </>
@@ -160,7 +160,10 @@ function AssistantMessageItem({
 
       {!isUser && textContent && !isStreaming && (
         <MessageActions>
-          <MessageAction tooltip="Copy" onClick={() => navigator.clipboard.writeText(textContent)}>
+          <MessageAction
+            tooltip="Copiar"
+            onClick={() => navigator.clipboard.writeText(textContent)}
+          >
             <CopyIcon className="size-3.5" />
           </MessageAction>
         </MessageActions>
@@ -243,7 +246,7 @@ export default function AIAssistantPanel() {
       {/* Header */}
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Diamond className="text-primary h-5 w-5" />
-        <span className="flex-1 text-sm font-medium">Snew Assistant</span>
+        <span className="flex-1 text-sm font-medium">Assistente Snew</span>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleAssistant}>
           <PanelLeftClose className="h-4 w-4" />
         </Button>
@@ -254,7 +257,7 @@ export default function AIAssistantPanel() {
         <ConversationContent>
           {!hasMessages ? (
             <>
-              <ConversationEmptyState title="What can I help you build?" />
+              <ConversationEmptyState title="O que posso ajudar a construir?" />
               <div className="grid grid-cols-2 gap-3 px-4">
                 {USE_CASE_CARDS.map((card) => (
                   <UseCaseCard
@@ -294,7 +297,7 @@ export default function AIAssistantPanel() {
       <div className="border-t px-4 py-3">
         <PromptInput onSubmit={handleSubmit}>
           <PromptInputTextarea
-            placeholder="Describe a workflow or ask a question"
+            placeholder="Descreva uma automação ou faça uma pergunta"
             disabled={isLoading}
           />
           <PromptInputFooter>

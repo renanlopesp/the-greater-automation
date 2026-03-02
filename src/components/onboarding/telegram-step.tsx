@@ -31,14 +31,14 @@ export function TelegramStep({ onSkip, onLinked }: TelegramStepProps) {
           onLinked()
           return
         }
-        throw new Error(data.error || 'Failed to generate code')
+        throw new Error(data.error || 'Falha ao gerar código')
       }
       const data = await res.json()
       setCode(data.code)
       // Start polling for verification
       pollLinkStatus()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate code')
+      setError(err instanceof Error ? err.message : 'Falha ao gerar código')
     } finally {
       setLoading(false)
     }
@@ -73,9 +73,9 @@ export function TelegramStep({ onSkip, onLinked }: TelegramStepProps) {
     return (
       <div className="space-y-4 text-center">
         <div className="text-4xl">✅</div>
-        <h2 className="text-2xl font-bold tracking-tight">Telegram connected!</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Telegram conectado!</h2>
         <p className="text-muted-foreground">
-          You&apos;ll receive alerts and can chat with Snew directly on Telegram.
+          Você receberá alertas e poderá conversar com o Snew diretamente pelo Telegram.
         </p>
       </div>
     )
@@ -84,25 +84,25 @@ export function TelegramStep({ onSkip, onLinked }: TelegramStepProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">Connect Telegram</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Conectar Telegram</h2>
         <p className="text-muted-foreground">
-          Receive stock, sales, and order alerts directly on Telegram.
+          Receba alertas de estoque, vendas e pedidos diretamente no Telegram.
         </p>
       </div>
 
       {!code ? (
         <div className="space-y-3">
           <Button onClick={generateCode} disabled={loading} className="w-full">
-            {loading ? 'Generating code...' : 'Generate verification code'}
+            {loading ? 'Gerando código...' : 'Gerar código de verificação'}
           </Button>
           <Button variant="ghost" onClick={onSkip} className="w-full">
-            Skip for now
+            Pular por agora
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="bg-muted rounded-lg border p-4 text-center">
-            <p className="text-muted-foreground mb-2 text-sm">Your verification code:</p>
+            <p className="text-muted-foreground mb-2 text-sm">Seu código de verificação:</p>
             <Input
               value={code}
               readOnly
@@ -111,19 +111,19 @@ export function TelegramStep({ onSkip, onLinked }: TelegramStepProps) {
           </div>
           <div className="text-muted-foreground space-y-2 text-sm">
             <p>
-              1. Open Telegram and search for <strong>@SnewRelayBot</strong>
+              1. Abra o Telegram e busque por <strong>@SnewRelayBot</strong>
             </p>
             <p>
-              2. Send: <code>/link {code}</code>
+              2. Envie: <code>/link {code}</code>
             </p>
-            <p>3. Wait for confirmation here</p>
+            <p>3. Aguarde a confirmação aqui</p>
           </div>
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <div className="bg-primary h-2 w-2 animate-pulse rounded-full" />
-            Waiting for verification...
+            Aguardando verificação...
           </div>
           <Button variant="ghost" onClick={onSkip} className="w-full">
-            Skip for now
+            Pular por agora
           </Button>
         </div>
       )}

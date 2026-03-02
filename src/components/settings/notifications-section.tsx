@@ -7,18 +7,18 @@ import { useNotificationPreferences } from '@/hooks/use-notification-preferences
 const NOTIFICATION_OPTIONS = [
   {
     id: 'emailEnabled' as const,
-    label: 'Email notifications',
-    description: 'Receive email notifications for important updates',
+    label: 'Notificações por e-mail',
+    description: 'Receba notificações por e-mail sobre atualizações importantes',
   },
   {
     id: 'failuresEnabled' as const,
-    label: 'Workflow run failures',
-    description: 'Get notified when a workflow run fails',
+    label: 'Falhas em automações',
+    description: 'Seja notificado quando uma automação falhar',
   },
   {
     id: 'digestEnabled' as const,
-    label: 'Weekly activity digest',
-    description: 'Receive a weekly summary of your workspace activity',
+    label: 'Resumo semanal de atividades',
+    description: 'Receba um resumo semanal das atividades do seu workspace',
   },
 ]
 
@@ -27,12 +27,12 @@ export default function NotificationsSection() {
 
   function handleToggle(id: 'emailEnabled' | 'failuresEnabled' | 'digestEnabled') {
     updatePreference(id, !preferences[id])
-    toast('Notification preference updated')
+    toast('Preferência de notificação atualizada')
   }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-lg font-semibold">Notifications</h2>
+      <h2 className="text-lg font-semibold">Notificações</h2>
 
       <div className="flex flex-col gap-4">
         {NOTIFICATION_OPTIONS.map((opt) => (

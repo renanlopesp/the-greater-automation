@@ -149,20 +149,20 @@ export async function buildSalesSummary(storeId: string, date?: string): Promise
 export function formatSalesSummaryMessage(storeName: string, summary: SalesSummary): string {
   const fmt = (v: number) => formatCurrency(v, summary.currency)
   const lines: string[] = [
-    `📊 *Sales Summary — ${storeName}*`,
+    `📊 *Resumo de Vendas — ${storeName}*`,
     `📅 ${formatDate(summary.date)}`,
     '',
   ]
 
   if (summary.ordersCount === 0) {
-    lines.push('No sales recorded today.')
+    lines.push('Nenhuma venda registrada hoje.')
   } else {
-    lines.push(`🛒 *${summary.ordersCount}* order${summary.ordersCount > 1 ? 's' : ''}`)
-    lines.push(`💰 *${fmt(summary.revenue)}* in revenue`)
+    lines.push(`🛒 *${summary.ordersCount}* pedido${summary.ordersCount > 1 ? 's' : ''}`)
+    lines.push(`💰 *${fmt(summary.revenue)}* em receita`)
 
     if (summary.topProducts.length > 0) {
       lines.push('')
-      lines.push('*Top products:*')
+      lines.push('*Produtos mais vendidos:*')
       for (const product of summary.topProducts) {
         lines.push(`• ${product.name} — ${product.quantity}x (${fmt(product.revenue)})`)
       }
@@ -175,7 +175,7 @@ export function formatSalesSummaryMessage(storeName: string, summary: SalesSumma
     const arrow = change > 0 ? '📈' : change < 0 ? '📉' : '➡️'
     const sign = change > 0 ? '+' : ''
     lines.push(
-      `${arrow} ${sign}${change.toFixed(1)}% vs. yesterday (${fmt(summary.comparison.revenue)})`
+      `${arrow} ${sign}${change.toFixed(1)}% vs. ontem (${fmt(summary.comparison.revenue)})`
     )
   }
 
@@ -196,7 +196,7 @@ export function formatSalesSummaryMessage(storeName: string, summary: SalesSumma
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00Z')
-  return date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })
+  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 function formatCurrency(value: number, currency: string): string {

@@ -149,7 +149,7 @@ function ChatMessageItem({
             </AvatarFallback>
           </Avatar>
           <span className="text-muted-foreground text-sm font-medium">
-            {senderName ?? 'Team member'}
+            {senderName ?? 'Membro da equipe'}
           </span>
         </div>
       )}
@@ -165,7 +165,7 @@ function ChatMessageItem({
                     <img
                       key={i}
                       src={file.url}
-                      alt={file.filename ?? 'Attached image'}
+                      alt={file.filename ?? 'Imagem anexada'}
                       className="max-h-48 max-w-64 rounded-lg object-cover"
                     />
                   ) : (
@@ -175,7 +175,7 @@ function ChatMessageItem({
                     >
                       <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
                       <span className="max-w-[200px] truncate">
-                        {file.filename ?? 'Attached file'}
+                        {file.filename ?? 'Arquivo anexado'}
                       </span>
                     </div>
                   )
@@ -239,18 +239,21 @@ function ChatMessageItem({
       {/* Actions for assistant messages */}
       {!isUser && textContent && !isStreaming && (
         <MessageActions>
-          <MessageAction tooltip="Copy" onClick={() => navigator.clipboard.writeText(textContent)}>
+          <MessageAction
+            tooltip="Copiar"
+            onClick={() => navigator.clipboard.writeText(textContent)}
+          >
             <CopyIcon className="size-3.5" />
           </MessageAction>
           <MessageAction
-            tooltip="Like"
+            tooltip="Curtir"
             onClick={() => onFeedback(message.id, 'like')}
             className={cn(feedback === 'like' && 'text-green-600 dark:text-green-400')}
           >
             <ThumbsUpIcon className={cn('size-3.5', feedback === 'like' && 'fill-current')} />
           </MessageAction>
           <MessageAction
-            tooltip="Dislike"
+            tooltip="Não curtir"
             onClick={() => onFeedback(message.id, 'dislike')}
             className={cn(feedback === 'dislike' && 'text-red-600 dark:text-red-400')}
           >
@@ -265,7 +268,7 @@ function ChatMessageItem({
 function AttachButton() {
   const attachments = usePromptInputAttachments()
   return (
-    <PromptInputButton tooltip="Attach files" onClick={() => attachments.openFileDialog()}>
+    <PromptInputButton tooltip="Anexar arquivos" onClick={() => attachments.openFileDialog()}>
       <PaperclipIcon className="size-4" />
     </PromptInputButton>
   )
@@ -380,8 +383,8 @@ export default function ChatPanel({
         <ConversationContent className="mx-auto max-w-3xl">
           {!hasMessages ? (
             <ConversationEmptyState
-              title={`Chat with ${agentName}`}
-              description="Ask a question or pick a conversation starter below."
+              title={`Chat com ${agentName}`}
+              description="Faça uma pergunta ou escolha uma sugestão abaixo."
             />
           ) : (
             visibleMessages.map((message) => (
@@ -424,7 +427,7 @@ export default function ChatPanel({
 
           <PromptInput onSubmit={handleSubmit} multiple>
             <AttachmentPreviews />
-            <PromptInputTextarea placeholder={`Chat with ${agentName}...`} disabled={isLoading} />
+            <PromptInputTextarea placeholder={`Chat com ${agentName}...`} disabled={isLoading} />
             <PromptInputFooter>
               <PromptInputTools>
                 <AttachButton />

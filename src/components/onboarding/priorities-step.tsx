@@ -17,11 +17,11 @@ const PRIORITY_ICONS: Record<Priority, string> = {
 }
 
 const PRIORITY_DESCRIPTIONS: Record<Priority, string> = {
-  controle_de_estoque: 'Alerts when a product is running low',
-  monitorar_concorrencia: 'Tracks competitor prices',
-  resumo_de_vendas: 'Daily sales summary via Telegram',
-  atendimento: 'Helps respond to customers faster',
-  alertas_de_pedidos: 'Instant notification for new orders',
+  controle_de_estoque: 'Alerta quando um produto está acabando',
+  monitorar_concorrencia: 'Acompanha preços dos concorrentes',
+  resumo_de_vendas: 'Resumo diário de vendas via Telegram',
+  atendimento: 'Ajuda a responder clientes mais rápido',
+  alertas_de_pedidos: 'Notificação instantânea de novos pedidos',
 }
 
 export function PrioritiesStep({ value, onChange }: PrioritiesStepProps) {
@@ -36,9 +36,9 @@ export function PrioritiesStep({ value, onChange }: PrioritiesStepProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">What matters most to you?</h2>
+        <h2 className="text-2xl font-bold tracking-tight">O que mais importa para você?</h2>
         <p className="text-muted-foreground">
-          Select at least one priority. We&apos;ll set up automatic alerts.
+          Selecione pelo menos uma prioridade. Configuraremos alertas automáticos.
         </p>
       </div>
       <div className="space-y-3">

@@ -32,7 +32,7 @@ export default function WebScrapingStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="action" className="text-sm font-medium">
-          Action
+          Ação
         </Label>
         <Select
           value={action}
@@ -44,9 +44,9 @@ export default function WebScrapingStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="scrape">Scrape Page</SelectItem>
-            <SelectItem value="map">Map Site</SelectItem>
-            <SelectItem value="search">Web Search</SelectItem>
+            <SelectItem value="scrape">Extrair página</SelectItem>
+            <SelectItem value="map">Mapear site</SelectItem>
+            <SelectItem value="search">Busca na web</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -69,13 +69,15 @@ export default function WebScrapingStepConfigForm({
       {showQuery && (
         <div>
           <Label htmlFor="query" className="text-sm font-medium">
-            {action === 'search' ? 'Search Query' : 'Search (optional, sorts by relevance)'}
+            {action === 'search' ? 'Consulta de busca' : 'Busca (opcional, ordena por relevância)'}
           </Label>
           <Input
             id="query"
             value={config.query ?? ''}
             onChange={(e) => onUpdate({ ...config, query: e.target.value })}
-            placeholder={action === 'search' ? 'Search the web...' : 'Filter URLs by relevance...'}
+            placeholder={
+              action === 'search' ? 'Buscar na web...' : 'Filtrar URLs por relevância...'
+            }
             className="mt-1"
           />
         </div>
@@ -84,7 +86,7 @@ export default function WebScrapingStepConfigForm({
       {showOutputFormat && (
         <div>
           <Label htmlFor="output-format" className="text-sm font-medium">
-            Output Format
+            Formato de saída
           </Label>
           <Select
             value={config.output_format}
@@ -108,7 +110,7 @@ export default function WebScrapingStepConfigForm({
       {showMainContent && (
         <div className="flex items-center justify-between">
           <Label htmlFor="only-main-content" className="text-sm font-medium">
-            Only main content
+            Apenas conteúdo principal
           </Label>
           <Switch
             id="only-main-content"
@@ -121,7 +123,7 @@ export default function WebScrapingStepConfigForm({
       {showWaitFor && (
         <div>
           <Label htmlFor="wait-for" className="text-sm font-medium">
-            Wait before scrape (ms)
+            Aguardar antes de extrair (ms)
           </Label>
           <Input
             id="wait-for"
@@ -140,7 +142,7 @@ export default function WebScrapingStepConfigForm({
         <>
           <div>
             <Label htmlFor="include-tags" className="text-sm font-medium">
-              Include Tags (comma-separated CSS selectors)
+              Tags incluídas (seletores CSS separados por vírgula)
             </Label>
             <Input
               id="include-tags"
@@ -152,7 +154,7 @@ export default function WebScrapingStepConfigForm({
           </div>
           <div>
             <Label htmlFor="exclude-tags" className="text-sm font-medium">
-              Exclude Tags (comma-separated CSS selectors)
+              Tags excluídas (seletores CSS separados por vírgula)
             </Label>
             <Input
               id="exclude-tags"
@@ -168,7 +170,7 @@ export default function WebScrapingStepConfigForm({
       {showLimit && (
         <div>
           <Label htmlFor="limit" className="text-sm font-medium">
-            Limit
+            Limite
           </Label>
           <Input
             id="limit"

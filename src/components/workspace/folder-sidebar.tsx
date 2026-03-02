@@ -134,7 +134,7 @@ export function FolderSidebar({
         >
           <span className="w-3.5 shrink-0" />
           <FolderOpen className="text-muted-foreground h-4 w-4 shrink-0" />
-          <span>All items</span>
+          <span>Todos os itens</span>
         </button>
         {folderTree.map((node) => (
           <FolderNode
@@ -149,7 +149,7 @@ export function FolderSidebar({
           />
         ))}
         {folderTree.length === 0 && (
-          <p className="text-muted-foreground px-2 py-4 text-center text-xs">No folders yet</p>
+          <p className="text-muted-foreground px-2 py-4 text-center text-xs">Nenhuma pasta ainda</p>
         )}
       </div>
     </div>

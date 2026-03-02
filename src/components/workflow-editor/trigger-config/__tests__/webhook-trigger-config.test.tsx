@@ -37,8 +37,10 @@ describe('WebhookTriggerConfigForm', () => {
   it('shows "Publish to generate" messages when no token or secret', () => {
     render(<WebhookTriggerConfigForm config={defaultConfig} onUpdate={mockOnUpdate} />)
 
-    expect(screen.getByText('Publish the workflow to generate the webhook URL')).toBeInTheDocument()
-    expect(screen.getByText('Publish the workflow to generate a secret key')).toBeInTheDocument()
+    expect(screen.getByText('Publique a automação para gerar a URL do webhook')).toBeInTheDocument()
+    expect(
+      screen.getByText('Publique a automação para gerar uma chave secreta')
+    ).toBeInTheDocument()
   })
 
   it('shows webhook URL when token exists', () => {
@@ -66,7 +68,7 @@ describe('WebhookTriggerConfigForm', () => {
     const secretInput = screen.getByDisplayValue(configWithTokenAndSecret.secret!)
     expect(secretInput).toHaveAttribute('type', 'password')
 
-    const showButton = screen.getByTitle('Show secret')
+    const showButton = screen.getByTitle('Mostrar segredo')
     await user.click(showButton)
 
     expect(secretInput).toHaveAttribute('type', 'text')
@@ -75,7 +77,7 @@ describe('WebhookTriggerConfigForm', () => {
   it('copies secret to clipboard', () => {
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
-    const copyButton = screen.getByTitle('Copy secret')
+    const copyButton = screen.getByTitle('Copiar segredo')
     fireEvent.click(copyButton)
 
     expect(mockWriteText).toHaveBeenCalledWith(configWithTokenAndSecret.secret)
@@ -92,7 +94,7 @@ describe('WebhookTriggerConfigForm', () => {
 
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
-    const regenButton = screen.getByTitle('Generate new secret')
+    const regenButton = screen.getByTitle('Gerar nova chave')
     await user.click(regenButton)
 
     expect(mockOnUpdate).toHaveBeenCalledWith(
@@ -112,7 +114,7 @@ describe('WebhookTriggerConfigForm', () => {
   it('renders method select with correct value', () => {
     render(<WebhookTriggerConfigForm config={defaultConfig} onUpdate={mockOnUpdate} />)
 
-    expect(screen.getByText('Method')).toBeInTheDocument()
+    expect(screen.getByText('Método')).toBeInTheDocument()
     // There are 2 comboboxes (method + status code), method is the first one
     const comboboxes = screen.getAllByRole('combobox')
     expect(comboboxes[0]).toHaveTextContent('POST')
@@ -121,7 +123,7 @@ describe('WebhookTriggerConfigForm', () => {
   it('renders response status code as select with 200 OK', () => {
     render(<WebhookTriggerConfigForm config={defaultConfig} onUpdate={mockOnUpdate} />)
 
-    expect(screen.getByText('Response status code')).toBeInTheDocument()
+    expect(screen.getByText('Código de status da resposta')).toBeInTheDocument()
     const comboboxes = screen.getAllByRole('combobox')
     expect(comboboxes[1]).toHaveTextContent('200 OK')
   })
@@ -141,7 +143,7 @@ describe('WebhookTriggerConfigForm', () => {
   it('copies webhook URL to clipboard', () => {
     render(<WebhookTriggerConfigForm config={configWithTokenAndSecret} onUpdate={mockOnUpdate} />)
 
-    const copyButton = screen.getByTitle('Copy URL')
+    const copyButton = screen.getByTitle('Copiar URL')
     fireEvent.click(copyButton)
 
     expect(mockWriteText).toHaveBeenCalledWith(
@@ -152,7 +154,7 @@ describe('WebhookTriggerConfigForm', () => {
   it('shows label "Secret key" without "(optional)"', () => {
     render(<WebhookTriggerConfigForm config={defaultConfig} onUpdate={mockOnUpdate} />)
 
-    expect(screen.getByText('Secret key')).toBeInTheDocument()
+    expect(screen.getByText('Chave secreta')).toBeInTheDocument()
     expect(screen.queryByText(/optional/i)).not.toBeInTheDocument()
   })
 })

@@ -39,9 +39,9 @@ export default function TopBar() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem>Rename</DropdownMenuItem>
-          <DropdownMenuItem>Change emoji</DropdownMenuItem>
-          <DropdownMenuItem>Duplicate</DropdownMenuItem>
+          <DropdownMenuItem>Renomear</DropdownMenuItem>
+          <DropdownMenuItem>Alterar emoji</DropdownMenuItem>
+          <DropdownMenuItem>Duplicar</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -54,7 +54,7 @@ export default function TopBar() {
         <UserPlus className="h-4 w-4" />
       </Button>
       <Button variant="outline" size="sm">
-        Sharing
+        Compartilhamento
       </Button>
       <Button variant="ghost" size="icon" className="h-8 w-8">
         <MoreHorizontal className="h-4 w-4" />

@@ -38,7 +38,7 @@ export default function SetupChecklist({ agentName, steps }: SetupChecklistProps
           <div className="flex items-center gap-2">
             <Settings className="text-muted-foreground h-4 w-4" />
             <p className="text-sm font-medium">
-              Set up {agentName}{' '}
+              Configurar {agentName}{' '}
               <span className="text-muted-foreground font-normal">
                 ({completedCount}/{steps.length})
               </span>
@@ -50,7 +50,7 @@ export default function SetupChecklist({ agentName, steps }: SetupChecklistProps
             className="text-muted-foreground h-auto px-2 py-1 text-xs"
             onClick={() => setDismissed(true)}
           >
-            Dismiss
+            Dispensar
           </Button>
         </div>
         <div className="flex flex-col gap-2">

@@ -39,29 +39,29 @@ export default function GeneralSection({ name, slug }: GeneralSectionProps) {
     if (result.error) {
       toast.error(result.error)
     } else {
-      toast.success('Workspace updated')
+      toast.success('Workspace atualizado')
     }
   }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <h2 className="text-lg font-semibold">General</h2>
+      <h2 className="text-lg font-semibold">Geral</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex max-w-md flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="workspace-name">Workspace name</Label>
+          <Label htmlFor="workspace-name">Nome do workspace</Label>
           <Input id="workspace-name" {...register('name')} />
           {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="workspace-slug">Workspace slug</Label>
+          <Label htmlFor="workspace-slug">Slug do workspace</Label>
           <Input id="workspace-slug" value={slug} disabled />
         </div>
 
         <Button type="submit" className="w-fit" disabled={!isDirty || pending}>
           {pending && <Loader2 className="animate-spin" />}
-          {pending ? 'Saving...' : 'Save changes'}
+          {pending ? 'Salvando...' : 'Salvar alterações'}
         </Button>
       </form>
     </div>

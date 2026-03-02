@@ -23,7 +23,7 @@ export function MailhookTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Label>Email address</Label>
+        <Label>Endereço de e-mail</Label>
         <div className="mt-1 flex gap-2">
           <Input value={placeholderEmail} readOnly className="flex-1" />
           <Button size="icon" variant="outline" onClick={copyToClipboard}>
@@ -31,12 +31,12 @@ export function MailhookTriggerConfigForm({
           </Button>
         </div>
         <p className="text-muted-foreground mt-1 text-xs">
-          This address will be generated when you save the workflow
+          Este endereço será gerado quando você salvar a automação
         </p>
       </div>
 
       <div>
-        <Label>Allowed senders (optional)</Label>
+        <Label>Remetentes permitidos (opcional)</Label>
         <Input
           value={config.allowed_senders?.join(', ') ?? ''}
           onChange={(e) =>
@@ -51,12 +51,12 @@ export function MailhookTriggerConfigForm({
           className="mt-1"
         />
         <p className="text-muted-foreground mt-1 text-xs">
-          Comma-separated list of allowed sender email addresses
+          Lista de e-mails permitidos separados por vírgula
         </p>
       </div>
 
       <div>
-        <Label>Subject filter (optional)</Label>
+        <Label>Filtro de assunto (opcional)</Label>
         <Input
           value={config.subject_filter ?? ''}
           onChange={(e) => onUpdate({ ...config, subject_filter: e.target.value })}
@@ -64,14 +64,16 @@ export function MailhookTriggerConfigForm({
           className="mt-1"
         />
         <p className="text-muted-foreground mt-1 text-xs">
-          Only trigger if subject contains this text
+          Acionar apenas se o assunto contiver este texto
         </p>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <Label>Save attachments</Label>
-          <p className="text-muted-foreground text-xs">Store email attachments for workflow use</p>
+          <Label>Salvar anexos</Label>
+          <p className="text-muted-foreground text-xs">
+            Armazenar anexos de e-mail para uso na automação
+          </p>
         </div>
         <Switch
           checked={config.save_attachments}

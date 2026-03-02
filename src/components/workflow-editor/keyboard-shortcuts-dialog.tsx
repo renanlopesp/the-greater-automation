@@ -14,13 +14,13 @@ interface KeyboardShortcutsDialogProps {
 }
 
 const SHORTCUTS = [
-  { keys: ['Ctrl', 'S'], mac: ['⌘', 'S'], description: 'Save workflow' },
-  { keys: ['Ctrl', 'Z'], mac: ['⌘', 'Z'], description: 'Undo' },
-  { keys: ['Ctrl', 'Shift', 'Z'], mac: ['⌘', '⇧', 'Z'], description: 'Redo' },
-  { keys: ['Delete'], mac: ['⌫'], description: 'Delete selected step' },
-  { keys: ['Backspace'], mac: ['⌫'], description: 'Delete selected step' },
-  { keys: ['Esc'], mac: ['Esc'], description: 'Deselect step' },
-  { keys: ['?'], mac: ['?'], description: 'Show keyboard shortcuts' },
+  { keys: ['Ctrl', 'S'], mac: ['⌘', 'S'], description: 'Salvar automação' },
+  { keys: ['Ctrl', 'Z'], mac: ['⌘', 'Z'], description: 'Desfazer' },
+  { keys: ['Ctrl', 'Shift', 'Z'], mac: ['⌘', '⇧', 'Z'], description: 'Refazer' },
+  { keys: ['Delete'], mac: ['⌫'], description: 'Excluir etapa selecionada' },
+  { keys: ['Backspace'], mac: ['⌫'], description: 'Excluir etapa selecionada' },
+  { keys: ['Esc'], mac: ['Esc'], description: 'Desselecionar etapa' },
+  { keys: ['?'], mac: ['?'], description: 'Mostrar atalhos de teclado' },
 ]
 
 export default function KeyboardShortcutsDialog({
@@ -34,8 +34,8 @@ export default function KeyboardShortcutsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>Boost your productivity with these shortcuts.</DialogDescription>
+          <DialogTitle>Atalhos de teclado</DialogTitle>
+          <DialogDescription>Aumente sua produtividade com estes atalhos.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           {SHORTCUTS.map((shortcut, index) => (

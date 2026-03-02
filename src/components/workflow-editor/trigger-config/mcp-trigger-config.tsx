@@ -40,7 +40,7 @@ export function MCPTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Label>Server name</Label>
+        <Label>Nome do servidor</Label>
         <Input
           value={config.server_name}
           onChange={(e) => onUpdate({ ...config, server_name: e.target.value })}
@@ -50,34 +50,34 @@ export function MCPTriggerConfigForm({
       </div>
 
       <div>
-        <Label>Description</Label>
+        <Label>Descrição</Label>
         <Textarea
           value={config.description}
           onChange={(e) => onUpdate({ ...config, description: e.target.value })}
-          placeholder="Describe what this MCP server does"
+          placeholder="Descreva o que este servidor MCP faz"
           rows={2}
           className="mt-1"
         />
       </div>
 
       <div className="flex items-center justify-between">
-        <Label>Tools</Label>
+        <Label>Ferramentas</Label>
         <Button size="sm" variant="outline" onClick={addTool}>
           <Plus className="mr-1 h-3 w-3" />
-          Add tool
+          Adicionar ferramenta
         </Button>
       </div>
 
       {config.tools.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          No tools defined. Click &ldquo;Add tool&rdquo; to create one.
+          Nenhuma ferramenta definida. Clique em &ldquo;Adicionar ferramenta&rdquo;.
         </p>
       )}
 
       {config.tools.map((tool, index) => (
         <div key={index} className="rounded-lg border p-3">
           <div className="mb-3 flex items-center justify-between">
-            <Label className="text-xs font-medium">Tool {index + 1}</Label>
+            <Label className="text-xs font-medium">Ferramenta {index + 1}</Label>
             <Button
               size="icon"
               variant="ghost"
@@ -90,7 +90,7 @@ export function MCPTriggerConfigForm({
 
           <div className="flex flex-col gap-3">
             <div>
-              <Label className="text-xs">Name</Label>
+              <Label className="text-xs">Nome</Label>
               <Input
                 value={tool.name}
                 onChange={(e) => updateTool(index, { name: e.target.value })}
@@ -100,17 +100,17 @@ export function MCPTriggerConfigForm({
             </div>
 
             <div>
-              <Label className="text-xs">Description</Label>
+              <Label className="text-xs">Descrição</Label>
               <Input
                 value={tool.description}
                 onChange={(e) => updateTool(index, { description: e.target.value })}
-                placeholder="What this tool does"
+                placeholder="O que esta ferramenta faz"
                 className="mt-1"
               />
             </div>
 
             <div>
-              <Label className="text-xs">Input schema (JSON)</Label>
+              <Label className="text-xs">Schema de entrada (JSON)</Label>
               <Textarea
                 value={JSON.stringify(tool.input_schema, null, 2)}
                 onChange={(e) => {

@@ -71,27 +71,27 @@ describe('SettingsDialog', () => {
 
   it('renders sidebar sections', () => {
     render(<SettingsDialog {...defaultProps} />)
-    expect(screen.getByText('PERSONAL')).toBeInTheDocument()
+    expect(screen.getByText('PESSOAL')).toBeInTheDocument()
     expect(screen.getByText('WORKSPACE')).toBeInTheDocument()
-    expect(screen.getByText('Account')).toBeInTheDocument()
-    expect(screen.getByText('Notifications')).toBeInTheDocument()
-    expect(screen.getAllByText('Manage apps').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('General')).toBeInTheDocument()
-    expect(screen.getByText('Members')).toBeInTheDocument()
-    expect(screen.getByText('Billing')).toBeInTheDocument()
+    expect(screen.getByText('Conta')).toBeInTheDocument()
+    expect(screen.getByText('Notificações')).toBeInTheDocument()
+    expect(screen.getAllByText('Aplicativos').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Geral')).toBeInTheDocument()
+    expect(screen.getByText('Membros')).toBeInTheDocument()
+    expect(screen.getByText('Cobrança')).toBeInTheDocument()
   })
 
   it('defaults to manage-apps section', () => {
     render(<SettingsDialog {...defaultProps} />)
-    expect(screen.getByPlaceholderText('Search apps...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Buscar aplicativos...')).toBeInTheDocument()
   })
 
   it('switches to account section on click', async () => {
     const user = userEvent.setup()
     render(<SettingsDialog {...defaultProps} />)
 
-    await user.click(screen.getByRole('button', { name: 'Account' }))
-    expect(screen.getByLabelText('Full name')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Conta' }))
+    expect(screen.getByLabelText('Nome completo')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
   })
 
@@ -99,7 +99,7 @@ describe('SettingsDialog', () => {
     const user = userEvent.setup()
     render(<SettingsDialog {...defaultProps} />)
 
-    await user.click(screen.getByRole('button', { name: 'Notifications' }))
-    expect(screen.getByText('Email notifications')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Notificações' }))
+    expect(screen.getByText('Notificações por e-mail')).toBeInTheDocument()
   })
 })

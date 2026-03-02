@@ -23,7 +23,9 @@ export default async function WorkspacePage() {
   if (!teamId) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <p className="text-muted-foreground">No team found. Please contact support.</p>
+        <p className="text-muted-foreground">
+          Nenhuma equipe encontrada. Por favor, entre em contato com o suporte.
+        </p>
       </div>
     )
   }

@@ -64,7 +64,7 @@ export default function EditorLayout({ assistantPanel, canvas, configPanel }: Ed
                 </svg>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">Open Assistant</TooltipContent>
+            <TooltipContent side="right">Abrir assistente</TooltipContent>
           </Tooltip>
         </div>
       )}

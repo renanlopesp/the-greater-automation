@@ -120,8 +120,8 @@ export default function EditorHeader() {
       setShowSaved(true)
       setTimeout(() => setShowSaved(false), 2000)
     } catch (error) {
-      toast.error('Save failed', {
-        description: error instanceof Error ? error.message : 'Could not save workflow',
+      toast.error('Falha ao salvar', {
+        description: error instanceof Error ? error.message : 'Não foi possível salvar a automação',
       })
     } finally {
       setSaving(false)
@@ -153,10 +153,11 @@ export default function EditorHeader() {
         }
       }
 
-      toast.success(newStatus === 'published' ? 'Workflow published' : 'Workflow unpublished')
+      toast.success(newStatus === 'published' ? 'Automação publicada' : 'Automação despublicada')
     } catch (error) {
-      toast.error('Publish failed', {
-        description: error instanceof Error ? error.message : 'Could not publish workflow',
+      toast.error('Falha ao publicar', {
+        description:
+          error instanceof Error ? error.message : 'Não foi possível publicar a automação',
       })
     }
   }
@@ -165,20 +166,21 @@ export default function EditorHeader() {
     try {
       const result = await duplicateWorkflow.mutateAsync(workflowId)
       if (result.newWorkflowId) {
-        toast.success('Workflow duplicated')
+        toast.success('Automação duplicada')
         router.push(`/workflows/${result.newWorkflowId}/edit`)
       }
     } catch (error) {
-      toast.error('Duplicate failed', {
-        description: error instanceof Error ? error.message : 'Could not duplicate workflow',
+      toast.error('Falha ao duplicar', {
+        description:
+          error instanceof Error ? error.message : 'Não foi possível duplicar a automação',
       })
     }
   }
 
   const handleRun = async () => {
     if (workflowStatus !== 'published') {
-      toast.error('Cannot run workflow', {
-        description: 'Publish the workflow before running it.',
+      toast.error('Não é possível executar a automação', {
+        description: 'Publique a automação antes de executá-la.',
       })
       return
     }
@@ -186,10 +188,10 @@ export default function EditorHeader() {
       const result = await startRun.mutateAsync()
       setActiveTab('runs')
       setPendingRunId(result.runId)
-      toast.success('Workflow run started')
+      toast.success('Execução iniciada')
     } catch (error) {
-      toast.error('Run failed', {
-        description: error instanceof Error ? error.message : 'Could not start workflow run',
+      toast.error('Falha ao executar', {
+        description: error instanceof Error ? error.message : 'Não foi possível iniciar a execução',
       })
     }
   }
@@ -219,11 +221,12 @@ export default function EditorHeader() {
       if (!response.ok) {
         throw new Error('Failed to delete workflow')
       }
-      toast.success('Workflow deleted successfully')
+      toast.success('Automação excluída com sucesso')
       router.push('/workspace')
     } catch (error) {
-      toast.error('Delete failed', {
-        description: error instanceof Error ? error.message : 'Could not delete workflow',
+      toast.error('Falha ao excluir', {
+        description:
+          error instanceof Error ? error.message : 'Não foi possível excluir a automação',
       })
     }
   }
@@ -234,7 +237,7 @@ export default function EditorHeader() {
         <Link
           href="/workspace"
           className="text-muted-foreground hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-          title="Back to workspace"
+          title="Voltar para a área de trabalho"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -289,9 +292,9 @@ export default function EditorHeader() {
           {isSaving && (
             <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" />
           )}
-          {showSaved && !isSaving && <span className="text-muted-foreground text-xs">Saved</span>}
+          {showSaved && !isSaving && <span className="text-muted-foreground text-xs">Salvo</span>}
           <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
-            Save
+            Salvar
           </Button>
         </div>
 
@@ -302,12 +305,12 @@ export default function EditorHeader() {
           className="gap-2"
         >
           {workflowStatus === 'published' && <span className="h-2 w-2 rounded-full bg-green-500" />}
-          {workflowStatus === 'published' ? 'Published' : 'Publish'}
+          {workflowStatus === 'published' ? 'Publicado' : 'Publicar'}
         </Button>
 
         <Button variant="outline" size="sm" onClick={handleRun} className="gap-2">
           <Play className="h-3 w-3" />
-          Run
+          Executar
         </Button>
 
         <NotificationsPopover>
@@ -321,7 +324,7 @@ export default function EditorHeader() {
         </Button>
 
         <Button variant="outline" size="sm" onClick={() => setSharingOpen(true)}>
-          Sharing
+          Compartilhamento
         </Button>
 
         <DropdownMenu>
@@ -333,11 +336,11 @@ export default function EditorHeader() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleDuplicate} className="gap-2">
               <FileText className="h-4 w-4" />
-              Duplicate
+              Duplicar
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportJSON} className="gap-2">
               <Download className="h-4 w-4" />
-              Export JSON
+              Exportar JSON
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -345,7 +348,7 @@ export default function EditorHeader() {
               className="text-destructive gap-2"
             >
               <Trash2 className="h-4 w-4" />
-              Delete workflow
+              Excluir automação
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -356,20 +359,20 @@ export default function EditorHeader() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete workflow?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir automação?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the workflow &ldquo;
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a automação &ldquo;
               {workflowName}
-              &rdquo; and all associated data.
+              &rdquo; e todos os dados associados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground"
             >
-              Delete
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

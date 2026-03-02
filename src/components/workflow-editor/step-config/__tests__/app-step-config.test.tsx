@@ -231,7 +231,7 @@ describe('AppStepConfigForm', () => {
 
     render(<AppStepConfigForm config={defaultConfig} onUpdate={mockOnUpdate} />)
 
-    const emptyMessage = screen.queryByText(/no apps connected/i)
+    const emptyMessage = screen.queryByText(/nenhum aplicativo conectado/i)
     expect(emptyMessage).toBeInTheDocument()
   })
 
@@ -314,7 +314,7 @@ describe('AppStepConfigForm', () => {
     // Open the action combobox
     await user.click(screen.getByRole('combobox'))
 
-    const searchInput = screen.getByPlaceholderText('Search actions...')
+    const searchInput = screen.getByPlaceholderText('Buscar ações...')
     expect(searchInput).toBeInTheDocument()
   })
 
@@ -327,7 +327,7 @@ describe('AppStepConfigForm', () => {
     // Open the action combobox
     await user.click(screen.getByRole('combobox'))
 
-    const searchInput = screen.getByPlaceholderText('Search actions...')
+    const searchInput = screen.getByPlaceholderText('Buscar ações...')
     await user.type(searchInput, 'Create')
 
     // Only "Create Issue" should remain visible as an option
@@ -345,11 +345,11 @@ describe('AppStepConfigForm', () => {
     // Open the action combobox
     await user.click(screen.getByRole('combobox'))
 
-    const searchInput = screen.getByPlaceholderText('Search actions...')
+    const searchInput = screen.getByPlaceholderText('Buscar ações...')
     await user.type(searchInput, 'zzzznonexistent')
 
     expect(screen.queryByRole('option', { name: /Create Issue/ })).not.toBeInTheDocument()
-    expect(screen.getByText('No actions found.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma ação encontrada.')).toBeInTheDocument()
   })
 
   it('calls onUpdate when action is selected from combobox', async () => {
@@ -523,7 +523,7 @@ describe('AppStepConfigForm', () => {
     render(<AppStepConfigForm config={config} onUpdate={mockOnUpdate} />)
 
     // Should show dependency warning for repo field
-    expect(screen.getByText('Select owner first')).toBeInTheDocument()
+    expect(screen.getByText('Selecione owner primeiro')).toBeInTheDocument()
   })
 
   it('resets inputs when action changes', async () => {

@@ -33,7 +33,7 @@ export default function WorkspaceFilters({
       <div className="relative">
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <Input
-          placeholder="Search workspace"
+          placeholder="Buscar na área de trabalho"
           value={filters.search}
           onChange={(e) => onFiltersChange({ search: e.target.value })}
           className="bg-background h-8 w-full pl-9 sm:w-[320px]"
@@ -45,10 +45,10 @@ export default function WorkspaceFilters({
         onValueChange={(v) => onFiltersChange({ createdBy: v === 'all' ? '' : v })}
       >
         <SelectTrigger size="sm" className="bg-background w-full sm:w-[140px]">
-          <SelectValue placeholder="Created by" />
+          <SelectValue placeholder="Criado por" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Created by</SelectItem>
+          <SelectItem value="all">Criado por</SelectItem>
           {teamMembers.map((m) => (
             <SelectItem key={m.id} value={m.id}>
               {m.full_name ?? 'Unknown'}
@@ -66,8 +66,8 @@ export default function WorkspaceFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Status</SelectItem>
-          <SelectItem value="draft">Draft</SelectItem>
-          <SelectItem value="published">Published</SelectItem>
+          <SelectItem value="draft">Rascunho</SelectItem>
+          <SelectItem value="published">Publicado</SelectItem>
         </SelectContent>
       </Select>
 
@@ -76,12 +76,12 @@ export default function WorkspaceFilters({
         onValueChange={(v) => onFiltersChange({ type: v === 'all' ? '' : v })}
       >
         <SelectTrigger size="sm" className="bg-background w-full sm:w-[100px]">
-          <SelectValue placeholder="Type" />
+          <SelectValue placeholder="Tipo" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Type</SelectItem>
-          <SelectItem value="agent">Agents</SelectItem>
-          <SelectItem value="workflow">Workflows</SelectItem>
+          <SelectItem value="all">Tipo</SelectItem>
+          <SelectItem value="agent">Agentes</SelectItem>
+          <SelectItem value="workflow">Automações</SelectItem>
         </SelectContent>
       </Select>
     </div>

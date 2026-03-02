@@ -67,7 +67,7 @@ export default function SequenceStepConfigForm({
       <div>
         <Label className="text-sm font-medium">Sub-Workflow</Label>
         <p className="text-muted-foreground mt-1 text-xs">
-          Select a published workflow to execute as a step in this workflow
+          Selecione uma automação publicada para executar como etapa nesta automação
         </p>
       </div>
 
@@ -85,23 +85,23 @@ export default function SequenceStepConfigForm({
               {loading ? (
                 <span className="text-muted-foreground flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Loading workflows...
+                  Carregando automações...
                 </span>
               ) : selected ? (
                 <span className="truncate">
                   {selected.emoji} {selected.name}
                 </span>
               ) : (
-                <span className="text-muted-foreground">Search workflows...</span>
+                <span className="text-muted-foreground">Buscar automações...</span>
               )}
               <ChevronsUpDown className="text-muted-foreground ml-2 h-4 w-4 shrink-0" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
             <Command>
-              <CommandInput placeholder="Search workflows..." />
+              <CommandInput placeholder="Buscar automações..." />
               <CommandList>
-                <CommandEmpty>No published workflows found.</CommandEmpty>
+                <CommandEmpty>Nenhuma automação publicada encontrada.</CommandEmpty>
                 <CommandGroup>
                   {workflows.map((w) => (
                     <CommandItem
@@ -136,7 +136,7 @@ export default function SequenceStepConfigForm({
         <div className="bg-muted rounded-lg px-3 py-2">
           <p className="text-sm font-medium">{config.workflow_name}</p>
           <p className="text-muted-foreground text-xs">
-            All steps from this workflow will be executed in sequence
+            Todas as etapas desta automação serão executadas em sequência
           </p>
         </div>
       )}

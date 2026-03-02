@@ -24,7 +24,7 @@ export default function ChatHistoryButton({
             <History className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Chat history</TooltipContent>
+        <TooltipContent>Histórico de chat</TooltipContent>
       </Tooltip>
       <ConversationHistoryPanel
         agentId={agentId}

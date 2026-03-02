@@ -46,7 +46,7 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
       if (result.error) {
         setError(result.error)
       } else {
-        toast.success('Invitation sent successfully')
+        toast.success('Convite enviado com sucesso')
         setEmail('')
         setRole('member')
         onOpenChange(false)
@@ -58,16 +58,16 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite member</DialogTitle>
+          <DialogTitle>Convidar membro</DialogTitle>
           <DialogDescription>
-            Send an invitation to join your team. If they already have an account, they&apos;ll be
-            added directly.
+            Envie um convite para entrar na sua equipe. Se já tiver uma conta, será adicionado
+            diretamente.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-4 py-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">Endereço de e-mail</Label>
               <Input
                 id="email"
                 type="email"
@@ -78,14 +78,14 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">Função</Label>
               <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'member')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">Membro</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -93,10 +93,10 @@ export default function InviteMemberDialog({ open, onOpenChange }: InviteMemberD
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? 'Sending...' : 'Send invitation'}
+              {isPending ? 'Enviando...' : 'Enviar convite'}
             </Button>
           </DialogFooter>
         </form>

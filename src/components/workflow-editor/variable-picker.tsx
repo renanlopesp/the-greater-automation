@@ -34,15 +34,17 @@ export function VariablePicker({ currentStepPosition, onInsert }: VariablePicker
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          title="Insert variable"
+          title="Inserir variável"
         >
           <Braces className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
         <div className="border-b p-3">
-          <h4 className="text-sm font-semibold">Available Variables</h4>
-          <p className="text-muted-foreground text-xs">Click to insert a variable reference</p>
+          <h4 className="text-sm font-semibold">Variáveis disponíveis</h4>
+          <p className="text-muted-foreground text-xs">
+            Clique para inserir uma referência de variável
+          </p>
         </div>
         <ScrollArea className="h-[300px]">
           <div className="p-2">
@@ -76,7 +78,7 @@ export function VariablePicker({ currentStepPosition, onInsert }: VariablePicker
             {/* Empty state */}
             {!trigger && availableSteps.length === 0 && (
               <div className="text-muted-foreground p-4 text-center text-sm">
-                No variables available yet
+                Nenhuma variável disponível ainda
               </div>
             )}
           </div>

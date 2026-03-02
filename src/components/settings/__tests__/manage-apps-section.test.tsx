@@ -58,7 +58,7 @@ vi.mock('@tanstack/react-query', () => ({
 describe('ManageAppsSection', () => {
   it('renders the heading', () => {
     render(<ManageAppsSection />)
-    expect(screen.getByText('Manage apps')).toBeInTheDocument()
+    expect(screen.getByText('Aplicativos')).toBeInTheDocument()
   })
 
   it('renders app names after loading', () => {
@@ -72,7 +72,7 @@ describe('ManageAppsSection', () => {
     const user = userEvent.setup()
     render(<ManageAppsSection />)
 
-    const searchInput = screen.getByPlaceholderText('Search apps...')
+    const searchInput = screen.getByPlaceholderText('Buscar aplicativos...')
     await user.type(searchInput, 'Slack')
 
     expect(screen.getByText('Slack')).toBeInTheDocument()
@@ -83,9 +83,9 @@ describe('ManageAppsSection', () => {
     const user = userEvent.setup()
     render(<ManageAppsSection />)
 
-    const searchInput = screen.getByPlaceholderText('Search apps...')
+    const searchInput = screen.getByPlaceholderText('Buscar aplicativos...')
     await user.type(searchInput, 'zzzznonexistent')
 
-    expect(screen.getByText('No apps found matching your search.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhum aplicativo encontrado para sua busca.')).toBeInTheDocument()
   })
 })

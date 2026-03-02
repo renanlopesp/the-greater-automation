@@ -12,19 +12,19 @@ vi.mock('@/lib/actions/auth', () => ({
 describe('SignupForm', () => {
   it('renders fullName, email, and password inputs', () => {
     render(<SignupForm />)
-    expect(screen.getByLabelText('Full name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome completo')).toBeInTheDocument()
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument()
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument()
   })
 
   it('renders submit button', () => {
     render(<SignupForm />)
-    expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /criar conta/i })).toBeInTheDocument()
   })
 
   it('renders log in link', () => {
     render(<SignupForm />)
-    const link = screen.getByRole('link', { name: /log in/i })
+    const link = screen.getByRole('link', { name: /entrar/i })
     expect(link).toHaveAttribute('href', '/login')
   })
 
@@ -32,7 +32,7 @@ describe('SignupForm', () => {
     const user = userEvent.setup()
     render(<SignupForm />)
 
-    await user.click(screen.getByRole('button', { name: /create account/i }))
+    await user.click(screen.getByRole('button', { name: /criar conta/i }))
 
     expect(await screen.findByText(/full name is required/i)).toBeInTheDocument()
   })

@@ -112,7 +112,7 @@ function SkillContent({ content }: SkillContentProps) {
   if (sections.length === 0) {
     return (
       <div className="bg-muted/30 mt-2 rounded-lg p-3">
-        <p className="text-muted-foreground text-xs">No content</p>
+        <p className="text-muted-foreground text-xs">Sem conteúdo</p>
       </div>
     )
   }
@@ -212,7 +212,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{skill.name}</p>
                     <Badge variant={skill.type === 'knowledge' ? 'secondary' : 'default'}>
-                      {skill.type === 'knowledge' ? 'Knowledge' : 'Procedure'}
+                      {skill.type === 'knowledge' ? 'Conhecimento' : 'Procedimento'}
                     </Badge>
                   </div>
                   {skill.description && (
@@ -220,7 +220,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
                   )}
                   {skill.type === 'procedure' && expandedId !== skill.id && (
                     <p className="text-muted-foreground mt-0.5 text-xs">
-                      {skill.paramCount} parameters · {skill.stepCount} steps
+                      {skill.paramCount} parâmetros · {skill.stepCount} etapas
                     </p>
                   )}
                 </div>
@@ -257,9 +257,9 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
 
           {skills.length === 0 && !showForm && (
             <div className="px-4 py-8 text-center">
-              <p className="text-muted-foreground text-sm">No skills yet</p>
+              <p className="text-muted-foreground text-sm">Nenhum skill ainda</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Add skills to teach your agent specialized knowledge
+                Adicione skills para ensinar conhecimentos especializados ao agente
               </p>
             </div>
           )}
@@ -268,18 +268,18 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
         {showForm ? (
           <div className="space-y-3 border-t p-4">
             <Input
-              placeholder="Skill name"
+              placeholder="Nome do skill"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               autoFocus
             />
             <Input
-              placeholder="Description (optional)"
+              placeholder="Descrição (opcional)"
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
             />
             <Textarea
-              placeholder="Skill content — instructions or knowledge for the agent..."
+              placeholder="Conteúdo do skill — instruções ou conhecimento para o agente..."
               value={formContent}
               onChange={(e) => setFormContent(e.target.value)}
               rows={4}
@@ -290,10 +290,10 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
                 onClick={handleCreate}
                 disabled={isPending || !formName.trim() || !formContent.trim()}
               >
-                {isPending ? 'Creating...' : 'Create'}
+                {isPending ? 'Criando...' : 'Criar'}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                Cancel
+                Cancelar
               </Button>
             </div>
           </div>
@@ -304,7 +304,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
             className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center justify-center gap-2 border-t px-4 py-3 text-sm transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Add skill
+            Adicionar skill
           </button>
         )}
       </div>

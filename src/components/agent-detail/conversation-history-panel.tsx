@@ -58,12 +58,12 @@ export default function ConversationHistoryPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[380px] sm:w-[420px]">
         <SheetHeader>
-          <SheetTitle>Chat History</SheetTitle>
+          <SheetTitle>Histórico de Chat</SheetTitle>
         </SheetHeader>
         <div className="mt-4 flex flex-col gap-2 px-4">
           <Button variant="outline" className="w-full justify-start gap-2" onClick={handleNewChat}>
             <Plus className="size-4" />
-            New Chat
+            Novo Chat
           </Button>
         </div>
         <ScrollArea className="mt-4 h-[calc(100vh-10rem)]">
@@ -75,13 +75,15 @@ export default function ConversationHistoryPanel({
                 ))}
               </div>
             ) : conversations.length === 0 ? (
-              <p className="text-muted-foreground py-8 text-center text-sm">No conversations yet</p>
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                Nenhuma conversa ainda
+              </p>
             ) : (
               conversations.map((conv) => (
                 <div key={conv.id} className="relative">
                   {confirmDeleteId === conv.id ? (
                     <div className="bg-destructive/5 flex items-center justify-between gap-2 rounded-lg border border-red-200 px-3 py-2.5 dark:border-red-900">
-                      <span className="text-sm">Delete this chat?</span>
+                      <span className="text-sm">Excluir este chat?</span>
                       <div className="flex gap-1.5">
                         <Button
                           size="sm"
@@ -90,7 +92,7 @@ export default function ConversationHistoryPanel({
                           disabled={isDeleting}
                           onClick={() => handleDelete(conv.id)}
                         >
-                          {isDeleting ? 'Deleting...' : 'Delete'}
+                          {isDeleting ? 'Excluindo...' : 'Excluir'}
                         </Button>
                         <Button
                           size="sm"
@@ -98,7 +100,7 @@ export default function ConversationHistoryPanel({
                           className="h-7 text-xs"
                           onClick={() => setConfirmDeleteId(null)}
                         >
-                          Cancel
+                          Cancelar
                         </Button>
                       </div>
                     </div>
@@ -117,11 +119,11 @@ export default function ConversationHistoryPanel({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <span className="line-clamp-2 text-sm font-medium">
-                              {conv.title ?? 'Untitled conversation'}
+                              {conv.title ?? 'Conversa sem título'}
                             </span>
                             {conv.isActive && (
                               <span className="bg-primary/10 text-primary shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium">
-                                Active
+                                Ativo
                               </span>
                             )}
                           </div>
@@ -132,7 +134,7 @@ export default function ConversationHistoryPanel({
                               </span>
                             )}
                             <span>·</span>
-                            <span>{conv.messageCount} messages</span>
+                            <span>{conv.messageCount} mensagens</span>
                           </div>
                           {conv.participants.length > 0 && (
                             <div className="mt-1.5 flex -space-x-1.5">

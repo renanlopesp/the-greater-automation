@@ -122,15 +122,15 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-foreground text-2xl font-bold">
-          {mode === 'create' ? 'Create agent' : 'Edit agent'}
+          {mode === 'create' ? 'Criar agente' : 'Editar agente'}
         </h1>
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancel
+            Cancelar
           </Button>
           <Button type="submit" disabled={isPending || !name.trim()}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'create' ? 'Create' : 'Save changes'}
+            {mode === 'create' ? 'Criar' : 'Salvar alterações'}
           </Button>
         </div>
       </div>
@@ -146,25 +146,25 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
         <div className="flex-1 space-y-8">
           {/* Identity */}
           <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Identity</h2>
+            <h2 className="text-foreground text-base font-semibold">Identidade</h2>
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Nome</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="My Agent"
+                  placeholder="Meu Agente"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Descrição</Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What does this agent do?"
+                  placeholder="O que esse agente faz?"
                   rows={3}
                 />
               </div>
@@ -175,7 +175,7 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
 
           {/* Palette */}
           <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Avatar palette</h2>
+            <h2 className="text-foreground text-base font-semibold">Paleta do avatar</h2>
             <PalettePicker value={palette} onChange={setPalette} agentName={name} />
           </section>
 
@@ -183,14 +183,14 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
 
           {/* Instructions */}
           <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Instructions</h2>
+            <h2 className="text-foreground text-base font-semibold">Instruções</h2>
             <div className="space-y-2">
-              <Label htmlFor="system-prompt">System prompt</Label>
+              <Label htmlFor="system-prompt">Prompt de sistema</Label>
               <Textarea
                 id="system-prompt"
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="You are a helpful assistant that..."
+                placeholder="Você é um assistente útil que..."
                 rows={6}
                 className="font-mono text-sm"
               />
@@ -201,23 +201,23 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
 
           {/* Model & Parameters */}
           <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Model</h2>
+            <h2 className="text-foreground text-base font-semibold">Modelo</h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label>Model</Label>
+                <Label>Modelo</Label>
                 <Select value={model} onValueChange={setModel}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Default" />
+                    <SelectValue placeholder="Padrão" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="default">Default</SelectItem>
+                    <SelectItem value="default">Padrão</SelectItem>
                     <SelectItem value="gpt-4">GPT-4</SelectItem>
                     <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Temperature ({temperature.toFixed(1)})</Label>
+                <Label>Temperatura ({temperature.toFixed(1)})</Label>
                 <Slider
                   value={[temperature]}
                   onValueChange={([v]) => setTemperature(v)}
@@ -228,7 +228,7 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="max-tokens">Max tokens</Label>
+                <Label htmlFor="max-tokens">Máx. tokens</Label>
                 <Input
                   id="max-tokens"
                   type="number"
@@ -245,9 +245,9 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
 
           {/* Conversation Starters */}
           <section className="space-y-4">
-            <h2 className="text-foreground text-base font-semibold">Conversation starters</h2>
+            <h2 className="text-foreground text-base font-semibold">Sugestões de conversa</h2>
             <p className="text-muted-foreground text-sm">
-              Suggested prompts shown when starting a new conversation.
+              Prompts sugeridos ao iniciar uma nova conversa.
             </p>
             <StarterEditor starters={starters} onChange={setStarters} />
           </section>
@@ -256,7 +256,7 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
         {/* Right column: Preview card */}
         <div className="lg:w-[300px]">
           <div className="lg:sticky lg:top-6">
-            <h2 className="text-foreground mb-4 text-base font-semibold">Preview</h2>
+            <h2 className="text-foreground mb-4 text-base font-semibold">Prévia</h2>
             <div
               className="flex flex-col items-center gap-4 rounded-2xl border p-6"
               style={{ backgroundColor: paletteColors[3] }}
@@ -266,7 +266,7 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
               </div>
               <div className="space-y-1 text-center">
                 <p className="text-sm font-semibold" style={{ color: paletteColors[4] }}>
-                  {name || 'Untitled Agent'}
+                  {name || 'Agente sem título'}
                 </p>
                 {description && (
                   <p

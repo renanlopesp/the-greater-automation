@@ -51,23 +51,23 @@ export function ManualTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <Label>Run inputs</Label>
+        <Label>Entradas da execução</Label>
         <Button size="sm" variant="outline" onClick={addInput}>
           <Plus className="mr-1 h-3 w-3" />
-          Add input
+          Adicionar entrada
         </Button>
       </div>
 
       {config.run_inputs.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          No inputs defined. Click &ldquo;Add input&rdquo; to create one.
+          Nenhuma entrada definida. Clique em &ldquo;Adicionar entrada&rdquo;.
         </p>
       )}
 
       {config.run_inputs.map((input) => (
         <div key={input.id} className="rounded-lg border p-3">
           <div className="mb-3 flex items-center justify-between">
-            <Label className="text-xs font-medium">Input configuration</Label>
+            <Label className="text-xs font-medium">Configuração da entrada</Label>
             <Button
               size="icon"
               variant="ghost"
@@ -80,7 +80,7 @@ export function ManualTriggerConfigForm({
 
           <div className="flex flex-col gap-3">
             <div>
-              <Label className="text-xs">Name</Label>
+              <Label className="text-xs">Nome</Label>
               <Input
                 value={input.name}
                 onChange={(e) => updateInput(input.id, { name: e.target.value })}
@@ -90,7 +90,7 @@ export function ManualTriggerConfigForm({
             </div>
 
             <div>
-              <Label className="text-xs">Type</Label>
+              <Label className="text-xs">Tipo</Label>
               <Select
                 value={input.type}
                 onValueChange={(v) =>
@@ -103,17 +103,17 @@ export function ManualTriggerConfigForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="text">Text</SelectItem>
-                  <SelectItem value="number">Number</SelectItem>
-                  <SelectItem value="boolean">Boolean</SelectItem>
-                  <SelectItem value="select">Select</SelectItem>
-                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="text">Texto</SelectItem>
+                  <SelectItem value="number">Número</SelectItem>
+                  <SelectItem value="boolean">Booleano</SelectItem>
+                  <SelectItem value="select">Seleção</SelectItem>
+                  <SelectItem value="date">Data</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Required</Label>
+              <Label className="text-xs">Obrigatório</Label>
               <Switch
                 checked={input.required}
                 onCheckedChange={(checked) => updateInput(input.id, { required: checked })}
@@ -121,21 +121,21 @@ export function ManualTriggerConfigForm({
             </div>
 
             <div>
-              <Label className="text-xs">Default value</Label>
+              <Label className="text-xs">Valor padrão</Label>
               <Input
                 value={input.default_value ?? ''}
                 onChange={(e) => updateInput(input.id, { default_value: e.target.value })}
-                placeholder="Optional default value"
+                placeholder="Valor padrão opcional"
                 className="mt-1"
               />
             </div>
 
             <div>
-              <Label className="text-xs">Description</Label>
+              <Label className="text-xs">Descrição</Label>
               <Textarea
                 value={input.description ?? ''}
                 onChange={(e) => updateInput(input.id, { description: e.target.value })}
-                placeholder="Optional description"
+                placeholder="Descrição opcional"
                 rows={2}
                 className="mt-1"
               />

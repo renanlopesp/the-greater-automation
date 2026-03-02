@@ -19,7 +19,7 @@ export default function SplitButton({ onNewBlank, onNewFromTemplate }: SplitButt
     <div className="flex">
       <Button size="sm" className="rounded-r-none" onClick={onNewBlank}>
         <Plus className="h-4 w-4" />
-        New workflow
+        Nova automação
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -28,8 +28,8 @@ export default function SplitButton({ onNewBlank, onNewFromTemplate }: SplitButt
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onNewFromTemplate}>From template</DropdownMenuItem>
-          <DropdownMenuItem onClick={onNewBlank}>Blank workflow</DropdownMenuItem>
+          <DropdownMenuItem onClick={onNewFromTemplate}>A partir de modelo</DropdownMenuItem>
+          <DropdownMenuItem onClick={onNewBlank}>Automação em branco</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -130,39 +130,39 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
-        placeholder="Search workflows, agents, runs..."
+        placeholder="Buscar automações, agentes, execuções..."
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
-        {query && !hasResults && <CommandEmpty>No results found.</CommandEmpty>}
+        {query && !hasResults && <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>}
         {!query && (
           <>
-            <CommandGroup heading="Navigation">
+            <CommandGroup heading="Navegação">
               <CommandItem onSelect={() => handleSelect('/dashboard')}>
                 <LayoutDashboard className="mr-2 h-4 w-4" />
-                Dashboard
+                Painel
               </CommandItem>
               <CommandItem onSelect={() => handleSelect('/workspace')}>
                 <FolderKanban className="mr-2 h-4 w-4" />
-                Workspace
+                Área de Trabalho
               </CommandItem>
               <CommandItem onSelect={() => handleSelect('/runs')}>
                 <Play className="mr-2 h-4 w-4" />
-                Runs
+                Execuções
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
-            <CommandGroup heading="Quick Actions">
+            <CommandGroup heading="Ações rápidas">
               <CommandItem onSelect={() => handleSelect('/workspace')}>
                 <Plug className="mr-2 h-4 w-4" />
-                Integrations
+                Integrações
               </CommandItem>
             </CommandGroup>
           </>
         )}
         {workflows.length > 0 && (
-          <CommandGroup heading="Workflows">
+          <CommandGroup heading="Automações">
             {workflows.map((w) => (
               <CommandItem key={w.id} onSelect={() => handleSelect(`/workflows/${w.id}/edit`)}>
                 <FileText className="mr-2 h-4 w-4" />
@@ -174,7 +174,7 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           </CommandGroup>
         )}
         {agents.length > 0 && (
-          <CommandGroup heading="Agents">
+          <CommandGroup heading="Agentes">
             {agents.map((a) => (
               <CommandItem key={a.id} onSelect={() => handleSelect(`/agents/${a.id}`)}>
                 <Bot className="mr-2 h-4 w-4" />
@@ -184,7 +184,7 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           </CommandGroup>
         )}
         {runs.length > 0 && (
-          <CommandGroup heading="Runs">
+          <CommandGroup heading="Execuções">
             {runs.map((r) => (
               <CommandItem key={r.id} onSelect={() => handleSelect(`/runs`)}>
                 <Play className="mr-2 h-4 w-4" />

@@ -82,8 +82,8 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByRole('heading', { name: 'Members' })).toBeInTheDocument()
-      expect(screen.getByText('Manage who has access to this workspace')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Membros' })).toBeInTheDocument()
+      expect(screen.getByText('Gerencie quem tem acesso a este workspace')).toBeInTheDocument()
 
       // Check all members are rendered
       expect(screen.getByText('Alice Owner')).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('MembersSection', () => {
       )
 
       expect(
-        screen.getByText('No team members yet. Invite someone to get started.')
+        screen.getByText('Nenhum membro ainda. Convide alguém para começar.')
       ).toBeInTheDocument()
     })
 
@@ -153,7 +153,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByText('(you)')).toBeInTheDocument()
+      expect(screen.getByText('(você)')).toBeInTheDocument()
     })
 
     it('shows invite button for owners', () => {
@@ -167,7 +167,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Invite member' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Convidar membro' })).toBeInTheDocument()
     })
 
     it('shows invite button for admins', () => {
@@ -181,7 +181,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Invite member' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Convidar membro' })).toBeInTheDocument()
     })
 
     it('does not show invite button for regular members', () => {
@@ -195,7 +195,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.queryByRole('button', { name: 'Invite member' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Convidar membro' })).not.toBeInTheDocument()
     })
   })
 
@@ -327,11 +327,11 @@ describe('MembersSection', () => {
 
         // Wait for dropdown menu to appear
         await waitFor(() => {
-          expect(screen.getByRole('menuitem', { name: 'Member' })).toBeInTheDocument()
+          expect(screen.getByRole('menuitem', { name: 'Membro' })).toBeInTheDocument()
         })
 
         // Click to change role to Member
-        await user.click(screen.getByRole('menuitem', { name: 'Member' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Membro' }))
 
         // Verify action was called
         await waitFor(() => {
@@ -480,8 +480,8 @@ describe('MembersSection', () => {
         expect(screen.getByRole('alertdialog')).toBeInTheDocument()
       })
 
-      expect(screen.getByText('Remove member')).toBeInTheDocument()
-      expect(screen.getByText(/Are you sure you want to remove/)).toBeInTheDocument()
+      expect(screen.getByText('Remover membro')).toBeInTheDocument()
+      expect(screen.getByText(/Tem certeza que deseja remover/i)).toBeInTheDocument()
     })
 
     it('removes member when confirmed', async () => {
@@ -511,7 +511,7 @@ describe('MembersSection', () => {
         expect(screen.getByRole('alertdialog')).toBeInTheDocument()
       })
 
-      const removeButton = screen.getByRole('button', { name: 'Remove' })
+      const removeButton = screen.getByRole('button', { name: 'Remover' })
       await user.click(removeButton)
 
       // Verify action was called
@@ -533,10 +533,10 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByText('Pending invitations')).toBeInTheDocument()
+      expect(screen.getByText('Convites pendentes')).toBeInTheDocument()
       expect(screen.getByText('dave@example.com')).toBeInTheDocument()
-      expect(screen.getByText('Invited as member')).toBeInTheDocument()
-      expect(screen.getByText('Pending')).toBeInTheDocument()
+      expect(screen.getByText('Convidado como member')).toBeInTheDocument()
+      expect(screen.getByText('Pendente')).toBeInTheDocument()
     })
 
     it('shows pending invitations section for admins', () => {
@@ -550,7 +550,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.getByText('Pending invitations')).toBeInTheDocument()
+      expect(screen.getByText('Convites pendentes')).toBeInTheDocument()
     })
 
     it('does not show pending invitations for regular members', () => {
@@ -564,7 +564,7 @@ describe('MembersSection', () => {
         />
       )
 
-      expect(screen.queryByText('Pending invitations')).not.toBeInTheDocument()
+      expect(screen.queryByText('Convites pendentes')).not.toBeInTheDocument()
     })
 
     it('allows cancelling invitations', async () => {
@@ -615,7 +615,7 @@ describe('MembersSection', () => {
         />
       )
 
-      const inviteButton = screen.getByRole('button', { name: 'Invite member' })
+      const inviteButton = screen.getByRole('button', { name: 'Convidar membro' })
       await user.click(inviteButton)
 
       await waitFor(() => {

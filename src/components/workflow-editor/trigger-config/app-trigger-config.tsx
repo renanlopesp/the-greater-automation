@@ -228,7 +228,7 @@ export function AppTriggerConfigForm({
     <div className="flex flex-col gap-3">
       {/* Section 1: App Selection Grid */}
       <div>
-        <Label className="mb-2 block text-sm font-medium">Select App</Label>
+        <Label className="mb-2 block text-sm font-medium">Selecionar aplicativo</Label>
 
         {isLoadingConnections ? (
           <div className="flex items-center justify-center py-8" role="status">
@@ -237,7 +237,7 @@ export function AppTriggerConfigForm({
         ) : connectedApps.length === 0 ? (
           <div className="border-input bg-muted/30 rounded-md border p-4 text-center">
             <p className="text-muted-foreground text-sm">
-              No apps connected. Go to Settings to connect apps.
+              Nenhum aplicativo conectado. Vá em Configurações para conectar.
             </p>
           </div>
         ) : (
@@ -295,12 +295,12 @@ export function AppTriggerConfigForm({
       {/* Section 2: Trigger Selection */}
       {config.app_id && (
         <div>
-          <Label className="text-sm font-medium">Select Event</Label>
+          <Label className="text-sm font-medium">Selecionar evento</Label>
 
           {loadingTriggers ? (
             <div className="border-input mt-1 flex items-center justify-center rounded-md border py-3">
               <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-              <span className="text-muted-foreground ml-2 text-sm">Loading events...</span>
+              <span className="text-muted-foreground ml-2 text-sm">Carregando eventos...</span>
             </div>
           ) : triggersForApp.length === 0 ? (
             <div className="mt-1">
@@ -311,7 +311,7 @@ export function AppTriggerConfigForm({
                 className="mt-1"
               />
               <p className="text-muted-foreground mt-1 text-xs">
-                No triggers found via API. Type the trigger slug manually.
+                Nenhum gatilho encontrado via API. Digite o slug manualmente.
               </p>
             </div>
           ) : (
@@ -345,7 +345,7 @@ export function AppTriggerConfigForm({
 
           {config.event && (
             <p className="text-muted-foreground mt-1 text-xs">
-              Trigger:{' '}
+              Gatilho:{' '}
               <code className="bg-muted rounded px-1 py-0.5 font-mono text-[10px]">
                 {config.event}
               </code>
@@ -357,12 +357,12 @@ export function AppTriggerConfigForm({
       {/* Section 3: Trigger Configuration */}
       {config.app_id && config.event && (showRepoPicker || nonRepoFields.length > 0) && (
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-medium">Trigger Configuration</Label>
+          <Label className="text-sm font-medium">Configuração do gatilho</Label>
 
           {/* Repository picker (for GitHub-style owner+repo) */}
           {showRepoPicker && (
             <div>
-              <Label className="text-muted-foreground mb-1 block text-xs">Repository</Label>
+              <Label className="text-muted-foreground mb-1 block text-xs">Repositório</Label>
               <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -374,12 +374,12 @@ export function AppTriggerConfigForm({
                     {isLoadingRepos ? (
                       <span className="text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Loading repositories...
+                        Carregando repositórios...
                       </span>
                     ) : selectedRepoLabel ? (
                       <span className="truncate">{selectedRepoLabel}</span>
                     ) : (
-                      <span className="text-muted-foreground">Select a repository...</span>
+                      <span className="text-muted-foreground">Selecionar repositório...</span>
                     )}
                     <ChevronsUpDown className="text-muted-foreground ml-2 h-4 w-4 shrink-0" />
                   </Button>
@@ -389,9 +389,9 @@ export function AppTriggerConfigForm({
                   align="start"
                 >
                   <Command>
-                    <CommandInput placeholder="Search repositories..." />
+                    <CommandInput placeholder="Buscar repositórios..." />
                     <CommandList>
-                      <CommandEmpty>No repositories found.</CommandEmpty>
+                      <CommandEmpty>Nenhum repositório encontrado.</CommandEmpty>
                       <CommandGroup>
                         {repos.map((repo) => (
                           <CommandItem
@@ -431,7 +431,7 @@ export function AppTriggerConfigForm({
                 value={config.trigger_config?.[field.name] ?? ''}
                 onChange={(e) => updateTriggerConfig(field.name, e.target.value)}
                 placeholder={
-                  field.description ?? (field.required ? field.name : `Leave empty for all`)
+                  field.description ?? (field.required ? field.name : `Deixe vazio para todos`)
                 }
               />
             </div>
@@ -443,16 +443,16 @@ export function AppTriggerConfigForm({
       {config.app_id && config.event && (
         <>
           <div className="flex items-center justify-between">
-            <Label>Filters</Label>
+            <Label>Filtros</Label>
             <Button size="sm" variant="outline" onClick={addFilter}>
               <Plus className="mr-1 h-3 w-3" />
-              Add filter
+              Adicionar filtro
             </Button>
           </div>
 
           {filterEntries.length === 0 && (
             <p className="text-muted-foreground text-sm">
-              No filters. All events of this type will trigger the workflow.
+              Sem filtros. Todos os eventos deste tipo ativarão a automação.
             </p>
           )}
 
@@ -461,13 +461,13 @@ export function AppTriggerConfigForm({
               <Input
                 value={key}
                 onChange={(e) => updateFilter(key, e.target.value, value)}
-                placeholder="Filter key"
+                placeholder="Chave do filtro"
                 className="flex-1"
               />
               <Input
                 value={value}
                 onChange={(e) => updateFilter(key, key, e.target.value)}
-                placeholder="Filter value"
+                placeholder="Valor do filtro"
                 className="flex-1"
               />
               <Button

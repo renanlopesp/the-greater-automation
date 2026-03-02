@@ -42,13 +42,13 @@ export type ToolHeaderProps = {
 )
 
 const statusLabels: Record<ToolPart['state'], string> = {
-  'approval-requested': 'Awaiting Approval',
-  'approval-responded': 'Responded',
-  'input-available': 'Running',
-  'input-streaming': 'Pending',
-  'output-available': 'Completed',
-  'output-denied': 'Denied',
-  'output-error': 'Error',
+  'approval-requested': 'Aguardando aprovação',
+  'approval-responded': 'Respondido',
+  'input-available': 'Em execução',
+  'input-streaming': 'Pendente',
+  'output-available': 'Concluído',
+  'output-denied': 'Negado',
+  'output-error': 'Erro',
 }
 
 const statusIcons: Record<ToolPart['state'], ReactNode> = {
@@ -112,7 +112,7 @@ export type ToolInputProps = ComponentProps<'div'> & {
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn('space-y-2 overflow-hidden', className)} {...props}>
     <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-      Parameters
+      Parâmetros
     </h4>
     <div className="bg-muted/50 rounded-md">
       <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
@@ -141,7 +141,7 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
   return (
     <div className={cn('space-y-2', className)} {...props}>
       <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {errorText ? 'Error' : 'Result'}
+        {errorText ? 'Erro' : 'Resultado'}
       </h4>
       <div
         className={cn(

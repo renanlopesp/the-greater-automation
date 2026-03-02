@@ -19,21 +19,21 @@ interface SettingsSidebarProps {
 
 const SECTIONS: { group: string; items: { id: SettingsSection; label: string }[] }[] = [
   {
-    group: 'PERSONAL',
+    group: 'PESSOAL',
     items: [
-      { id: 'account', label: 'Account' },
-      { id: 'notifications', label: 'Notifications' },
-      { id: 'manage-apps', label: 'Manage apps' },
-      { id: 'messaging', label: 'Messaging' },
+      { id: 'account', label: 'Conta' },
+      { id: 'notifications', label: 'Notificações' },
+      { id: 'manage-apps', label: 'Aplicativos' },
+      { id: 'messaging', label: 'Mensagens' },
     ],
   },
   {
     group: 'WORKSPACE',
     items: [
-      { id: 'store', label: 'Store' },
-      { id: 'general', label: 'General' },
-      { id: 'members', label: 'Members' },
-      { id: 'billing', label: 'Billing' },
+      { id: 'store', label: 'Loja' },
+      { id: 'general', label: 'Geral' },
+      { id: 'members', label: 'Membros' },
+      { id: 'billing', label: 'Cobrança' },
     ],
   },
 ]
