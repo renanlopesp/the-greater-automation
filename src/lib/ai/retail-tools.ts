@@ -4719,6 +4719,1267 @@ export function buildRetailTools(
         }
       },
     },
+
+    STORE_PREDICT_CHURN: {
+      description:
+        'Predict which customers are about to churn (stop buying). Uses order history to calculate a churn risk score based on recency decay, purchase frequency decline, and monetary trend. Use when user asks "previsão de churn", "clientes que vão parar de comprar", "quem vai churnar?", "risco de perder clientes", "clientes esfriando", "retenção de clientes".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of order history to analyze (default: 180, range: 30-365)',
+          },
+          risk_threshold: {
+            type: 'number',
+            description:
+              'Minimum churn risk score (0-100) to include in results (default: 50). Lower = more customers shown.',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max customers to return (default: 20, max: 50)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; risk_threshold?: number; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 180, 30), 365)
+        const riskThreshold = Math.min(Math.max(params.risk_threshold ?? 50, 0), 100)
+        const maxResults = Math.min(Math.max(params.limit ?? 20, 1), 50)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            customer_email: string | null
+            customer_name: string | null
+            total: string
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  customer_email: o.customer?.email ?? null,
+                  customer_name: o.customer?.name ?? null,
+                  total: o.total ?? '0',
+                  created_at: o.created_at,
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico pra prever churn.`,
+            }
+          }
+
+          // Group by customer
+          const customerMap = new Map<
+            string,
+            {
+              name: string
+              email: string
+              orderDates: number[]
+              totals: number[]
+            }
+          >()
+
+          for (const order of allOrders) {
+            if (!order.customer_email) continue
+            const key = order.customer_email.toLowerCase()
+            if (!customerMap.has(key)) {
+              customerMap.set(key, {
+                name: order.customer_name ?? order.customer_email,
+                email: order.customer_email,
+                orderDates: [],
+                totals: [],
+              })
+            }
+            const cust = customerMap.get(key)!
+            cust.orderDates.push(new Date(order.created_at).getTime())
+            cust.totals.push(parseFloat(order.total) || 0)
+            if (order.customer_name) cust.name = order.customer_name
+          }
+
+          // Need at least 2 orders to predict churn
+          const repeatCustomers = [...customerMap.values()].filter((c) => c.orderDates.length >= 2)
+
+          if (repeatCustomers.length === 0) {
+            return {
+              message:
+                'Nenhum cliente com 2+ pedidos no período. Preciso de clientes recorrentes pra prever churn.',
+              clientes_unicos: customerMap.size,
+            }
+          }
+
+          const now = Date.now()
+          const dayMs = 1000 * 60 * 60 * 24
+
+          type ChurnResult = {
+            nome: string
+            email: string
+            pedidos: number
+            total_gasto: string
+            ultimo_pedido: string
+            intervalo_medio: string
+            dias_atrasado: number
+            tendencia_valor: string
+            risco_churn: number
+            nivel: string
+            motivos: string[]
+          }
+
+          const churnRisks: ChurnResult[] = []
+
+          for (const cust of repeatCustomers) {
+            const sorted = cust.orderDates.sort((a, b) => a - b)
+            const sortedTotals = cust.orderDates
+              .map((d, i) => ({ d, t: cust.totals[i] }))
+              .sort((a, b) => a.d - b.d)
+              .map((x) => x.t)
+
+            // 1. Recency decay score (0-40 points)
+            // How overdue is the customer vs their average interval?
+            const intervals: number[] = []
+            for (let i = 1; i < sorted.length; i++) {
+              intervals.push((sorted[i] - sorted[i - 1]) / dayMs)
+            }
+            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length
+            const daysSinceLast = (now - sorted[sorted.length - 1]) / dayMs
+            const overdueRatio = avgInterval > 0 ? daysSinceLast / avgInterval : 0
+            // overdueRatio > 1 means overdue. Scale: 1.0 = 0pts, 1.5 = 20pts, 2.0+ = 40pts
+            const recencyScore = Math.min(Math.max((overdueRatio - 1) * 80, 0), 40)
+
+            // 2. Frequency decline score (0-30 points)
+            // Compare frequency in first half vs second half of history
+            let freqScore = 0
+            if (sorted.length >= 4) {
+              const mid = Math.floor(sorted.length / 2)
+              const firstHalfSpan = (sorted[mid - 1] - sorted[0]) / dayMs || 1
+              const secondHalfSpan = (sorted[sorted.length - 1] - sorted[mid]) / dayMs || 1
+              const firstHalfRate = mid / firstHalfSpan
+              const secondHalfRate = (sorted.length - mid) / secondHalfSpan
+              if (firstHalfRate > 0) {
+                const freqDecline = 1 - secondHalfRate / firstHalfRate
+                freqScore = Math.min(Math.max(freqDecline * 60, 0), 30)
+              }
+            }
+
+            // 3. Monetary trend score (0-30 points)
+            // Are recent orders smaller than earlier ones?
+            let monetaryScore = 0
+            if (sortedTotals.length >= 3) {
+              const mid = Math.floor(sortedTotals.length / 2)
+              const firstHalfAvg = sortedTotals.slice(0, mid).reduce((a, b) => a + b, 0) / mid
+              const secondHalfAvg =
+                sortedTotals.slice(mid).reduce((a, b) => a + b, 0) / (sortedTotals.length - mid)
+              if (firstHalfAvg > 0) {
+                const monetaryDecline = 1 - secondHalfAvg / firstHalfAvg
+                monetaryScore = Math.min(Math.max(monetaryDecline * 60, 0), 30)
+              }
+            }
+
+            const totalRisk = Math.round(recencyScore + freqScore + monetaryScore)
+
+            if (totalRisk < riskThreshold) continue
+
+            // Determine trend
+            let trend = 'estável'
+            if (sortedTotals.length >= 3) {
+              const mid = Math.floor(sortedTotals.length / 2)
+              const firstAvg = sortedTotals.slice(0, mid).reduce((a, b) => a + b, 0) / mid
+              const secondAvg =
+                sortedTotals.slice(mid).reduce((a, b) => a + b, 0) / (sortedTotals.length - mid)
+              if (secondAvg > firstAvg * 1.1) trend = 'crescente'
+              else if (secondAvg < firstAvg * 0.9) trend = 'decrescente'
+            }
+
+            const motivos: string[] = []
+            if (recencyScore >= 20)
+              motivos.push(
+                `${Math.round(daysSinceLast)} dias sem comprar (média: ${Math.round(avgInterval)} dias)`
+              )
+            if (freqScore >= 15) motivos.push('Frequência de compra caindo')
+            if (monetaryScore >= 15) motivos.push('Valor dos pedidos diminuindo')
+
+            const totalSpent = cust.totals.reduce((a, b) => a + b, 0)
+
+            churnRisks.push({
+              nome: cust.name,
+              email: cust.email,
+              pedidos: cust.orderDates.length,
+              total_gasto: `R$ ${totalSpent.toFixed(2)}`,
+              ultimo_pedido: `${Math.round(daysSinceLast)} dias atrás`,
+              intervalo_medio: `${Math.round(avgInterval)} dias`,
+              dias_atrasado: Math.max(0, Math.round(daysSinceLast - avgInterval)),
+              tendencia_valor: trend,
+              risco_churn: totalRisk,
+              nivel:
+                totalRisk >= 80
+                  ? 'critico'
+                  : totalRisk >= 60
+                    ? 'alto'
+                    : totalRisk >= 40
+                      ? 'moderado'
+                      : 'baixo',
+              motivos,
+            })
+          }
+
+          // Sort by risk descending
+          churnRisks.sort((a, b) => b.risco_churn - a.risco_churn)
+
+          // Summary stats
+          const critico = churnRisks.filter((c) => c.nivel === 'critico')
+          const alto = churnRisks.filter((c) => c.nivel === 'alto')
+          const moderado = churnRisks.filter((c) => c.nivel === 'moderado')
+
+          const receitaEmRisco = churnRisks.reduce(
+            (sum, c) => sum + parseFloat(c.total_gasto.slice(3)),
+            0
+          )
+
+          const acoes: string[] = []
+          if (critico.length > 0) {
+            acoes.push(
+              `${critico.length} clientes em risco CRÍTICO — ação imediata: cupom agressivo ou contato direto`
+            )
+          }
+          if (alto.length > 0) {
+            acoes.push(
+              `${alto.length} clientes em risco ALTO — envie campanha de reativação com oferta personalizada`
+            )
+          }
+          if (moderado.length > 0) {
+            acoes.push(
+              `${moderado.length} clientes em risco MODERADO — email de "sentimos sua falta" com novidades`
+            )
+          }
+          if (receitaEmRisco > 0) {
+            acoes.push(`R$ ${receitaEmRisco.toFixed(2)} em receita histórica em risco de churn`)
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              clientes_recorrentes: repeatCustomers.length,
+              clientes_em_risco: churnRisks.length,
+              receita_em_risco: `R$ ${receitaEmRisco.toFixed(2)}`,
+              por_nivel: {
+                critico: critico.length,
+                alto: alto.length,
+                moderado: moderado.length,
+              },
+            },
+            clientes:
+              churnRisks.length > 0
+                ? churnRisks.slice(0, maxResults)
+                : 'Nenhum cliente com risco de churn acima do limiar.',
+            acoes_sugeridas:
+              acoes.length > 0 ? acoes : ['Boa retenção! Nenhum cliente em risco significativo.'],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_COHORT_ANALYSIS: {
+      description:
+        'Analyze customer cohorts grouped by first purchase month. Shows retention rates, revenue evolution, and behavior comparison across cohorts. Use when user asks "análise de cohort", "retenção por mês", "clientes de janeiro vs março", "qual mês trouxe melhores clientes?", "cohort analysis", "retenção de clientes por período".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of order history to analyze (default: 365, range: 90-365)',
+          },
+          granularity: {
+            type: 'string',
+            enum: ['monthly', 'quarterly'],
+            description: 'Group cohorts by month or quarter (default: monthly)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max cohorts to return (default: 12)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; granularity?: string; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 365, 90), 365)
+        const granularity = params.granularity === 'quarterly' ? 'quarterly' : 'monthly'
+        const maxCohorts = Math.min(Math.max(params.limit ?? 12, 1), 24)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            customer_email: string | null
+            customer_name: string | null
+            total: string
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  customer_email: o.customer?.email ?? null,
+                  customer_name: o.customer?.name ?? null,
+                  total: o.total ?? '0',
+                  created_at: o.created_at,
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico pra analisar cohorts.`,
+            }
+          }
+
+          // Group orders by customer → find first purchase date
+          const customerMap = new Map<
+            string,
+            {
+              name: string
+              orders: Array<{ date: Date; total: number }>
+            }
+          >()
+
+          for (const order of allOrders) {
+            if (!order.customer_email) continue
+            const key = order.customer_email.toLowerCase()
+            if (!customerMap.has(key)) {
+              customerMap.set(key, {
+                name: order.customer_name ?? order.customer_email,
+                orders: [],
+              })
+            }
+            const cust = customerMap.get(key)!
+            cust.orders.push({
+              date: new Date(order.created_at),
+              total: parseFloat(order.total) || 0,
+            })
+            if (order.customer_name) cust.name = order.customer_name
+          }
+
+          // Assign each customer to a cohort based on first purchase
+          function getCohortKey(date: Date): string {
+            const y = date.getFullYear()
+            const m = date.getMonth()
+            if (granularity === 'quarterly') {
+              const q = Math.floor(m / 3) + 1
+              return `${y}-Q${q}`
+            }
+            return `${y}-${String(m + 1).padStart(2, '0')}`
+          }
+
+          function getMonthOffset(from: Date, to: Date): number {
+            return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
+          }
+
+          type CohortData = {
+            key: string
+            firstDate: Date
+            customers: Array<{
+              name: string
+              firstOrderDate: Date
+              orders: Array<{ date: Date; total: number }>
+            }>
+          }
+
+          const cohortMap = new Map<string, CohortData>()
+
+          for (const [, cust] of customerMap) {
+            cust.orders.sort((a, b) => a.date.getTime() - b.date.getTime())
+            const firstOrder = cust.orders[0]
+            const cohortKey = getCohortKey(firstOrder.date)
+
+            if (!cohortMap.has(cohortKey)) {
+              cohortMap.set(cohortKey, {
+                key: cohortKey,
+                firstDate: new Date(firstOrder.date.getFullYear(), firstOrder.date.getMonth(), 1),
+                customers: [],
+              })
+            }
+            cohortMap.get(cohortKey)!.customers.push({
+              name: cust.name,
+              firstOrderDate: firstOrder.date,
+              orders: cust.orders,
+            })
+          }
+
+          // Sort cohorts chronologically
+          const cohorts = [...cohortMap.values()].sort(
+            (a, b) => a.firstDate.getTime() - b.firstDate.getTime()
+          )
+
+          if (cohorts.length === 0) {
+            return { message: 'Nenhum cohort identificado.' }
+          }
+
+          // Build cohort retention and metrics
+          const periodLabel = granularity === 'quarterly' ? 'trimestre' : 'mês'
+          const periodMultiplier = granularity === 'quarterly' ? 3 : 1
+
+          type CohortOutput = {
+            cohort: string
+            clientes: number
+            receita_total: string
+            ticket_medio: string
+            pedidos_por_cliente: string
+            retencao: Record<string, string>
+            pct_recorrentes: string
+          }
+
+          const cohortResults: CohortOutput[] = []
+
+          for (const cohort of cohorts.slice(0, maxCohorts)) {
+            const totalCustomers = cohort.customers.length
+            const allCohortOrders = cohort.customers.flatMap((c) => c.orders)
+            const totalRevenue = allCohortOrders.reduce((s, o) => s + o.total, 0)
+            const totalOrders = allCohortOrders.length
+
+            // Retention: for each subsequent period, how many customers ordered?
+            const retencao: Record<string, string> = {}
+            const maxPeriods = Math.min(
+              6,
+              Math.ceil(getMonthOffset(cohort.firstDate, new Date()) / periodMultiplier)
+            )
+
+            let recurrentCustomers = 0
+            for (const cust of cohort.customers) {
+              if (cust.orders.length > 1) recurrentCustomers++
+            }
+
+            for (let p = 1; p <= maxPeriods; p++) {
+              const periodStart = p * periodMultiplier
+              const periodEnd = (p + 1) * periodMultiplier
+              let activeInPeriod = 0
+              for (const cust of cohort.customers) {
+                const hasOrderInPeriod = cust.orders.some((o) => {
+                  const monthOffset = getMonthOffset(cohort.firstDate, o.date)
+                  return monthOffset >= periodStart && monthOffset < periodEnd
+                })
+                if (hasOrderInPeriod) activeInPeriod++
+              }
+              const rate = totalCustomers > 0 ? (activeInPeriod / totalCustomers) * 100 : 0
+              retencao[`${periodLabel}_${p}`] = `${Math.round(rate)}%`
+            }
+
+            cohortResults.push({
+              cohort: cohort.key,
+              clientes: totalCustomers,
+              receita_total: `R$ ${totalRevenue.toFixed(2)}`,
+              ticket_medio:
+                totalOrders > 0 ? `R$ ${(totalRevenue / totalOrders).toFixed(2)}` : 'R$ 0.00',
+              pedidos_por_cliente: (totalOrders / totalCustomers).toFixed(1),
+              retencao,
+              pct_recorrentes:
+                totalCustomers > 0
+                  ? `${Math.round((recurrentCustomers / totalCustomers) * 100)}%`
+                  : '0%',
+            })
+          }
+
+          // Summary: best and worst cohorts
+          const sortedByRetention = [...cohortResults]
+            .filter((c) => c.clientes >= 5)
+            .sort((a, b) => {
+              const aRec = parseInt(a.pct_recorrentes)
+              const bRec = parseInt(b.pct_recorrentes)
+              return bRec - aRec
+            })
+
+          const sortedByTicket = [...cohortResults]
+            .filter((c) => c.clientes >= 5)
+            .sort((a, b) => {
+              const aT = parseFloat(a.ticket_medio.slice(3))
+              const bT = parseFloat(b.ticket_medio.slice(3))
+              return bT - aT
+            })
+
+          const totalCustomersAll = cohortResults.reduce((s, c) => s + c.clientes, 0)
+          const totalRevenueAll = cohortResults.reduce(
+            (s, c) => s + parseFloat(c.receita_total.slice(3)),
+            0
+          )
+
+          const acoes: string[] = []
+          if (sortedByRetention.length > 0) {
+            acoes.push(
+              `Cohort ${sortedByRetention[0].cohort} tem melhor retenção (${sortedByRetention[0].pct_recorrentes} recorrentes) — analise o que foi feito nesse período`
+            )
+          }
+          if (sortedByRetention.length > 1) {
+            const worst = sortedByRetention[sortedByRetention.length - 1]
+            acoes.push(
+              `Cohort ${worst.cohort} tem pior retenção (${worst.pct_recorrentes} recorrentes) — investigue por quê`
+            )
+          }
+          if (sortedByTicket.length > 0) {
+            acoes.push(
+              `Cohort ${sortedByTicket[0].cohort} tem maior ticket médio (${sortedByTicket[0].ticket_medio}) — replique a estratégia`
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              clientes_unicos: customerMap.size,
+              cohorts_identificados: cohortResults.length,
+              granularidade: granularity === 'quarterly' ? 'trimestral' : 'mensal',
+              receita_total: `R$ ${totalRevenueAll.toFixed(2)}`,
+              clientes_total: totalCustomersAll,
+            },
+            cohorts: cohortResults,
+            acoes_sugeridas: acoes.length > 0 ? acoes : ['Cohorts consistentes — boa retenção!'],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_MARKDOWN_OPTIMIZATION: {
+      description:
+        'Identify slow-moving inventory and suggest optimal markdowns (discounts) to clear stock while preserving margin. Crosses stock levels, sales velocity, days of stock, and cost price. Use when user asks "liquidação", "queima de estoque", "produtos parados", "markdown", "desconto pra girar estoque", "estoque encalhado", "como limpar estoque?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of sales history to analyze velocity (default: 60, range: 14-180)',
+          },
+          min_days_of_stock: {
+            type: 'number',
+            description:
+              'Minimum days of stock to flag as slow-moving (default: 90). Products with more days of stock than this are candidates.',
+          },
+          max_discount_pct: {
+            type: 'number',
+            description:
+              'Maximum discount % to suggest (default: 50, range: 10-70). Will never suggest below cost.',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max products to return (default: 20)',
+          },
+        },
+      }),
+      execute: async (params: {
+        days?: number
+        min_days_of_stock?: number
+        max_discount_pct?: number
+        limit?: number
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const velocityDays = Math.min(Math.max(params.days ?? 60, 14), 180)
+        const minDaysOfStock = Math.max(params.min_days_of_stock ?? 90, 14)
+        const maxDiscountPct = Math.min(Math.max(params.max_discount_pct ?? 50, 10), 70) / 100
+        const maxResults = Math.min(Math.max(params.limit ?? 20, 1), 50)
+
+        try {
+          // 1. Fetch products with stock and cost
+          const { data: products } = await supabase
+            .from('store_products')
+            .select('id, external_id, name, price, cost_price, stock_quantity')
+            .eq('store_id', storeId)
+            .gt('stock_quantity', 0)
+
+          if (!products || products.length === 0) {
+            return { message: 'Nenhum produto com estoque encontrado.' }
+          }
+
+          // 2. Fetch recent orders for sales velocity
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - velocityDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            items: Array<{ product_id: string; quantity: number; price: string; name: string }>
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                const items = (o.products ?? []).map((p) => ({
+                  product_id: String(p.product_id ?? ''),
+                  quantity: parseInt(String(p.quantity)) || 1,
+                  price: p.price ?? '0',
+                  name: p.name ?? '',
+                }))
+                allOrders.push({ items, created_at: o.created_at })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // no orders
+          }
+
+          // 3. Calculate sales velocity per product (by external_id match)
+          const salesMap = new Map<string, { unitsSold: number; revenue: number }>()
+          for (const order of allOrders) {
+            for (const item of order.items) {
+              if (!item.product_id) continue
+              const key = item.product_id
+              if (!salesMap.has(key)) salesMap.set(key, { unitsSold: 0, revenue: 0 })
+              const s = salesMap.get(key)!
+              s.unitsSold += item.quantity
+              s.revenue += (parseFloat(item.price) || 0) * item.quantity
+            }
+          }
+
+          // Also build name-based sales map for products without external_id match
+          const salesByName = new Map<string, { unitsSold: number; revenue: number }>()
+          for (const order of allOrders) {
+            for (const item of order.items) {
+              const nameKey = normalizeAccents(item.name)
+              if (!nameKey) continue
+              if (!salesByName.has(nameKey)) salesByName.set(nameKey, { unitsSold: 0, revenue: 0 })
+              const s = salesByName.get(nameKey)!
+              s.unitsSold += item.quantity
+              s.revenue += (parseFloat(item.price) || 0) * item.quantity
+            }
+          }
+
+          // 4. Evaluate each product
+          type MarkdownCandidate = {
+            produto: string
+            preco_atual: string
+            custo: string | null
+            estoque: number
+            vendas_periodo: number
+            velocidade_diaria: string
+            dias_de_estoque: number | string
+            margem_atual: string | null
+            desconto_sugerido: string
+            preco_sugerido: string
+            margem_apos_desconto: string | null
+            urgencia: string
+            motivo: string
+          }
+
+          const candidates: MarkdownCandidate[] = []
+
+          for (const product of products) {
+            const stock = product.stock_quantity ?? 0
+            if (stock <= 0) continue
+
+            const price = parseFloat(String(product.price)) || 0
+            const cost = product.cost_price ? parseFloat(String(product.cost_price)) : null
+
+            // Find sales velocity
+            const extSales = salesMap.get(String(product.external_id))
+            const nameSales = salesByName.get(normalizeAccents(product.name ?? ''))
+            const sales = extSales ?? nameSales ?? { unitsSold: 0, revenue: 0 }
+
+            const dailyVelocity = sales.unitsSold / velocityDays
+            const daysOfStock = dailyVelocity > 0 ? Math.round(stock / dailyVelocity) : Infinity
+
+            // Only include if days of stock exceeds threshold
+            if (daysOfStock !== Infinity && daysOfStock < minDaysOfStock) continue
+            // Include zero-sale products always (infinite stock days)
+            if (daysOfStock !== Infinity && daysOfStock < minDaysOfStock) continue
+
+            // Calculate discount based on urgency
+            let discountPct: number
+            let urgency: string
+
+            if (sales.unitsSold === 0) {
+              // Zero sales — max discount
+              discountPct = maxDiscountPct
+              urgency = 'critica'
+            } else if (daysOfStock > minDaysOfStock * 3) {
+              discountPct = Math.min(maxDiscountPct, 0.4)
+              urgency = 'alta'
+            } else if (daysOfStock > minDaysOfStock * 2) {
+              discountPct = Math.min(maxDiscountPct, 0.3)
+              urgency = 'media'
+            } else {
+              discountPct = Math.min(maxDiscountPct, 0.2)
+              urgency = 'baixa'
+            }
+
+            // Ensure we never go below cost
+            let suggestedPrice = price * (1 - discountPct)
+            if (cost !== null && suggestedPrice < cost) {
+              suggestedPrice = cost * 1.05 // 5% above cost minimum
+              discountPct = price > 0 ? 1 - suggestedPrice / price : 0
+            }
+
+            // Skip if no meaningful discount
+            if (discountPct < 0.05) continue
+
+            const currentMargin = cost !== null && price > 0 ? ((price - cost) / price) * 100 : null
+            const newMargin =
+              cost !== null && suggestedPrice > 0
+                ? ((suggestedPrice - cost) / suggestedPrice) * 100
+                : null
+
+            const motivo =
+              sales.unitsSold === 0
+                ? `Sem vendas em ${velocityDays} dias com ${stock} unidades em estoque`
+                : `${Math.round(daysOfStock as number)} dias de estoque (velocidade: ${dailyVelocity.toFixed(1)} un/dia)`
+
+            candidates.push({
+              produto: product.name ?? 'Sem nome',
+              preco_atual: `R$ ${price.toFixed(2)}`,
+              custo: cost !== null ? `R$ ${cost.toFixed(2)}` : null,
+              estoque: stock,
+              vendas_periodo: sales.unitsSold,
+              velocidade_diaria: `${dailyVelocity.toFixed(1)} un/dia`,
+              dias_de_estoque: daysOfStock === Infinity ? 'sem vendas' : Math.round(daysOfStock),
+              margem_atual: currentMargin !== null ? `${Math.round(currentMargin)}%` : null,
+              desconto_sugerido: `${Math.round(discountPct * 100)}%`,
+              preco_sugerido: `R$ ${suggestedPrice.toFixed(2)}`,
+              margem_apos_desconto: newMargin !== null ? `${Math.round(newMargin)}%` : null,
+              urgencia: urgency,
+              motivo,
+            })
+          }
+
+          // Sort by urgency (critica > alta > media > baixa), then by stock value desc
+          const urgencyOrder: Record<string, number> = {
+            critica: 0,
+            alta: 1,
+            media: 2,
+            baixa: 3,
+          }
+          candidates.sort((a, b) => {
+            const urgDiff = (urgencyOrder[a.urgencia] ?? 4) - (urgencyOrder[b.urgencia] ?? 4)
+            if (urgDiff !== 0) return urgDiff
+            return (
+              b.estoque * parseFloat(b.preco_atual.slice(3)) -
+              a.estoque * parseFloat(a.preco_atual.slice(3))
+            )
+          })
+
+          // Summary
+          const totalStockValue = candidates.reduce(
+            (s, c) => s + c.estoque * parseFloat(c.preco_atual.slice(3)),
+            0
+          )
+          const potentialRecovery = candidates.reduce(
+            (s, c) => s + c.estoque * parseFloat(c.preco_sugerido.slice(3)),
+            0
+          )
+          const critica = candidates.filter((c) => c.urgencia === 'critica').length
+          const alta = candidates.filter((c) => c.urgencia === 'alta').length
+
+          const acoes: string[] = []
+          if (critica > 0) {
+            acoes.push(
+              `${critica} produtos sem NENHUMA venda — considere desconto agressivo ou remoção do catálogo`
+            )
+          }
+          if (alta > 0) {
+            acoes.push(`${alta} produtos com estoque muito alto — promoção urgente recomendada`)
+          }
+          if (totalStockValue > 0) {
+            acoes.push(
+              `R$ ${totalStockValue.toFixed(2)} parado em estoque lento → R$ ${potentialRecovery.toFixed(2)} recuperável com markdown`
+            )
+          }
+          if (candidates.length === 0) {
+            acoes.push('Nenhum produto encalhado! Estoque girando bem.')
+          }
+
+          return {
+            resumo: {
+              periodo_velocidade: `Últimos ${velocityDays} dias`,
+              produtos_com_estoque: products.length,
+              candidatos_markdown: candidates.length,
+              valor_estoque_lento: `R$ ${totalStockValue.toFixed(2)}`,
+              receita_potencial: `R$ ${potentialRecovery.toFixed(2)}`,
+              por_urgencia: {
+                critica,
+                alta,
+                media: candidates.filter((c) => c.urgencia === 'media').length,
+                baixa: candidates.filter((c) => c.urgencia === 'baixa').length,
+              },
+            },
+            sugestoes:
+              candidates.length > 0
+                ? candidates.slice(0, maxResults)
+                : 'Nenhum produto precisa de markdown — estoque saudável!',
+            acoes_sugeridas: acoes,
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_SIMULATE_ELASTICITY: {
+      description:
+        'Simulate price elasticity for products. Estimates how a price change would impact sales volume based on historical price variations and order data. Use when user asks "elasticidade", "se eu subir o preço", "se baixar o preço", "impacto de preço", "simulação de preço", "quanto vou vender se mudar o preço?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of history to analyze (default: 180, range: 30-365)',
+          },
+          price_change_pct: {
+            type: 'number',
+            description:
+              'Price change to simulate in % (e.g. 10 for +10%, -15 for -15%). Default: 10',
+          },
+          search: {
+            type: 'string',
+            description: 'Filter by product name (optional)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max products to return (default: 15)',
+          },
+        },
+      }),
+      execute: async (params: {
+        days?: number
+        price_change_pct?: number
+        search?: string
+        limit?: number
+      }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 180, 30), 365)
+        const priceChangePct = params.price_change_pct ?? 10
+        const maxResults = Math.min(Math.max(params.limit ?? 15, 1), 30)
+
+        try {
+          // 1. Fetch products
+          let productsQuery = supabase
+            .from('store_products')
+            .select('id, external_id, name, price, cost_price, stock_quantity')
+            .eq('store_id', storeId)
+
+          if (params.search) {
+            productsQuery = productsQuery.ilike('name', `%${params.search}%`)
+          }
+
+          const { data: products } = await productsQuery
+
+          if (!products || products.length === 0) {
+            return { message: 'Nenhum produto encontrado.' }
+          }
+
+          // 2. Fetch price history from monitors
+          const { data: monitors } = await supabase
+            .from('store_price_monitors')
+            .select('id, product_name, own_product_id, last_price')
+            .eq('store_id', storeId)
+            .eq('is_active', true)
+
+          // Fetch price history for all monitors
+          const monitorIds = (monitors ?? []).map((m) => m.id)
+          let priceHistory: Array<{
+            monitor_id: string
+            price: number
+            scraped_at: string
+          }> = []
+          if (monitorIds.length > 0) {
+            const { data: history } = await supabase
+              .from('store_price_history')
+              .select('monitor_id, price, scraped_at')
+              .in('monitor_id', monitorIds)
+              .order('scraped_at', { ascending: true })
+            priceHistory = (history ?? []).map((h) => ({
+              monitor_id: h.monitor_id,
+              price: parseFloat(String(h.price)) || 0,
+              scraped_at: h.scraped_at,
+            }))
+          }
+
+          // 3. Fetch orders for sales data
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            items: Array<{ product_id: string; quantity: number; price: string; name: string }>
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                const items = (o.products ?? []).map((p) => ({
+                  product_id: String(p.product_id ?? ''),
+                  quantity: parseInt(String(p.quantity)) || 1,
+                  price: p.price ?? '0',
+                  name: p.name ?? '',
+                }))
+                allOrders.push({ items, created_at: o.created_at })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // no orders
+          }
+
+          // 4. Build weekly sales data per product
+          type WeeklySales = { weekStart: number; units: number; avgPrice: number }
+
+          const productSalesMap = new Map<
+            string,
+            { byWeek: Map<number, { units: number; priceSum: number; count: number }> }
+          >()
+
+          const weekMs = 7 * 24 * 60 * 60 * 1000
+
+          for (const order of allOrders) {
+            const orderTime = new Date(order.created_at).getTime()
+            const weekStart = Math.floor(orderTime / weekMs) * weekMs
+
+            for (const item of order.items) {
+              if (!item.product_id) continue
+              const key = item.product_id
+              if (!productSalesMap.has(key)) {
+                productSalesMap.set(key, { byWeek: new Map() })
+              }
+              const pw = productSalesMap.get(key)!.byWeek
+              if (!pw.has(weekStart)) pw.set(weekStart, { units: 0, priceSum: 0, count: 0 })
+              const w = pw.get(weekStart)!
+              w.units += item.quantity
+              w.priceSum += (parseFloat(item.price) || 0) * item.quantity
+              w.count += item.quantity
+            }
+          }
+
+          // Also index by name
+          const productSalesByName = new Map<
+            string,
+            { byWeek: Map<number, { units: number; priceSum: number; count: number }> }
+          >()
+          for (const order of allOrders) {
+            const orderTime = new Date(order.created_at).getTime()
+            const weekStart = Math.floor(orderTime / weekMs) * weekMs
+            for (const item of order.items) {
+              const nameKey = normalizeAccents(item.name)
+              if (!nameKey) continue
+              if (!productSalesByName.has(nameKey)) {
+                productSalesByName.set(nameKey, { byWeek: new Map() })
+              }
+              const pw = productSalesByName.get(nameKey)!.byWeek
+              if (!pw.has(weekStart)) pw.set(weekStart, { units: 0, priceSum: 0, count: 0 })
+              const w = pw.get(weekStart)!
+              w.units += item.quantity
+              w.priceSum += (parseFloat(item.price) || 0) * item.quantity
+              w.count += item.quantity
+            }
+          }
+
+          // 5. Estimate elasticity per product
+          type ElasticityResult = {
+            produto: string
+            preco_atual: string
+            custo: string | null
+            vendas_periodo: number
+            vendas_semanais_media: string
+            elasticidade_estimada: string
+            confianca: string
+            simulacao: {
+              variacao_preco: string
+              preco_novo: string
+              vendas_estimadas: string
+              receita_atual_semanal: string
+              receita_nova_semanal: string
+              impacto_receita: string
+              margem_nova: string | null
+            }
+          }
+
+          const results: ElasticityResult[] = []
+
+          for (const product of products) {
+            const price = parseFloat(String(product.price)) || 0
+            if (price <= 0) continue
+
+            const cost = product.cost_price ? parseFloat(String(product.cost_price)) : null
+
+            // Get weekly sales data
+            const extData = productSalesMap.get(String(product.external_id))
+            const nameData = productSalesByName.get(normalizeAccents(product.name ?? ''))
+            const salesData = extData ?? nameData
+
+            if (!salesData || salesData.byWeek.size === 0) continue
+
+            const weeks: WeeklySales[] = [...salesData.byWeek.entries()]
+              .map(([weekStart, data]) => ({
+                weekStart,
+                units: data.units,
+                avgPrice: data.count > 0 ? data.priceSum / data.count : price,
+              }))
+              .sort((a, b) => a.weekStart - b.weekStart)
+
+            const totalUnits = weeks.reduce((s, w) => s + w.units, 0)
+            const avgWeeklyUnits = totalUnits / weeks.length
+
+            // Estimate elasticity from price variance in the data
+            // If we have price variation across weeks, use regression-like approach
+            let elasticity = -1.2 // default assumption
+            let confidence = 'estimativa_padrao'
+
+            // Check if there's meaningful price variation
+            const prices = weeks.map((w) => w.avgPrice)
+            const minPrice = Math.min(...prices)
+            const maxPrice = Math.max(...prices)
+            const priceVariation = maxPrice > 0 ? (maxPrice - minPrice) / maxPrice : 0
+
+            if (priceVariation > 0.05 && weeks.length >= 4) {
+              // Enough variation — calculate point elasticity from data
+              const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length
+              const avgQty = avgWeeklyUnits
+
+              // Simple elasticity: % change in Q / % change in P
+              // Use pairs of adjacent weeks with different prices
+              const elasticities: number[] = []
+              for (let i = 1; i < weeks.length; i++) {
+                const pChange = (weeks[i].avgPrice - weeks[i - 1].avgPrice) / weeks[i - 1].avgPrice
+                const qChange = (weeks[i].units - weeks[i - 1].units) / (weeks[i - 1].units || 1)
+                if (Math.abs(pChange) > 0.02) {
+                  // meaningful price change
+                  const e = qChange / pChange
+                  // Cap extreme values
+                  if (e >= -10 && e <= 2) elasticities.push(e)
+                }
+              }
+
+              if (elasticities.length >= 2) {
+                // Median for robustness
+                elasticities.sort((a, b) => a - b)
+                const mid = Math.floor(elasticities.length / 2)
+                elasticity =
+                  elasticities.length % 2 === 0
+                    ? (elasticities[mid - 1] + elasticities[mid]) / 2
+                    : elasticities[mid]
+                confidence = 'baseada_em_dados'
+              } else if (elasticities.length === 1) {
+                elasticity = elasticities[0]
+                confidence = 'dados_limitados'
+              }
+            }
+
+            // Also check competitor price history for the product
+            if (monitors && monitors.length > 0) {
+              const linkedMonitor = monitors.find((m) => m.own_product_id === product.id)
+              if (linkedMonitor) {
+                const monitorHistory = priceHistory.filter((h) => h.monitor_id === linkedMonitor.id)
+                if (monitorHistory.length >= 3 && confidence === 'estimativa_padrao') {
+                  // Competitor prices available — adjust elasticity toward -1.5 (more elastic)
+                  elasticity = -1.5
+                  confidence = 'ajustada_por_concorrencia'
+                }
+              }
+            }
+
+            // 6. Simulate price change
+            const pctChange = priceChangePct / 100
+            const newPrice = price * (1 + pctChange)
+            const estimatedQtyChange = pctChange * elasticity
+            const newWeeklyUnits = Math.max(0, avgWeeklyUnits * (1 + estimatedQtyChange))
+
+            const currentWeeklyRevenue = avgWeeklyUnits * price
+            const newWeeklyRevenue = newWeeklyUnits * newPrice
+            const revenueImpact =
+              currentWeeklyRevenue > 0
+                ? ((newWeeklyRevenue - currentWeeklyRevenue) / currentWeeklyRevenue) * 100
+                : 0
+
+            const newMargin =
+              cost !== null && newPrice > 0 ? ((newPrice - cost) / newPrice) * 100 : null
+
+            results.push({
+              produto: product.name ?? 'Sem nome',
+              preco_atual: `R$ ${price.toFixed(2)}`,
+              custo: cost !== null ? `R$ ${cost.toFixed(2)}` : null,
+              vendas_periodo: totalUnits,
+              vendas_semanais_media: avgWeeklyUnits.toFixed(1),
+              elasticidade_estimada: elasticity.toFixed(2),
+              confianca: confidence,
+              simulacao: {
+                variacao_preco: `${priceChangePct > 0 ? '+' : ''}${priceChangePct}%`,
+                preco_novo: `R$ ${newPrice.toFixed(2)}`,
+                vendas_estimadas: `${newWeeklyUnits.toFixed(1)} un/semana`,
+                receita_atual_semanal: `R$ ${currentWeeklyRevenue.toFixed(2)}`,
+                receita_nova_semanal: `R$ ${newWeeklyRevenue.toFixed(2)}`,
+                impacto_receita: `${revenueImpact > 0 ? '+' : ''}${revenueImpact.toFixed(1)}%`,
+                margem_nova: newMargin !== null ? `${Math.round(newMargin)}%` : null,
+              },
+            })
+          }
+
+          // Sort by revenue impact
+          results.sort((a, b) => {
+            const aImpact = parseFloat(a.simulacao.impacto_receita)
+            const bImpact = parseFloat(b.simulacao.impacto_receita)
+            return bImpact - aImpact
+          })
+
+          // Summary
+          const withData = results.filter((r) => r.confianca === 'baseada_em_dados').length
+          const withLimited = results.filter((r) => r.confianca === 'dados_limitados').length
+          const withDefault = results.filter(
+            (r) =>
+              r.confianca === 'estimativa_padrao' || r.confianca === 'ajustada_por_concorrencia'
+          ).length
+
+          const gainers = results.filter((r) => parseFloat(r.simulacao.impacto_receita) > 0)
+          const losers = results.filter((r) => parseFloat(r.simulacao.impacto_receita) < 0)
+
+          const acoes: string[] = []
+          if (priceChangePct > 0 && gainers.length > 0) {
+            acoes.push(
+              `${gainers.length} produtos ganhariam receita com aumento de ${priceChangePct}% — demanda inelástica`
+            )
+          }
+          if (priceChangePct > 0 && losers.length > 0) {
+            acoes.push(
+              `${losers.length} produtos perderiam receita — clientes sensíveis a preço nesses itens`
+            )
+          }
+          if (priceChangePct < 0 && gainers.length > 0) {
+            acoes.push(
+              `${gainers.length} produtos ganhariam receita com desconto de ${Math.abs(priceChangePct)}% — vale a promoção`
+            )
+          }
+          if (withDefault > results.length * 0.5) {
+            acoes.push(
+              'Maioria das estimativas usa elasticidade padrão — mais histórico de variação de preço melhora a precisão'
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              variacao_simulada: `${priceChangePct > 0 ? '+' : ''}${priceChangePct}%`,
+              produtos_analisados: results.length,
+              confianca: {
+                baseada_em_dados: withData,
+                dados_limitados: withLimited,
+                estimativa_padrao: withDefault,
+              },
+              ganhariam_receita: gainers.length,
+              perderiam_receita: losers.length,
+            },
+            simulacoes:
+              results.length > 0
+                ? results.slice(0, maxResults)
+                : 'Nenhum produto com dados de vendas suficientes para simular.',
+            acoes_sugeridas:
+              acoes.length > 0
+                ? acoes
+                : ['Dados insuficientes para sugestões — acumule mais histórico de vendas.'],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
   }
 }
 
