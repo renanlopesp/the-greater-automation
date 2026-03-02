@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Vercel AI SDK (`jsonSchema`), `@/lib/nuvemshop/client` (NuvemshopClient), `@/lib/supabase/server` (createServiceRoleClient) (028-retail-intelligence)
+- Nuvemshop API (orders, customers) + Supabase store_products (cost_price only) (028-retail-intelligence)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, @supabase/ssr, Vercel AI SDK, TanStack React Query, Zod (027-retail-pivot)
 
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui, @supabase/ssr, TanStack React Query, Zod (024-team-members)

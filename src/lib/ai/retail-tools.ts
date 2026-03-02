@@ -13,6 +13,79 @@ function normalizeAccents(s: string): string {
 }
 
 /**
+ * Calculate quintile scores (1-5) for an array of numeric values.
+ * Higher values get higher scores. Used for RFM scoring.
+ */
+function calculateQuintiles(values: number[], higherIsBetter = true): number[] {
+  if (values.length === 0) return []
+  if (values.length === 1) return [3] // mid score for single value
+
+  // Create indexed pairs, sort by value
+  const indexed = values.map((v, i) => ({ v, i }))
+  indexed.sort((a, b) => a.v - b.v)
+
+  const scores = new Array<number>(values.length)
+  const n = values.length
+
+  for (let rank = 0; rank < n; rank++) {
+    // Quintile bucket 0-4, map to score 1-5
+    const bucket = Math.min(Math.floor((rank / n) * 5), 4)
+    const score = higherIsBetter ? bucket + 1 : 5 - bucket
+    scores[indexed[rank].i] = score
+  }
+
+  return scores
+}
+
+/**
+ * Map RFM scores (1-5 each) to a customer segment label.
+ */
+function mapRfmSegment(r: number, f: number, m: number): string {
+  // New: single order + recent
+  if (f === 1 && r >= 4) return 'New'
+  // VIP: high across all dimensions
+  if (r >= 4 && f >= 4 && m >= 4) return 'VIP'
+  // At Risk: was valuable but hasn't bought recently
+  if (r <= 2 && (f >= 3 || m >= 3)) return 'At Risk'
+  // Lost: very low recency regardless of other scores
+  if (r <= 2) return 'Lost'
+  // Promising: recent, low frequency, decent monetary
+  if (r >= 4 && f <= 2 && m >= 3) return 'Promising'
+  // Loyal: consistent across dimensions (not VIP-level)
+  if (r >= 3 && f >= 3 && m >= 3) return 'Loyal'
+  // Promising: recent but still building frequency
+  if (r >= 4 && f <= 2) return 'Promising'
+  // Default: Loyal for moderate scores
+  return 'Loyal'
+}
+
+/**
+ * Calculate repurchase interval and overdue status from a list of order dates.
+ * Returns null if fewer than 2 orders (can't calculate interval).
+ */
+function calculateRepurchaseData(
+  orderDates: string[]
+): { avgInterval: number; daysSinceLast: number; daysOverdue: number } | null {
+  if (orderDates.length < 2) return null
+
+  const sorted = orderDates.map((d) => new Date(d).getTime()).sort((a, b) => a - b)
+  const intervals: number[] = []
+  for (let i = 1; i < sorted.length; i++) {
+    intervals.push((sorted[i] - sorted[i - 1]) / (1000 * 60 * 60 * 24))
+  }
+
+  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length
+  const daysSinceLast = (Date.now() - sorted[sorted.length - 1]) / (1000 * 60 * 60 * 24)
+  const daysOverdue = daysSinceLast - avgInterval * 1.2
+
+  return {
+    avgInterval: Math.round(avgInterval),
+    daysSinceLast: Math.round(daysSinceLast),
+    daysOverdue: Math.round(daysOverdue),
+  }
+}
+
+/**
  * Retail-specific tools for stores.
  * Added to the Telegram bot's tool set when the team has a store.
  */
@@ -2824,6 +2897,768 @@ export function buildRetailTools(
                 ? monitorar.slice(0, 5)
                 : 'Nenhum produto na faixa de monitoramento (8-14 dias)',
             estoque_saudavel: `${healthyCount} produtos com estoque para 14+ dias`,
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_ANALYZE_CUSTOMERS: {
+      description:
+        'Analyze customers using RFM segmentation (Recency, Frequency, Monetary). Classifies customers into segments: VIP, Loyal, Promising, At Risk, Lost, New. Can also predict repurchase timing. Use when user asks "analise meus clientes", "segmentação de clientes", "quem são meus melhores clientes?", "clientes em risco", "quais clientes estão sumindo?", "tem alguém pra mandar cupom?", "quais clientes devem comprar em breve?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of order history to analyze (default: 90, max: 365)',
+          },
+          focus: {
+            type: 'string',
+            enum: ['overview', 'repurchase', 'at_risk'],
+            description:
+              'Analysis focus: overview (all segments), repurchase (overdue customers), at_risk (declining customers). Default: overview',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max customers per segment to return (default: 10)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; focus?: string; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 90, 7), 365)
+        const focus = params.focus ?? 'overview'
+        const limitPerSegment = Math.min(Math.max(params.limit ?? 10, 1), 50)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          // 1. Fetch orders in the analysis period
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            customer_email: string | null
+            customer_name: string | null
+            total: string
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  customer_email: o.customer?.email ?? null,
+                  customer_name: o.customer?.name ?? null,
+                  total: o.total ?? '0',
+                  created_at: o.created_at,
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when there are no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico de vendas pra analisar clientes.`,
+              pedidos_analisados: 0,
+            }
+          }
+
+          // 2. Group orders by customer email
+          let ordersWithoutCustomer = 0
+          const customerMap = new Map<
+            string,
+            {
+              name: string
+              email: string
+              orderDates: string[]
+              totalSpent: number
+              orderCount: number
+            }
+          >()
+
+          for (const order of allOrders) {
+            if (!order.customer_email) {
+              ordersWithoutCustomer++
+              continue
+            }
+            const key = order.customer_email.toLowerCase()
+            if (!customerMap.has(key)) {
+              customerMap.set(key, {
+                name: order.customer_name ?? order.customer_email,
+                email: order.customer_email,
+                orderDates: [],
+                totalSpent: 0,
+                orderCount: 0,
+              })
+            }
+            const cust = customerMap.get(key)!
+            cust.orderDates.push(order.created_at)
+            cust.totalSpent += parseFloat(order.total) || 0
+            cust.orderCount++
+            // Keep the most recent name
+            if (order.customer_name) cust.name = order.customer_name
+          }
+
+          if (customerMap.size === 0) {
+            return {
+              message: `${allOrders.length} pedidos encontrados, mas nenhum com email de cliente. Não consigo segmentar sem identificador.`,
+              pedidos_analisados: allOrders.length,
+            }
+          }
+
+          const customers = [...customerMap.values()]
+          const now = new Date()
+
+          // 3. Calculate RFM raw values
+          const recencyValues = customers.map((c) => {
+            const lastOrder = c.orderDates
+              .map((d) => new Date(d).getTime())
+              .sort((a, b) => b - a)[0]
+            return Math.round((now.getTime() - lastOrder) / (1000 * 60 * 60 * 24))
+          })
+          const frequencyValues = customers.map((c) => c.orderCount)
+          const monetaryValues = customers.map((c) => c.totalSpent)
+
+          // 4. Calculate quintile scores
+          // Recency: LOWER is better (more recent = higher score)
+          const rScores = calculateQuintiles(recencyValues, false)
+          const fScores = calculateQuintiles(frequencyValues, true)
+          const mScores = calculateQuintiles(monetaryValues, true)
+
+          // 5. Build segmented results
+          type CustomerResult = {
+            nome: string
+            email: string
+            pedidos: number
+            total_gasto: string
+            ultimo_pedido: string
+            rfm: string
+            intervalo_medio?: string
+            dias_atrasado?: number
+            previsao_recompra?: string
+          }
+
+          const segments: Record<string, { clientes: CustomerResult[]; receita: number }> = {
+            VIP: { clientes: [], receita: 0 },
+            Loyal: { clientes: [], receita: 0 },
+            Promising: { clientes: [], receita: 0 },
+            'At Risk': { clientes: [], receita: 0 },
+            Lost: { clientes: [], receita: 0 },
+            New: { clientes: [], receita: 0 },
+          }
+
+          const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0)
+
+          for (let i = 0; i < customers.length; i++) {
+            const c = customers[i]
+            const segment = mapRfmSegment(rScores[i], fScores[i], mScores[i])
+            const repurchase = calculateRepurchaseData(c.orderDates)
+            const lastOrderDate = c.orderDates
+              .map((d) => new Date(d).getTime())
+              .sort((a, b) => b - a)[0]
+            const daysSinceLast = Math.round(
+              (now.getTime() - lastOrderDate) / (1000 * 60 * 60 * 24)
+            )
+
+            const result: CustomerResult = {
+              nome: c.name,
+              email: c.email,
+              pedidos: c.orderCount,
+              total_gasto: `R$ ${c.totalSpent.toFixed(2)}`,
+              ultimo_pedido: daysSinceLast === 0 ? 'hoje' : `${daysSinceLast} dias atrás`,
+              rfm: `${rScores[i]}-${fScores[i]}-${mScores[i]}`,
+            }
+
+            if (repurchase) {
+              result.intervalo_medio = `${repurchase.avgInterval} dias`
+              if (repurchase.daysOverdue > 0) {
+                result.dias_atrasado = repurchase.daysOverdue
+              } else {
+                const daysUntilNext = repurchase.avgInterval - daysSinceLast
+                if (daysUntilNext > 0) {
+                  result.previsao_recompra = `em ~${Math.round(daysUntilNext)} dias`
+                }
+              }
+            }
+
+            if (!segments[segment]) {
+              segments[segment] = { clientes: [], receita: 0 }
+            }
+            segments[segment].clientes.push(result)
+            segments[segment].receita += c.totalSpent
+          }
+
+          // Sort customers within each segment by total spent descending
+          for (const seg of Object.values(segments)) {
+            seg.clientes.sort(
+              (a, b) => parseFloat(b.total_gasto.slice(3)) - parseFloat(a.total_gasto.slice(3))
+            )
+          }
+
+          // 6. Format output based on focus
+          if (focus === 'repurchase') {
+            // Repurchase focus: show overdue and upcoming
+            const overdue: CustomerResult[] = []
+            const upcoming: CustomerResult[] = []
+
+            for (const seg of Object.values(segments)) {
+              for (const c of seg.clientes) {
+                if (c.dias_atrasado && c.dias_atrasado > 0) {
+                  overdue.push(c)
+                } else if (c.previsao_recompra) {
+                  upcoming.push(c)
+                }
+              }
+            }
+
+            overdue.sort((a, b) => (b.dias_atrasado ?? 0) - (a.dias_atrasado ?? 0))
+            const customersWithInterval = customers.filter(
+              (c) => calculateRepurchaseData(c.orderDates) !== null
+            ).length
+            const excludedSingleOrder = customers.length - customersWithInterval
+
+            return {
+              resumo: {
+                periodo: `Últimos ${historyDays} dias`,
+                clientes_analisados: customersWithInterval,
+                clientes_com_recompra_prevista: overdue.length + upcoming.length,
+                excluidos_pedido_unico: excludedSingleOrder,
+              },
+              recompra_atrasada:
+                overdue.length > 0
+                  ? overdue.slice(0, limitPerSegment)
+                  : 'Nenhum cliente atrasado para recompra',
+              recompra_proxima:
+                upcoming.length > 0
+                  ? upcoming.slice(0, limitPerSegment)
+                  : 'Nenhum cliente com recompra prevista nos próximos dias',
+            }
+          }
+
+          if (focus === 'at_risk') {
+            // At Risk focus: show only At Risk + Lost segments
+            const atRiskClients = segments['At Risk'].clientes.slice(0, limitPerSegment)
+            const lostClients = segments['Lost'].clientes.slice(0, limitPerSegment)
+
+            return {
+              resumo: {
+                periodo: `Últimos ${historyDays} dias`,
+                pedidos_analisados: allOrders.length,
+                clientes_em_risco: segments['At Risk'].clientes.length,
+                clientes_perdidos: segments['Lost'].clientes.length,
+                receita_em_risco: `R$ ${(segments['At Risk'].receita + segments['Lost'].receita).toFixed(2)}`,
+              },
+              em_risco:
+                atRiskClients.length > 0 ? atRiskClients : 'Nenhum cliente em risco identificado',
+              perdidos:
+                lostClients.length > 0 ? lostClients : 'Nenhum cliente perdido identificado',
+              acoes_sugeridas: [
+                ...(segments['At Risk'].clientes.length > 0
+                  ? [
+                      `${segments['At Risk'].clientes.length} clientes Em Risco com R$ ${segments['At Risk'].receita.toFixed(2)} em compras — envie cupom de reativação`,
+                    ]
+                  : []),
+                ...(segments['Lost'].clientes.length > 0
+                  ? [
+                      `${segments['Lost'].clientes.length} clientes Perdidos com R$ ${segments['Lost'].receita.toFixed(2)} em compras passadas — campanha de win-back`,
+                    ]
+                  : []),
+              ],
+            }
+          }
+
+          // Default: overview
+          const segmentOutput: Record<
+            string,
+            | {
+                total: number
+                receita_total: string
+                pct_receita: string
+                clientes: CustomerResult[]
+              }
+            | string
+          > = {}
+
+          const segmentOrder = ['VIP', 'Loyal', 'Promising', 'At Risk', 'Lost', 'New']
+          for (const name of segmentOrder) {
+            const seg = segments[name]
+            if (seg.clientes.length > 0) {
+              segmentOutput[name.toLowerCase().replace(' ', '_')] = {
+                total: seg.clientes.length,
+                receita_total: `R$ ${seg.receita.toFixed(2)}`,
+                pct_receita:
+                  totalRevenue > 0 ? `${Math.round((seg.receita / totalRevenue) * 100)}%` : '0%',
+                clientes: seg.clientes.slice(0, limitPerSegment),
+              }
+            }
+          }
+
+          // Build action suggestions
+          const acoes: string[] = []
+          if (segments['VIP'].clientes.length > 0) {
+            acoes.push(
+              `${segments['VIP'].clientes.length} clientes VIP geram ${totalRevenue > 0 ? Math.round((segments['VIP'].receita / totalRevenue) * 100) : 0}% da receita — considere programa de fidelidade`
+            )
+          }
+          if (segments['At Risk'].clientes.length > 0) {
+            acoes.push(
+              `${segments['At Risk'].clientes.length} clientes Em Risco não compram há tempo — envie cupom de reativação`
+            )
+          }
+          if (segments['Lost'].clientes.length > 0) {
+            acoes.push(
+              `${segments['Lost'].clientes.length} clientes Perdidos somam R$ ${segments['Lost'].receita.toFixed(2)} em compras passadas — campanha de win-back`
+            )
+          }
+          if (segments['Promising'].clientes.length > 0) {
+            acoes.push(
+              `${segments['Promising'].clientes.length} clientes Promissores compraram recentemente — incentive segunda compra`
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              clientes_unicos: customerMap.size,
+              pedidos_sem_cliente: ordersWithoutCustomer,
+            },
+            segmentos: segmentOutput,
+            acoes_sugeridas: acoes.length > 0 ? acoes : ['Base de clientes saudável!'],
+          }
+        } catch (err) {
+          return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
+        }
+      },
+    },
+
+    STORE_ANALYZE_PRODUCTS: {
+      description:
+        'Analyze products using ABC/Pareto classification. Classifies products by revenue contribution: A (top 80%), B (next 15%), C (bottom 5%). Also identifies dead stock (products with inventory but no sales). Use when user asks "analise meus produtos", "curva ABC", "quais produtos mais vendem?", "quais produtos são mais importantes?", "estoque parado", "produtos classe A", "quais produtos não vendem?".',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          days: {
+            type: 'number',
+            description: 'Days of sales history to analyze (default: 30, max: 365)',
+          },
+          include_dead_stock: {
+            type: 'boolean',
+            description: 'Include products with stock but zero sales (default: true)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max products per class to return (default: 15)',
+          },
+        },
+      }),
+      execute: async (params: { days?: number; include_dead_stock?: boolean; limit?: number }) => {
+        const supabase = getClient()
+        const { data: store } = await supabase
+          .from('stores')
+          .select('platform, platform_store_id, platform_access_token')
+          .eq('id', storeId)
+          .single()
+
+        if (
+          store?.platform !== 'nuvemshop' ||
+          !store.platform_store_id ||
+          !store.platform_access_token
+        ) {
+          return { error: 'Store not connected to Nuvemshop' }
+        }
+
+        const historyDays = Math.min(Math.max(params.days ?? 30, 7), 365)
+        const includeDeadStock = params.include_dead_stock !== false
+        const limitPerClass = Math.min(Math.max(params.limit ?? 15, 1), 50)
+
+        try {
+          const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+          const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+
+          // 1. Fetch orders in the analysis period
+          const startDate = new Date()
+          startDate.setDate(startDate.getDate() - historyDays)
+          startDate.setHours(0, 0, 0, 0)
+
+          const allOrders: Array<{
+            products: Array<{
+              product_id: number | null
+              name: string
+              quantity: string
+              price: string
+            }>
+            created_at: string
+          }> = []
+          let page = 1
+          try {
+            while (true) {
+              const orders = await client.getOrders(page, 200, {
+                created_at_min: startDate.toISOString(),
+              })
+              for (const o of orders) {
+                allOrders.push({
+                  products: (o.products ?? []).map((p) => ({
+                    product_id: p.product_id,
+                    name: p.name ?? 'Produto',
+                    quantity: String(p.quantity ?? '1'),
+                    price: String(p.price ?? '0'),
+                  })),
+                  created_at: o.created_at,
+                })
+              }
+              if (orders.length < 200) break
+              page++
+            }
+          } catch {
+            // Nuvemshop returns 404 when there are no orders
+          }
+
+          if (allOrders.length === 0) {
+            return {
+              message: `Nenhum pedido nos últimos ${historyDays} dias. Preciso de histórico de vendas pra classificar produtos.`,
+              pedidos_analisados: 0,
+            }
+          }
+
+          // 2. Aggregate revenue and units by product_id
+          const productSales = new Map<
+            number,
+            {
+              name: string
+              productId: number
+              revenue: number
+              unitsSold: number
+              lastSaleDate: string
+            }
+          >()
+
+          for (const order of allOrders) {
+            for (const item of order.products) {
+              if (!item.product_id) continue
+              const key = item.product_id
+              if (!productSales.has(key)) {
+                productSales.set(key, {
+                  name: item.name,
+                  productId: key,
+                  revenue: 0,
+                  unitsSold: 0,
+                  lastSaleDate: order.created_at,
+                })
+              }
+              const prod = productSales.get(key)!
+              const qty = parseInt(item.quantity, 10) || 1
+              prod.unitsSold += qty
+              prod.revenue += qty * (parseFloat(item.price) || 0)
+              if (order.created_at > prod.lastSaleDate) {
+                prod.lastSaleDate = order.created_at
+              }
+            }
+          }
+
+          if (productSales.size === 0) {
+            return {
+              message: `Pedidos encontrados mas nenhum com product_id válido.`,
+              pedidos_analisados: allOrders.length,
+            }
+          }
+
+          // 3. Sort by revenue descending, assign ABC class
+          const ranked = [...productSales.values()].sort((a, b) => b.revenue - a.revenue)
+          const totalRevenue = ranked.reduce((sum, p) => sum + p.revenue, 0)
+
+          let cumulative = 0
+          const classified: Array<{
+            name: string
+            productId: number
+            revenue: number
+            revenueShare: number
+            cumulativeShare: number
+            class: 'A' | 'B' | 'C'
+            unitsSold: number
+            lastSaleDate: string
+          }> = []
+
+          for (const prod of ranked) {
+            cumulative += prod.revenue
+            const revenueShare = totalRevenue > 0 ? (prod.revenue / totalRevenue) * 100 : 0
+            const cumulativeShare = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 0
+
+            let abcClass: 'A' | 'B' | 'C'
+            if (cumulativeShare <= 80 || classified.filter((p) => p.class === 'A').length === 0) {
+              // At least 1 product in A, then up to 80% cumulative
+              abcClass = cumulativeShare <= 80 ? 'A' : classified.length === 0 ? 'A' : 'B'
+            } else if (cumulativeShare <= 95) {
+              abcClass = 'B'
+            } else {
+              abcClass = 'C'
+            }
+
+            // Edge case: first product always gets A
+            if (classified.length === 0) abcClass = 'A'
+
+            classified.push({
+              ...prod,
+              revenueShare,
+              cumulativeShare,
+              class: abcClass,
+            })
+          }
+
+          // 4. Fetch stock for classified products (batched, 10 concurrent)
+          const stockMap = new Map<number, { stock: number; price: number }>()
+          const batchSize = 10
+          const productIds = classified.map((p) => p.productId)
+          for (let i = 0; i < productIds.length; i += batchSize) {
+            const batch = productIds.slice(i, i + batchSize)
+            const results = await Promise.allSettled(
+              batch.map(async (pid) => {
+                const product = await client.getProduct(pid)
+                const totalStock = (product.variants ?? []).reduce(
+                  (sum, v) => sum + (v.stock ?? 0),
+                  0
+                )
+                return {
+                  id: pid,
+                  stock: totalStock,
+                  price: parseFloat(String(product.variants?.[0]?.price ?? '0')),
+                }
+              })
+            )
+            for (const r of results) {
+              if (r.status === 'fulfilled') {
+                stockMap.set(r.value.id, { stock: r.value.stock, price: r.value.price })
+              }
+            }
+          }
+
+          // 5. Fetch cost_price from Supabase for margin analysis
+          const { data: storeProducts } = await supabase
+            .from('store_products')
+            .select('external_id, cost_price, name')
+            .eq('store_id', storeId)
+            .not('cost_price', 'is', null)
+
+          const costMap = new Map<string, number>()
+          if (storeProducts) {
+            for (const sp of storeProducts) {
+              if (sp.external_id && sp.cost_price != null) {
+                costMap.set(String(sp.external_id), Number(sp.cost_price))
+              }
+            }
+          }
+
+          // 6. Build class output
+          type ProductResult = {
+            nome: string
+            receita: string
+            pct_receita: string
+            unidades_vendidas: number
+            estoque_atual: number
+            giro: number | string
+            margem?: string
+            preco?: string
+            custo?: string
+          }
+
+          const classes: Record<
+            string,
+            {
+              total_produtos: number
+              receita: number
+              produtos: ProductResult[]
+              margins: number[]
+            }
+          > = {
+            A: { total_produtos: 0, receita: 0, produtos: [], margins: [] },
+            B: { total_produtos: 0, receita: 0, produtos: [], margins: [] },
+            C: { total_produtos: 0, receita: 0, produtos: [], margins: [] },
+          }
+
+          for (const p of classified) {
+            const cls = classes[p.class]
+            cls.total_produtos++
+            cls.receita += p.revenue
+
+            const stockInfo = stockMap.get(p.productId)
+            const currentStock = stockInfo?.stock ?? 0
+            const sellingPrice = stockInfo?.price ?? 0
+            const turnover =
+              currentStock > 0 ? Math.round((p.unitsSold / currentStock) * 10) / 10 : 'N/A'
+
+            const costPrice = costMap.get(String(p.productId))
+            const marginPct =
+              costPrice != null && sellingPrice > 0
+                ? Math.round(((sellingPrice - costPrice) / sellingPrice) * 1000) / 10
+                : undefined
+
+            if (marginPct !== undefined) cls.margins.push(marginPct)
+
+            const item: ProductResult = {
+              nome: p.name,
+              receita: `R$ ${p.revenue.toFixed(2)}`,
+              pct_receita: `${Math.round(p.revenueShare * 10) / 10}%`,
+              unidades_vendidas: p.unitsSold,
+              estoque_atual: currentStock,
+              giro: turnover,
+            }
+
+            if (marginPct !== undefined) {
+              item.margem = `${marginPct}%`
+              item.preco = `R$ ${sellingPrice.toFixed(2)}`
+              item.custo = `R$ ${costPrice!.toFixed(2)}`
+            }
+
+            cls.produtos.push(item)
+          }
+
+          // 7. Dead stock identification
+          let deadStock: Array<{
+            nome: string
+            sku?: string
+            estoque: number
+            preco: string
+            valor_parado: string
+            ultima_venda?: string
+          }> = []
+
+          if (includeDeadStock) {
+            const allProducts = await client.getAllProducts()
+            const soldProductIds = new Set(productSales.keys())
+
+            for (const product of allProducts) {
+              const totalStock = product.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0)
+              if (totalStock <= 0) continue
+              if (soldProductIds.has(product.id)) continue
+
+              const name = product.name?.pt ?? product.name?.es ?? product.name?.en ?? 'Sem nome'
+              const price = parseFloat(String(product.variants[0]?.price ?? '0'))
+              const sku = product.variants[0]?.sku ?? undefined
+
+              deadStock.push({
+                nome: name,
+                sku,
+                estoque: totalStock,
+                preco: `R$ ${price.toFixed(2)}`,
+                valor_parado: `R$ ${(totalStock * price).toFixed(2)}`,
+              })
+            }
+
+            // Sort by stock value descending
+            deadStock.sort(
+              (a, b) =>
+                parseFloat(b.valor_parado.slice(3).replace('.', '').replace(',', '.')) -
+                parseFloat(a.valor_parado.slice(3).replace('.', '').replace(',', '.'))
+            )
+            deadStock = deadStock.slice(0, 20)
+          }
+
+          // 8. Format output
+          const totalDeadStockValue = deadStock.reduce(
+            (sum, d) => sum + parseFloat(d.valor_parado.slice(3)),
+            0
+          )
+
+          const classOutput: Record<
+            string,
+            {
+              total_produtos: number
+              pct_catalogo: string
+              receita: string
+              pct_receita: string
+              margem_media?: string
+              produtos: ProductResult[]
+            }
+          > = {}
+
+          const totalProducts = classified.length
+          for (const [name, cls] of Object.entries(classes)) {
+            if (cls.total_produtos === 0) continue
+            classOutput[`classe_${name.toLowerCase()}`] = {
+              total_produtos: cls.total_produtos,
+              pct_catalogo:
+                totalProducts > 0
+                  ? `${Math.round((cls.total_produtos / totalProducts) * 100)}%`
+                  : '0%',
+              receita: `R$ ${cls.receita.toFixed(2)}`,
+              pct_receita:
+                totalRevenue > 0 ? `${Math.round((cls.receita / totalRevenue) * 100)}%` : '0%',
+              ...(cls.margins.length > 0
+                ? {
+                    margem_media: `${Math.round((cls.margins.reduce((a, b) => a + b, 0) / cls.margins.length) * 10) / 10}%`,
+                  }
+                : {}),
+              produtos: cls.produtos.slice(0, limitPerClass),
+            }
+          }
+
+          // Action suggestions
+          const acoes: string[] = []
+          if (classes['A'].total_produtos > 0) {
+            acoes.push(
+              `${classes['A'].total_produtos} produtos Classe A geram ${totalRevenue > 0 ? Math.round((classes['A'].receita / totalRevenue) * 100) : 0}% do faturamento — priorize estoque e visibilidade`
+            )
+          }
+          if (deadStock.length > 0) {
+            acoes.push(
+              `R$ ${totalDeadStockValue.toFixed(2)} em estoque parado (${deadStock.length} produtos) — considere promoção ou bundle`
+            )
+          }
+          if (classes['A'].margins.length > 0 && classes['C'].margins.length > 0) {
+            const avgMarginA =
+              classes['A'].margins.reduce((a, b) => a + b, 0) / classes['A'].margins.length
+            const avgMarginC =
+              classes['C'].margins.reduce((a, b) => a + b, 0) / classes['C'].margins.length
+            if (avgMarginC < avgMarginA) {
+              acoes.push(
+                `Classe C tem margem média de ${Math.round(avgMarginC)}% vs ${Math.round(avgMarginA)}% da Classe A — revise precificação`
+              )
+            }
+          }
+          if (classes['C'].total_produtos > 0) {
+            acoes.push(
+              `${classes['C'].total_produtos} produtos Classe C geram apenas ${totalRevenue > 0 ? Math.round((classes['C'].receita / totalRevenue) * 100) : 0}% da receita — avalie descontinuar os menos rentáveis`
+            )
+          }
+
+          return {
+            resumo: {
+              periodo: `Últimos ${historyDays} dias`,
+              pedidos_analisados: allOrders.length,
+              produtos_vendidos: productSales.size,
+              receita_total: `R$ ${totalRevenue.toFixed(2)}`,
+            },
+            classificacao: classOutput,
+            ...(deadStock.length > 0
+              ? { estoque_parado: deadStock }
+              : { estoque_parado: 'Nenhum produto com estoque parado identificado' }),
+            acoes_sugeridas: acoes.length > 0 ? acoes : ['Catálogo bem distribuído!'],
           }
         } catch (err) {
           return { error: `Falha: ${err instanceof Error ? err.message : String(err)}` }
