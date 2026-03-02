@@ -107,7 +107,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Back to dashboard</TooltipContent>
+            <TooltipContent>Voltar ao painel</TooltipContent>
           </Tooltip>
           <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
           <div className="min-w-0">
@@ -132,7 +132,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
                       <SlidersHorizontal className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Settings</TooltipContent>
+                  <TooltipContent>Configurações</TooltipContent>
                 </Tooltip>
               }
             >
@@ -186,14 +186,14 @@ function buildSetupSteps(
   ) as Record<string, unknown>
 
   const connectPlatform: SetupStep = {
-    label: 'Connect e-commerce platform',
+    label: 'Conectar plataforma de e-commerce',
     completed: hasPlatform,
-    action: { label: 'Connect', href: '/workspace?settings=store' },
+    action: { label: 'Conectar', href: '/workspace?settings=store' },
   }
   const connectTelegram: SetupStep = {
-    label: 'Connect Telegram',
+    label: 'Conectar Telegram',
     completed: hasTelegram,
-    action: { label: 'Connect', href: '/workspace?settings=store' },
+    action: { label: 'Conectar', href: '/workspace?settings=store' },
   }
 
   // Determine role from agent name (set during provisioning)
@@ -203,9 +203,9 @@ function buildSetupSteps(
     const steps = [
       connectPlatform,
       {
-        label: 'Set stock alert threshold',
+        label: 'Definir limite de alerta de estoque',
         completed: !!settings.stock_alerts_configured || hasPlatform,
-        action: { label: 'Configure', href: '/workspace?settings=store' },
+        action: { label: 'Configurar', href: '/workspace?settings=store' },
       },
       connectTelegram,
     ]
@@ -216,7 +216,7 @@ function buildSetupSteps(
     const steps = [
       connectPlatform,
       {
-        label: 'Add competitor URLs to monitor',
+        label: 'Adicionar URLs de concorrentes para monitorar',
         completed: workflowCount >= 1,
       },
       connectTelegram,
@@ -229,9 +229,9 @@ function buildSetupSteps(
       connectPlatform,
       connectTelegram,
       {
-        label: 'Configure daily summary time',
+        label: 'Configurar horário do resumo diário',
         completed: !!settings.daily_summary_enabled,
-        action: { label: 'Configure', href: '/workspace?settings=store' },
+        action: { label: 'Configurar', href: '/workspace?settings=store' },
       },
     ]
     return steps.some((s) => !s.completed) ? steps : []
@@ -241,7 +241,7 @@ function buildSetupSteps(
     const steps = [
       connectPlatform,
       {
-        label: 'Add FAQ or knowledge content',
+        label: 'Adicionar FAQ ou conteúdo de conhecimento',
         completed: skillCount >= 2,
       },
       connectTelegram,

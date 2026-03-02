@@ -24,7 +24,7 @@ export default function TriggerPanel() {
   const meta = getTriggerMeta(trigger?.type ?? 'manual')
 
   const title =
-    trigger?.type === 'manual' || !trigger ? 'Start run manually' : (meta?.name ?? trigger.type)
+    trigger?.type === 'manual' || !trigger ? 'Executar manualmente' : (meta?.name ?? trigger.type)
 
   const isComplete = trigger ? isTriggerConfigComplete(trigger) : true
 
@@ -45,7 +45,7 @@ export default function TriggerPanel() {
         )}
       >
         <div className="bg-muted/20 text-muted-foreground border-b px-5 py-3 text-sm font-medium">
-          Add a step to start a run
+          Adicione uma etapa para iniciar uma execução
         </div>
         <button
           type="button"

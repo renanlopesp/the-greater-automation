@@ -9,9 +9,9 @@ export function GraphEmptyState() {
         <Network className="text-muted-foreground h-6 w-6" />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium">No items to visualize</p>
+        <p className="text-sm font-medium">Nenhum item para visualizar</p>
         <p className="text-muted-foreground text-sm">
-          Create workflows and agents to see them as a network graph.
+          Crie automações e agentes para visualizá-los como um grafo de rede.
         </p>
       </div>
     </div>

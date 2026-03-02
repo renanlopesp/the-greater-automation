@@ -165,7 +165,7 @@ export default function WorkflowEditorPage() {
   if (isLoading || needsInit) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-muted-foreground">Loading workflow...</div>
+        <div className="text-muted-foreground">Carregando automação...</div>
       </div>
     )
   }

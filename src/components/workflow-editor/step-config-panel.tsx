@@ -176,7 +176,7 @@ export default function StepConfigPanel() {
       {testStarted && (
         <div className="flex items-center gap-2 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950/20">
           <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <span className="text-xs font-medium">Test started</span>
+          <span className="text-xs font-medium">Teste iniciado</span>
           <button
             type="button"
             className="text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
@@ -186,7 +186,7 @@ export default function StepConfigPanel() {
             }}
           >
             <FlaskConical className="mr-1 inline h-3 w-3" />
-            View in Tests tab
+            Ver na aba Testes
           </button>
         </div>
       )}
@@ -200,10 +200,10 @@ export default function StepConfigPanel() {
             ) : (
               <Play className="mr-1 h-3 w-3" />
             )}
-            {isTestable ? 'Test' : 'Test (simulated)'}
+            {isTestable ? 'Testar' : 'Testar (simulado)'}
           </Button>
           <Button size="sm" onClick={() => selectStep(null)}>
-            Done
+            Concluído
           </Button>
         </div>
       </div>

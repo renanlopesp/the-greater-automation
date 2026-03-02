@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/providers/theme-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Dashboard',
-  description: 'Workflow automation platform',
+  title: 'Painel',
+  description: 'Plataforma de automação de workflows',
 }
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${GeistMono.className} antialiased`}>
         <ThemeProvider
           attribute="class"

@@ -53,9 +53,9 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
           <FlaskConical className="text-muted-foreground h-10 w-10" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">No test results yet</h3>
+          <h3 className="text-lg font-semibold">Nenhum resultado de teste ainda</h3>
           <p className="text-muted-foreground text-sm">
-            Test individual steps from the editor to see results here
+            Teste etapas individuais no editor para ver os resultados aqui
           </p>
         </div>
       </div>
@@ -67,10 +67,9 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Test results</h2>
+            <h2 className="text-lg font-semibold">Resultados de teste</h2>
             <p className="text-muted-foreground text-sm">
-              {results.length} result{results.length !== 1 ? 's' : ''} &middot; auto-expire after
-              24h
+              {results.length} resultado{results.length !== 1 ? 's' : ''} &middot; expiram após 24h
             </p>
           </div>
         </div>
@@ -116,7 +115,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                       </span>
                       <span>{formatDuration(result.duration_ms)}</span>
                       <span>
-                        Expires{' '}
+                        Expira{' '}
                         {formatDistanceToNow(new Date(result.expires_at), { addSuffix: true })}
                       </span>
                     </div>
@@ -139,7 +138,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                       Object.keys(result.step_config as Record<string, unknown>).length > 0 && (
                         <div>
                           <div className="text-muted-foreground mb-1 text-xs font-medium">
-                            Step config
+                            Configuração da etapa
                           </div>
                           <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                             {JSON.stringify(result.step_config, null, 2)}
@@ -148,7 +147,9 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                       )}
                     {result.output != null && (
                       <div>
-                        <div className="text-muted-foreground mb-1 text-xs font-medium">Output</div>
+                        <div className="text-muted-foreground mb-1 text-xs font-medium">
+                          Resultado
+                        </div>
                         <pre className="bg-muted max-h-[400px] overflow-auto rounded-md p-3 text-xs break-all whitespace-pre-wrap">
                           {typeof result.output === 'string'
                             ? result.output
@@ -158,7 +159,7 @@ export default function TestsTab({ workflowId }: TestsTabProps) {
                     )}
                     {!result.output && !result.error && (
                       <div className="text-muted-foreground text-xs italic">
-                        No output data available
+                        Nenhum dado disponível
                       </div>
                     )}
                   </div>

@@ -35,7 +35,7 @@ export function ScheduledTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Label>Schedule type</Label>
+        <Label>Tipo de agendamento</Label>
         <RadioGroup
           value={config.schedule_type}
           onValueChange={(v) =>
@@ -46,13 +46,13 @@ export function ScheduledTriggerConfigForm({
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="interval" id="interval" />
             <Label htmlFor="interval" className="font-normal">
-              Interval
+              Intervalo
             </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="cron" id="cron" />
             <Label htmlFor="cron" className="font-normal">
-              Cron expression
+              Expressão cron
             </Label>
           </div>
         </RadioGroup>
@@ -61,7 +61,7 @@ export function ScheduledTriggerConfigForm({
       {config.schedule_type === 'interval' && (
         <div className="flex gap-2">
           <div className="flex-1">
-            <Label>Value</Label>
+            <Label>Valor</Label>
             <Input
               type="number"
               min={1}
@@ -73,7 +73,7 @@ export function ScheduledTriggerConfigForm({
             />
           </div>
           <div className="flex-1">
-            <Label>Unit</Label>
+            <Label>Unidade</Label>
             <Select
               value={config.interval_unit ?? 'hours'}
               onValueChange={(v) =>
@@ -87,10 +87,10 @@ export function ScheduledTriggerConfigForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="minutes">Minutes</SelectItem>
-                <SelectItem value="hours">Hours</SelectItem>
-                <SelectItem value="days">Days</SelectItem>
-                <SelectItem value="weeks">Weeks</SelectItem>
+                <SelectItem value="minutes">Minutos</SelectItem>
+                <SelectItem value="hours">Horas</SelectItem>
+                <SelectItem value="days">Dias</SelectItem>
+                <SelectItem value="weeks">Semanas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -99,7 +99,7 @@ export function ScheduledTriggerConfigForm({
 
       {config.schedule_type === 'cron' && (
         <div>
-          <Label>Cron expression</Label>
+          <Label>Expressão cron</Label>
           <Input
             value={config.cron_expression ?? ''}
             onChange={(e) => onUpdate({ ...config, cron_expression: e.target.value })}
@@ -107,13 +107,13 @@ export function ScheduledTriggerConfigForm({
             className="mt-1"
           />
           <p className="text-muted-foreground mt-1 text-xs">
-            Example: &ldquo;0 0 * * *&rdquo; runs daily at midnight
+            Exemplo: &ldquo;0 0 * * *&rdquo; executa diariamente à meia-noite
           </p>
         </div>
       )}
 
       <div>
-        <Label>Timezone</Label>
+        <Label>Fuso horário</Label>
         <Select value={config.timezone} onValueChange={(v) => onUpdate({ ...config, timezone: v })}>
           <SelectTrigger className="mt-1">
             <SelectValue />

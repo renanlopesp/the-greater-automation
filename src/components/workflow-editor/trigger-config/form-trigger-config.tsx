@@ -49,23 +49,23 @@ export function FormTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <Label>Form fields</Label>
+        <Label>Campos do formulário</Label>
         <Button size="sm" variant="outline" onClick={addField}>
           <Plus className="mr-1 h-3 w-3" />
-          Add field
+          Adicionar campo
         </Button>
       </div>
 
       {config.fields.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          No fields defined. Click &ldquo;Add field&rdquo; to create one.
+          Nenhum campo definido. Clique em &ldquo;Adicionar campo&rdquo;.
         </p>
       )}
 
       {config.fields.map((field) => (
         <div key={field.id} className="rounded-lg border p-3">
           <div className="mb-3 flex items-center justify-between">
-            <Label className="text-xs font-medium">Field configuration</Label>
+            <Label className="text-xs font-medium">Configuração do campo</Label>
             <Button
               size="icon"
               variant="ghost"
@@ -78,17 +78,17 @@ export function FormTriggerConfigForm({
 
           <div className="flex flex-col gap-3">
             <div>
-              <Label className="text-xs">Label</Label>
+              <Label className="text-xs">Rótulo</Label>
               <Input
                 value={field.label}
                 onChange={(e) => updateField(field.id, { label: e.target.value })}
-                placeholder="e.g. Email address"
+                placeholder="Ex: Endereço de e-mail"
                 className="mt-1"
               />
             </div>
 
             <div>
-              <Label className="text-xs">Type</Label>
+              <Label className="text-xs">Tipo</Label>
               <Select
                 value={field.type}
                 onValueChange={(v) =>
@@ -101,20 +101,20 @@ export function FormTriggerConfigForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="text">Text</SelectItem>
-                  <SelectItem value="textarea">Textarea</SelectItem>
-                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="text">Texto</SelectItem>
+                  <SelectItem value="textarea">Área de texto</SelectItem>
+                  <SelectItem value="number">Número</SelectItem>
                   <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="select">Select</SelectItem>
+                  <SelectItem value="select">Seleção</SelectItem>
                   <SelectItem value="checkbox">Checkbox</SelectItem>
-                  <SelectItem value="date">Date</SelectItem>
-                  <SelectItem value="file">File</SelectItem>
+                  <SelectItem value="date">Data</SelectItem>
+                  <SelectItem value="file">Arquivo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Required</Label>
+              <Label className="text-xs">Obrigatório</Label>
               <Switch
                 checked={field.required}
                 onCheckedChange={(checked) => updateField(field.id, { required: checked })}
@@ -126,7 +126,7 @@ export function FormTriggerConfigForm({
               <Input
                 value={field.placeholder ?? ''}
                 onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
-                placeholder="Optional placeholder text"
+                placeholder="Texto placeholder opcional"
                 className="mt-1"
               />
             </div>
@@ -135,7 +135,7 @@ export function FormTriggerConfigForm({
       ))}
 
       <div>
-        <Label>Submit button text</Label>
+        <Label>Texto do botão de envio</Label>
         <Input
           value={config.submit_button_text}
           onChange={(e) => onUpdate({ ...config, submit_button_text: e.target.value })}
@@ -144,7 +144,7 @@ export function FormTriggerConfigForm({
       </div>
 
       <div>
-        <Label>Success message</Label>
+        <Label>Mensagem de sucesso</Label>
         <Textarea
           value={config.success_message}
           onChange={(e) => onUpdate({ ...config, success_message: e.target.value })}

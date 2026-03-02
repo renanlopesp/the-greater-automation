@@ -26,7 +26,7 @@ export default function HumanInLoopStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="action-type" className="text-sm font-medium">
-          Action Type
+          Tipo de ação
         </Label>
         <Select
           value={config.action_type}
@@ -38,16 +38,16 @@ export default function HumanInLoopStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="approval">Approval</SelectItem>
-            <SelectItem value="input">Input</SelectItem>
-            <SelectItem value="review">Review</SelectItem>
+            <SelectItem value="approval">Aprovação</SelectItem>
+            <SelectItem value="input">Entrada</SelectItem>
+            <SelectItem value="review">Revisão</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div>
         <Label htmlFor="assignee-type" className="text-sm font-medium">
-          Assignee Type
+          Tipo de responsável
         </Label>
         <Select
           value={config.assignee_type}
@@ -59,8 +59,8 @@ export default function HumanInLoopStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="anyone">Anyone</SelectItem>
-            <SelectItem value="specific">Specific Person</SelectItem>
+            <SelectItem value="anyone">Qualquer pessoa</SelectItem>
+            <SelectItem value="specific">Pessoa específica</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -68,13 +68,13 @@ export default function HumanInLoopStepConfigForm({
       {showAssignee && (
         <div>
           <Label htmlFor="assignee" className="text-sm font-medium">
-            Assignee
+            Responsável
           </Label>
           <Input
             id="assignee"
             value={config.assignee ?? ''}
             onChange={(e) => onUpdate({ ...config, assignee: e.target.value })}
-            placeholder="Email or user ID"
+            placeholder="E-mail ou ID do usuário"
             className="mt-1"
           />
         </div>
@@ -88,7 +88,7 @@ export default function HumanInLoopStepConfigForm({
           id="prompt"
           value={config.prompt}
           onChange={(e) => onUpdate({ ...config, prompt: e.target.value })}
-          placeholder="What should the human do or decide?"
+          placeholder="O que a pessoa deve fazer ou decidir?"
           rows={4}
           className="mt-1"
         />
@@ -96,7 +96,7 @@ export default function HumanInLoopStepConfigForm({
 
       <div className="flex items-center justify-between">
         <Label htmlFor="include-context" className="text-sm font-medium">
-          Include workflow context
+          Incluir contexto da automação
         </Label>
         <Switch
           id="include-context"
@@ -107,7 +107,7 @@ export default function HumanInLoopStepConfigForm({
 
       <div>
         <Label htmlFor="timeout" className="text-sm font-medium">
-          Timeout (minutes, optional)
+          Timeout (minutos, opcional)
         </Label>
         <Input
           id="timeout"
@@ -116,7 +116,7 @@ export default function HumanInLoopStepConfigForm({
           onChange={(e) =>
             onUpdate({ ...config, timeout_minutes: parseInt(e.target.value) || undefined })
           }
-          placeholder="No timeout"
+          placeholder="Sem timeout"
           className="mt-1"
         />
       </div>

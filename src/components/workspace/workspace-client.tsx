@@ -175,13 +175,13 @@ export default function WorkspaceClient({
         toast.error(result.error)
       } else {
         toast.success(
-          `${deleteTarget.type === 'workflow' ? 'Workflow' : 'Agent'} deleted successfully`
+          `${deleteTarget.type === 'workflow' ? 'Automação' : 'Agente'} excluído com sucesso`
         )
         setRowSelection({})
         router.refresh()
       }
     } catch {
-      toast.error(`Failed to delete ${deleteTarget.type}`)
+      toast.error(`Falha ao excluir ${deleteTarget.type === 'workflow' ? 'automação' : 'agente'}`)
     } finally {
       setIsDeleting(false)
       setDeleteTarget(null)
@@ -200,7 +200,7 @@ export default function WorkspaceClient({
           router.push(`/workflows/${result.id}/edit`)
         }
       } catch {
-        toast.error('Failed to duplicate workflow')
+        toast.error('Falha ao duplicar automação')
       }
     },
     [teamId, userId, router]
@@ -213,7 +213,7 @@ export default function WorkspaceClient({
         toast.error(result.error)
       }
     } catch {
-      toast.error('Failed to rename workflow')
+      toast.error('Falha ao renomear automação')
     }
   }, [])
 
@@ -414,12 +414,14 @@ export default function WorkspaceClient({
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success(`${items.length} item${items.length > 1 ? 's' : ''} deleted successfully`)
+        toast.success(
+          `${items.length} item${items.length > 1 ? 's' : ''} excluído${items.length > 1 ? 's' : ''} com sucesso`
+        )
         setRowSelection({})
         router.refresh()
       }
     } catch {
-      toast.error('Failed to delete selected items')
+      toast.error('Falha ao excluir itens selecionados')
     } finally {
       setIsBulkLoading(false)
       setBulkDeleteOpen(false)
@@ -435,7 +437,7 @@ export default function WorkspaceClient({
           .map((item) => item.id)
 
         if (workflowIds.length === 0) {
-          toast.error('No workflows selected')
+          toast.error('Nenhuma automação selecionada')
           return
         }
 
@@ -447,7 +449,7 @@ export default function WorkspaceClient({
           router.refresh()
         }
       } catch {
-        toast.error('Failed to change status')
+        toast.error('Falha ao alterar status')
       } finally {
         setIsBulkLoading(false)
       }
@@ -517,8 +519,8 @@ export default function WorkspaceClient({
   // Delete dialog description
   const deleteDescription = deleteTarget
     ? deleteTarget.type === 'workflow'
-      ? `Are you sure you want to delete "${deleteTarget.name}"? This will also delete all steps, triggers, and runs associated with this workflow.`
-      : `Are you sure you want to delete "${deleteTarget.name}"? Workflows assigned to this agent will become standalone.`
+      ? `Tem certeza que deseja excluir "${deleteTarget.name}"? Isso também excluirá todas as etapas, gatilhos e execuções associadas a esta automação.`
+      : `Tem certeza que deseja excluir "${deleteTarget.name}"? As automações atribuídas a este agente se tornarão independentes.`
     : ''
 
   return (
@@ -546,7 +548,7 @@ export default function WorkspaceClient({
         <Suspense
           fallback={
             <div className="flex h-[500px] w-full items-center justify-center rounded-lg border">
-              <p className="text-muted-foreground text-sm">Loading graph...</p>
+              <p className="text-muted-foreground text-sm">Carregando grafo...</p>
             </div>
           }
         >
@@ -596,7 +598,7 @@ export default function WorkspaceClient({
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null)
         }}
-        title={`Delete ${deleteTarget?.type ?? 'item'}`}
+        title={`Excluir ${deleteTarget?.type === 'workflow' ? 'automação' : deleteTarget?.type === 'agent' ? 'agente' : 'item'}`}
         description={deleteDescription}
         onConfirm={handleConfirmDelete}
         loading={isDeleting}
@@ -606,8 +608,8 @@ export default function WorkspaceClient({
       <DeleteDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}
-        title="Delete selected items"
-        description={`Are you sure you want to delete ${selectedCount} selected item${selectedCount !== 1 ? 's' : ''}? This action cannot be undone.`}
+        title="Excluir itens selecionados"
+        description={`Tem certeza que deseja excluir ${selectedCount} item${selectedCount !== 1 ? 's' : ''} selecionado${selectedCount !== 1 ? 's' : ''}? Esta ação não pode ser desfeita.`}
         onConfirm={handleConfirmBulkDelete}
         loading={isBulkLoading}
       />

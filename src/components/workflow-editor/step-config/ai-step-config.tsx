@@ -24,7 +24,7 @@ export default function AIStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="ai-action" className="text-sm font-medium">
-          AI Action
+          Ação de IA
         </Label>
         <Select
           value={config.ai_action}
@@ -34,24 +34,24 @@ export default function AIStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="summarize">Summarize</SelectItem>
-            <SelectItem value="classify">Classify</SelectItem>
-            <SelectItem value="extract">Extract</SelectItem>
-            <SelectItem value="generate">Generate</SelectItem>
-            <SelectItem value="transform">Transform</SelectItem>
+            <SelectItem value="summarize">Resumir</SelectItem>
+            <SelectItem value="classify">Classificar</SelectItem>
+            <SelectItem value="extract">Extrair</SelectItem>
+            <SelectItem value="generate">Gerar</SelectItem>
+            <SelectItem value="transform">Transformar</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div>
         <Label htmlFor="prompt-template" className="text-sm font-medium">
-          Prompt template
+          Modelo de prompt
         </Label>
         <Textarea
           id="prompt-template"
           value={config.prompt_template}
           onChange={(e) => onUpdate({ ...config, prompt_template: e.target.value })}
-          placeholder="Enter your prompt..."
+          placeholder="Digite seu prompt..."
           rows={4}
           className="mt-1"
         />
@@ -59,7 +59,7 @@ export default function AIStepConfigForm({
 
       <div>
         <Label htmlFor="output-format" className="text-sm font-medium">
-          Output format
+          Formato de saída
         </Label>
         <Select
           value={config.output_format}
@@ -71,7 +71,7 @@ export default function AIStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="text">Text</SelectItem>
+            <SelectItem value="text">Texto</SelectItem>
             <SelectItem value="json">JSON</SelectItem>
             <SelectItem value="markdown">Markdown</SelectItem>
           </SelectContent>

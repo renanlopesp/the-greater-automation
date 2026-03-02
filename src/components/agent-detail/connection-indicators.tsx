@@ -35,7 +35,7 @@ function formatAppName(appId: string): string {
 
 export default function ConnectionIndicators({ apps }: ConnectionIndicatorsProps) {
   if (apps.length === 0) {
-    return <p className="text-muted-foreground text-xs">No connected apps</p>
+    return <p className="text-muted-foreground text-xs">Nenhum aplicativo conectado</p>
   }
 
   return (

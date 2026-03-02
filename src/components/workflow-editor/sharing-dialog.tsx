@@ -35,12 +35,12 @@ export default function SharingDialog({ open, onOpenChange, workflowId }: Sharin
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Share workflow</DialogTitle>
-          <DialogDescription>Control who can access and edit this workflow.</DialogDescription>
+          <DialogTitle>Compartilhar automação</DialogTitle>
+          <DialogDescription>Controle quem pode acessar e editar esta automação.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-3">
-            <Label>Access level</Label>
+            <Label>Nível de acesso</Label>
             <div className="space-y-2">
               <label className="flex cursor-pointer items-center gap-3">
                 <input
@@ -52,8 +52,8 @@ export default function SharingDialog({ open, onOpenChange, workflowId }: Sharin
                   className="h-4 w-4"
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Private</div>
-                  <div className="text-muted-foreground text-xs">Only you can access</div>
+                  <div className="text-sm font-medium">Privado</div>
+                  <div className="text-muted-foreground text-xs">Somente você pode acessar</div>
                 </div>
               </label>
               <label className="flex cursor-pointer items-center gap-3">
@@ -66,8 +66,10 @@ export default function SharingDialog({ open, onOpenChange, workflowId }: Sharin
                   className="h-4 w-4"
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Team</div>
-                  <div className="text-muted-foreground text-xs">Your team can view and edit</div>
+                  <div className="text-sm font-medium">Equipe</div>
+                  <div className="text-muted-foreground text-xs">
+                    Sua equipe pode visualizar e editar
+                  </div>
                 </div>
               </label>
               <label className="flex cursor-pointer items-center gap-3">
@@ -80,15 +82,15 @@ export default function SharingDialog({ open, onOpenChange, workflowId }: Sharin
                   className="h-4 w-4"
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Public</div>
-                  <div className="text-muted-foreground text-xs">Anyone with the link</div>
+                  <div className="text-sm font-medium">Público</div>
+                  <div className="text-muted-foreground text-xs">Qualquer pessoa com o link</div>
                 </div>
               </label>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="share-url">Share link</Label>
+            <Label htmlFor="share-url">Link de compartilhamento</Label>
             <div className="flex gap-2">
               <Input id="share-url" value={shareUrl} readOnly className="flex-1" />
               <Button size="icon" variant="outline" onClick={handleCopy}>
@@ -99,9 +101,9 @@ export default function SharingDialog({ open, onOpenChange, workflowId }: Sharin
 
           {accessLevel === 'team' && (
             <div className="space-y-2">
-              <Label>Team members</Label>
+              <Label>Membros da equipe</Label>
               <div className="text-muted-foreground rounded-md border p-3 text-sm">
-                Team member management coming soon...
+                Gerenciamento de membros em breve...
               </div>
             </div>
           )}

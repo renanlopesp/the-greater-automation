@@ -74,7 +74,7 @@ export default function AgentSidebar({
             </Button>
           </SheetTrigger>
         </TooltipTrigger>
-        <TooltipContent>Settings</TooltipContent>
+        <TooltipContent>Configurações</TooltipContent>
       </Tooltip>
       <SheetContent
         showCloseButton={false}
@@ -82,12 +82,12 @@ export default function AgentSidebar({
       >
         <SheetHeader className="shrink-0 border-b px-6 pt-6 pb-4">
           <div className="flex items-center justify-between">
-            <SheetTitle>Agent Details</SheetTitle>
+            <SheetTitle>Detalhes do Agente</SheetTitle>
             <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm" asChild className="gap-1.5">
                 <Link href={`/agents/${agentId}/edit`}>
                   <Pencil className="h-3.5 w-3.5" />
-                  Edit agent
+                  Editar agente
                 </Link>
               </Button>
               <SheetClose asChild>
@@ -107,7 +107,7 @@ export default function AgentSidebar({
             <Tabs defaultValue="workflows" className="space-y-3">
               <TabsList className="h-8">
                 <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
-                  Workflows
+                  Automações
                 </TabsTrigger>
                 <TabsTrigger value="skills" className="h-7 px-3 text-xs">
                   Skills
@@ -127,12 +127,12 @@ export default function AgentSidebar({
             </Tabs>
 
             <section className="space-y-3">
-              <h2 className="text-foreground text-[15px] font-semibold">Connected apps</h2>
+              <h2 className="text-foreground text-[15px] font-semibold">Aplicativos conectados</h2>
               <ConnectionIndicators apps={connectedApps} />
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-foreground text-[15px] font-semibold">Run history</h2>
+              <h2 className="text-foreground text-[15px] font-semibold">Histórico de execuções</h2>
               <RunHistory runs={allRuns} />
             </section>
           </div>

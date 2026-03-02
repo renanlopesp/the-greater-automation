@@ -100,7 +100,7 @@ function SearchableCombobox({
           {isLoading ? (
             <span className="text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading...
+              Carregando...
             </span>
           ) : selectedLabel ? (
             <span className="truncate">{selectedLabel}</span>
@@ -112,9 +112,9 @@ function SearchableCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search..." />
+          <CommandInput placeholder="Buscar..." />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
             <CommandGroup>
               {items.map((item) => (
                 <CommandItem
@@ -137,7 +137,7 @@ function SearchableCombobox({
             </CommandGroup>
             {items.length >= 20 && (
               <p className="text-muted-foreground px-2 py-1.5 text-center text-xs">
-                Start typing to search for more results
+                Digite para buscar mais resultados
               </p>
             )}
           </CommandList>
@@ -212,7 +212,7 @@ function DynamicField({ appId, param, override, value, inputs, onChange }: Dynam
         {!dependenciesMet ? (
           <div className="border-input bg-muted/30 mt-1 rounded-md border p-2.5">
             <p className="text-muted-foreground text-sm">
-              Select {override.dependsOn?.join(' and ')} first
+              Selecione {override.dependsOn?.join(' e ')} primeiro
             </p>
           </div>
         ) : (
@@ -221,7 +221,7 @@ function DynamicField({ appId, param, override, value, inputs, onChange }: Dynam
             items={items}
             value={String(value || '')}
             onValueChange={(v) => onChange(param.key, v)}
-            placeholder={`Select ${param.label.toLowerCase()}`}
+            placeholder={`Selecionar ${param.label.toLowerCase()}`}
             isLoading={isLoadingResources}
           />
         )}
@@ -252,18 +252,18 @@ function DynamicField({ appId, param, override, value, inputs, onChange }: Dynam
         {!dependenciesMet ? (
           <div className="border-input bg-muted/30 mt-1 rounded-md border p-2.5">
             <p className="text-muted-foreground text-sm">
-              Select {override.dependsOn?.join(' and ')} first
+              Selecione {override.dependsOn?.join(' e ')} primeiro
             </p>
           </div>
         ) : isLoadingResources ? (
           <div className="border-input mt-1 flex items-center gap-2 rounded-md border p-2.5">
             <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-            <span className="text-muted-foreground text-sm">Loading...</span>
+            <span className="text-muted-foreground text-sm">Carregando...</span>
           </div>
         ) : (
           <div className="border-input mt-1 flex flex-wrap gap-1.5 rounded-md border p-2">
             {items.length === 0 ? (
-              <span className="text-muted-foreground text-sm">No options available</span>
+              <span className="text-muted-foreground text-sm">Nenhuma opção disponível</span>
             ) : (
               items.map((item) => (
                 <button
@@ -436,7 +436,7 @@ export default function AppStepConfigForm({
     <div className="flex flex-col gap-3">
       {/* Section 1: App Selection */}
       <div>
-        <Label className="mb-2 block text-sm font-medium">Select App</Label>
+        <Label className="mb-2 block text-sm font-medium">Selecionar aplicativo</Label>
 
         {isLoadingConnections ? (
           <div className="flex items-center justify-center py-8" role="status">
@@ -445,7 +445,7 @@ export default function AppStepConfigForm({
         ) : connectedApps.length === 0 ? (
           <div className="border-input bg-muted/30 rounded-md border p-4 text-center">
             <p className="text-muted-foreground text-sm">
-              No apps connected. Go to Settings to connect apps.
+              Nenhum aplicativo conectado. Vá em Configurações para conectar.
             </p>
           </div>
         ) : (
@@ -503,16 +503,18 @@ export default function AppStepConfigForm({
       {/* Section 2: Action Combobox */}
       {config.app_id && (
         <div>
-          <Label className="text-sm font-medium">Select Action</Label>
+          <Label className="text-sm font-medium">Selecionar ação</Label>
 
           {isLoadingActions ? (
             <div className="border-input mt-1 flex items-center justify-center rounded-md border py-3">
               <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-              <span className="text-muted-foreground ml-2 text-sm">Loading actions...</span>
+              <span className="text-muted-foreground ml-2 text-sm">Carregando ações...</span>
             </div>
           ) : !actions || actions.length === 0 ? (
             <div className="border-input bg-muted/30 mt-1 rounded-md border p-3">
-              <p className="text-muted-foreground text-sm">No actions available for this app.</p>
+              <p className="text-muted-foreground text-sm">
+                Nenhuma ação disponível para este aplicativo.
+              </p>
             </div>
           ) : (
             <Popover open={actionComboboxOpen} onOpenChange={setActionComboboxOpen}>
@@ -526,16 +528,16 @@ export default function AppStepConfigForm({
                   {selectedAction ? (
                     <span className="truncate">{selectedAction.displayName}</span>
                   ) : (
-                    <span className="text-muted-foreground">Select an action...</span>
+                    <span className="text-muted-foreground">Selecionar uma ação...</span>
                   )}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search actions..." />
+                  <CommandInput placeholder="Buscar ações..." />
                   <CommandList className="scrollbar-visible">
-                    <CommandEmpty>No actions found.</CommandEmpty>
+                    <CommandEmpty>Nenhuma ação encontrada.</CommandEmpty>
                     {categorizedActions.map((category) => (
                       <CommandGroup key={category.name} heading={category.name}>
                         {category.items.map(({ action, actionType }) => (
@@ -565,7 +567,7 @@ export default function AppStepConfigForm({
       {/* Section 3: Data-Driven Form Fields */}
       {selectedAction && selectedAction.params.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="text-sm font-medium">Configuration</div>
+          <div className="text-sm font-medium">Configuração</div>
           {selectedAction.params.map((param) => {
             const override = appModule?.actions[config.action]?.fieldOverrides?.[param.key]
             return (

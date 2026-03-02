@@ -88,21 +88,21 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
     const result = await disconnectApp(appId)
 
     if (!result.success) {
-      toast.error(result.error ?? 'Failed to disconnect app')
+      toast.error(result.error ?? 'Falha ao desconectar aplicativo')
       return
     }
 
     queryClient.invalidateQueries({ queryKey: ['app-connections'] })
-    toast.success('App disconnected successfully')
+    toast.success('Aplicativo desconectado com sucesso')
   }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
-      <h2 className="text-lg font-semibold">Manage apps</h2>
+      <h2 className="text-lg font-semibold">Aplicativos</h2>
       <div className="bg-muted/50 flex items-start gap-3 rounded-lg border px-4 py-3">
         <ShieldCheck className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
         <p className="text-muted-foreground text-xs leading-relaxed">
-          App connections are managed securely through{' '}
+          As conexões de aplicativos são gerenciadas com segurança pelo{' '}
           <a
             href="https://docs.composio.dev/docs/managed-authentication"
             target="_blank"
@@ -111,23 +111,25 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
           >
             Composio
           </a>
-          . Your credentials are encrypted and tokens are automatically refreshed — we never store
-          your passwords.
+          . Suas credenciais são criptografadas e os tokens são atualizados automaticamente — nunca
+          armazenamos suas senhas.
         </p>
       </div>
       <Input
-        placeholder="Search apps..."
+        placeholder="Buscar aplicativos..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
       <ScrollArea className="flex-1">
         {isLoading ? (
-          <p className="text-muted-foreground py-8 text-center text-sm">Loading apps...</p>
+          <p className="text-muted-foreground py-8 text-center text-sm">
+            Carregando aplicativos...
+          </p>
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground py-8 text-center text-sm">
             {query.trim()
-              ? 'No apps found matching your search.'
-              : 'No app integrations configured yet.'}
+              ? 'Nenhum aplicativo encontrado para sua busca.'
+              : 'Nenhuma integração de aplicativo configurada ainda.'}
           </p>
         ) : (
           filtered.map((app) => {
@@ -146,10 +148,10 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
         )}
         {workspaceConnections.length > 0 && (
           <div className="mt-6 flex flex-col gap-3">
-            <h3 className="text-sm font-medium">Workspace connections</h3>
+            <h3 className="text-sm font-medium">Conexões do workspace</h3>
             <p className="text-muted-foreground text-xs">
-              Apps connected by your team members. Connect your own account to use these
-              integrations.
+              Aplicativos conectados por membros da sua equipe. Conecte sua própria conta para usar
+              essas integrações.
             </p>
             {workspaceConnections.map((conn, i) => (
               <div key={i} className="flex items-center gap-3 py-2">
@@ -162,7 +164,7 @@ export default function ManageAppsSection({ teamId, planFeatures }: ManageAppsSe
                 <div className="flex flex-1 flex-col">
                   <span className="text-sm">{conn.appId}</span>
                   <span className="text-muted-foreground text-xs">
-                    Connected by {conn.user.fullName ?? 'Unknown'}
+                    Conectado por {conn.user.fullName ?? 'Desconhecido'}
                     {conn.accountLabel ? ` · ${conn.accountLabel}` : ''}
                   </span>
                 </div>

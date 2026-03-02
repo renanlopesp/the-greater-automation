@@ -39,7 +39,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
       <PopoverContent className="w-80" align="end">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold">Notifications</h4>
+            <h4 className="text-sm font-semibold">Notificações</h4>
             {notifications.length > 0 && (
               <Button
                 variant="ghost"
@@ -48,7 +48,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
                 onClick={handleMarkAllAsRead}
                 disabled={isMarkingAllRead}
               >
-                Mark all as read
+                Marcar todas como lidas
               </Button>
             )}
           </div>
@@ -66,7 +66,7 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="text-muted-foreground mb-2 h-8 w-8" />
-              <p className="text-muted-foreground text-sm">No notifications</p>
+              <p className="text-muted-foreground text-sm">Nenhuma notificação</p>
             </div>
           ) : (
             <div className="space-y-2">

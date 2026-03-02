@@ -10,22 +10,22 @@ interface RunStatusBadgeProps {
 export default function RunStatusBadge({ status }: RunStatusBadgeProps) {
   switch (status) {
     case 'pending':
-      return <Badge variant="secondary">Pending</Badge>
+      return <Badge variant="secondary">Pendente</Badge>
     case 'running':
       return (
         <Badge variant="default">
           <span className="mr-1.5 h-2 w-2 animate-pulse rounded-full bg-current" />
-          Running
+          Em execução
         </Badge>
       )
     case 'completed':
-      return <Badge className="bg-chart-2/15 text-chart-2">Completed</Badge>
+      return <Badge className="bg-chart-2/15 text-chart-2">Concluído</Badge>
     case 'failed':
-      return <Badge variant="destructive">Failed</Badge>
+      return <Badge variant="destructive">Falhou</Badge>
     case 'cancelled':
       return (
         <Badge variant="outline" className="text-muted-foreground">
-          Cancelled
+          Cancelado
         </Badge>
       )
   }

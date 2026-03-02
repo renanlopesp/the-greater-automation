@@ -81,8 +81,8 @@ export default function AgentRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Edit</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+              <DropdownMenuItem>Editar</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </TableCell>
@@ -91,7 +91,7 @@ export default function AgentRow({
         (agent.workflows.length === 0 ? (
           <TableRow>
             <TableCell colSpan={9} className="text-muted-foreground pl-12 text-sm">
-              No workflows
+              Nenhuma automação
             </TableCell>
           </TableRow>
         ) : (

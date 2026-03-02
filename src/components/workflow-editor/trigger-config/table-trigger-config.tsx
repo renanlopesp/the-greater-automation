@@ -21,17 +21,17 @@ export function TableTriggerConfigForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Label>Table ID</Label>
+        <Label>ID da tabela</Label>
         <Input
           value={config.table_id}
           onChange={(e) => onUpdate({ ...config, table_id: e.target.value })}
-          placeholder="Enter table ID"
+          placeholder="ID da tabela"
           className="mt-1"
         />
       </div>
 
       <div>
-        <Label>Event type</Label>
+        <Label>Tipo de evento</Label>
         <Select
           value={config.event}
           onValueChange={(v) => onUpdate({ ...config, event: v as TableTriggerConfig['event'] })}
@@ -40,10 +40,10 @@ export function TableTriggerConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="row_created">Row created</SelectItem>
-            <SelectItem value="row_updated">Row updated</SelectItem>
-            <SelectItem value="row_deleted">Row deleted</SelectItem>
-            <SelectItem value="field_changed">Field changed</SelectItem>
+            <SelectItem value="row_created">Linha criada</SelectItem>
+            <SelectItem value="row_updated">Linha atualizada</SelectItem>
+            <SelectItem value="row_deleted">Linha excluída</SelectItem>
+            <SelectItem value="field_changed">Campo alterado</SelectItem>
           </SelectContent>
         </Select>
       </div>

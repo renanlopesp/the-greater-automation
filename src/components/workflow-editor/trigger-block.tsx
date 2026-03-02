@@ -19,7 +19,7 @@ export default function TriggerBlock({ trigger, onAddTrigger, onClickTrigger }: 
       <Card className="mx-auto max-w-[400px] cursor-pointer border-dashed" onClick={onAddTrigger}>
         <CardContent className="flex flex-col items-center gap-2 p-6">
           <Plus className="text-muted-foreground h-8 w-8" />
-          <span className="text-muted-foreground text-sm font-medium">Add trigger</span>
+          <span className="text-muted-foreground text-sm font-medium">Adicionar gatilho</span>
         </CardContent>
       </Card>
     )
@@ -45,7 +45,7 @@ export default function TriggerBlock({ trigger, onAddTrigger, onClickTrigger }: 
           </div>
           <span className="text-muted-foreground text-xs">{summary}</span>
         </div>
-        <span className="text-muted-foreground text-xs tracking-wide uppercase">Trigger</span>
+        <span className="text-muted-foreground text-xs tracking-wide uppercase">Gatilho</span>
       </CardContent>
     </Card>
   )

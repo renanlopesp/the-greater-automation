@@ -41,7 +41,7 @@ export function MoveToFolderDialog({
       }
       onOpenChange(false)
     } catch {
-      toast.error('Failed to move items')
+      toast.error('Falha ao mover itens')
     } finally {
       setIsMoving(false)
     }
@@ -51,10 +51,10 @@ export function MoveToFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Move to folder</DialogTitle>
+          <DialogTitle>Mover para pasta</DialogTitle>
           <DialogDescription>
-            Select a destination folder for{' '}
-            {itemIds.length === 1 ? 'this item' : `${itemIds.length} items`}.
+            Selecione uma pasta de destino para{' '}
+            {itemIds.length === 1 ? 'este item' : `${itemIds.length} itens`}.
           </DialogDescription>
         </DialogHeader>
         <FolderTreePicker
@@ -64,10 +64,10 @@ export function MoveToFolderDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isMoving}>
-            Cancel
+            Cancelar
           </Button>
           <Button onClick={handleMove} disabled={isMoving}>
-            {isMoving ? 'Moving...' : 'Move'}
+            {isMoving ? 'Movendo...' : 'Mover'}
           </Button>
         </DialogFooter>
       </DialogContent>

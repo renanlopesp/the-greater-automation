@@ -21,10 +21,10 @@ interface WorkflowsSectionProps {
 }
 
 const TABS: { value: DashboardTab; label: string }[] = [
-  { value: 'recently-run', label: 'Recently run' },
-  { value: 'recently-edited', label: 'Recently edited' },
-  { value: 'needs-attention', label: 'Needs attention' },
-  { value: 'starred', label: 'Starred' },
+  { value: 'recently-run', label: 'Execução recente' },
+  { value: 'recently-edited', label: 'Editado recentemente' },
+  { value: 'needs-attention', label: 'Precisa de atenção' },
+  { value: 'starred', label: 'Favoritos' },
 ]
 
 export default function WorkflowsSection({ initialWorkflows, teamId }: WorkflowsSectionProps) {
@@ -39,7 +39,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
 
   return (
     <section className="flex flex-col gap-6">
-      <h3 className="text-lg font-semibold">Workflows</h3>
+      <h3 className="text-lg font-semibold">Automações</h3>
       <div>
         <div className="flex flex-col">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DashboardTab)}>
@@ -69,29 +69,29 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                   </div>
                 ) : workflows.length === 0 ? (
                   <p className="text-muted-foreground py-8 text-center text-sm">
-                    No workflows found
+                    Nenhuma automação encontrada
                   </p>
                 ) : (
                   <div className="flex flex-col divide-y">
                     <div className="flex items-center gap-3 pb-2">
                       <span className="flex min-w-0 flex-1 items-center gap-6">
                         <span className="text-muted-foreground min-w-0 flex-1 text-xs">
-                          Runners
+                          Agentes
                         </span>
                         <span
                           className="text-muted-foreground hidden shrink-0 text-xs md:block"
                           style={{ width: 100 }}
                         >
-                          Total runs
+                          Total de execuções
                         </span>
                         <span
                           className="text-muted-foreground hidden shrink-0 text-xs md:block"
                           style={{ width: 100 }}
                         >
-                          Activity
+                          Atividade
                         </span>
                         <span className="text-muted-foreground flex min-w-0 flex-1 justify-end text-xs">
-                          Last run
+                          Última execução
                         </span>
                       </span>
                     </div>
@@ -111,7 +111,7 @@ export default function WorkflowsSection({ initialWorkflows, teamId }: Workflows
                 )}
                 <div className="flex justify-center pt-6 pb-4">
                   <Button variant="outline" size="sm" asChild>
-                    <Link href="/workspace">View all</Link>
+                    <Link href="/workspace">Ver tudo</Link>
                   </Button>
                 </div>
               </TabsContent>

@@ -24,7 +24,7 @@ export default function AgentsGrid({ agents }: AgentsGridProps) {
           <Card className="border-border hover:border-muted-foreground/50 h-[280px] border-2 border-dashed bg-transparent shadow-none transition-colors">
             <CardContent className="flex h-full flex-col items-center justify-center gap-3">
               <Plus className="text-muted-foreground h-10 w-10" strokeWidth={1.5} />
-              <span className="text-muted-foreground text-sm font-medium">Create new worker</span>
+              <span className="text-muted-foreground text-sm font-medium">Criar novo agente</span>
             </CardContent>
           </Card>
         </Link>

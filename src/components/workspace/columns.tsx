@@ -52,7 +52,7 @@ function getCreatedByLabel(
   userId: string,
   memberNameById: Map<string, string | null>
 ) {
-  if (item.created_by === userId) return 'You'
+  if (item.created_by === userId) return 'Você'
   return memberNameById.get(item.created_by) ?? '--'
 }
 
@@ -168,7 +168,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
           className="-ml-3 h-8"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          Name
+          Nome
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
       ),
@@ -200,7 +200,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 <InlineFolderName folderId={folder.id} name={folder.name} />
               </button>
               <span className="text-muted-foreground text-xs">
-                {folder.workflow_count} workflow{folder.workflow_count !== 1 ? 's' : ''}
+                {folder.workflow_count} automação{folder.workflow_count !== 1 ? 'ões' : ''}
               </span>
             </div>
           )
@@ -229,7 +229,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
               <span className="text-sm font-semibold">{agent.name}</span>
               {agent.workflows.length > 0 && (
                 <span className="text-muted-foreground text-xs">
-                  {agent.workflows.length} workflow{agent.workflows.length !== 1 ? 's' : ''}
+                  {agent.workflows.length} automação{agent.workflows.length !== 1 ? 'ões' : ''}
                 </span>
               )}
             </div>
@@ -250,7 +250,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
     {
       id: 'type',
       accessorFn: (row) => row.type,
-      header: 'Type',
+      header: 'Tipo',
       cell: ({ row }) => {
         const type = row.original.type
         return (
@@ -276,7 +276,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
         const status = workflow.status === 'published' ? 'published' : 'draft'
         return (
           <Badge variant={status === 'published' ? 'default' : 'secondary'}>
-            {status === 'published' ? 'Published' : 'Draft'}
+            {status === 'published' ? 'Publicado' : 'Rascunho'}
           </Badge>
         )
       },
@@ -287,7 +287,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
         if (row.type === 'workflow') return (row as WorkspaceWorkflow).published_at
         return null
       },
-      header: 'Published',
+      header: 'Publicado',
       cell: ({ row }) => {
         const item = row.original
         if (item.type !== 'workflow') {
@@ -308,7 +308,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
         if (row.type === 'workflow') return (row as WorkspaceWorkflow).step_count
         return null
       },
-      header: 'Steps',
+      header: 'Etapas',
       cell: ({ row }) => {
         const item = row.original
         if (item.type !== 'workflow') {
@@ -344,7 +344,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
         if (row.type === 'workflow') return (row as WorkspaceWorkflow).last_run_at
         return null
       },
-      header: 'Last run',
+      header: 'Última execução',
       cell: ({ row }) => {
         const item = row.original
         if (item.type !== 'workflow') {
@@ -360,7 +360,7 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
     {
       id: 'createdBy',
       accessorFn: (row) => row.created_by,
-      header: 'Created by',
+      header: 'Criado por',
       cell: ({ row }) => (
         <span className="text-muted-foreground text-sm">
           {getCreatedByLabel(row.original, meta.userId, meta.memberNameById)}
@@ -386,13 +386,13 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => meta.onNavigateFolder?.(folder.id)}>
-                    Open
+                    Abrir
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => meta.onDeleteFolder?.(folder.id)}
                   >
-                    Delete
+                    Excluir
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -413,31 +413,31 @@ export function createColumns(meta: ColumnMeta): ColumnDef<WorkspaceItem>[] {
                 {item.type === 'workflow' ? (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link href={`/workflows/${item.id}/edit`}>Edit</Link>
+                      <Link href={`/workflows/${item.id}/edit`}>Editar</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => meta.onDuplicateWorkflow?.(item.id)}>
-                      Duplicate
+                      Duplicar
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => meta.onMoveToFolder?.([item.id])}>
-                      Move to folder
+                      Mover para pasta
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-destructive"
                       onClick={() => meta.onDeleteWorkflow?.(item.id, item.name)}
                     >
-                      Delete
+                      Excluir
                     </DropdownMenuItem>
                   </>
                 ) : (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link href={`/agents/${item.id}`}>Edit</Link>
+                      <Link href={`/agents/${item.id}`}>Editar</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-destructive"
                       onClick={() => meta.onDeleteAgent?.(item.id, item.name)}
                     >
-                      Delete
+                      Excluir
                     </DropdownMenuItem>
                   </>
                 )}

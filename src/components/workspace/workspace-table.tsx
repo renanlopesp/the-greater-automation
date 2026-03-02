@@ -30,9 +30,9 @@ export default function WorkspaceTable({
     return (
       <EmptyState
         icon={<FolderOpen />}
-        title="No items yet"
-        description="Create a workflow or agent to get started."
-        action={{ label: 'New workflow', href: '/workflows/new/edit' }}
+        title="Nenhum item ainda"
+        description="Crie uma automação ou agente para começar."
+        action={{ label: 'Nova automação', href: '/workflows/new/edit' }}
       />
     )
   }

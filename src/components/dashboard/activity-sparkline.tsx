@@ -9,7 +9,7 @@ interface ActivitySparklineProps {
 
 const chartConfig = {
   count: {
-    label: 'Runs',
+    label: 'Execuções',
     color: 'var(--color-primary)',
   },
 } satisfies ChartConfig

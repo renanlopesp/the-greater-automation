@@ -23,7 +23,7 @@ export default function UtilityStepConfigForm({
     <div className="flex flex-col gap-3">
       <div>
         <Label htmlFor="utility-type" className="text-sm font-medium">
-          Utility Type
+          Tipo de utilidade
         </Label>
         <Select
           value={config.utility_type}
@@ -35,14 +35,14 @@ export default function UtilityStepConfigForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="send_telegram">Send Telegram</SelectItem>
-            <SelectItem value="format">Format data</SelectItem>
+            <SelectItem value="send_telegram">Enviar Telegram</SelectItem>
+            <SelectItem value="format">Formatar dados</SelectItem>
             <SelectItem value="parse_json">Parse JSON</SelectItem>
             <SelectItem value="parse_csv">Parse CSV</SelectItem>
-            <SelectItem value="merge">Merge data</SelectItem>
-            <SelectItem value="filter">Filter array</SelectItem>
-            <SelectItem value="map">Map array</SelectItem>
-            <SelectItem value="math">Math operation</SelectItem>
+            <SelectItem value="merge">Mesclar dados</SelectItem>
+            <SelectItem value="filter">Filtrar array</SelectItem>
+            <SelectItem value="map">Mapear array</SelectItem>
+            <SelectItem value="math">Operação matemática</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -52,7 +52,7 @@ export default function UtilityStepConfigForm({
         <>
           <div>
             <Label htmlFor="telegram-template" className="text-sm font-medium">
-              Message Template
+              Modelo de mensagem
             </Label>
             <Textarea
               id="telegram-template"
@@ -68,7 +68,7 @@ export default function UtilityStepConfigForm({
           </div>
           <div>
             <Label htmlFor="telegram-parse-mode" className="text-sm font-medium">
-              Parse Mode
+              Modo de parse
             </Label>
             <Select
               value={config.telegram_parse_mode ?? 'Markdown'}
@@ -96,7 +96,7 @@ export default function UtilityStepConfigForm({
       {config.utility_type !== 'send_telegram' && (
         <div>
           <Label htmlFor="input-source" className="text-sm font-medium">
-            Input Source
+            Fonte de entrada
           </Label>
           <Input
             id="input-source"
@@ -111,7 +111,7 @@ export default function UtilityStepConfigForm({
       {config.utility_type === 'format' && (
         <div>
           <Label htmlFor="format-template" className="text-sm font-medium">
-            Format Template
+            Modelo de formato
           </Label>
           <Textarea
             id="format-template"
@@ -127,7 +127,7 @@ export default function UtilityStepConfigForm({
       {config.utility_type === 'filter' && (
         <div>
           <Label htmlFor="filter-condition" className="text-sm font-medium">
-            Filter Condition
+            Condição de filtro
           </Label>
           <Input
             id="filter-condition"
@@ -142,7 +142,7 @@ export default function UtilityStepConfigForm({
       {config.utility_type === 'math' && (
         <div>
           <Label htmlFor="math-expression" className="text-sm font-medium">
-            Math Expression
+            Expressão matemática
           </Label>
           <Input
             id="math-expression"

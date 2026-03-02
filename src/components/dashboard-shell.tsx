@@ -74,12 +74,12 @@ function useCurrentTime() {
 }
 
 function getPageTitle(pathname: string): string {
-  if (pathname.startsWith('/dashboard')) return 'Dashboard'
-  if (pathname.startsWith('/workspace')) return 'Workspace'
-  if (pathname.startsWith('/runs')) return 'Runs'
-  if (pathname.startsWith('/agents')) return 'Agent Detail'
-  if (pathname.startsWith('/products')) return 'Products'
-  return 'Dashboard'
+  if (pathname.startsWith('/dashboard')) return 'Painel'
+  if (pathname.startsWith('/workspace')) return 'Área de Trabalho'
+  if (pathname.startsWith('/runs')) return 'Execuções'
+  if (pathname.startsWith('/agents')) return 'Detalhes do Agente'
+  if (pathname.startsWith('/products')) return 'Produtos'
+  return 'Painel'
 }
 
 export default function DashboardShell({

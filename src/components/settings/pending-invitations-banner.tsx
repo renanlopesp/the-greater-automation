@@ -21,7 +21,7 @@ export default function PendingInvitationsBanner({ invitations }: PendingInvitat
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success('You have joined the team!')
+        toast.success('Você entrou na equipe!')
       }
     })
   }
@@ -32,7 +32,7 @@ export default function PendingInvitationsBanner({ invitations }: PendingInvitat
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success('Invitation declined')
+        toast.success('Convite recusado')
       }
     })
   }
@@ -45,7 +45,7 @@ export default function PendingInvitationsBanner({ invitations }: PendingInvitat
           className="bg-muted flex items-center justify-between rounded-lg px-4 py-3"
         >
           <p className="text-sm">
-            You&apos;ve been invited to join <strong>{invitation.teamName}</strong> as{' '}
+            Você foi convidado(a) para entrar em <strong>{invitation.teamName}</strong> como{' '}
             {invitation.role}
           </p>
           <div className="flex items-center gap-2">
@@ -55,10 +55,10 @@ export default function PendingInvitationsBanner({ invitations }: PendingInvitat
               onClick={() => handleDecline(invitation.id)}
               disabled={isPending}
             >
-              Decline
+              Recusar
             </Button>
             <Button size="sm" onClick={() => handleAccept(invitation.id)} disabled={isPending}>
-              Accept
+              Aceitar
             </Button>
           </div>
         </div>

@@ -8,7 +8,7 @@ interface AgentStatusProps {
 
 export default function AgentStatus({ status, isActive }: AgentStatusProps) {
   const isRunning = status === 'running'
-  const label = !isActive ? 'Inactive' : isRunning ? 'Running' : 'Active'
+  const label = !isActive ? 'Inativo' : isRunning ? 'Em execução' : 'Ativo'
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -121,7 +121,7 @@ export default function SkillDetailDialog({
             <TriggerIcon className="h-4 w-4" />
             {skill.name}
           </DialogTitle>
-          <DialogDescription>{skill.description || 'No description'}</DialogDescription>
+          <DialogDescription>{skill.description || 'Sem descrição'}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -132,7 +132,7 @@ export default function SkillDetailDialog({
                 checked={skill.is_enabled}
                 onCheckedChange={(checked) => onToggle(skill.id, checked)}
               />
-              <span className="text-sm">{skill.is_enabled ? 'Enabled' : 'Disabled'}</span>
+              <span className="text-sm">{skill.is_enabled ? 'Ativado' : 'Desativado'}</span>
             </div>
             <Badge variant="outline">{skill.execution_mode}</Badge>
           </div>
@@ -141,7 +141,7 @@ export default function SkillDetailDialog({
 
           {/* Trigger */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Trigger</h3>
+            <h3 className="mb-2 text-sm font-semibold">Gatilho</h3>
             <div className="bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-2">
               <TriggerIcon className="text-muted-foreground h-4 w-4" />
               <span className="text-sm capitalize">{triggerType.replace('_', ' ')}</span>
@@ -168,7 +168,7 @@ export default function SkillDetailDialog({
           {/* Conditions */}
           {conditions.length > 0 && (
             <section>
-              <h3 className="mb-2 text-sm font-semibold">Conditions ({conditions.length})</h3>
+              <h3 className="mb-2 text-sm font-semibold">Condições ({conditions.length})</h3>
               <div className="space-y-1.5">
                 {conditions.map((c, i) => (
                   <div
@@ -190,7 +190,7 @@ export default function SkillDetailDialog({
 
           {/* Actions */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Actions ({actions.length})</h3>
+            <h3 className="mb-2 text-sm font-semibold">Ações ({actions.length})</h3>
             <div className="space-y-1.5">
               {actions.map((a, i) => (
                 <div
@@ -221,9 +221,11 @@ export default function SkillDetailDialog({
 
           {/* Run History */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Recent Runs ({skill.run_count} total)</h3>
+            <h3 className="mb-2 text-sm font-semibold">
+              Execuções recentes ({skill.run_count} total)
+            </h3>
             {runs.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No runs yet</p>
+              <p className="text-muted-foreground text-sm">Nenhuma execução ainda</p>
             ) : (
               <div className="space-y-1.5">
                 {runs.slice(0, 10).map((run) => (
@@ -260,7 +262,7 @@ export default function SkillDetailDialog({
           <div className="flex justify-end">
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              {confirmDelete ? 'Confirm delete' : 'Delete skill'}
+              {confirmDelete ? 'Confirmar exclusão' : 'Excluir skill'}
             </Button>
           </div>
         </div>

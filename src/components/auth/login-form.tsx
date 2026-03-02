@@ -49,35 +49,35 @@ export default function LoginForm() {
         )}
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input id="email" type="email" placeholder="you@example.com" {...register('email')} />
           {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Senha</Label>
           <Input id="password" type="password" {...register('password')} />
           {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
         </div>
 
         <Button type="submit" className="w-full" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}
-          {pending ? 'Logging in...' : 'Log in'}
+          {pending ? 'Entrando...' : 'Entrar'}
         </Button>
       </form>
 
       <div className="relative flex items-center">
         <Separator className="flex-1" />
-        <span className="text-muted-foreground bg-muted/50 px-3 text-xs">or</span>
+        <span className="text-muted-foreground bg-muted/50 px-3 text-xs">ou</span>
         <Separator className="flex-1" />
       </div>
 
       <OAuthButton />
 
       <p className="text-muted-foreground text-center text-sm">
-        Don&apos;t have an account?{' '}
+        Não tem uma conta?{' '}
         <Link href="/signup" className="text-foreground underline-offset-4 hover:underline">
-          Sign up
+          Criar conta
         </Link>
       </p>
     </div>

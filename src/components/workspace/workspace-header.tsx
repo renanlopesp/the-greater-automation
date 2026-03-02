@@ -35,7 +35,7 @@ export default function WorkspaceHeader({ teamId, userId, currentFolderId }: Wor
         router.push(`/workflows/${result.id}/edit`)
       }
     } catch {
-      toast.error('Failed to create workflow')
+      toast.error('Falha ao criar automação')
     } finally {
       setIsCreating(false)
     }
@@ -46,7 +46,7 @@ export default function WorkspaceHeader({ teamId, userId, currentFolderId }: Wor
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Network className="text-muted-foreground h-4 w-4" />
-          <span>Workspace</span>
+          <span>Área de Trabalho</span>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -56,7 +56,7 @@ export default function WorkspaceHeader({ teamId, userId, currentFolderId }: Wor
             onClick={() => setFolderDialogOpen(true)}
           >
             <FolderPlus className="h-4 w-4" />
-            New folder
+            Nova pasta
           </Button>
           <SplitButton
             onNewBlank={handleNewBlank}
