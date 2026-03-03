@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkflowEditorStore } from '@/stores/workflow-editor-store'
 import TriggerBlock from '@/components/workflow-editor/trigger-block'
@@ -30,6 +30,22 @@ export default function StepCanvas() {
 
   const sortedSteps = useMemo(() => steps.toSorted((a, b) => a.position - b.position), [steps])
   const showConnectorAfterTrigger = trigger !== null || steps.length > 0
+
+  const handleSelect = useCallback((id: string) => selectStep(id), [selectStep])
+  const handleMoveUp = useCallback(
+    (stepId: string) => {
+      const idx = sortedSteps.findIndex((s) => s.id === stepId)
+      if (idx > 0) reorderSteps(idx, idx - 1)
+    },
+    [sortedSteps, reorderSteps]
+  )
+  const handleMoveDown = useCallback(
+    (stepId: string) => {
+      const idx = sortedSteps.findIndex((s) => s.id === stepId)
+      if (idx < sortedSteps.length - 1) reorderSteps(idx, idx + 1)
+    },
+    [sortedSteps, reorderSteps]
+  )
 
   function handleTriggerSelect(type: Parameters<typeof getTriggerDefaultConfig>[0]) {
     setTrigger({ type, config: getTriggerDefaultConfig(type) })
@@ -63,11 +79,12 @@ export default function StepCanvas() {
                 step={step}
                 stepNumber={index + 1}
                 isSelected={selectedStepId === step.id}
-                onClick={() => selectStep(step.id)}
+                stepId={step.id}
+                onClick={handleSelect}
                 isFirst={index === 0}
                 isLast={index === sortedSteps.length - 1}
-                onMoveUp={() => reorderSteps(index, index - 1)}
-                onMoveDown={() => reorderSteps(index, index + 1)}
+                onMoveUp={handleMoveUp}
+                onMoveDown={handleMoveDown}
               />
               <ConnectorLine />
             </div>
