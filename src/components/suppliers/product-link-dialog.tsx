@@ -59,15 +59,16 @@ export default function ProductLinkDialog({
   const updateLink = useUpdateLink()
   const deleteLink = useDeleteLink()
 
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(newOpen: boolean) {
+    if (!newOpen) {
       setSearch('')
       setProducts([])
       setSelectedProduct(null)
       setCostPrice('')
       setIsPreferred(false)
     }
-  }, [open])
+    onOpenChange(newOpen)
+  }
 
   const searchProducts = async (q: string) => {
     if (q.length < 2) {
@@ -146,7 +147,7 @@ export default function ProductLinkDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Produtos — {supplier?.name}</DialogTitle>

@@ -21,6 +21,7 @@ export default function RunRow({ run }: RunRowProps) {
         run.status === 'failed' &&
           'border-destructive/30 bg-destructive/5 border-l-destructive border-y border-l-2'
       )}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 52px' }}
     >
       <TableCell className="max-w-[120px] truncate font-mono text-sm">
         {run.id.slice(0, 8)}

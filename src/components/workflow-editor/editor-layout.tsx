@@ -26,7 +26,10 @@ interface EditorLayoutProps {
 }
 
 export default function EditorLayout({ assistantPanel, canvas, configPanel }: EditorLayoutProps) {
-  const { isAssistantOpen, selectedStepId, toggleAssistant, selectStep } = useWorkflowEditorStore()
+  const isAssistantOpen = useWorkflowEditorStore((s) => s.isAssistantOpen)
+  const selectedStepId = useWorkflowEditorStore((s) => s.selectedStepId)
+  const toggleAssistant = useWorkflowEditorStore((s) => s.toggleAssistant)
+  const selectStep = useWorkflowEditorStore((s) => s.selectStep)
   const isMobile = useIsMobile()
 
   return (
