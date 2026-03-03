@@ -1193,12 +1193,14 @@ export function buildRetailTools(
                 id: c.id,
                 code: c.code,
                 type: c.type,
-                value: c.value,
+                value: String(c.value ?? ''),
                 valid: c.valid,
                 used: c.used,
                 max_uses: c.max_uses,
                 start_date: c.start_date,
                 end_date: c.end_date,
+                min_price: c.min_price != null ? String(c.min_price) : null,
+                includes_shipping: c.includes_shipping,
               })),
               total: coupons.length,
             }
@@ -1218,7 +1220,17 @@ export function buildRetailTools(
             })
             return {
               success: true,
-              message: `Coupon "${coupon.code}" created (${coupon.type}: ${coupon.value}).`,
+              coupon: {
+                id: coupon.id,
+                code: coupon.code,
+                type: coupon.type,
+                value: String(coupon.value ?? ''),
+                valid: coupon.valid,
+                max_uses: coupon.max_uses,
+                start_date: coupon.start_date,
+                end_date: coupon.end_date,
+              },
+              message: `Cupom "${coupon.code}" criado (${coupon.type}: ${coupon.value ?? 'frete grátis'}).`,
             }
           }
 
