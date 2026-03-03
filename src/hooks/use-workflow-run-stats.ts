@@ -6,7 +6,7 @@ import { fetchWorkflowRunStats, type WorkflowRunStats } from '@/lib/queries/dash
 
 export function useWorkflowRunStats(workflowIds: string[]) {
   return useQuery({
-    queryKey: ['workflow-run-stats', [...workflowIds].sort().join(',')],
+    queryKey: ['workflow-run-stats', workflowIds],
     queryFn: async () => {
       const supabase = createBrowserClient()
       const stats = await fetchWorkflowRunStats(supabase, workflowIds)

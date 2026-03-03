@@ -24,7 +24,6 @@ describe('StepCard', () => {
         step={mockStep}
         stepNumber={1}
         isSelected={false}
-        stepId="s1"
         onClick={() => {}}
         isFirst
         isLast
@@ -43,7 +42,6 @@ describe('StepCard', () => {
         step={mockStep}
         stepNumber={1}
         isSelected={false}
-        stepId="s1"
         onClick={onClick}
         isFirst
         isLast
@@ -52,7 +50,7 @@ describe('StepCard', () => {
       />
     )
     fireEvent.click(screen.getByText('AI Transform'))
-    expect(onClick).toHaveBeenCalledWith('s1')
+    expect(onClick).toHaveBeenCalled()
   })
 
   it('applies selected ring class', () => {
@@ -61,7 +59,6 @@ describe('StepCard', () => {
         step={mockStep}
         stepNumber={1}
         isSelected={true}
-        stepId="s1"
         onClick={() => {}}
         isFirst
         isLast

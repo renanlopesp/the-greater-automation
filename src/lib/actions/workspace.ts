@@ -28,21 +28,6 @@ type ActionResult<T = void> = T extends void ? { error?: string } : { error?: st
 // ---------------------------------------------------------------------------
 
 export async function switchWorkspaceAction(teamId: string) {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
-
-  const { data: member } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .eq('team_id', teamId)
-    .limit(1)
-    .single()
-  if (!member) return
-
   const cookieStore = await cookies()
   cookieStore.set('selected_team_id', teamId, {
     path: '/',

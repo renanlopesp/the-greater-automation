@@ -1631,16 +1631,12 @@ export function buildSkillBuilderTools(
         const stepLines = stepsText.split('\n').filter((line) => /^\d+\./.test(line.trim()))
 
         // Resolve {{param.name}} templates in steps
-        // Pre-compile regexes once before the map to avoid O(n×m) RegExp construction
-        const paramRegexes = Object.entries(resolvedParams).map(([key, value]) => ({
-          regex: new RegExp(`\\{\\{param\\.${key}\\}\\}`, 'g'),
-          value: String(value),
-        }))
         const resolvedSteps = stepLines.map((step) => {
           let resolved = step
-          for (const { regex, value } of paramRegexes) {
-            regex.lastIndex = 0
-            resolved = resolved.replace(regex, value)
+          // Replace {{param.name}} with actual values
+          for (const [key, value] of Object.entries(resolvedParams)) {
+            const regex = new RegExp(`\\{\\{param\\.${key}\\}\\}`, 'g')
+            resolved = resolved.replace(regex, String(value))
           }
           // Keep {{prev.field}} as-is for the agent to fill during execution
           return resolved

@@ -64,23 +64,6 @@ type MarginFilter = 'all' | 'low' | 'medium' | 'high'
 
 const PAGE_SIZES = [25, 50, 100] as const
 
-function SortIcon({
-  col,
-  sortKey,
-  sortDir,
-}: {
-  col: SortKey
-  sortKey: SortKey
-  sortDir: 'asc' | 'desc'
-}) {
-  if (sortKey !== col) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
-  return sortDir === 'asc' ? (
-    <ArrowUp className="ml-1 inline h-3 w-3" />
-  ) : (
-    <ArrowDown className="ml-1 inline h-3 w-3" />
-  )
-}
-
 function calcMargin(price: number | null, cost: number | null) {
   if (price == null || cost == null || price <= 0) return null
   return ((price - cost) / price) * 100
@@ -88,7 +71,7 @@ function calcMargin(price: number | null, cost: number | null) {
 
 export default function ProductsClient({
   products: initial,
-  storeId: _storeId,
+  storeId,
   storeName,
   chatAgentId,
 }: ProductsClientProps) {
@@ -213,6 +196,15 @@ export default function ProductsClient({
       setSortDir('asc')
     }
     setPage(0)
+  }
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+    return sortDir === 'asc' ? (
+      <ArrowUp className="ml-1 inline h-3 w-3" />
+    ) : (
+      <ArrowDown className="ml-1 inline h-3 w-3" />
+    )
   }
 
   // --- CSV ---
@@ -732,37 +724,37 @@ export default function ProductsClient({
                 className="max-w-[280px] cursor-pointer select-none"
                 onClick={() => handleSort('name')}
               >
-                Produto <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
+                Produto <SortIcon col="name" />
               </TableHead>
               <TableHead
                 className="w-32 cursor-pointer select-none"
                 onClick={() => handleSort('sku')}
               >
-                SKU <SortIcon col="sku" sortKey={sortKey} sortDir={sortDir} />
+                SKU <SortIcon col="sku" />
               </TableHead>
               <TableHead
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('price')}
               >
-                Preço <SortIcon col="price" sortKey={sortKey} sortDir={sortDir} />
+                Preço <SortIcon col="price" />
               </TableHead>
               <TableHead
                 className="w-32 cursor-pointer text-right select-none"
                 onClick={() => handleSort('cost_price')}
               >
-                Custo <SortIcon col="cost_price" sortKey={sortKey} sortDir={sortDir} />
+                Custo <SortIcon col="cost_price" />
               </TableHead>
               <TableHead
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('margin_pct')}
               >
-                Margem % <SortIcon col="margin_pct" sortKey={sortKey} sortDir={sortDir} />
+                Margem % <SortIcon col="margin_pct" />
               </TableHead>
               <TableHead
                 className="w-28 cursor-pointer text-right select-none"
                 onClick={() => handleSort('margin_value')}
               >
-                Margem R$ <SortIcon col="margin_value" sortKey={sortKey} sortDir={sortDir} />
+                Margem R$ <SortIcon col="margin_value" />
               </TableHead>
             </TableRow>
           </TableHeader>

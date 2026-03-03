@@ -393,15 +393,12 @@ export default function WorkspaceClient({
   })
 
   // Bulk actions
+  const selectedIds = Object.keys(rowSelection)
+  const selectedCount = selectedIds.length
   const selectedItems = useMemo(() => {
-    const ids = Object.keys(rowSelection)
-    if (ids.length === 0) return []
     const itemsById = new Map(flatData.map((item) => [item.id, item]))
-    return ids.map((id) => itemsById.get(id)).filter(Boolean) as WorkspaceItem[]
-  }, [rowSelection, flatData])
-
-  const selectedCount = selectedItems.length
-  const selectedIds = useMemo(() => selectedItems.map((item) => item.id), [selectedItems])
+    return selectedIds.map((id) => itemsById.get(id)).filter(Boolean) as WorkspaceItem[]
+  }, [selectedIds, flatData])
 
   const handleBulkDelete = useCallback(() => {
     setBulkDeleteOpen(true)

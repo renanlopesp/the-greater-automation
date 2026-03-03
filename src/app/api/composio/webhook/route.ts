@@ -331,21 +331,21 @@ async function processWorkflows(
 
         // 10. Update stats for agent-owned workflows
         if (agentLink) {
-          const [, { data: trigSub }] = await Promise.all([
-            supabase
-              .from('agent_workflows')
-              .update({
-                last_run_at: new Date().toISOString(),
-                run_count: (agentLink.run_count ?? 0) + 1,
-              })
-              .eq('id', agentLink.id),
-            supabase
-              .from('trigger_subscriptions')
-              .select('id, event_count')
-              .eq('agent_workflow_id', agentLink.id)
-              .limit(1)
-              .single(),
-          ])
+          await supabase
+            .from('agent_workflows')
+            .update({
+              last_run_at: new Date().toISOString(),
+              run_count: (agentLink.run_count ?? 0) + 1,
+            })
+            .eq('id', agentLink.id)
+
+          // Also update trigger_subscriptions stats
+          const { data: trigSub } = await supabase
+            .from('trigger_subscriptions')
+            .select('id, event_count')
+            .eq('agent_workflow_id', agentLink.id)
+            .limit(1)
+            .single()
 
           if (trigSub) {
             await supabase

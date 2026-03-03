@@ -1,16 +1,5 @@
 import type { WorkflowCondition, ConditionResult } from './types'
 
-const regexCache = new Map<string, RegExp>()
-
-function getCachedRegex(pattern: string): RegExp {
-  let cached = regexCache.get(pattern)
-  if (!cached) {
-    cached = new RegExp(pattern)
-    regexCache.set(pattern, cached)
-  }
-  return cached
-}
-
 /**
  * Get a nested value from an object using dot-path notation.
  * e.g. getNestedValue({ body: { sender: "foo" } }, "body.sender") => "foo"
@@ -61,7 +50,8 @@ function evaluateCondition(
     case 'matches':
       if (typeof actual === 'string' && typeof condition.value === 'string') {
         try {
-          passed = getCachedRegex(condition.value).test(actual)
+          const regex = new RegExp(condition.value)
+          passed = regex.test(actual)
         } catch {
           passed = false
         }

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,30 +42,45 @@ export default function SupplierDialog({ open, onOpenChange, supplier }: Supplie
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
-    values: open
-      ? supplier
-        ? {
-            name: supplier.name,
-            contact_email: supplier.contact_email ?? '',
-            contact_phone: supplier.contact_phone ?? '',
-            lead_time_days: supplier.lead_time_days,
-            min_order_value: supplier.min_order_value ?? undefined,
-            payment_terms: supplier.payment_terms ?? '',
-            notes: supplier.notes ?? '',
-          }
-        : {
-            name: '',
-            contact_email: '',
-            contact_phone: '',
-            lead_time_days: 7,
-            min_order_value: undefined,
-            payment_terms: '',
-            notes: '',
-          }
-      : undefined,
+    defaultValues: {
+      name: '',
+      contact_email: '',
+      contact_phone: '',
+      lead_time_days: 7,
+      min_order_value: undefined,
+      payment_terms: '',
+      notes: '',
+    },
   })
+
+  useEffect(() => {
+    if (open) {
+      if (supplier) {
+        reset({
+          name: supplier.name,
+          contact_email: supplier.contact_email ?? '',
+          contact_phone: supplier.contact_phone ?? '',
+          lead_time_days: supplier.lead_time_days,
+          min_order_value: supplier.min_order_value ?? undefined,
+          payment_terms: supplier.payment_terms ?? '',
+          notes: supplier.notes ?? '',
+        })
+      } else {
+        reset({
+          name: '',
+          contact_email: '',
+          contact_phone: '',
+          lead_time_days: 7,
+          min_order_value: undefined,
+          payment_terms: '',
+          notes: '',
+        })
+      }
+    }
+  }, [open, supplier, reset])
 
   const onSubmit = async (data: FormData) => {
     try {

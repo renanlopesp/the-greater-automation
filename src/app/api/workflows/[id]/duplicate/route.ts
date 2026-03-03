@@ -47,41 +47,39 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       throw createError
     }
 
-    // Parallel reads: trigger and steps
-    const [{ data: trigger }, { data: steps }] = await Promise.all([
-      supabase
-        .from('workflow_triggers')
-        .select('type, config')
-        .eq('workflow_id', workflowId)
-        .single(),
-      supabase
-        .from('workflow_steps')
-        .select('position, type, name, config')
-        .eq('workflow_id', workflowId)
-        .order('position', { ascending: true }),
-    ])
+    // Copy trigger if exists
+    const { data: trigger } = await supabase
+      .from('workflow_triggers')
+      .select('type, config')
+      .eq('workflow_id', workflowId)
+      .single()
 
-    // Parallel writes (conditional)
-    await Promise.all([
-      trigger
-        ? supabase.from('workflow_triggers').insert({
-            workflow_id: newWorkflow.id,
-            type: trigger.type,
-            config: trigger.config,
-          })
-        : Promise.resolve(),
-      steps && steps.length > 0
-        ? supabase.from('workflow_steps').insert(
-            steps.map((step) => ({
-              workflow_id: newWorkflow.id,
-              position: step.position,
-              type: step.type,
-              name: step.name,
-              config: step.config,
-            }))
-          )
-        : Promise.resolve(),
-    ])
+    if (trigger) {
+      await supabase.from('workflow_triggers').insert({
+        workflow_id: newWorkflow.id,
+        type: trigger.type,
+        config: trigger.config,
+      })
+    }
+
+    // Copy steps
+    const { data: steps } = await supabase
+      .from('workflow_steps')
+      .select('position, type, name, config')
+      .eq('workflow_id', workflowId)
+      .order('position', { ascending: true })
+
+    if (steps && steps.length > 0) {
+      await supabase.from('workflow_steps').insert(
+        steps.map((step) => ({
+          workflow_id: newWorkflow.id,
+          position: step.position,
+          type: step.type,
+          name: step.name,
+          config: step.config,
+        }))
+      )
+    }
 
     return NextResponse.json({
       success: true,

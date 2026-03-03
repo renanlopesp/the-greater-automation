@@ -1,6 +1,5 @@
 'use client'
 
-import { memo } from 'react'
 import { AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
 import { DynamicIcon } from '@/lib/workflow-editor/icon-registry'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,19 +13,17 @@ interface StepCardProps {
   step: WorkflowStep
   stepNumber: number
   isSelected: boolean
-  stepId: string
-  onClick: (stepId: string) => void
+  onClick: () => void
   isFirst: boolean
   isLast: boolean
-  onMoveUp: (stepId: string) => void
-  onMoveDown: (stepId: string) => void
+  onMoveUp: () => void
+  onMoveDown: () => void
 }
 
-const StepCard = memo(function StepCard({
+export default function StepCard({
   step,
   stepNumber,
   isSelected,
-  stepId,
   onClick,
   isFirst,
   isLast,
@@ -42,7 +39,7 @@ const StepCard = memo(function StepCard({
         'group hover:bg-muted/20 w-full max-w-[520px] cursor-pointer gap-0 rounded-lg py-0 shadow-sm transition-colors',
         isSelected && 'ring-primary ring-2'
       )}
-      onClick={() => onClick(stepId)}
+      onClick={onClick}
     >
       <CardContent className="flex items-center gap-3 px-5 py-4">
         <div className="text-muted-foreground w-6 shrink-0 text-center text-sm">{stepNumber}</div>
@@ -63,7 +60,7 @@ const StepCard = memo(function StepCard({
               className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation()
-                onMoveUp(stepId)
+                onMoveUp()
               }}
             >
               <ChevronUp className="h-3 w-3" />
@@ -76,7 +73,7 @@ const StepCard = memo(function StepCard({
               className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation()
-                onMoveDown(stepId)
+                onMoveDown()
               }}
             >
               <ChevronDown className="h-3 w-3" />
@@ -86,6 +83,4 @@ const StepCard = memo(function StepCard({
       </CardContent>
     </Card>
   )
-})
-
-export default StepCard
+}
