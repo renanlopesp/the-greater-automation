@@ -159,7 +159,7 @@ const actionJsonSchema: Record<string, unknown> = {
     prompt: { type: 'string', description: 'AI prompt with {{trigger.field}} templates' },
     output_key: { type: 'string', description: 'Key to store AI output for next action' },
     model: { type: 'string' },
-    channel: { type: 'string', enum: ['internal', 'slack', 'email', 'telegram'] },
+    channel: { type: 'string', enum: ['internal', 'slack', 'email', 'telegram', 'whatsapp'] },
     message: { type: 'string', description: 'Notification message with templates' },
     target: { type: 'string', description: 'Channel name, email, etc.' },
     tools: {
@@ -199,7 +199,7 @@ interface ActionParam {
   prompt?: string
   output_key?: string
   model?: string
-  channel?: 'internal' | 'slack' | 'email' | 'telegram'
+  channel?: 'internal' | 'slack' | 'email' | 'telegram' | 'whatsapp'
   message?: string
   target?: string
   tools?: string[]
@@ -257,7 +257,12 @@ function buildActions(raw: ActionParam[]): WorkflowActionConfig[] {
     } else {
       return {
         type: 'notify' as const,
-        channel: (a.channel || 'internal') as 'internal' | 'slack' | 'email' | 'telegram',
+        channel: (a.channel || 'internal') as
+          | 'internal'
+          | 'slack'
+          | 'email'
+          | 'telegram'
+          | 'whatsapp',
         message: a.message || '',
         target: a.target,
       }
@@ -719,6 +724,12 @@ export function buildSkillBuilderTools(
                 telegram_template: action.message || '{{prev.output}}',
                 telegram_parse_mode: 'Markdown',
               }
+            } else if (action.channel === 'whatsapp') {
+              stepName = 'Send WhatsApp Alert'
+              stepConfig = {
+                utility_type: 'send_whatsapp' as const,
+                whatsapp_template: action.message || '{{prev.output}}',
+              }
             } else {
               stepName = `Notify: ${action.channel || 'internal'}`
               stepConfig = {
@@ -1048,6 +1059,12 @@ export function buildSkillBuilderTools(
                     telegram_template: action.message || '{{prev.output}}',
                     telegram_parse_mode: 'Markdown',
                   }
+                } else if (action.channel === 'whatsapp') {
+                  stepName = 'Send WhatsApp Alert'
+                  stepConfig = {
+                    utility_type: 'send_whatsapp' as const,
+                    whatsapp_template: action.message || '{{prev.output}}',
+                  }
                 } else {
                   stepName = `Notify: ${action.channel || 'internal'}`
                   stepConfig = {
@@ -1247,21 +1264,19 @@ export function buildSkillBuilderTools(
             scopes: composioDetails[row.app_id]?.scopes || null,
           }))
 
-          // Check for Telegram via SnewClaw (messaging_links) — not a Composio connection
-          // but available for workflow "notify" steps with channel: "telegram".
+          // Check for messaging channels via SnewClaw (messaging_links) — not Composio connections
+          // but available for workflow "notify" steps with channel: "telegram" or "whatsapp".
           // Search by team_id so we find the team owner's link (not just the current user's).
-          const { data: messagingLink } = await supabase
+          const { data: messagingLinks } = await supabase
             .from('messaging_links')
-            .select('id')
+            .select('id, channel_type')
             .eq('team_id', teamId)
-            .eq('channel_type', 'telegram')
+            .in('channel_type', ['telegram', 'whatsapp'])
             .eq('is_verified', true)
-            .limit(1)
-            .maybeSingle()
-          if (messagingLink) {
+          for (const ml of messagingLinks ?? []) {
             connectedApps.push({
-              app_id: 'telegram',
-              account_label: 'Telegram (via messaging)',
+              app_id: ml.channel_type,
+              account_label: `${ml.channel_type.charAt(0).toUpperCase() + ml.channel_type.slice(1)} (via messaging)`,
               is_own_connection: true,
               auth_type: 'bot_token',
               scopes: null,

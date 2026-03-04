@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { sendMessage } from '@/lib/messaging/telegram'
+import { sendToAllChannels } from '@/lib/messaging/channel'
 
 /**
  * Check for abandoned checkouts and send Telegram notifications.
@@ -23,17 +23,6 @@ export async function checkAbandonedCarts(storeId: string): Promise<{ notified: 
   if (store.platform !== 'nuvemshop' || !store.platform_store_id || !store.platform_access_token) {
     return { notified: 0 }
   }
-
-  // Get Telegram chat link
-  const { data: link } = await supabase
-    .from('messaging_links')
-    .select('external_chat_id')
-    .eq('team_id', store.team_id)
-    .eq('channel_type', 'telegram')
-    .eq('is_verified', true)
-    .single()
-
-  if (!link?.external_chat_id) return { notified: 0 }
 
   // Fetch abandoned checkouts from Nuvemshop
   const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
@@ -84,10 +73,10 @@ export async function checkAbandonedCarts(storeId: string): Promise<{ notified: 
 
     if (error) continue
 
-    // Send Telegram notification
+    // Send notification
     const message = formatAbandonedCartNotification(checkout, store.name)
     try {
-      await sendMessage(link.external_chat_id, message, 'Markdown')
+      await sendToAllChannels(store.team_id, message, 'Markdown')
       notified++
     } catch {
       // Best effort
@@ -131,15 +120,6 @@ export async function checkRecoveredCarts(storeId: string): Promise<{ recovered:
   const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
   const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
 
-  // Get Telegram chat link
-  const { data: link } = await supabase
-    .from('messaging_links')
-    .select('external_chat_id')
-    .eq('team_id', store.team_id)
-    .eq('channel_type', 'telegram')
-    .eq('is_verified', true)
-    .single()
-
   let recovered = 0
   for (const notification of pending) {
     try {
@@ -154,16 +134,14 @@ export async function checkRecoveredCarts(storeId: string): Promise<{ recovered:
         recovered++
 
         // Notify recovery
-        if (link?.external_chat_id) {
-          const total = notification.checkout_total
-            ? `R$ ${Number(notification.checkout_total).toFixed(2)}`
-            : 'valor desconhecido'
-          await sendMessage(
-            link.external_chat_id,
-            `✅ *Carrinho Recuperado — ${store.name}*\n\n💰 *${total}* foi finalizado!\n\nO cliente completou a compra.`,
-            'Markdown'
-          )
-        }
+        const total = notification.checkout_total
+          ? `R$ ${Number(notification.checkout_total).toFixed(2)}`
+          : 'valor desconhecido'
+        await sendToAllChannels(
+          store.team_id,
+          `✅ *Carrinho Recuperado — ${store.name}*\n\n💰 *${total}* foi finalizado!\n\nO cliente completou a compra.`,
+          'Markdown'
+        )
       }
     } catch {
       // Checkout may have been deleted — skip

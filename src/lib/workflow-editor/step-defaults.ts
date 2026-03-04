@@ -57,12 +57,14 @@ export interface UtilityStepConfig {
     | 'map'
     | 'math'
     | 'send_telegram'
+    | 'send_whatsapp'
   input_source?: string
   format_template?: string
   filter_condition?: string
   math_expression?: string
   telegram_template?: string
   telegram_parse_mode?: 'Markdown' | 'MarkdownV2' | 'HTML'
+  whatsapp_template?: string
 }
 
 export interface HTTPStepConfig {
@@ -167,6 +169,7 @@ export function isStepConfigComplete(step: WorkflowStep): boolean {
       if (uc.utility_type === 'filter') return !!uc.input_source && !!uc.filter_condition
       if (uc.utility_type === 'map') return !!uc.input_source && !!uc.format_template
       if (uc.utility_type === 'send_telegram') return !!uc.telegram_template
+      if (uc.utility_type === 'send_whatsapp') return !!uc.whatsapp_template
       return !!uc.input_source // parse_json, parse_csv, merge
     }
     case 'sequence': {

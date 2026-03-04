@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { sendMessage } from '@/lib/messaging/telegram'
+import { sendToAllChannels } from '@/lib/messaging/channel'
 
 interface LowStockProduct {
   id: string
@@ -110,16 +110,6 @@ async function sendStockAlert(
 
   if (!store) return
 
-  const { data: link } = await supabase
-    .from('messaging_links')
-    .select('external_chat_id')
-    .eq('team_id', store.team_id as string)
-    .eq('channel_type', 'telegram')
-    .eq('is_verified', true)
-    .single()
-
-  if (!link?.external_chat_id) return
-
   const lines: string[] = ['⚠️ *Low Stock Alert*', '']
 
   for (const product of products.slice(0, 10)) {
@@ -135,7 +125,7 @@ async function sendStockAlert(
 
   lines.push('', 'Restock or adjust thresholds with: "set stock alert to X"')
 
-  await sendMessage(link.external_chat_id as string, lines.join('\n'), 'Markdown')
+  await sendToAllChannels(store.team_id as string, lines.join('\n'), 'Markdown')
 }
 
 /**

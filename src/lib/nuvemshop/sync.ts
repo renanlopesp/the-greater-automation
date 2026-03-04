@@ -1,6 +1,7 @@
 import { NuvemshopClient, NuvemshopApiError } from './client'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { checkStockAlerts, checkProductStockAlert } from '@/lib/retail/stock-alerts'
+import { sendToAllChannels } from '@/lib/messaging/channel'
 
 export interface SyncResult {
   synced: number
@@ -32,27 +33,17 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
       // Mark store as disconnected
       await supabase.from('stores').update({ platform_access_token: null }).eq('id', storeId)
 
-      // Alert user via Telegram if linked
+      // Alert user if linked
       const { data: storeForAlert } = await supabase
         .from('stores')
         .select('team_id')
         .eq('id', storeId)
         .single()
       if (storeForAlert) {
-        const { data: link } = await supabase
-          .from('messaging_links')
-          .select('external_chat_id')
-          .eq('team_id', storeForAlert.team_id)
-          .eq('channel_type', 'telegram')
-          .eq('is_verified', true)
-          .single()
-        if (link?.external_chat_id) {
-          const { sendMessage } = await import('@/lib/messaging/telegram')
-          await sendMessage(
-            link.external_chat_id,
-            '⚠️ Sua conexão com a Nuvemshop foi desconectada. O token de acesso expirou ou foi revogado. Reconecte em /workspace.'
-          )
-        }
+        await sendToAllChannels(
+          storeForAlert.team_id,
+          '⚠️ Sua conexão com a Nuvemshop foi desconectada. O token de acesso expirou ou foi revogado. Reconecte em /workspace.'
+        )
       }
       throw new Error('Nuvemshop token revoked — store marked as disconnected')
     }

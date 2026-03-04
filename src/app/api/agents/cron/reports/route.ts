@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { sendMessage } from '@/lib/messaging/telegram'
+import { sendToAllChannels } from '@/lib/messaging/channel'
 import {
   generateStockReport,
   generatePriceReport,
@@ -50,28 +50,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sent: 0, checked: agents.length, hour: brtHour })
   }
 
-  // Batch-fetch all stores and messaging_links for active agents' teams
+  // Batch-fetch all stores for active agents' teams
   const teamIds = [...new Set(activeAgents.map((a) => a.team_id).filter(Boolean))] as string[]
 
-  const [{ data: stores }, { data: messagingLinks }] = await Promise.all([
-    supabase.from('stores').select('id, team_id').in('team_id', teamIds),
-    supabase
-      .from('messaging_links')
-      .select('team_id, external_chat_id')
-      .in('team_id', teamIds)
-      .eq('channel_type', 'telegram')
-      .eq('is_verified', true),
-  ])
+  const { data: stores } = await supabase
+    .from('stores')
+    .select('id, team_id')
+    .in('team_id', teamIds)
 
-  // Build Maps for O(1) lookup
+  // Build Map for O(1) lookup
   const storeByTeam = new Map<string, string>() // team_id -> store_id
   for (const store of stores ?? []) {
     if (!storeByTeam.has(store.team_id)) storeByTeam.set(store.team_id, store.id)
-  }
-
-  const chatIdByTeam = new Map<string, string>() // team_id -> external_chat_id
-  for (const link of messagingLinks ?? []) {
-    if (link.external_chat_id) chatIdByTeam.set(link.team_id, link.external_chat_id)
   }
 
   // Process all active agents in parallel
@@ -83,12 +73,9 @@ export async function GET(request: NextRequest) {
       const storeId = storeByTeam.get(agent.team_id)
       if (!storeId) return
 
-      const chatId = chatIdByTeam.get(agent.team_id)
-      if (!chatId) return
-
       const report = await generateAgentReport(agent.name, storeId)
       if (report) {
-        await sendMessage(chatId, report, 'Markdown')
+        await sendToAllChannels(agent.team_id, report, 'Markdown')
         return true
       }
     })

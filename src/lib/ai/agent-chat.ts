@@ -155,7 +155,7 @@ export function buildAgentSystemPrompt(
     prompt +=
       'Use `notify` to send alerts. Telegram is the primary channel — it is already connected for this store.\n\n'
     prompt += 'Parameters:\n'
-    prompt += '- `channel`: "telegram" (preferred) or "internal" (in-app only)\n'
+    prompt += '- `channel`: "whatsapp" (preferred), "telegram", or "internal" (in-app only)\n'
     prompt +=
       '- `message`: The notification text. Use `{{prev.content}}` to reference the AI output from the previous step.\n\n'
     prompt += '### Example: Monitor competitor price every 4 hours\n\n'
@@ -170,7 +170,7 @@ export function buildAgentSystemPrompt(
       '  { type: "web_scraping", url: "https://bbmilk.com.br/products/kit-pascoa", scraping_action: "scrape", output_format: "markdown" },\n'
     prompt +=
       '  { type: "ai_transform", prompt: "Analise a página do produto do concorrente BB Milk:\\n\\n{{prev.content}}\\n\\nExtraia o preço atual do produto Kit Páscoa. Formate como alerta completo de Monitoramento de Concorrente para Telegram:\\n\\n📊 Monitoramento de Concorrente\\n🏪 BB Milk — Kit Páscoa\\n💰 Preço atual: R$ [preço extraído]\\n🔗 https://bbmilk.com.br/products/kit-pascoa\\n📝 [Observação sobre variação de preço, se houver]", output_key: "analysis" },\n'
-    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.content}}" }\n'
+    prompt += '  { type: "notify", channel: "whatsapp", message: "{{prev.content}}" }\n'
     prompt += ']\n'
     prompt += '```\n\n'
     prompt += '### How to Build a Workflow\n\n'
@@ -208,7 +208,7 @@ export function buildAgentSystemPrompt(
     prompt +=
       '- **IF** (Conditions): Optional rules that must be true for actions to run (e.g. "sender contains @acme.com")\n'
     prompt +=
-      '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, scrape a web page, or send a notification. For notify actions, use channel: "telegram" (preferred, sends to user\'s Telegram) or "internal" (in-app only)\n'
+      '- **THEN** (Actions): What to do — execute an app action (Composio), transform data with AI, scrape a web page, or send a notification. For notify actions, use channel: "whatsapp" (preferred, sends to user\'s WhatsApp), "telegram", or "internal" (in-app only)\n'
     prompt +=
       "- **MODE**: auto (run immediately), confirm (ask user first), draft (save but don't run)\n\n"
     prompt += '### App Event Triggers (Event-Driven Workflows)\n\n'
@@ -271,7 +271,7 @@ export function buildAgentSystemPrompt(
       '  { type: "web_scraping", url: "https://competitor.com/product", scraping_action: "scrape", output_format: "markdown" },\n'
     prompt +=
       '  { type: "ai_transform", prompt: "Extract the current price from this page content: {{prev.content}}. Compare with our price of R$XX. If changed, format a brief alert.", output_key: "analysis" },\n'
-    prompt += '  { type: "notify", channel: "telegram", message: "{{prev.content}}" }\n'
+    prompt += '  { type: "notify", channel: "whatsapp", message: "{{prev.content}}" }\n'
     prompt += ']\n\n'
     prompt += '### How to Build a Workflow\n\n'
     prompt +=

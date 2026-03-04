@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { sendMessage } from '@/lib/messaging/telegram'
+import { sendToAllChannels } from '@/lib/messaging/channel'
 
 export interface OrderData {
   order_number: string
@@ -63,16 +63,6 @@ export async function sendOrderNotification(storeId: string, order: OrderData): 
   const settings = store.settings as Record<string, unknown> | null
   if (settings?.order_notifications_enabled === false) return
 
-  const { data: link } = await supabase
-    .from('messaging_links')
-    .select('external_chat_id')
-    .eq('team_id', store.team_id)
-    .eq('channel_type', 'telegram')
-    .eq('is_verified', true)
-    .single()
-
-  if (!link?.external_chat_id) return
-
   const message = formatOrderNotification(store.name, order)
-  await sendMessage(link.external_chat_id, message, 'Markdown')
+  await sendToAllChannels(store.team_id, message, 'Markdown')
 }
