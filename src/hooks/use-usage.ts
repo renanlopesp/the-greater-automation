@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createBrowserClient } from '@/lib/supabase/client'
 
 interface UsageData {
@@ -10,42 +11,48 @@ interface UsageData {
   aiCreditsLimit: number
 }
 
+async function fetchUsage(teamId: string): Promise<UsageData | null> {
+  const supabase = createBrowserClient()
+  const now = new Date().toISOString()
+  const { data } = await supabase
+    .from('usage')
+    .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
+    .eq('team_id', teamId)
+    .lte('period_start', now)
+    .gte('period_end', now)
+    .order('period_start', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!data) return null
+  return {
+    stepsUsed: data.steps_used,
+    stepsLimit: data.steps_limit,
+    aiCreditsUsed: Number(data.ai_credits_used),
+    aiCreditsLimit: Number(data.ai_credits_limit),
+  }
+}
+
 /**
  * Hook that subscribes to real-time usage updates via Supabase Realtime.
- * Falls back to initial server-rendered data until the first client fetch.
+ * Uses React Query with initialData from server-rendered props.
  */
 export function useUsage(teamId: string | undefined, initial: UsageData): UsageData {
-  const [usage, setUsage] = useState<UsageData>(initial)
+  const queryClient = useQueryClient()
 
+  const { data } = useQuery({
+    queryKey: ['usage', teamId],
+    queryFn: () => fetchUsage(teamId!),
+    enabled: !!teamId,
+    initialData: initial,
+    staleTime: 60_000,
+  })
+
+  // Realtime subscription — invalidates query on usage changes
   useEffect(() => {
     if (!teamId) return
 
     const supabase = createBrowserClient()
-
-    async function fetchUsage() {
-      const now = new Date().toISOString()
-      const { data } = await supabase
-        .from('usage')
-        .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-        .eq('team_id', teamId!)
-        .lte('period_start', now)
-        .gte('period_end', now)
-        .order('period_start', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (data) {
-        setUsage({
-          stepsUsed: data.steps_used,
-          stepsLimit: data.steps_limit,
-          aiCreditsUsed: Number(data.ai_credits_used),
-          aiCreditsLimit: Number(data.ai_credits_limit),
-        })
-      }
-    }
-
-    // Subscribe to realtime updates on the usage table for this team
-    // Skip initial fetch — server-rendered `initial` data is already fresh
     const channel = supabase
       .channel(`usage-${teamId}`)
       .on(
@@ -57,7 +64,7 @@ export function useUsage(teamId: string | undefined, initial: UsageData): UsageD
           filter: `team_id=eq.${teamId}`,
         },
         () => {
-          fetchUsage()
+          queryClient.invalidateQueries({ queryKey: ['usage', teamId] })
         }
       )
       .subscribe()
@@ -65,7 +72,7 @@ export function useUsage(teamId: string | undefined, initial: UsageData): UsageD
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [teamId])
+  }, [teamId, queryClient])
 
-  return usage
+  return data ?? initial
 }

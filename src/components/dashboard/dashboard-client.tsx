@@ -68,7 +68,7 @@ export default function DashboardClient({
       { ...stats[2], value: runsToday },
       { ...stats[3], value: initialWorkflows.filter((w) => w.is_starred).length },
     ],
-    [stats, initialAgents.length, initialWorkflows.length, runsToday, initialWorkflows]
+    [initialAgents.length, initialWorkflows, runsToday]
   )
 
   return (

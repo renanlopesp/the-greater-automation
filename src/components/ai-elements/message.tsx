@@ -114,8 +114,7 @@ interface MessageBranchContextType {
   totalBranches: number
   goToPrevious: () => void
   goToNext: () => void
-  branches: ReactElement[]
-  setBranches: (branches: ReactElement[]) => void
+  setTotalBranches: (count: number) => void
 }
 
 const MessageBranchContext = createContext<MessageBranchContextType | null>(null)
@@ -142,7 +141,7 @@ export const MessageBranch = ({
   ...props
 }: MessageBranchProps) => {
   const [currentBranch, setCurrentBranch] = useState(defaultBranch)
-  const [branches, setBranches] = useState<ReactElement[]>([])
+  const [totalBranches, setTotalBranches] = useState(0)
 
   const handleBranchChange = useCallback(
     (newBranch: number) => {
@@ -153,25 +152,24 @@ export const MessageBranch = ({
   )
 
   const goToPrevious = useCallback(() => {
-    const newBranch = currentBranch > 0 ? currentBranch - 1 : branches.length - 1
+    const newBranch = currentBranch > 0 ? currentBranch - 1 : totalBranches - 1
     handleBranchChange(newBranch)
-  }, [currentBranch, branches.length, handleBranchChange])
+  }, [currentBranch, totalBranches, handleBranchChange])
 
   const goToNext = useCallback(() => {
-    const newBranch = currentBranch < branches.length - 1 ? currentBranch + 1 : 0
+    const newBranch = currentBranch < totalBranches - 1 ? currentBranch + 1 : 0
     handleBranchChange(newBranch)
-  }, [currentBranch, branches.length, handleBranchChange])
+  }, [currentBranch, totalBranches, handleBranchChange])
 
   const contextValue = useMemo<MessageBranchContextType>(
     () => ({
-      branches,
       currentBranch,
+      totalBranches,
       goToNext,
       goToPrevious,
-      setBranches,
-      totalBranches: branches.length,
+      setTotalBranches,
     }),
-    [branches, currentBranch, goToNext, goToPrevious]
+    [currentBranch, totalBranches, goToNext, goToPrevious]
   )
 
   return (
@@ -184,13 +182,13 @@ export const MessageBranch = ({
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>
 
 export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
-  const { currentBranch, setBranches } = useMessageBranch()
+  const { currentBranch, setTotalBranches } = useMessageBranch()
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children])
 
-  // Sync branch list to context when the number of branches changes
+  // Register branch count with parent context
   useEffect(() => {
-    setBranches(childrenArray)
-  }, [childrenArray.length, setBranches])
+    setTotalBranches(childrenArray.length)
+  }, [childrenArray.length, setTotalBranches])
 
   return childrenArray.map((branch, index) => (
     <div
