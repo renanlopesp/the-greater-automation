@@ -178,7 +178,7 @@ export class ConnectionManager {
     // Ensure JID format
     const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`
     const result = await conn.socket.sendMessage(jid, { text })
-    return result?.key?.id
+    return result?.key?.id ?? undefined
   }
 
   private async forwardToWebhook(
