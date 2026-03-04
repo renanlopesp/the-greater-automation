@@ -99,6 +99,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsEverOpened, setSettingsEverOpened] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
   const [isSwitchingWorkspace, startWorkspaceTransition] = useTransition()
   const [switchingToName, setSwitchingToName] = useState<string | null>(null)
@@ -114,6 +115,7 @@ export default function DashboardShell({
     const openSettingsParam = params.get('open_settings')
     if (openSettingsParam) {
       setSettingsSection(openSettingsParam as SettingsSection)
+      setSettingsEverOpened(true)
       setSettingsOpen(true)
       if (openSettingsParam === 'store') {
         toast.success('Nuvemshop conectada com sucesso!')
@@ -137,7 +139,10 @@ export default function DashboardShell({
           orchestratorId={orchestratorId}
           hasStore={!!storeData}
           onOpenCommandMenu={() => setCommandMenuOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setSettingsEverOpened(true)
+            setSettingsOpen(true)
+          }}
           onSwitchWorkspace={(name, transition) => {
             setSwitchingToName(name)
             startWorkspaceTransition(transition)
@@ -190,34 +195,36 @@ export default function DashboardShell({
           open={commandMenuOpen}
           onOpenChange={setCommandMenuOpen}
         />
-        <SettingsDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          defaultSection={settingsSection}
-          profile={{
-            fullName: user.fullName ?? '',
-            email: user.email,
-            avatarUrl: user.avatarUrl,
-          }}
-          team={team ? { name: team.name, slug: team.slug } : null}
-          teamId={team?.id}
-          usage={
-            usage
-              ? {
-                  stepsUsed: usage.stepsUsed,
-                  stepsLimit: usage.stepsLimit,
-                  aiCreditsUsed: usage.aiCreditsUsed,
-                  aiCreditsLimit: usage.aiCreditsLimit,
-                }
-              : null
-          }
-          members={members}
-          invitations={invitations}
-          currentUserRole={currentUserRole}
-          currentUserId={user.id}
-          planData={planData}
-          storeData={storeData}
-        />
+        {settingsEverOpened && (
+          <SettingsDialog
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            defaultSection={settingsSection}
+            profile={{
+              fullName: user.fullName ?? '',
+              email: user.email,
+              avatarUrl: user.avatarUrl,
+            }}
+            team={team ? { name: team.name, slug: team.slug } : null}
+            teamId={team?.id}
+            usage={
+              usage
+                ? {
+                    stepsUsed: usage.stepsUsed,
+                    stepsLimit: usage.stepsLimit,
+                    aiCreditsUsed: usage.aiCreditsUsed,
+                    aiCreditsLimit: usage.aiCreditsLimit,
+                  }
+                : null
+            }
+            members={members}
+            invitations={invitations}
+            currentUserRole={currentUserRole}
+            currentUserId={user.id}
+            planData={planData}
+            storeData={storeData}
+          />
+        )}
       </SidebarProvider>
     </CommandMenuContext>
   )

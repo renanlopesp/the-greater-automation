@@ -60,17 +60,17 @@ export async function POST(request: NextRequest) {
         .single()
       if (!member) return NextResponse.json({ error: 'No team found' }, { status: 400 })
       teamId = member.team_id
+    } else {
+      // Verify user is a member of the explicitly supplied team_id
+      const { data: membership } = await authSupabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id)
+        .eq('team_id', teamId)
+        .single()
+      if (!membership)
+        return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
     }
-
-    // Verify user is a member of this team
-    const { data: membership } = await authSupabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', user.id)
-      .eq('team_id', teamId)
-      .single()
-    if (!membership)
-      return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
 
     const { data: store } = await supabase
       .from('stores')

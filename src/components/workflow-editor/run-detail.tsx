@@ -38,14 +38,6 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
   const { data: run, isLoading } = useWorkflowRunDetail(workflowId, runId)
   const startRun = useStartWorkflowRun(workflowId)
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
-  const [currentTime, setCurrentTime] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!run?.completed_at && run?.status !== 'waiting') {
-      const interval = setInterval(() => setCurrentTime(Date.now()), 1000)
-      return () => clearInterval(interval)
-    }
-  }, [run?.completed_at, run?.status])
 
   const toggleStep = (stepId: string) => {
     setExpandedSteps((prev) => {
@@ -76,10 +68,6 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
     )
   }
 
-  const duration = run.completed_at
-    ? new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()
-    : currentTime - new Date(run.started_at).getTime()
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
@@ -101,7 +89,11 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
                 <Clock className="h-4 w-4" />
                 Iniciado {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
               </span>
-              <span>Duração: {formatDuration(duration)}</span>
+              <RunDuration
+                startedAt={run.started_at}
+                completedAt={run.completed_at}
+                status={run.status}
+              />
               <span>Gatilho: {run.trigger_type}</span>
               <span>
                 {run.summary.completed_steps}/{run.summary.total_steps} etapas concluídas
@@ -228,6 +220,31 @@ export default function RunDetail({ workflowId, runId, onBack }: RunDetailProps)
       </div>
     </div>
   )
+}
+
+function RunDuration({
+  startedAt,
+  completedAt,
+  status,
+}: {
+  startedAt: string
+  completedAt: string | null
+  status: string
+}) {
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!completedAt && status !== 'waiting') {
+      const interval = setInterval(() => setCurrentTime(Date.now()), 1000)
+      return () => clearInterval(interval)
+    }
+  }, [completedAt, status])
+
+  const ms = completedAt
+    ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
+    : currentTime - new Date(startedAt).getTime()
+
+  return <span>Duração: {formatDuration(ms)}</span>
 }
 
 function ApprovalCard({

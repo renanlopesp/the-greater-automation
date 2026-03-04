@@ -41,7 +41,8 @@ export default function StepsPanel() {
             // In prod, the trigger occupies "1", so steps start at 2.
             stepNumber={index + 2}
             isSelected={selectedStepId === step.id}
-            onClick={() => selectStep(step.id)}
+            stepId={step.id}
+            onClick={(id) => selectStep(id)}
             isFirst={index === 0}
             isLast={index === sortedSteps.length - 1}
             onMoveUp={() => reorderSteps(index, index - 1)}

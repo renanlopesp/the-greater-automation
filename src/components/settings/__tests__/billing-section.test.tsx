@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import BillingSection from '@/components/settings/billing-section'
 import type { PlanData } from '@/types/navigation'
 
@@ -11,6 +13,13 @@ vi.mock('sonner', () => ({
     error: vi.fn(),
   }),
 }))
+
+function renderWithQuery(ui: ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
 
 const freePlanData: PlanData = {
   planId: 'free',
@@ -47,7 +56,7 @@ describe('BillingSection', () => {
 
   describe('Renders with null planData (free defaults)', () => {
     it('renders heading and defaults to Free plan when planData is null', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -67,7 +76,7 @@ describe('BillingSection', () => {
 
   describe('Renders current plan name and description', () => {
     it('shows Pro plan name and description in current plan summary', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={500}
           stepsLimit={10000}
@@ -87,7 +96,7 @@ describe('BillingSection', () => {
 
   describe('Shows usage bars with correct values', () => {
     it('displays steps used and limit', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={250}
           stepsLimit={1000}
@@ -102,7 +111,7 @@ describe('BillingSection', () => {
     })
 
     it('displays AI credits used and limit', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -119,7 +128,7 @@ describe('BillingSection', () => {
 
   describe('Shows "Current plan" badge on active plan card', () => {
     it('shows Current plan badge on the free card when on free plan', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -137,7 +146,7 @@ describe('BillingSection', () => {
     })
 
     it('shows Current plan badge on the pro card when on pro plan', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={10000}
@@ -160,7 +169,7 @@ describe('BillingSection', () => {
 
   describe('Shows "Upgrade to Pro" button when on free plan', () => {
     it('renders upgrade buttons for higher-tier plans', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -177,7 +186,7 @@ describe('BillingSection', () => {
     })
 
     it('does not show upgrade button for the current free plan card', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -196,7 +205,7 @@ describe('BillingSection', () => {
 
   describe('Shows "Manage subscription" button when hasStripeSubscription', () => {
     it('shows Manage subscription button for current plan with Stripe subscription', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={10000}
@@ -210,7 +219,7 @@ describe('BillingSection', () => {
     })
 
     it('shows disabled "Current plan" button when no Stripe subscription', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -228,7 +237,7 @@ describe('BillingSection', () => {
 
   describe('Shows cancellation warning when cancelAtPeriodEnd', () => {
     it('shows cancellation warning when subscription is set to cancel', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={10000}
@@ -244,7 +253,7 @@ describe('BillingSection', () => {
     })
 
     it('does not show cancellation warning when cancelAtPeriodEnd is false', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={10000}
@@ -260,7 +269,7 @@ describe('BillingSection', () => {
     })
 
     it('does not show cancellation warning when planData is null', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -278,7 +287,7 @@ describe('BillingSection', () => {
 
   describe('Monthly/yearly toggle switches displayed prices', () => {
     it('shows monthly prices by default', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -296,7 +305,7 @@ describe('BillingSection', () => {
     it('shows yearly prices after clicking Yearly toggle', async () => {
       const user = userEvent.setup()
 
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -324,7 +333,7 @@ describe('BillingSection', () => {
     })
 
     it('shows Save 20% badge on Yearly toggle button', () => {
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -353,7 +362,7 @@ describe('BillingSection', () => {
         href: '',
       } as Location)
 
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -385,7 +394,7 @@ describe('BillingSection', () => {
       })
       vi.stubGlobal('fetch', mockFetch)
 
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
@@ -420,7 +429,7 @@ describe('BillingSection', () => {
       })
       vi.stubGlobal('fetch', mockFetch)
 
-      render(
+      renderWithQuery(
         <BillingSection
           stepsUsed={0}
           stepsLimit={1000}
