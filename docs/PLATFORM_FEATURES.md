@@ -1,6 +1,6 @@
 # Relay Platform - Documentacao Completa de Funcionalidades
 
-> **Ultima atualizacao**: 2026-03-02
+> **Ultima atualizacao**: 2026-03-03
 > **Versao**: Next.js 16.1.6, React 19.2.3, TypeScript 5
 
 Relay e uma plataforma de automacao com IA para e-commerce, construida com Next.js 16 e integrada com Nuvemshop, Shopify, Composio (200+ apps), Telegram e Stripe. O sistema combina agentes de IA especializados, workflows visuais e ferramentas de retail intelligence para automatizar operacoes de loja.
@@ -51,6 +51,8 @@ Relay e uma plataforma de automacao com IA para e-commerce, construida com Next.
 40. [Infraestrutura e Stack Tecnico](#40-infraestrutura-e-stack-tecnico)
 41. [Gerenciamento de Estado](#41-gerenciamento-de-estado)
 42. [Componentes UI Customizados](#42-componentes-ui-customizados)
+43. [Gestao de Fornecedores](#43-gestao-de-fornecedores)
+44. [Traducao PT-BR](#44-traducao-pt-br)
 
 ---
 
@@ -584,7 +586,7 @@ Wizard de 6 etapas que configura a loja e cria agentes automaticamente:
 - **Retorna**: Por produto: elasticidade estimada, receita atual vs simulada, variacao%, confianca (baseada_em_dados/dados_limitados/estimativa_padrao)
 - **Fonte**: NuvemshopClient.getOrders() + store_products
 
-### Ferramentas de Gerenciamento (Create/Update/Delete) — 18 tools
+### Ferramentas de Gerenciamento (Create/Update/Delete) — 22 tools
 
 #### STORE_UPDATE_ALERT
 
@@ -693,6 +695,30 @@ Wizard de 6 etapas que configura a loja e cria agentes automaticamente:
 - **O que faz**: Desativa monitor de preco e pausa workflow associado
 - **Parametros**: `monitor_id` ou `product_name`
 - **Acoes**: Set store_price_monitors.is_active=false, workflow.status='draft'
+
+#### STORE_MANAGE_SUPPLIERS
+
+- **O que faz**: Gerencia fornecedores (CRUD) — criar, listar, atualizar ou desativar
+- **Parametros**: `action` ('list'|'create'|'update'|'deactivate'), `name`, `contact_email`, `contact_phone`, `lead_time_days`, `min_order_value`, `payment_terms`, `notes`, `supplier_id`
+- **Acoes**: CRUD na tabela store_suppliers
+
+#### STORE_LINK_PRODUCT_SUPPLIER
+
+- **O que faz**: Vincula/desvincula produtos a fornecedores com preco de custo
+- **Parametros**: `action` ('link'|'unlink'|'list'|'set_preferred'), `product_name`, `supplier_name`, `cost_price`, `is_preferred`
+- **Acoes**: Upsert/delete em store_product_suppliers
+
+#### STORE_SUGGEST_REORDER
+
+- **O que faz**: Sugere produtos para reposicao baseado em estoque, velocidade de vendas e lead time do fornecedor
+- **Parametros**: `urgency` ('all'|'critical'|'warning'), `supplier_name`, `days` (default: 30)
+- **Retorna**: Produtos priorizados por urgencia com quantidade sugerida, valor estimado e data limite para pedido
+
+#### STORE_COMPARE_SUPPLIERS
+
+- **O que faz**: Compara fornecedores de um produto lado a lado (preco, lead time, pedido minimo, ultimo pedido)
+- **Parametros**: `product_name`
+- **Retorna**: Tabela comparativa com destaque para melhor preco e menor lead time
 
 ### Funcoes Helper
 
@@ -1362,14 +1388,45 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ## 33. Paginas de Produtos
 
-**Arquivo**: `src/app/(dashboard)/products/page.tsx`
+**Arquivos**: `src/app/(dashboard)/products/page.tsx`, `src/components/products/products-client.tsx` (906 linhas)
 
 ### Funcionalidades
 
-- Visualizacao do catalogo de produtos com precos e estoque
-- Integracao com agente de chat para Q&A
-- Referencia de gerenciamento de inventario
-- Dados vem de `store_products` (sincronizados com Nuvemshop)
+- **Catalogo completo**: Todos os produtos com nome, SKU, preco, custo, estoque e status de publicacao
+- **Busca**: Por nome ou SKU
+- **Filtros**: Status de custo (todos/sem custo/com custo) e faixa de margem (todos/baixa <20%/media 20-40%/alta >40%)
+- **Ordenacao**: Por nome, SKU, preco, custo, margem %, valor de margem
+- **Paginacao**: 25, 50 ou 100 itens por pagina
+- **Selecao em massa**: Checkboxes para operacoes em lote
+
+### Gestao de Custos e Margens
+
+- **Edicao inline de custo**: Click no campo, edita, salva com Enter ou blur
+- **Aplicacao de margem em lote**: Seleciona produtos, define margem % alvo, auto-calcula `cost_price = price × (1 - margin/100)`
+- **Indicadores visuais de margem**: Vermelho (<20%), laranja (20-40%), verde (>40%)
+- **Margem media**: Calculo automatico exibido no header
+
+### Importacao de CSV
+
+- Upload de CSV/TSV/TXT com dados de custo
+- Auto-deteccao de colunas: SKU (sku/codigo), nome (name/nome/produto), custo (cost/custo/cost_price)
+- Match por SKU primeiro, depois por nome (case-insensitive)
+- Preview com: produtos encontrados, novos custos, margens calculadas, linhas nao encontradas
+- Aplicacao em lote dos custos encontrados
+
+### Cards de Estatisticas
+
+| Card              | Descricao                                          |
+| ----------------- | -------------------------------------------------- |
+| Total de produtos | Contagem total do catalogo                         |
+| Com custo         | Produtos com cost_price definido (indicador verde) |
+| Sem custo         | Produtos sem cost_price (indicador laranja se > 0) |
+| Margem media      | Media de margem % (cor por faixa de rentabilidade) |
+
+### Integracao com Agente
+
+- CTA card "Previsao de demanda" que direciona para o chat com o agente Snew
+- Permite consultar quais produtos vao esgotar e quando repor
 
 ---
 
@@ -1502,16 +1559,18 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ### Tabelas de Retail/E-commerce
 
-| Tabela                               | Descricao             | Campos Principais                                                  |
-| ------------------------------------ | --------------------- | ------------------------------------------------------------------ |
-| `stores`                             | Config da loja        | id, team_id, platform, platform_store_id, settings                 |
-| `store_products`                     | Produtos              | id, store_id, external_id, name, price, stock_quantity, cost_price |
-| `store_orders`                       | Pedidos               | id, store_id, external_id, order_number, total, status, items      |
-| `store_stock_alerts`                 | Alertas de estoque    | id, store_id, product_id, threshold, last_triggered_at             |
-| `store_price_monitors`               | Monitores de preco    | id, store_id, product_name, url, last_price                        |
-| `store_price_history`                | Historico de precos   | id, monitor_id, price, checked_at                                  |
-| `store_abandoned_cart_notifications` | Carrinhos abandonados | id, store_id, checkout_id, recovered_at                            |
-| `nuvemshop_webhooks`                 | Webhooks registrados  | id, store_id, event, external_webhook_id                           |
+| Tabela                               | Descricao                | Campos Principais                                                                                                  |
+| ------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `stores`                             | Config da loja           | id, team_id, platform, platform_store_id, settings                                                                 |
+| `store_products`                     | Produtos                 | id, store_id, external_id, name, price, stock_quantity, cost_price                                                 |
+| `store_orders`                       | Pedidos                  | id, store_id, external_id, order_number, total, status, items                                                      |
+| `store_stock_alerts`                 | Alertas de estoque       | id, store_id, product_id, threshold, last_triggered_at                                                             |
+| `store_price_monitors`               | Monitores de preco       | id, store_id, product_name, url, last_price                                                                        |
+| `store_price_history`                | Historico de precos      | id, monitor_id, price, checked_at                                                                                  |
+| `store_abandoned_cart_notifications` | Carrinhos abandonados    | id, store_id, checkout_id, recovered_at                                                                            |
+| `nuvemshop_webhooks`                 | Webhooks registrados     | id, store_id, event, external_webhook_id                                                                           |
+| `store_suppliers`                    | Fornecedores             | id, store_id, name, contact_email, contact_phone, lead_time_days, min_order_value, payment_terms, notes, is_active |
+| `store_product_suppliers`            | Links produto-fornecedor | id, store_id, product_id, supplier_id, cost_price, is_preferred, last_order_at, last_order_qty                     |
 
 ### Tabelas de Billing
 
@@ -1562,17 +1621,21 @@ GitHub, Slack, Discord, Shopify, Google Sheets, Mailchimp, Stripe, e 200+ mais
 
 ### Loja e E-commerce (7 rotas)
 
-| Metodo    | Rota                            | Descricao             |
-| --------- | ------------------------------- | --------------------- |
-| GET       | `/api/nuvemshop/connect`        | Iniciar OAuth         |
-| GET       | `/api/nuvemshop/callback`       | Callback OAuth        |
-| POST      | `/api/nuvemshop/webhook`        | Webhook Nuvemshop     |
-| POST      | `/api/nuvemshop/sync`           | Sync manual           |
-| GET       | `/api/nuvemshop/cron`           | Sync periodico        |
-| POST      | `/api/store/daily-summary`      | Resumo diario         |
-| PATCH     | `/api/store/products/[id]`      | Atualizar produto     |
-| PATCH     | `/api/store/products/bulk-cost` | Bulk update custos    |
-| GET/PATCH | `/api/store/settings`           | Configuracoes da loja |
+| Metodo                | Rota                            | Descricao                      |
+| --------------------- | ------------------------------- | ------------------------------ |
+| GET                   | `/api/nuvemshop/connect`        | Iniciar OAuth                  |
+| GET                   | `/api/nuvemshop/callback`       | Callback OAuth                 |
+| POST                  | `/api/nuvemshop/webhook`        | Webhook Nuvemshop              |
+| POST                  | `/api/nuvemshop/sync`           | Sync manual                    |
+| GET                   | `/api/nuvemshop/cron`           | Sync periodico                 |
+| POST                  | `/api/store/daily-summary`      | Resumo diario                  |
+| PATCH                 | `/api/store/products/[id]`      | Atualizar produto              |
+| PATCH                 | `/api/store/products/bulk-cost` | Bulk update custos             |
+| GET/PATCH             | `/api/store/settings`           | Configuracoes da loja          |
+| GET/POST              | `/api/store/suppliers`          | Listar/criar fornecedores      |
+| PATCH/DELETE          | `/api/store/suppliers/[id]`     | Atualizar/desativar fornecedor |
+| GET/POST/PATCH/DELETE | `/api/store/suppliers/products` | Links produto-fornecedor       |
+| GET                   | `/api/store/suppliers/reorder`  | Timeline de reposicao          |
 
 ### Messaging (4 rotas)
 
@@ -1774,23 +1837,139 @@ Incluem: `useAgentChat`, `useWorkflowRuns`, `useNotifications`, `usePresence`, `
 
 ---
 
+## 43. Gestao de Fornecedores
+
+**Arquivos**: `src/app/(dashboard)/suppliers/page.tsx`, `src/components/suppliers/` (8 componentes, ~1500 linhas)
+
+Sistema completo de gestao de fornecedores para otimizar compras e reposicao de estoque.
+
+### Interface com 2 Abas
+
+| Aba              | Descricao                                                                  |
+| ---------------- | -------------------------------------------------------------------------- |
+| **Fornecedores** | Lista de fornecedores com busca, filtros (ativo/inativo/todos) e ordenacao |
+| **Reposicao**    | Timeline inteligente de reposicao com cards por produto                    |
+
+### CRUD de Fornecedores
+
+- **Criar**: Nome, email, telefone, lead time (dias), pedido minimo, condicoes de pagamento, notas
+- **Editar**: Dialog com formulario pre-preenchido
+- **Desativar**: Soft delete (is_active=false)
+- **Buscar**: Por nome com filtro de status
+- **Ordenar**: Por nome, lead time ou data de criacao
+
+### Vinculacao Produto-Fornecedor (N:N)
+
+- Vincular multiplos fornecedores a um produto com preco de custo especifico
+- Marcar um fornecedor como "preferido" por produto (auto-desmarca os demais)
+- Semantica de upsert: vincular mesmo par produto+fornecedor atualiza o link existente
+- Rastreia `last_order_at` e `last_order_qty` para historico de compras
+
+### Timeline de Reposicao Inteligente
+
+Calcula quando repor baseado em: estoque atual, velocidade de vendas (previsao de demanda) e lead time do fornecedor.
+
+| Urgencia     | Criterio                                       | Cor      |
+| ------------ | ---------------------------------------------- | -------- |
+| **Critico**  | Estoque acaba antes do lead time do fornecedor | Vermelho |
+| **Atencao**  | Estoque acaba em ate 2x o lead time            | Amarelo  |
+| **Saudavel** | Estoque suficiente para mais de 2x lead time   | Verde    |
+
+Cada card mostra: produto, fornecedor preferido, estoque/dias restantes, quantidade sugerida (30 dias de consumo), valor estimado e data limite para pedido.
+
+### Cards de Resumo
+
+4 indicadores no topo: produtos criticos, atencao, saudaveis e sem fornecedor.
+
+### Comparacao de Fornecedores
+
+Dialog lado a lado para comparar 2+ fornecedores do mesmo produto:
+
+- Preco de custo, lead time, pedido minimo, ultimo pedido
+- Destaque automatico para melhor preco e menor lead time
+
+### Historico de Compras
+
+- Registrar compras realizadas (data, quantidade, valor)
+- Atualiza `last_order_at` e `last_order_qty` no link
+
+### Ferramentas de Chat (4 tools)
+
+| Ferramenta                  | Descricao                           |
+| --------------------------- | ----------------------------------- |
+| STORE_MANAGE_SUPPLIERS      | CRUD de fornecedores via chat       |
+| STORE_LINK_PRODUCT_SUPPLIER | Vincular produtos a fornecedores    |
+| STORE_SUGGEST_REORDER       | Lista priorizada de reposicao       |
+| STORE_COMPARE_SUPPLIERS     | Comparar fornecedores de um produto |
+
+### Banco de Dados
+
+| Tabela                    | Campos Principais                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `store_suppliers`         | id, store_id, name, contact_email, contact_phone, lead_time_days, min_order_value, payment_terms, notes, is_active |
+| `store_product_suppliers` | id, store_id, product_id, supplier_id, cost_price, is_preferred, last_order_at, last_order_qty                     |
+
+### API Routes
+
+| Metodo                | Rota                            | Descricao                 |
+| --------------------- | ------------------------------- | ------------------------- |
+| GET/POST              | `/api/store/suppliers`          | Listar/criar fornecedores |
+| PATCH/DELETE          | `/api/store/suppliers/[id]`     | Atualizar/desativar       |
+| GET/POST/PATCH/DELETE | `/api/store/suppliers/products` | Links produto-fornecedor  |
+| GET                   | `/api/store/suppliers/reorder`  | Timeline de reposicao     |
+
+---
+
+## 44. Traducao PT-BR
+
+**Status**: Completa — toda a UI esta em Portugues (Brasil)
+
+### Escopo
+
+A plataforma inteira foi traduzida para PT-BR, incluindo:
+
+- **Paginas**: Dashboard, workspace, agentes, workflows, produtos, fornecedores, runs, configuracoes, onboarding, auth
+- **Componentes**: Botoes, labels, placeholders, dialogs, tabelas, tooltips, badges de status
+- **Mensagens**: Erros, validacoes, toasts de sucesso/falha, estados vazios
+- **Metadata**: Titulo da pagina, descricao, atributo `lang="pt-BR"` no `<html>`
+- **Relatorios Telegram**: Alertas de estoque, notificacoes de pedido, resumo diario de vendas
+- **Labels de agentes**: Nomes de segmento, prioridades, plataformas, roles de agentes
+- **Testes**: Todas as 955 assertions atualizadas para PT-BR
+
+### Implementacao
+
+- Strings traduzidas diretamente nos componentes (sem biblioteca i18n)
+- Glossario de consistencia em `.claude/translation-glossary.md` (~200 termos)
+- Formatacao de datas e moeda em `pt-BR` (ex: `R$ 159,90`, `03/03/2026`)
+- Nomes de exemplo localizados (ex: "Maria Silva" em vez de "Jane Doe")
+
+### O que permanece em ingles
+
+- Nomes de componentes, variaveis e funcoes
+- System prompts de IA (instrucoes para o modelo)
+- Nomes tecnicos (API, webhook, HMAC, OAuth, etc.)
+- Classes CSS, aria-labels e textos sr-only
+
+---
+
 ## Resumo Numerico
 
 | Categoria               | Quantidade |
 | ----------------------- | ---------- |
-| Paginas UI              | 13         |
-| Rotas de API            | 39+        |
-| Ferramentas STORE\_\*   | 38         |
+| Paginas UI              | 14         |
+| Rotas de API            | 43+        |
+| Ferramentas STORE\_\*   | 42         |
 | Ferramentas SNEW\_\*    | 13         |
 | Metodos NuvemshopClient | 38+        |
 | Schemas Zod             | 17         |
-| Tabelas no banco        | 35+        |
+| Tabelas no banco        | 37+        |
 | Tipos de trigger        | 9          |
 | Tipos de step           | 8          |
 | Custom hooks            | 26         |
-| Componentes React       | 200+       |
+| Componentes React       | 210+       |
 | Apps Composio           | 200+       |
 | Funcoes helper retail   | 7          |
 | Ferramentas analytics   | 9          |
 | Skills por segmento     | 32         |
 | Cron jobs               | 4          |
+| Idioma da UI            | PT-BR      |

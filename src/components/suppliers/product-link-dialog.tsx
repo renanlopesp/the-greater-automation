@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ import {
   type Supplier,
   type ProductSupplierLink,
 } from '@/lib/queries/suppliers'
+import { useDebounce } from '@/hooks/use-debounce'
 
 interface ProductLinkDialogProps {
   open: boolean
@@ -45,8 +47,7 @@ export default function ProductLinkDialog({
   supplier,
 }: ProductLinkDialogProps) {
   const [search, setSearch] = useState('')
-  const [products, setProducts] = useState<StoreProduct[]>([])
-  const [loadingProducts, setLoadingProducts] = useState(false)
+  const debouncedSearch = useDebounce(search, 300)
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null)
   const [costPrice, setCostPrice] = useState('')
   const [isPreferred, setIsPreferred] = useState(false)
@@ -59,39 +60,30 @@ export default function ProductLinkDialog({
   const updateLink = useUpdateLink()
   const deleteLink = useDeleteLink()
 
-  useEffect(() => {
-    if (!open) {
+  // Product search via React Query — handles race conditions, caching, deduplication
+  const { data: searchResults = [], isFetching: loadingProducts } = useQuery({
+    queryKey: ['store-products-search', debouncedSearch],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/store/products?search=${encodeURIComponent(debouncedSearch)}&limit=10`
+      )
+      if (!res.ok) return []
+      const data = await res.json()
+      return (data.products ?? []) as StoreProduct[]
+    },
+    enabled: debouncedSearch.length >= 2,
+    staleTime: 30_000,
+  })
+
+  function handleOpenChange(newOpen: boolean) {
+    if (!newOpen) {
       setSearch('')
-      setProducts([])
       setSelectedProduct(null)
       setCostPrice('')
       setIsPreferred(false)
     }
-  }, [open])
-
-  const searchProducts = async (q: string) => {
-    if (q.length < 2) {
-      setProducts([])
-      return
-    }
-    setLoadingProducts(true)
-    try {
-      const res = await fetch(`/api/store/products?search=${encodeURIComponent(q)}&limit=10`)
-      if (res.ok) {
-        const data = await res.json()
-        setProducts(data.products ?? [])
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingProducts(false)
-    }
+    onOpenChange(newOpen)
   }
-
-  useEffect(() => {
-    const timer = setTimeout(() => searchProducts(search), 300)
-    return () => clearTimeout(timer)
-  }, [search])
 
   const handleLink = async () => {
     if (!supplier || !selectedProduct) return
@@ -108,7 +100,6 @@ export default function ProductLinkDialog({
       setCostPrice('')
       setIsPreferred(false)
       setSearch('')
-      setProducts([])
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao vincular produto')
     } finally {
@@ -138,7 +129,7 @@ export default function ProductLinkDialog({
   }
 
   const linkedProductIds = new Set((links ?? []).map((l) => l.product_id))
-  const availableProducts = products.filter((p) => !linkedProductIds.has(p.id))
+  const availableProducts = searchResults.filter((p) => !linkedProductIds.has(p.id))
 
   const formatCurrency = (value: number | null) => {
     if (value == null) return '—'
@@ -146,7 +137,7 @@ export default function ProductLinkDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Produtos — {supplier?.name}</DialogTitle>

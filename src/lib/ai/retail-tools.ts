@@ -1193,12 +1193,14 @@ export function buildRetailTools(
                 id: c.id,
                 code: c.code,
                 type: c.type,
-                value: c.value,
+                value: String(c.value ?? ''),
                 valid: c.valid,
                 used: c.used,
                 max_uses: c.max_uses,
                 start_date: c.start_date,
                 end_date: c.end_date,
+                min_price: c.min_price != null ? String(c.min_price) : null,
+                includes_shipping: c.includes_shipping,
               })),
               total: coupons.length,
             }
@@ -1218,7 +1220,17 @@ export function buildRetailTools(
             })
             return {
               success: true,
-              message: `Coupon "${coupon.code}" created (${coupon.type}: ${coupon.value}).`,
+              coupon: {
+                id: coupon.id,
+                code: coupon.code,
+                type: coupon.type,
+                value: String(coupon.value ?? ''),
+                valid: coupon.valid,
+                max_uses: coupon.max_uses,
+                start_date: coupon.start_date,
+                end_date: coupon.end_date,
+              },
+              message: `Cupom "${coupon.code}" criado (${coupon.type}: ${coupon.value ?? 'frete grátis'}).`,
             }
           }
 
@@ -2252,24 +2264,39 @@ export function buildRetailTools(
         }> = []
         const notFound: string[] = []
 
+        // Build lookup maps before the loop to avoid O(n²) find() calls
+        const bySkuMap = new Map<string, (typeof allProducts)[0]>()
+        const byNameMap = new Map<string, (typeof allProducts)[0]>()
+        const byNormalizedName = new Map<string, (typeof allProducts)[0]>()
+        for (const p of allProducts) {
+          if (p.sku) bySkuMap.set(p.sku.toLowerCase(), p)
+          byNameMap.set(p.name.toLowerCase(), p)
+          byNormalizedName.set(normalizeAccents(p.name), p)
+        }
+        const matchedIds = new Set<string>()
+
         for (const entry of params.entries) {
           if (entry.cost_price < 0) continue
 
-          let product = entry.sku
-            ? allProducts.find((p) => p.sku?.toLowerCase() === entry.sku!.toLowerCase())
-            : null
+          let product = entry.sku ? (bySkuMap.get(entry.sku.toLowerCase()) ?? null) : null
 
           if (!product && entry.name) {
             // Exact match first
-            product = allProducts.find((p) => p.name.toLowerCase() === entry.name!.toLowerCase())
+            product = byNameMap.get(entry.name.toLowerCase()) ?? null
             // Fuzzy match fallback
             if (!product) {
               const needle = normalizeAccents(entry.name)
-              product = allProducts.find((p) => normalizeAccents(p.name).includes(needle))
+              for (const [normalizedKey, p] of byNormalizedName) {
+                if (normalizedKey.includes(needle)) {
+                  product = p
+                  break
+                }
+              }
             }
           }
 
-          if (product && !matched.some((m) => m.id === product!.id)) {
+          if (product && !matchedIds.has(product.id)) {
+            matchedIds.add(product.id)
             matched.push({
               id: product.id,
               name: product.name,
@@ -2285,16 +2312,21 @@ export function buildRetailTools(
           return { error: 'No products matched.', not_found: notFound }
         }
 
-        // Bulk update
+        // Bulk update in batches of 50 to avoid sequential round-trips
+        const BATCH_SIZE = 50
         let updated = 0
         let errors = 0
-        for (const m of matched) {
-          const { error } = await supabase
-            .from('store_products')
-            .update({ cost_price: m.cost_price })
-            .eq('id', m.id)
-          if (error) errors++
-          else updated++
+        for (let i = 0; i < matched.length; i += BATCH_SIZE) {
+          const batch = matched.slice(i, i + BATCH_SIZE)
+          const results = await Promise.allSettled(
+            batch.map((m) =>
+              supabase.from('store_products').update({ cost_price: m.cost_price }).eq('id', m.id)
+            )
+          )
+          for (const r of results) {
+            if (r.status === 'fulfilled' && !r.value.error) updated++
+            else errors++
+          }
         }
 
         const summary = matched.map((m) => {

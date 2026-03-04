@@ -13,27 +13,30 @@ export default function WorkflowEditorPage() {
   const saveWorkflow = useSaveWorkflow(params.id)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const isDirtyRef = useRef(false)
+  const initRef = useRef<string | null>(null)
 
-  // Subscribe to storeWorkflowId so the component re-renders if the store
-  // is reset by a late cleanup from the previous page (React 18 transitions
-  // can fire the old cleanup AFTER the new component renders).
+  // Subscribe to storeWorkflowId for the loading check — the component
+  // re-renders when the store is initialized or reset.
   const storeWorkflowId = useWorkflowEditorStore((s) => s.workflowId)
-  const needsInit = storeWorkflowId !== params.id
 
-  // Initialize store in an effect to avoid "Cannot update a component while
-  // rendering" warnings. The `needsInit` guard ensures this only fires when
-  // the store doesn't match the current route — NOT on query refetches.
+  // One-time store init — ref guard prevents re-runs on query refetch.
+  // After init, the store is the source of truth for edits; query refetches
+  // (e.g., window refocus, post-save invalidation) are silently ignored.
   useEffect(() => {
-    if (data && needsInit) {
+    if (initRef.current === params.id) return
+    if (data) {
+      initRef.current = params.id
       useWorkflowEditorStore.getState().initializeWorkflow(data)
-    } else if (!data && !isLoading && !storeWorkflowId) {
+    } else if (!isLoading) {
+      initRef.current = params.id
       useWorkflowEditorStore.getState().initializeWorkflow({ workflowId: params.id })
     }
-  }, [data, isLoading, needsInit, storeWorkflowId, params.id])
+  }, [data, isLoading, params.id])
 
-  // Reset store on unmount
+  // Reset store + ref on unmount / navigation to different workflow
   useEffect(() => {
     return () => {
+      initRef.current = null
       useWorkflowEditorStore.getState().resetStore()
     }
   }, [params.id])
@@ -162,7 +165,7 @@ export default function WorkflowEditorPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [handleSave])
 
-  if (isLoading || needsInit) {
+  if (isLoading || storeWorkflowId !== params.id) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-muted-foreground">Carregando automação...</div>

@@ -99,16 +99,18 @@ async function registerWebhooks(
   // createWebhook(event, url) — event first, url second
   const events = ['product/updated', 'order/created', 'order/paid']
 
-  for (const event of events) {
-    try {
-      const webhook = await client.createWebhook(event, webhookUrl)
-      await supabase.from('nuvemshop_webhooks').insert({
-        store_id: storeId,
-        external_webhook_id: String(webhook.id),
-        event,
-      })
-    } catch (error) {
-      console.error(`[nuvemshop/callback] Failed to register webhook ${event}:`, error)
-    }
-  }
+  await Promise.allSettled(
+    events.map(async (event) => {
+      try {
+        const webhook = await client.createWebhook(event, webhookUrl)
+        await supabase.from('nuvemshop_webhooks').insert({
+          store_id: storeId,
+          external_webhook_id: String(webhook.id),
+          event,
+        })
+      } catch (error) {
+        console.error(`[nuvemshop/callback] Failed to register webhook ${event}:`, error)
+      }
+    })
+  )
 }

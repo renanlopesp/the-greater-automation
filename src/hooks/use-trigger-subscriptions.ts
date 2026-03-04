@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { getTriggerSubscriptions } from '@/lib/actions/trigger-subscriptions'
 import { createBrowserClient } from '@/lib/supabase/client'
 
@@ -45,26 +45,28 @@ export interface RunStep {
 export const usePipelineRunSteps = useWorkflowRunSteps
 
 export function useWorkflowRunSteps(runId: string | null) {
-  const [steps, setSteps] = useState<RunStep[] | null>(null)
-  const [status, setStatus] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (!runId) return
+  const { data } = useQuery({
+    queryKey: ['workflow-run-steps', runId],
+    queryFn: async () => {
+      const supabase = createBrowserClient()
 
-    const supabase = createBrowserClient()
+      const [stepsRes, runRes] = await Promise.all([
+        supabase
+          .from('workflow_run_steps')
+          .select(
+            'step_id, step_position, step_type, status, output, error, started_at, completed_at, duration_ms'
+          )
+          .eq('run_id', runId!)
+          .order('step_position', { ascending: true }),
+        supabase.from('workflow_runs').select('status').eq('id', runId!).single(),
+      ])
 
-    // Fetch steps from workflow_run_steps (normalized table)
-    async function fetchSteps() {
-      const { data: runSteps } = await supabase
-        .from('workflow_run_steps')
-        .select(
-          'step_id, step_position, step_type, status, output, error, started_at, completed_at, duration_ms'
-        )
-        .eq('run_id', runId!)
-        .order('step_position', { ascending: true })
+      const runSteps = stepsRes.data ?? []
+      let steps: RunStep[] = []
 
-      if (runSteps && runSteps.length > 0) {
-        // Fetch step names in parallel with the run status query below
+      if (runSteps.length > 0) {
         const stepIds = runSteps.map((rs) => rs.step_id).filter(Boolean) as string[]
         const stepNames: Record<string, string> = {}
         if (stepIds.length > 0) {
@@ -77,35 +79,31 @@ export function useWorkflowRunSteps(runId: string | null) {
           }
         }
 
-        setSteps(
-          runSteps.map((rs) => ({
-            step_index: rs.step_position,
-            action_type: rs.step_type,
-            name: (rs.step_id && stepNames[rs.step_id]) || `Step ${rs.step_position + 1}`,
-            status: rs.status as RunStep['status'],
-            output: rs.output as Record<string, unknown> | undefined,
-            error: rs.error,
-            started_at: rs.started_at,
-            completed_at: rs.completed_at,
-            duration_ms: rs.duration_ms,
-          }))
-        )
+        steps = runSteps.map((rs) => ({
+          step_index: rs.step_position,
+          action_type: rs.step_type,
+          name: (rs.step_id && stepNames[rs.step_id]) || `Step ${rs.step_position + 1}`,
+          status: rs.status as RunStep['status'],
+          output: rs.output as Record<string, unknown> | undefined,
+          error: rs.error,
+          started_at: rs.started_at,
+          completed_at: rs.completed_at,
+          duration_ms: rs.duration_ms,
+        }))
       }
 
-      // Also fetch run status
-      const { data: run } = await supabase
-        .from('workflow_runs')
-        .select('status')
-        .eq('id', runId!)
-        .single()
-      if (run) setStatus(run.status)
-    }
+      return { steps, status: runRes.data?.status ?? null }
+    },
+    enabled: !!runId,
+    staleTime: 5_000,
+  })
 
-    fetchSteps().catch(() => {
-      // Ignore errors on initial fetch
-    })
+  // Realtime subscriptions — invalidate query instead of manual setState
+  useEffect(() => {
+    if (!runId) return
 
-    // Subscribe to realtime updates on workflow_run_steps
+    const supabase = createBrowserClient()
+
     const stepsChannel = supabase
       .channel(`run-steps-${runId}`)
       .on(
@@ -117,13 +115,11 @@ export function useWorkflowRunSteps(runId: string | null) {
           filter: `run_id=eq.${runId}`,
         },
         () => {
-          // Re-fetch all steps on any step change (simple and correct)
-          fetchSteps().catch(() => {})
+          queryClient.invalidateQueries({ queryKey: ['workflow-run-steps', runId] })
         }
       )
       .subscribe()
 
-    // Subscribe to run status changes
     const runChannel = supabase
       .channel(`run-status-${runId}`)
       .on(
@@ -134,11 +130,8 @@ export function useWorkflowRunSteps(runId: string | null) {
           table: 'workflow_runs',
           filter: `id=eq.${runId}`,
         },
-        (payload) => {
-          const newData = payload.new as Record<string, unknown>
-          if (typeof newData.status === 'string') {
-            setStatus(newData.status)
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['workflow-run-steps', runId] })
         }
       )
       .subscribe()
@@ -147,9 +140,9 @@ export function useWorkflowRunSteps(runId: string | null) {
       supabase.removeChannel(stepsChannel).catch(() => {})
       supabase.removeChannel(runChannel).catch(() => {})
     }
-  }, [runId])
+  }, [runId, queryClient])
 
-  return { steps, status }
+  return { steps: data?.steps ?? null, status: data?.status ?? null }
 }
 
 // ---------------------------------------------------------------------------
