@@ -45,14 +45,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (channel === 'whatsapp') {
-    // WhatsApp uses a QR code flow instead of a verification code
+    // WhatsApp uses a QR code flow — redirect to /api/messaging/whatsapp/qr
     return NextResponse.json({
-      instructions: [
-        'Open WhatsApp and scan the QR code below',
-        'Or click the link to open WhatsApp Web',
-        'Send a message to start the linking process',
-      ],
       channel: 'whatsapp',
+      message: 'Use POST /api/messaging/whatsapp/qr to initiate QR code connection',
     })
   }
 
@@ -110,7 +106,9 @@ export async function GET(request: NextRequest) {
 
   const { data: link } = await supabase
     .from('messaging_links')
-    .select('id, channel_type, external_username, is_verified, conversation_id, created_at')
+    .select(
+      'id, channel_type, external_chat_id, external_username, is_verified, conversation_id, created_at'
+    )
     .eq('user_id', user.id)
     .eq('channel_type', channel)
     .single()
@@ -127,6 +125,7 @@ export async function GET(request: NextRequest) {
     status: 'linked',
     linkId: link.id,
     externalUsername: link.external_username,
+    phoneNumber: link.channel_type === 'whatsapp' ? link.external_chat_id : undefined,
     conversationId: link.conversation_id,
     createdAt: link.created_at,
   })
