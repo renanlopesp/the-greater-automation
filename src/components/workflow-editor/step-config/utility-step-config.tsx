@@ -36,7 +36,6 @@ export default function UtilityStepConfigForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="send_telegram">Enviar Telegram</SelectItem>
-            <SelectItem value="send_whatsapp">Enviar WhatsApp</SelectItem>
             <SelectItem value="format">Formatar dados</SelectItem>
             <SelectItem value="parse_json">Parse JSON</SelectItem>
             <SelectItem value="parse_csv">Parse CSV</SelectItem>
@@ -93,28 +92,8 @@ export default function UtilityStepConfigForm({
         </>
       )}
 
-      {/* Send WhatsApp fields */}
-      {config.utility_type === 'send_whatsapp' && (
-        <div>
-          <Label htmlFor="whatsapp-template" className="text-sm font-medium">
-            Modelo de mensagem
-          </Label>
-          <Textarea
-            id="whatsapp-template"
-            value={config.whatsapp_template ?? ''}
-            onChange={(e) => onUpdate({ ...config, whatsapp_template: e.target.value })}
-            placeholder="e.g., {{step_3.output.content}}"
-            rows={4}
-            className="mt-1"
-          />
-          <p className="text-muted-foreground mt-1 text-xs">
-            Use {'{{step_N.output.content}}'} to reference output from previous steps.
-          </p>
-        </div>
-      )}
-
-      {/* Non-telegram/whatsapp types show input source */}
-      {config.utility_type !== 'send_telegram' && config.utility_type !== 'send_whatsapp' && (
+      {/* Non-telegram types show input source */}
+      {config.utility_type !== 'send_telegram' && (
         <div>
           <Label htmlFor="input-source" className="text-sm font-medium">
             Fonte de entrada

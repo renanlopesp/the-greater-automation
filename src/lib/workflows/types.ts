@@ -110,7 +110,7 @@ export interface AiTransformActionConfig {
 
 export interface NotifyActionConfig {
   type: 'notify'
-  channel: 'internal' | 'slack' | 'email' | 'telegram' | 'whatsapp'
+  channel: 'internal' | 'slack' | 'email' | 'telegram'
   message: string // supports {{trigger.field}} templates
   target?: string // channel name, email, etc.
 }

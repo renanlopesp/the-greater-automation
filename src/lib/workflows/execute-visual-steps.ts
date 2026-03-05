@@ -316,48 +316,6 @@ export async function executeVisualWorkflowSteps(
                 chat_id: link.external_chat_id,
                 message: resolvedMessage,
               } as unknown as typeof stepOutput
-            } else if (utilConfig.utility_type === 'send_whatsapp') {
-              const template = utilConfig.whatsapp_template || '{{prev}}'
-              const resolvedMessage = resolveTemplate(
-                template,
-                stepOutputs as Record<string, unknown>
-              )
-
-              const { data: wf } = await supabase
-                .from('workflows')
-                .select('team_id')
-                .eq('id', workflowId)
-                .single()
-
-              if (!wf?.team_id) {
-                stepStatus = 'failed'
-                stepError = 'Cannot determine workflow team for WhatsApp delivery'
-                break
-              }
-
-              const { data: link } = await supabase
-                .from('messaging_links')
-                .select('external_chat_id')
-                .eq('team_id', wf.team_id)
-                .eq('channel_type', 'whatsapp')
-                .eq('is_verified', true)
-                .single()
-
-              if (!link?.external_chat_id) {
-                stepStatus = 'failed'
-                stepError =
-                  'No verified WhatsApp link found for this team. Link your WhatsApp first.'
-                break
-              }
-
-              const { sendMessage: sendWhatsAppMessage } = await import('@/lib/messaging/whatsapp')
-              await sendWhatsAppMessage(wf.team_id, link.external_chat_id, resolvedMessage)
-
-              stepOutput = {
-                sent: true,
-                phone_number: link.external_chat_id,
-                message: resolvedMessage,
-              } as unknown as typeof stepOutput
             } else {
               try {
                 const result = executeUtilityStep(

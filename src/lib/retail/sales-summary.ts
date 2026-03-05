@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { sendToAllChannels } from '@/lib/messaging/channel'
+import { sendMessage } from '@/lib/messaging/telegram'
 
 interface SalesSummary {
   date: string
@@ -219,7 +219,17 @@ export async function sendDailySummary(storeId: string): Promise<void> {
 
   if (!store) return
 
+  const { data: link } = await supabase
+    .from('messaging_links')
+    .select('external_chat_id')
+    .eq('team_id', store.team_id)
+    .eq('channel_type', 'telegram')
+    .eq('is_verified', true)
+    .single()
+
+  if (!link?.external_chat_id) return
+
   const summary = await buildSalesSummary(storeId)
   const message = formatSalesSummaryMessage(store.name, summary)
-  await sendToAllChannels(store.team_id, message, 'Markdown')
+  await sendMessage(link.external_chat_id, message, 'Markdown')
 }
