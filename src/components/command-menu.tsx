@@ -3,7 +3,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, Bot, Play, LayoutDashboard, FolderKanban, Plug } from 'lucide-react'
+import {
+  FileText,
+  Bot,
+  Play,
+  LayoutDashboard,
+  FolderKanban,
+  Plug,
+  LayoutGrid,
+  Bell,
+  Clock,
+  MessageCircle,
+  Package,
+  Truck,
+} from 'lucide-react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -138,25 +151,49 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
         {query && !hasResults && <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>}
         {!query && (
           <>
-            <CommandGroup heading="Navegação">
+            <CommandGroup heading="Navigation">
               <CommandItem onSelect={() => handleSelect('/dashboard')}>
                 <LayoutDashboard className="mr-2 h-4 w-4" />
-                Painel
+                Home
               </CommandItem>
-              <CommandItem onSelect={() => handleSelect('/workspace')}>
-                <FolderKanban className="mr-2 h-4 w-4" />
-                Área de Trabalho
+              <CommandItem onSelect={() => handleSelect('/chat')}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                New Chat
               </CommandItem>
-              <CommandItem onSelect={() => handleSelect('/runs')}>
-                <Play className="mr-2 h-4 w-4" />
-                Execuções
+              <CommandItem onSelect={() => handleSelect('/agents')}>
+                <Bot className="mr-2 h-4 w-4" />
+                Agents
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/apps')}>
+                <LayoutGrid className="mr-2 h-4 w-4" />
+                Apps
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/notifications')}>
+                <Bell className="mr-2 h-4 w-4" />
+                Notifications
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/history')}>
+                <Clock className="mr-2 h-4 w-4" />
+                History
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
-            <CommandGroup heading="Ações rápidas">
+            <CommandGroup heading="More">
               <CommandItem onSelect={() => handleSelect('/workspace')}>
-                <Plug className="mr-2 h-4 w-4" />
-                Integrações
+                <FolderKanban className="mr-2 h-4 w-4" />
+                Workspace
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/runs')}>
+                <Play className="mr-2 h-4 w-4" />
+                Runs
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/products')}>
+                <Package className="mr-2 h-4 w-4" />
+                Products
+              </CommandItem>
+              <CommandItem onSelect={() => handleSelect('/suppliers')}>
+                <Truck className="mr-2 h-4 w-4" />
+                Suppliers
               </CommandItem>
             </CommandGroup>
           </>

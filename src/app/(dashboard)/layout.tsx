@@ -234,8 +234,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: null,
       }
 
-  const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
-
   return (
     <TooltipProvider>
       <DashboardShell
@@ -247,7 +245,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
         invitations={invitations}
         pendingUserInvitations={pendingUserInvitations}
         currentUserRole={currentUserRole}
-        defaultSidebarOpen={sidebarOpen}
         planData={planData}
         storeData={storeData}
         orchestratorId={orchestratorId}

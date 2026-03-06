@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -8,19 +8,10 @@ import AppSidebar from '@/components/app-sidebar'
 import CommandMenu from '@/components/command-menu'
 import type { SettingsSection } from '@/components/settings/settings-sidebar'
 import { CommandMenuContext } from '@/lib/command-menu-context'
-import NotificationsPopover from '@/components/workflow-editor/notifications-popover'
 
 const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { Loader2 } from 'lucide-react'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb'
-import { Bell, Loader2 } from 'lucide-react'
 import PendingInvitationsBanner from '@/components/settings/pending-invitations-banner'
 import type {
   UsageData,
@@ -55,33 +46,6 @@ interface DashboardShellProps {
   children: ReactNode
 }
 
-function formatTime() {
-  const now = new Date()
-  return (
-    now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-    ' \u00b7 ' +
-    now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-  )
-}
-
-function subscribeToMinuteClock(callback: () => void) {
-  const interval = setInterval(callback, 60_000)
-  return () => clearInterval(interval)
-}
-
-function useCurrentTime() {
-  return useSyncExternalStore(subscribeToMinuteClock, formatTime, () => '')
-}
-
-function getPageTitle(pathname: string): string {
-  if (pathname.startsWith('/dashboard')) return 'Painel'
-  if (pathname.startsWith('/workspace')) return 'Área de Trabalho'
-  if (pathname.startsWith('/runs')) return 'Execuções'
-  if (pathname.startsWith('/agents')) return 'Detalhes do Agente'
-  if (pathname.startsWith('/products')) return 'Produtos'
-  return 'Painel'
-}
-
 export default function DashboardShell({
   user,
   team,
@@ -91,7 +55,6 @@ export default function DashboardShell({
   invitations,
   pendingUserInvitations,
   currentUserRole,
-  defaultSidebarOpen = false,
   planData,
   storeData,
   orchestratorId,
@@ -103,13 +66,10 @@ export default function DashboardShell({
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
   const [isSwitchingWorkspace, startWorkspaceTransition] = useTransition()
   const [switchingToName, setSwitchingToName] = useState<string | null>(null)
-  const currentTime = useCurrentTime()
   const pathname = usePathname()
   const router = useRouter()
 
   // Auto-open settings from URL params (e.g. after OAuth callback or redirect)
-  // Read once on mount via window.location instead of useSearchParams() to avoid
-  // re-rendering the entire shell on every URL param change across the app.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const openSettingsParam = params.get('open_settings')
@@ -129,7 +89,7 @@ export default function DashboardShell({
 
   return (
     <CommandMenuContext value={() => setCommandMenuOpen(true)}>
-      <SidebarProvider defaultOpen={defaultSidebarOpen}>
+      <SidebarProvider defaultOpen={true}>
         <AppSidebar
           user={user}
           team={team}
@@ -149,30 +109,10 @@ export default function DashboardShell({
           }}
         />
         <SidebarInset>
-          <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-30 flex h-10 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{getPageTitle(pathname)}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <div className="ml-auto flex items-center gap-2">
-              <NotificationsPopover>
-                <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
-                  <Bell className="h-4 w-4" />
-                </Button>
-              </NotificationsPopover>
-              {currentTime && (
-                <span className="text-muted-foreground hidden text-sm md:inline">
-                  {currentTime}
-                </span>
-              )}
-            </div>
-          </header>
-          <div className="relative flex-1 overflow-auto">
+          <div className="flex h-12 items-center px-4 md:hidden">
+            <SidebarTrigger />
+          </div>
+          <div className="relative flex-1 overflow-y-auto">
             {isSwitchingWorkspace && (
               <div className="bg-background/80 absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 backdrop-blur-sm transition-opacity">
                 <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
