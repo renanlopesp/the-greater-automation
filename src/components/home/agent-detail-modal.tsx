@@ -84,7 +84,7 @@ export default function AgentDetailModal({ agent, open, onOpenChange }: AgentDet
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-[85vh] max-w-5xl flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[85vh] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         {/* Header */}
         <div className="flex items-center gap-3 border-b px-6 py-4">
