@@ -162,7 +162,7 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
               </CommandItem>
               <CommandItem onSelect={() => handleSelect('/agents')}>
                 <Bot className="mr-2 h-4 w-4" />
-                Agents
+                Co-workers
               </CommandItem>
               <CommandItem onSelect={() => handleSelect('/apps')}>
                 <LayoutGrid className="mr-2 h-4 w-4" />

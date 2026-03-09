@@ -1,10 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
-import { Bot, Search } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Search, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import AgentDetailModal from '@/components/home/agent-detail-modal'
 
 interface AgentItem {
   id: string
@@ -12,14 +11,28 @@ interface AgentItem {
   description: string | null
   is_active: boolean
   palette: string
+  category?: string | null
 }
 
 interface AgentsDiscoverClientProps {
   agents: AgentItem[]
 }
 
+function getAgentCategory(agent: AgentItem): string {
+  if (agent.category) return agent.category
+  const paletteMap: Record<string, string> = {
+    blue: 'Customer Service',
+    orange: 'Marketing',
+    green: 'Analytics',
+    purple: 'Competitors',
+  }
+  return paletteMap[agent.palette] ?? 'Productivity'
+}
+
 export default function AgentsDiscoverClient({ agents }: AgentsDiscoverClientProps) {
   const [search, setSearch] = useState('')
+  const [selectedAgent, setSelectedAgent] = useState<AgentItem | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   const activeCount = agents.filter((a) => a.is_active).length
 
@@ -31,56 +44,87 @@ export default function AgentsDiscoverClient({ agents }: AgentsDiscoverClientPro
     )
   }, [agents, search])
 
+  const grouped = useMemo(() => {
+    const map = new Map<string, AgentItem[]>()
+    for (const agent of filtered) {
+      const cat = getAgentCategory(agent)
+      const list = map.get(cat)
+      if (list) list.push(agent)
+      else map.set(cat, [agent])
+    }
+    return Array.from(map.entries()).map(([name, items]) => ({
+      name,
+      items,
+      activeCount: items.filter((a) => a.is_active).length,
+    }))
+  }, [filtered])
+
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-16 pb-8">
-      <div className="mb-6 flex items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
-        <Badge variant="secondary" className="text-xs">
-          {activeCount} active
-        </Badge>
+    <>
+      <div className="mx-auto max-w-3xl px-6 pt-16 pb-8">
+        <div className="mb-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Add Co-workers</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Choose specialists to work inside{' '}
+            <span className="text-foreground font-semibold">Snew</span>.{' '}
+            <span className="text-foreground font-semibold">{activeCount} active</span>.
+          </p>
+        </div>
+
+        <div className="relative my-6">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Input
+            placeholder="Search co-workers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-muted rounded-full pl-9"
+          />
+        </div>
+
+        <div className="space-y-8">
+          {grouped.map((group) => (
+            <div key={group.name}>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-semibold">{group.name}</h2>
+                <span className="text-muted-foreground text-sm">{group.activeCount} active</span>
+              </div>
+              <div className="space-y-1">
+                {group.items.map((agent) => (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAgent(agent)
+                      setModalOpen(true)
+                    }}
+                    className="hover:bg-accent/50 flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{agent.name}</p>
+                      <p className="text-muted-foreground truncate text-xs">
+                        {agent.description ?? 'No description'}
+                      </p>
+                    </div>
+                    {agent.is_active && (
+                      <span className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium">
+                        <Check className="size-3" />
+                        Added
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-muted-foreground text-sm">No co-workers found</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="relative mb-8">
-        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-        <Input
-          placeholder="Search agents..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-muted rounded-full pl-9"
-        />
-      </div>
-
-      <div className="space-y-2">
-        {filtered.map((agent) => (
-          <Link
-            key={agent.id}
-            href={`/agents/${agent.id}`}
-            className="hover:bg-accent flex items-center gap-3 rounded-xl border p-4 transition-colors"
-          >
-            <div className="bg-primary/10 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-              <Bot className="text-primary h-5 w-5" />
-              {agent.is_active && (
-                <span className="border-background absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 bg-green-500" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{agent.name}</p>
-              <p className="text-muted-foreground truncate text-xs">
-                {agent.description ?? 'No description'}
-              </p>
-            </div>
-            <Badge variant={agent.is_active ? 'default' : 'outline'} className="text-xs">
-              {agent.is_active ? 'Added' : 'Add'}
-            </Badge>
-          </Link>
-        ))}
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Bot className="text-muted-foreground size-10" />
-            <p className="text-muted-foreground mt-3 text-sm">No agents found</p>
-          </div>
-        )}
-      </div>
-    </div>
+      <AgentDetailModal agent={selectedAgent} open={modalOpen} onOpenChange={setModalOpen} />
+    </>
   )
 }

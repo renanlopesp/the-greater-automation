@@ -111,7 +111,7 @@ export default function AppSidebar({
       ...(orchestratorId
         ? [{ label: 'New Chat', icon: Plus, href: `/agents/${orchestratorId}` }]
         : []),
-      { label: 'Agents', icon: Bot, href: '/agents' },
+      { label: 'Co-workers', icon: Bot, href: '/agents' },
       { label: 'Apps', icon: LayoutGrid, href: '/apps' },
       { label: 'Notifications', icon: Bell, href: '/notifications', badge: notificationCount },
       { label: 'History', icon: Clock, href: '/history' },
