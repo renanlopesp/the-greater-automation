@@ -208,7 +208,7 @@ export default function AgentDetailModal({
                     {modalData && modalData.connectedApps.length > 0 ? (
                       modalData.connectedApps.map((app) => (
                         <div key={app.app_id} className="flex items-center justify-between text-sm">
-                          <span>{app.account_label ?? formatAppName(app.app_id)}</span>
+                          <span>{formatAppName(app.app_id)}</span>
                           <span className="bg-foreground text-background rounded-md px-2 py-0.5 text-xs">
                             Active
                           </span>
