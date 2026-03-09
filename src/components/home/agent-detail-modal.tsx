@@ -1,12 +1,15 @@
 'use client'
 
-import { Mic, Plus, X } from 'lucide-react'
+import { Link2, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import ChatPanel from '@/components/agent-detail/chat-panel'
 import WorkflowsList from '@/components/agent-detail/workflows-list'
 import SkillsList from '@/components/agent-detail/skills-list'
+import { getAgentModalData } from '@/lib/actions/agent-modal-data'
 import { getAgentWorkflows } from '@/lib/actions/agent-workflows'
 import { getAgentSkills } from '@/lib/actions/agent-skills'
 
@@ -19,61 +22,33 @@ interface AgentItem {
   category?: string | null
 }
 
-interface ActivityItem {
-  id: string
-  message: string
-  suggestion: string
-  priority: 'High' | 'Medium' | 'Low'
-  status: 'Pending' | 'In Progress' | 'Done'
-}
-
-const EXAMPLE_ACTIVITIES: ActivityItem[] = [
-  {
-    id: '1',
-    message: 'Checkout friction detected on mobile.',
-    suggestion: 'Simplify mobile checkout to 2-step flow.',
-    priority: 'High',
-    status: 'Pending',
-  },
-  {
-    id: '2',
-    message: 'Competitor reduced price by 8%.',
-    suggestion: 'Review pricing strategy for competing SKUs.',
-    priority: 'High',
-    status: 'Pending',
-  },
-  {
-    id: '3',
-    message: 'Meta campaign CTR dropped 22% week over week.',
-    suggestion: 'Refresh ad creative and review audience targeting.',
-    priority: 'Medium',
-    status: 'In Progress',
-  },
-  {
-    id: '4',
-    message: 'Product page bounce rate increased to 68%.',
-    suggestion: 'Add trust badges and improve above-the-fold content.',
-    priority: 'Medium',
-    status: 'Pending',
-  },
-]
-
-function getAgentCategory(agent: AgentItem): string {
-  if (agent.category) return agent.category
-  const paletteMap: Record<string, string> = {
-    blue: 'Customer Service',
-    orange: 'Marketing',
-    green: 'Analytics',
-    purple: 'Competitors',
-  }
-  return paletteMap[agent.palette] ?? 'Productivity'
-}
-
 interface AgentDetailModalProps {
   agent: AgentItem | null
   teamId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+const APP_DISPLAY: Record<string, string> = {
+  nuvemshop: 'Nuvemshop',
+  shopify: 'Shopify',
+  github: 'GitHub',
+  slack: 'Slack',
+  gmail: 'Gmail',
+  notion: 'Notion',
+  linear: 'Linear',
+  mercadolivre: 'Mercado Livre',
+  google_calendar: 'Google Calendar',
+}
+
+function formatAppName(appId: string): string {
+  return (
+    APP_DISPLAY[appId] ??
+    appId
+      .split(/[-_]/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  )
 }
 
 export default function AgentDetailModal({
@@ -83,6 +58,13 @@ export default function AgentDetailModal({
   onOpenChange,
 }: AgentDetailModalProps) {
   const agentId = agent?.id ?? ''
+
+  const { data: modalData, isLoading: modalLoading } = useQuery({
+    queryKey: ['agent-modal-data', agentId],
+    queryFn: () => getAgentModalData(agentId),
+    enabled: open && !!agentId,
+    gcTime: 0,
+  })
 
   const { data: workflows = [] } = useQuery({
     queryKey: ['agent-workflows', agentId],
@@ -98,13 +80,11 @@ export default function AgentDetailModal({
 
   if (!agent) return null
 
-  const category = getAgentCategory(agent)
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-[85vh] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        className="flex h-[90vh] max-w-6xl flex-col gap-0 overflow-hidden p-0 sm:mx-4 sm:max-w-6xl lg:mx-8"
       >
         {/* Header */}
         <div className="flex items-center gap-3 border-b px-6 py-4">
@@ -113,7 +93,7 @@ export default function AgentDetailModal({
           </span>
           <div className="flex-1">
             <DialogTitle className="text-base font-semibold">{agent.name}</DialogTitle>
-            <p className="text-muted-foreground text-sm">{category}</p>
+            <p className="text-muted-foreground text-sm">{agent.name}</p>
           </div>
           <button
             type="button"
@@ -124,75 +104,89 @@ export default function AgentDetailModal({
           </button>
         </div>
 
-        {/* Body: Activity Log + Automações/Skills Panel */}
+        {/* Body: Chat + Sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Activity Log + Chat Input */}
-          <div className="flex flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto p-6">
-              <h2 className="mb-4 text-base font-semibold">Activity Log</h2>
-              <div className="space-y-3">
-                {EXAMPLE_ACTIVITIES.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="hover:bg-accent/50 cursor-pointer rounded-xl border p-4 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm">{activity.message}</p>
-                        <p className="text-muted-foreground text-sm">{activity.suggestion}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-muted-foreground text-xs">{activity.priority}</span>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-xs ${
-                            activity.status === 'In Progress'
-                              ? 'bg-foreground text-background'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
-                          {activity.status}
+          {/* Left: Real ChatPanel (AI SDK — streaming, tool calls, file attachments) */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {modalLoading || !modalData ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="text-muted-foreground text-sm">Carregando...</div>
+              </div>
+            ) : (
+              <ChatPanel
+                key={modalData.conversationId ?? 'new'}
+                agentId={agentId}
+                agentName={agent.name}
+                agentPalette={agent.palette}
+                conversationStarters={modalData.conversationStarters}
+                currentUserId={modalData.currentUserId}
+                initialConversationId={modalData.conversationId}
+                initialMessages={modalData.messages}
+              />
+            )}
+          </div>
+
+          {/* Right: Sidebar (prototype layout) */}
+          <aside className="bg-muted/30 w-[280px] shrink-0 border-l">
+            <ScrollArea className="h-full">
+              <div className="p-6">
+                {/* Agent Info */}
+                <div className="mb-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="bg-muted flex size-10 items-center justify-center rounded-full text-lg">
+                      💬
+                    </span>
+                    <div>
+                      <h1 className="text-sm font-semibold">{agent.name}</h1>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="flex items-center gap-1">
+                          <span className="size-1.5 rounded-full bg-green-500" />
+                          {agent.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </div>
                     </div>
-                    {activity.status === 'Pending' && (
-                      <div className="mt-3 flex items-center gap-3">
-                        <button type="button" className="text-sm font-medium underline">
-                          Approve Action
-                        </button>
-                        <button type="button" className="text-muted-foreground text-sm">
-                          Dismiss
-                        </button>
-                      </div>
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {agent.description ?? 'No description available.'}
+                  </p>
+                </div>
+
+                {/* Run Agent */}
+                <Button className="mb-6 w-full gap-2" variant="default">
+                  ▶ Run Agent
+                </Button>
+
+                {/* Channels — real connected apps in list format */}
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-xs font-semibold tracking-wider uppercase">Channels</h2>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+                    >
+                      <Link2 className="size-3" />
+                      Connect
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {modalData && modalData.connectedApps.length > 0 ? (
+                      modalData.connectedApps.map((app) => (
+                        <div key={app.app_id} className="flex items-center justify-between text-sm">
+                          <span>{app.account_label ?? formatAppName(app.app_id)}</span>
+                          <span className="bg-foreground text-background rounded-md px-2 py-0.5 text-xs">
+                            Active
+                          </span>
+                        </div>
+                      ))
+                    ) : modalData ? (
+                      <p className="text-muted-foreground text-xs">Nenhum canal conectado</p>
+                    ) : (
+                      <div className="bg-muted h-6 animate-pulse rounded" />
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Chat Input */}
-            <div className="border-t p-4">
-              <div className="bg-card flex items-end gap-2 rounded-2xl border px-4 py-3">
-                <textarea
-                  placeholder="Ask the agent anything..."
-                  rows={1}
-                  className="placeholder:text-muted-foreground flex-1 resize-none bg-transparent text-sm outline-none"
-                />
-                <div className="flex shrink-0 items-center gap-1">
-                  <button type="button" className="text-muted-foreground hover:text-foreground p-1">
-                    <Plus className="size-4" />
-                  </button>
-                  <button type="button" className="text-muted-foreground hover:text-foreground p-1">
-                    <Mic className="size-4" />
-                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Right: Automações / Skills Panel */}
-          <aside className="bg-muted/30 w-[340px] shrink-0 border-l">
-            <ScrollArea className="h-full">
-              <div className="p-6">
+                {/* Automações / Skills Tabs */}
                 <Tabs defaultValue="workflows" className="space-y-3">
                   <TabsList className="h-8">
                     <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
@@ -203,7 +197,12 @@ export default function AgentDetailModal({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="workflows" className="mt-0">
-                    <WorkflowsList workflows={workflows} agentId={agentId} teamId={teamId} />
+                    <WorkflowsList
+                      workflows={workflows}
+                      agentId={agentId}
+                      teamId={teamId}
+                      triggerSubscriptions={modalData?.triggerSubscriptions}
+                    />
                   </TabsContent>
                   <TabsContent value="skills" className="mt-0">
                     <SkillsList skills={skills} agentId={agentId} />
