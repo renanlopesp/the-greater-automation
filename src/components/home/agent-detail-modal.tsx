@@ -1,14 +1,38 @@
 'use client'
 
-import { Link2, X } from 'lucide-react'
+import type { UIMessage } from 'ai'
+import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
+import { Link2, Mic, PaperclipIcon, Plus, X, XIcon, FileIcon } from 'lucide-react'
+import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation'
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputHeader,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputButton,
+  PromptInputSubmit,
+  usePromptInputAttachments,
+  type PromptInputMessage,
+} from '@/components/ai-elements/prompt-input'
+import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
-import ChatPanel from '@/components/agent-detail/chat-panel'
 import WorkflowsList from '@/components/agent-detail/workflows-list'
 import SkillsList from '@/components/agent-detail/skills-list'
+import { useAgentChat } from '@/hooks/use-agent-chat'
+import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
+import { useMessageFeedback } from '@/hooks/use-message-feedback'
+import { cn } from '@/lib/utils'
 import { getAgentModalData } from '@/lib/actions/agent-modal-data'
 import { getAgentWorkflows } from '@/lib/actions/agent-workflows'
 import { getAgentSkills } from '@/lib/actions/agent-skills'
@@ -39,6 +63,11 @@ const APP_DISPLAY: Record<string, string> = {
   linear: 'Linear',
   mercadolivre: 'Mercado Livre',
   google_calendar: 'Google Calendar',
+  google_analytics: 'Google Analytics',
+  googleanalytics: 'Google Analytics',
+  telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
+  discord: 'Discord',
 }
 
 function formatAppName(appId: string): string {
@@ -49,6 +78,14 @@ function formatAppName(appId: string): string {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
   )
+}
+
+/** Format a tool name for display (SCREAMING_SNAKE -> Title Case) */
+function formatToolName(name: string): string {
+  return name
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 export default function AgentDetailModal({
@@ -104,20 +141,19 @@ export default function AgentDetailModal({
           </button>
         </div>
 
-        {/* Body: Chat + Sidebar */}
+        {/* Body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Real ChatPanel (AI SDK — streaming, tool calls, file attachments) */}
+          {/* Left: Chat with prototype layout */}
           <div className="flex flex-1 flex-col overflow-hidden">
             {modalLoading || !modalData ? (
               <div className="flex flex-1 items-center justify-center">
                 <div className="text-muted-foreground text-sm">Carregando...</div>
               </div>
             ) : (
-              <ChatPanel
+              <ModalChatPanel
                 key={modalData.conversationId ?? 'new'}
                 agentId={agentId}
                 agentName={agent.name}
-                agentPalette={agent.palette}
                 conversationStarters={modalData.conversationStarters}
                 currentUserId={modalData.currentUserId}
                 initialConversationId={modalData.conversationId}
@@ -127,9 +163,9 @@ export default function AgentDetailModal({
           </div>
 
           {/* Right: Sidebar (prototype layout) */}
-          <aside className="bg-muted/30 w-[280px] shrink-0 border-l">
-            <ScrollArea className="h-full">
-              <div className="p-6">
+          <aside className="bg-muted/30 w-[380px] min-w-0 shrink-0 overflow-hidden border-l">
+            <div className="h-full overflow-x-hidden overflow-y-auto">
+              <div className="w-full min-w-0 p-4">
                 {/* Agent Info */}
                 <div className="mb-4 space-y-3">
                   <div className="flex items-start gap-3">
@@ -196,7 +232,7 @@ export default function AgentDetailModal({
                       Skills
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="workflows" className="mt-0">
+                  <TabsContent value="workflows" className="modal-workflows mt-0 overflow-hidden">
                     <WorkflowsList
                       workflows={workflows}
                       agentId={agentId}
@@ -204,15 +240,323 @@ export default function AgentDetailModal({
                       triggerSubscriptions={modalData?.triggerSubscriptions}
                     />
                   </TabsContent>
-                  <TabsContent value="skills" className="mt-0">
+                  <TabsContent value="skills" className="mt-0 overflow-hidden">
                     <SkillsList skills={skills} agentId={agentId} />
                   </TabsContent>
                 </Tabs>
               </div>
-            </ScrollArea>
+            </div>
           </aside>
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Modal Chat Panel — uses same AI SDK elements as ChatPanel but with
+// the prototype's Activity Log layout
+// ---------------------------------------------------------------------------
+
+function ModalMessageItem({
+  message,
+  agentName,
+  isStreaming,
+  currentUserId,
+  feedback,
+  onFeedback,
+}: {
+  message: UIMessage
+  agentName: string
+  isStreaming: boolean
+  currentUserId: string
+  feedback: 'like' | 'dislike' | null
+  onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void
+}) {
+  const isUser = message.role === 'user'
+  const meta = message.metadata as Record<string, unknown> | undefined
+  const senderId = meta?.senderId as string | undefined
+  const isOwnMessage = !senderId || senderId === currentUserId
+
+  const parts = message.parts ?? []
+  const textParts = parts.filter(isTextUIPart)
+  const reasoningParts = parts.filter(isReasoningUIPart)
+  const toolParts = parts.filter(isToolUIPart)
+  const fileParts = parts.filter(
+    (p): p is { type: 'file'; url: string; mediaType: string; filename?: string } =>
+      p.type === 'file'
+  )
+  const textContent = textParts.map((p) => p.text).join('')
+  const reasoningText = reasoningParts.map((part) => part.text).join('\n\n')
+  const lastPart = parts.at(-1)
+  const isReasoningStreaming = isStreaming && lastPart?.type === 'reasoning'
+  const messageFrom = isUser && !isOwnMessage ? 'assistant' : message.role
+
+  return (
+    <Message from={messageFrom}>
+      <MessageContent>
+        {isUser ? (
+          <>
+            {fileParts.length > 0 && (
+              <div className="flex flex-wrap gap-2 pb-1">
+                {fileParts.map((file, i) =>
+                  file.mediaType.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={file.url}
+                      alt={file.filename ?? 'Imagem anexada'}
+                      className="max-h-48 max-w-64 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      key={i}
+                      className="bg-muted flex items-center gap-2 rounded-lg border px-3 py-2 text-xs"
+                    >
+                      <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                      <span className="max-w-[200px] truncate">
+                        {file.filename ?? 'Arquivo anexado'}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+            {textContent && <p className="whitespace-pre-wrap">{textContent}</p>}
+          </>
+        ) : (
+          <>
+            {reasoningParts.length > 0 && (
+              <Reasoning isStreaming={isReasoningStreaming}>
+                <ReasoningTrigger />
+                <ReasoningContent>{reasoningText}</ReasoningContent>
+              </Reasoning>
+            )}
+            {toolParts.map((part) => {
+              const isDynamic = part.type === 'dynamic-tool'
+              const toolName = isDynamic
+                ? (part as { toolName: string }).toolName
+                : part.type.replace(/^tool-/, '')
+              return (
+                <Tool key={part.toolCallId}>
+                  {isDynamic ? (
+                    <ToolHeader
+                      type="dynamic-tool"
+                      state={part.state}
+                      toolName={toolName}
+                      title={formatToolName(toolName)}
+                    />
+                  ) : (
+                    <ToolHeader
+                      type={part.type as `tool-${string}`}
+                      state={part.state}
+                      title={formatToolName(toolName)}
+                    />
+                  )}
+                  <ToolContent>
+                    {'input' in part && part.input ? <ToolInput input={part.input} /> : null}
+                    {'output' in part || 'errorText' in part ? (
+                      <ToolOutput
+                        output={'output' in part ? part.output : undefined}
+                        errorText={'errorText' in part ? part.errorText : undefined}
+                      />
+                    ) : null}
+                  </ToolContent>
+                </Tool>
+              )
+            })}
+            {textContent && <MessageResponse>{textContent}</MessageResponse>}
+          </>
+        )}
+      </MessageContent>
+    </Message>
+  )
+}
+
+function ModalAttachButton() {
+  const attachments = usePromptInputAttachments()
+  return (
+    <PromptInputButton tooltip="Anexar arquivos" onClick={() => attachments.openFileDialog()}>
+      <Plus className="size-4" />
+    </PromptInputButton>
+  )
+}
+
+function ModalAttachmentPreviews() {
+  const attachments = usePromptInputAttachments()
+  if (attachments.files.length === 0) return null
+
+  return (
+    <PromptInputHeader>
+      {attachments.files.map((file) => {
+        const isImage = file.mediaType?.startsWith('image/')
+        return (
+          <div
+            key={file.id}
+            className="bg-muted group relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
+          >
+            {isImage && file.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={file.url}
+                alt={file.filename ?? 'attachment'}
+                className="h-8 w-8 rounded object-cover"
+              />
+            ) : (
+              <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+            )}
+            <span className="max-w-[120px] truncate">{file.filename ?? 'file'}</span>
+            <button
+              type="button"
+              onClick={() => attachments.remove(file.id)}
+              className="text-muted-foreground hover:text-foreground -mr-1 shrink-0"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )
+      })}
+    </PromptInputHeader>
+  )
+}
+
+function ModalChatPanel({
+  agentId,
+  agentName,
+  conversationStarters,
+  currentUserId,
+  initialConversationId,
+  initialMessages,
+}: {
+  agentId: string
+  agentName: string
+  conversationStarters: string[]
+  currentUserId: string
+  initialConversationId: string | null
+  initialMessages: {
+    id: string
+    role: string
+    content: string
+    sender_id: string | null
+    sender_name: string | null
+    sender_avatar: string | null
+  }[]
+}) {
+  const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
+  const { messages, status, isLoading, isStreaming, error, sendMessage, stop } = useAgentChat(
+    agentId,
+    currentUserId,
+    {
+      onSkillMutation: invalidateWorkflows,
+      initialConversationId,
+      initialMessages,
+    }
+  )
+
+  const hasMessages = messages.length > 0
+
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => m.role === 'user' || m.role === 'assistant'),
+    [messages]
+  )
+
+  const assistantMessageIds = useMemo(
+    () => messages.filter((m) => m.role === 'assistant').map((m) => m.id),
+    [messages]
+  )
+  const { getFeedback, toggleFeedback } = useMessageFeedback(agentId, assistantMessageIds)
+
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id
+    }
+    return null
+  }, [messages])
+
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => sendMessage(suggestion),
+    [sendMessage]
+  )
+
+  const handleSubmit = useCallback(
+    (msg: PromptInputMessage) => {
+      if (msg.text.trim() || msg.files.length > 0) {
+        sendMessage(msg.text.trim(), msg.files.length > 0 ? msg.files : undefined)
+      }
+    },
+    [sendMessage]
+  )
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Activity Log header */}
+      <div className="shrink-0 px-6 pt-6 pb-2">
+        <h2 className="text-base font-semibold">Activity Log</h2>
+      </div>
+
+      {/* Messages area using AI SDK Conversation */}
+      <Conversation className="flex-1">
+        <ConversationContent className="px-6">
+          {!hasMessages ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground mb-4 text-sm">
+                Nenhuma atividade ainda. Inicie uma conversa com o agente.
+              </p>
+              {conversationStarters.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {conversationStarters.map((starter) => (
+                    <button
+                      key={starter}
+                      type="button"
+                      onClick={() => handleSuggestionClick(starter)}
+                      className="hover:bg-accent rounded-lg border px-3 py-2 text-left text-sm transition-colors"
+                    >
+                      {starter}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            visibleMessages.map((message) => (
+              <ModalMessageItem
+                key={message.id}
+                message={message}
+                agentName={agentName}
+                isStreaming={isStreaming && message.id === lastAssistantId}
+                currentUserId={currentUserId}
+                feedback={getFeedback(message.id)}
+                onFeedback={toggleFeedback}
+              />
+            ))
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      {/* Error banner */}
+      {error && (
+        <div className="border-destructive/20 bg-destructive/10 text-destructive mx-4 mb-2 rounded-lg border px-3 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Chat Input — prototype style with AI SDK PromptInput */}
+      <div className="border-t p-4">
+        <PromptInput onSubmit={handleSubmit} multiple>
+          <ModalAttachmentPreviews />
+          <PromptInputTextarea placeholder="Ask the agent anything..." disabled={isLoading} />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <ModalAttachButton />
+              <PromptInputButton tooltip="Voz">
+                <Mic className="size-4" />
+              </PromptInputButton>
+            </PromptInputTools>
+            <PromptInputSubmit status={status} onStop={stop} />
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
+    </div>
   )
 }

@@ -142,7 +142,7 @@ export default function WorkflowsList({
   return (
     <div className="space-y-3">
       <div className="bg-background overflow-hidden rounded-2xl border shadow-sm">
-        <div className="divide-y">
+        <div className="divide-y overflow-hidden">
           {/* Rule-based workflows */}
           {ruleWorkflows.map((workflow) => {
             const conditionCount = Array.isArray(workflow.conditions)
@@ -175,16 +175,21 @@ export default function WorkflowsList({
                       : 'Nunca executou'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   {isManualTrigger && (
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => handleExecute(workflow.id)}
                       disabled={executingWorkflows.has(workflow.id)}
-                      className="h-8 px-2"
+                      className="h-7 px-1.5"
+                      title={executingWorkflows.has(workflow.id) ? 'Executando...' : 'Executar'}
                     >
-                      {executingWorkflows.has(workflow.id) ? 'Executando...' : 'Executar'}
+                      {executingWorkflows.has(workflow.id) ? (
+                        <span className="text-xs">...</span>
+                      ) : (
+                        <Play className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   )}
                   <Switch
@@ -229,7 +234,7 @@ export default function WorkflowsList({
                       </Badge>
                     )}
                   </div>
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-muted-foreground truncate text-xs">
                     {workflow.description
                       ? workflow.description
                       : workflow.last_run_at
