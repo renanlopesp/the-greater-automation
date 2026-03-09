@@ -16,6 +16,7 @@ interface AgentItem {
 
 interface AgentGridSectionProps {
   agents: AgentItem[]
+  teamId: string
 }
 
 const CATEGORY_BADGE_COLORS: Record<string, string> = {
@@ -38,7 +39,7 @@ function getAgentCategory(agent: AgentItem): string {
   return paletteMap[agent.palette] ?? 'Productivity'
 }
 
-export default function AgentGridSection({ agents }: AgentGridSectionProps) {
+export default function AgentGridSection({ agents, teamId }: AgentGridSectionProps) {
   const categorized = useMemo(() => {
     const map = new Map<string, AgentItem[]>()
     for (const agent of agents) {
@@ -125,7 +126,12 @@ export default function AgentGridSection({ agents }: AgentGridSectionProps) {
         </div>
       </div>
 
-      <AgentDetailModal agent={selectedAgent} open={modalOpen} onOpenChange={setModalOpen} />
+      <AgentDetailModal
+        agent={selectedAgent}
+        teamId={teamId}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </>
   )
 }

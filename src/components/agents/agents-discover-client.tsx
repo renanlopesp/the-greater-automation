@@ -16,6 +16,7 @@ interface AgentItem {
 
 interface AgentsDiscoverClientProps {
   agents: AgentItem[]
+  teamId: string
 }
 
 function getAgentCategory(agent: AgentItem): string {
@@ -29,7 +30,7 @@ function getAgentCategory(agent: AgentItem): string {
   return paletteMap[agent.palette] ?? 'Productivity'
 }
 
-export default function AgentsDiscoverClient({ agents }: AgentsDiscoverClientProps) {
+export default function AgentsDiscoverClient({ agents, teamId }: AgentsDiscoverClientProps) {
   const [search, setSearch] = useState('')
   const [selectedAgent, setSelectedAgent] = useState<AgentItem | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -124,7 +125,12 @@ export default function AgentsDiscoverClient({ agents }: AgentsDiscoverClientPro
         </div>
       </div>
 
-      <AgentDetailModal agent={selectedAgent} open={modalOpen} onOpenChange={setModalOpen} />
+      <AgentDetailModal
+        agent={selectedAgent}
+        teamId={teamId}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </>
   )
 }

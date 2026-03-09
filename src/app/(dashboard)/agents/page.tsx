@@ -27,5 +27,5 @@ export default async function AgentsPage() {
       palette: a.palette,
     }))
 
-  return <AgentsDiscoverClient agents={agentItems} />
+  return <AgentsDiscoverClient agents={agentItems} teamId={teamId} />
 }

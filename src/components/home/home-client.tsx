@@ -22,6 +22,7 @@ interface HomeClientProps {
   storeName: string | null
   orchestratorId: string | null
   agents: AgentItem[]
+  teamId: string
   connectedApp?: string
   connectionError?: string
 }
@@ -31,6 +32,7 @@ export default function HomeClient({
   storeName,
   orchestratorId,
   agents,
+  teamId,
   connectedApp,
   connectionError,
 }: HomeClientProps) {
@@ -55,7 +57,7 @@ export default function HomeClient({
       <ChatInputSection orchestratorId={orchestratorId} />
       <Separator />
       <InsightsSection />
-      <AgentGridSection agents={agents} />
+      <AgentGridSection agents={agents} teamId={teamId} />
     </div>
   )
 }

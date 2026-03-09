@@ -101,6 +101,7 @@ async function HomeData({
       storeName={store?.name ?? null}
       orchestratorId={orchestrator?.id ?? null}
       agents={specialistAgents}
+      teamId={teamId}
       connectedApp={connectedApp}
       connectionError={connectionError}
     />

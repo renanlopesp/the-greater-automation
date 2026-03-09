@@ -1,8 +1,14 @@
 'use client'
 
-import { Play, Link2, Mic, Plus, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Mic, Plus, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import WorkflowsList from '@/components/agent-detail/workflows-list'
+import SkillsList from '@/components/agent-detail/skills-list'
+import { getAgentWorkflows } from '@/lib/actions/agent-workflows'
+import { getAgentSkills } from '@/lib/actions/agent-skills'
 
 interface AgentItem {
   id: string
@@ -52,12 +58,6 @@ const EXAMPLE_ACTIVITIES: ActivityItem[] = [
   },
 ]
 
-const CHANNELS = [
-  { name: 'Email', status: 'Active' },
-  { name: 'WhatsApp', status: 'Coming soon' },
-  { name: 'Telegram', status: 'Coming soon' },
-]
-
 function getAgentCategory(agent: AgentItem): string {
   if (agent.category) return agent.category
   const paletteMap: Record<string, string> = {
@@ -71,11 +71,31 @@ function getAgentCategory(agent: AgentItem): string {
 
 interface AgentDetailModalProps {
   agent: AgentItem | null
+  teamId: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export default function AgentDetailModal({ agent, open, onOpenChange }: AgentDetailModalProps) {
+export default function AgentDetailModal({
+  agent,
+  teamId,
+  open,
+  onOpenChange,
+}: AgentDetailModalProps) {
+  const agentId = agent?.id ?? ''
+
+  const { data: workflows = [] } = useQuery({
+    queryKey: ['agent-workflows', agentId],
+    queryFn: () => getAgentWorkflows(agentId),
+    enabled: open && !!agentId,
+  })
+
+  const { data: skills = [] } = useQuery({
+    queryKey: ['agent-skills', agentId],
+    queryFn: () => getAgentSkills(agentId),
+    enabled: open && !!agentId,
+  })
+
   if (!agent) return null
 
   const category = getAgentCategory(agent)
@@ -104,7 +124,7 @@ export default function AgentDetailModal({ agent, open, onOpenChange }: AgentDet
           </button>
         </div>
 
-        {/* Body: Activity Log + Info Panel */}
+        {/* Body: Activity Log + Automações/Skills Panel */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left: Activity Log + Chat Input */}
           <div className="flex flex-1 flex-col">
@@ -169,62 +189,28 @@ export default function AgentDetailModal({ agent, open, onOpenChange }: AgentDet
             </div>
           </div>
 
-          {/* Right: Agent Info Panel */}
-          <aside className="bg-muted/30 w-[280px] shrink-0 overflow-y-auto border-l p-6">
-            <div className="mb-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <span className="bg-muted flex size-10 items-center justify-center rounded-full text-lg">
-                  💬
-                </span>
-                <div>
-                  <h1 className="text-sm font-semibold">{agent.name}</h1>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="flex items-center gap-1">
-                      <span className="size-1.5 rounded-full bg-green-500" />
-                      Active
-                    </span>
-                    <span className="text-muted-foreground">2 min ago</span>
-                  </div>
-                </div>
+          {/* Right: Automações / Skills Panel */}
+          <aside className="bg-muted/30 w-[340px] shrink-0 border-l">
+            <ScrollArea className="h-full">
+              <div className="p-6">
+                <Tabs defaultValue="workflows" className="space-y-3">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
+                      Automações
+                    </TabsTrigger>
+                    <TabsTrigger value="skills" className="h-7 px-3 text-xs">
+                      Skills
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="workflows" className="mt-0">
+                    <WorkflowsList workflows={workflows} agentId={agentId} teamId={teamId} />
+                  </TabsContent>
+                  <TabsContent value="skills" className="mt-0">
+                    <SkillsList skills={skills} agentId={agentId} />
+                  </TabsContent>
+                </Tabs>
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {agent.description ?? 'No description available.'}
-              </p>
-            </div>
-
-            <Button className="mb-6 w-full gap-2" variant="default">
-              <Play className="size-4" />
-              Run Agent
-            </Button>
-
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xs font-semibold tracking-wider uppercase">Channels</h2>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
-                >
-                  <Link2 className="size-3" />
-                  Connect
-                </button>
-              </div>
-              <div className="space-y-2">
-                {CHANNELS.map((ch) => (
-                  <div key={ch.name} className="flex items-center justify-between text-sm">
-                    <span>{ch.name}</span>
-                    <span
-                      className={`text-xs ${
-                        ch.status === 'Active'
-                          ? 'bg-foreground text-background rounded-md px-2 py-0.5'
-                          : 'text-muted-foreground'
-                      }`}
-                    >
-                      {ch.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </ScrollArea>
           </aside>
         </div>
       </DialogContent>
