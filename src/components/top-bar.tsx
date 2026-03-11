@@ -13,6 +13,7 @@ import {
   LogOut,
   RefreshCw,
   PanelLeft,
+  Globe,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useLanguage } from '@/contexts/language-context'
@@ -53,7 +54,7 @@ export default function TopBar({
   userTeams,
   planData,
 }: TopBarProps) {
-  const { t } = useLanguage()
+  const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const router = useRouter()
@@ -77,7 +78,7 @@ export default function TopBar({
       {/* Sidebar toggle — desktop: collapse/expand, mobile: open overlay */}
       <button
         onClick={onToggleSidebar}
-        title={sidebarCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+        title={sidebarCollapsed ? t('topbar.expandSidebar') : t('topbar.collapseSidebar')}
         className="text-muted-foreground hover:text-foreground hover:bg-accent mr-1 hidden h-8 w-8 items-center justify-center rounded-lg transition-colors md:flex"
       >
         <PanelLeft className="h-4 w-4" />
@@ -85,7 +86,7 @@ export default function TopBar({
       {onToggleMobileSidebar && (
         <button
           onClick={onToggleMobileSidebar}
-          title="Abrir menu"
+          title={t('topbar.openMenu')}
           className="text-muted-foreground hover:text-foreground hover:bg-accent mr-1 flex h-8 w-8 items-center justify-center rounded-lg transition-colors md:hidden"
         >
           <PanelLeft className="h-4 w-4" />
@@ -173,7 +174,17 @@ export default function TopBar({
                 className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors"
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+                {theme === 'dark' ? t('topbar.theme.light') : t('topbar.theme.dark')}
+              </button>
+              <button
+                onClick={() => {
+                  setLanguage(language === 'pt-BR' ? 'en' : 'pt-BR')
+                  setDropdownOpen(false)
+                }}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors"
+              >
+                <Globe className="h-4 w-4" />
+                {language === 'pt-BR' ? t('topbar.language.en') : t('topbar.language.ptBR')}
               </button>
 
               <div className="border-border my-1 border-t" />

@@ -16,6 +16,7 @@ interface DashboardShellNewProps {
   usage: UsageData | null
   planData?: PlanData | null
   orchestratorId?: string | null
+  initialLanguage?: string
 }
 
 export default function DashboardShellNew({
@@ -26,6 +27,7 @@ export default function DashboardShellNew({
   usage,
   planData,
   orchestratorId,
+  initialLanguage,
 }: DashboardShellNewProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -47,7 +49,7 @@ export default function DashboardShellNew({
   }
 
   return (
-    <LanguageProvider>
+    <LanguageProvider initialLanguage={initialLanguage}>
       <div className="flex h-screen w-full overflow-hidden">
         {/* Mobile sidebar overlay */}
         {mobileOpen && (

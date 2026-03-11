@@ -69,30 +69,30 @@ export default async function DashboardPage() {
 
   const metrics: Metric[] = [
     {
-      label: 'Agentes ativos agora',
+      label: 'home.metrics.activeAgents',
       value: String(activeAgentCount),
-      sub: activeAgentCount > 0 ? 'operando' : 'nenhum ativo',
+      sub: activeAgentCount > 0 ? 'home.metrics.operating' : 'home.metrics.noneActive',
       pulse: activeAgentCount > 0,
     },
     {
-      label: 'Execuções hoje',
+      label: 'home.metrics.executionsToday',
       value: String(runsToday),
-      sub: 'workflow runs',
+      sub: 'home.metrics.workflowRuns',
     },
     {
-      label: 'Workflows',
+      label: 'home.metrics.workflows',
       value: String(totalWorkflows),
-      sub: 'configurados',
+      sub: 'home.metrics.configured',
     },
     {
-      label: 'Skills',
+      label: 'home.metrics.skills',
       value: String(totalSkills),
-      sub: 'disponíveis',
+      sub: 'home.metrics.available',
     },
     {
-      label: 'Co-workers',
+      label: 'home.metrics.coworkers',
       value: String(agentsWithSkills.length),
-      sub: 'no time',
+      sub: 'home.metrics.inTeam',
     },
   ]
 

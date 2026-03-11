@@ -2,11 +2,17 @@
 
 import { useState } from 'react'
 import { Plus, Mic, ArrowUp } from 'lucide-react'
-
-const quickSuggestions = ['Clientes em risco', 'Top produtos', 'Previsão do mês']
+import { useLanguage } from '@/contexts/language-context'
 
 export default function AskBar() {
+  const { t } = useLanguage()
   const [askValue, setAskValue] = useState('')
+
+  const quickSuggestions = [
+    t('home.askBar.atRisk'),
+    t('home.askBar.topProducts'),
+    t('home.askBar.monthForecast'),
+  ]
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -18,7 +24,7 @@ export default function AskBar() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) e.preventDefault()
           }}
-          placeholder='Pergunte algo sobre sua loja... ex: "quais clientes não compram há 60 dias?"'
+          placeholder={t('home.askBar.placeholder')}
           className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-4 pt-4 pb-2 text-sm leading-relaxed outline-none"
         />
         <div className="flex items-center justify-between px-3 pt-1 pb-3">

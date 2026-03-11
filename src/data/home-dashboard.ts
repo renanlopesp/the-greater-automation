@@ -48,13 +48,42 @@ export interface Opportunity {
 
 export function getDynamicGreeting(
   now: Date,
-  name?: string
+  name?: string,
+  language: 'pt-BR' | 'en' = 'pt-BR'
 ): {
   heading: string
   sub: string
 } {
   const h = now.getHours()
   const dow = now.getDay()
+
+  if (language === 'en') {
+    const displayName = name ?? 'you'
+    if (h >= 6 && h < 12) {
+      return {
+        heading: `Good morning, ${displayName}. Your agents worked while you slept.`,
+        sub: "Here's what happened since you were last here.",
+      }
+    }
+    if (h >= 12 && h < 18) {
+      return {
+        heading: `Good afternoon, ${displayName}. Your team is at full speed.`,
+        sub: "See what's been done and what still needs your attention.",
+      }
+    }
+    if (h >= 18 && h < 24) {
+      return {
+        heading: 'While you wrap up your day, your agents keep going.',
+        sub: "Here's a summary of what happened today.",
+      }
+    }
+    return {
+      heading: 'Your agents worked while you slept.',
+      sub: "Here's what happened in the last few hours.",
+    }
+  }
+
+  // Portuguese — detailed contextual greetings
   const displayName = name ?? 'você'
 
   if (h >= 6 && h < 12) {

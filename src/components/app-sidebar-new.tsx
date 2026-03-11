@@ -117,8 +117,8 @@ export default function AppSidebarNew({
             <Zap className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
             <span className="text-muted-foreground text-xs whitespace-nowrap">
               {creditsRemaining !== null
-                ? `${creditsRemaining} créditos restantes`
-                : t('credits.remaining')}
+                ? t('credits.remaining', { count: creditsRemaining })
+                : t('credits.remaining', { count: 0 })}
             </span>
           </div>
           {planData?.planId === 'free' && (

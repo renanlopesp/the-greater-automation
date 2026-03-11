@@ -1,5 +1,6 @@
 'use client'
 
+import { useLanguage } from '@/contexts/language-context'
 import type { Scenario } from '@/data/home-dashboard'
 import { getDynamicGreeting } from '@/data/home-dashboard'
 
@@ -22,16 +23,19 @@ export default function GreetingSectionNew({
   onCycleScenario,
   userName,
 }: GreetingSectionProps) {
-  const liveTimeStr = now.toLocaleTimeString('pt-BR', {
+  const { t, language } = useLanguage()
+  const locale = language === 'en' ? 'en-US' : 'pt-BR'
+
+  const liveTimeStr = now.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   })
-  const liveDateStr = now.toLocaleDateString('pt-BR', {
+  const liveDateStr = now.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   })
-  const { heading: liveHeading } = getDynamicGreeting(now, userName)
+  const { heading: liveHeading } = getDynamicGreeting(now, userName, language)
 
   const activeHeading = isLive ? liveHeading : scenario.heading
   const activeDateStr = isLive ? liveDateStr : scenario.dateStr
@@ -44,9 +48,7 @@ export default function GreetingSectionNew({
           {activeDateStr} &middot; {activeTimeStr}
         </p>
         <div className="flex items-center gap-3">
-          <p className="text-muted-foreground/60 text-xs font-normal">
-            Última atualização: 2 min atrás
-          </p>
+          <p className="text-muted-foreground/60 text-xs font-normal">{t('home.lastUpdate')}</p>
           <button
             onClick={onCycleScenario}
             className="text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors"
@@ -56,7 +58,7 @@ export default function GreetingSectionNew({
                 isLive ? 'bg-foreground/40' : 'bg-foreground/20'
               }`}
             />
-            {scenario.label}
+            {isLive ? t('home.current') : scenario.label}
             <span className="text-muted-foreground/40 text-[10px]">
               {scenarioIdx + 1}/{totalScenarios}
             </span>

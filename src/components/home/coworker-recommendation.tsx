@@ -19,7 +19,7 @@ export default function CoworkerRecommendation() {
             <div className="flex items-center gap-1.5">
               <p className="text-foreground text-sm font-medium">Marketing Agent</p>
               <span className="text-muted-foreground border-border rounded-full border px-2 py-0.5 text-[10px]">
-                Inativo
+                {t('agent.inactive')}
               </span>
             </div>
           </div>

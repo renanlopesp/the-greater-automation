@@ -62,7 +62,9 @@ export default function CoworkersInAction({ onSelectAgent, agents }: CoworkersIn
 
               {!card.inactive && (
                 <div className="border-border mt-auto border-t pt-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <p className="text-muted-foreground/60 mb-1 text-[11px]">Resultado recente</p>
+                  <p className="text-muted-foreground/60 mb-1 text-[11px]">
+                    {t('home.recentResult')}
+                  </p>
                   <p className="text-muted-foreground text-[13px]">{card.stat2}</p>
                 </div>
               )}

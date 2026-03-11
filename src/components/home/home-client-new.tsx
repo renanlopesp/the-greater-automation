@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { useLanguage } from '@/contexts/language-context'
 import GreetingSectionNew from './greeting-section-new'
 import MetricsCards from './metrics-cards'
 import AskBar from './ask-bar'
@@ -32,6 +33,7 @@ const statusDotClass: Record<string, string> = {
 
 // ── Agent Drawer ─────────────────────────────────────────────────
 function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void }) {
+  const { t } = useLanguage()
   const [visible, setVisible] = useState(false)
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true))
@@ -82,7 +84,7 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
           <p className="text-foreground text-sm leading-relaxed">{agent.summary}</p>
           <div className="border-border my-6 border-t" />
           <div>
-            <p className="text-muted-foreground mb-4 text-xs">Resultados</p>
+            <p className="text-muted-foreground mb-4 text-xs">{t('home.results')}</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               {agent.kpis.map((kpi) => (
                 <div key={kpi.label}>
@@ -97,7 +99,7 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
           </div>
           <div className="border-border my-6 border-t" />
           <div>
-            <p className="text-muted-foreground mb-4 text-xs font-medium">Log de ações</p>
+            <p className="text-muted-foreground mb-4 text-xs font-medium">{t('home.actionLog')}</p>
             <div className="relative">
               <div className="bg-border absolute top-2 bottom-2 left-[5px] w-px" />
               <div className="space-y-0">
@@ -133,7 +135,7 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
 
         <div className="border-border flex flex-col items-center gap-3 border-t px-8 py-6">
           <button className="bg-foreground text-background flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90">
-            {agent.inactive ? 'Ativar agente' : 'Abrir workspace do agente'}
+            {agent.inactive ? t('home.activateAgent') : t('home.openWorkspace')}
           </button>
         </div>
       </div>
