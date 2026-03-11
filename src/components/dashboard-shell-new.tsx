@@ -1,10 +1,20 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
 import AppSidebarNew from '@/components/app-sidebar-new'
 import TopBar from '@/components/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
-import type { UserData, TeamData, UsageData, PlanData } from '@/types/navigation'
+import type {
+  UserData,
+  TeamData,
+  UsageData,
+  PlanData,
+  TeamMember,
+  TeamInvitation,
+} from '@/types/navigation'
+
+const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed'
 
@@ -17,6 +27,18 @@ interface DashboardShellNewProps {
   planData?: PlanData | null
   orchestratorId?: string | null
   initialLanguage?: string
+  members?: TeamMember[]
+  invitations?: TeamInvitation[]
+  currentUserRole?: 'owner' | 'admin' | 'member'
+  storeData?: {
+    id: string
+    name: string
+    segment: string
+    platform: string | null
+    platform_store_id: string | null
+    last_sync_at: string | null
+    settings: Record<string, unknown> | null
+  } | null
 }
 
 export default function DashboardShellNew({
@@ -28,6 +50,10 @@ export default function DashboardShellNew({
   planData,
   orchestratorId,
   initialLanguage,
+  members = [],
+  invitations = [],
+  currentUserRole = 'member',
+  storeData = null,
 }: DashboardShellNewProps) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -35,6 +61,8 @@ export default function DashboardShellNew({
     return stored !== null ? stored === 'true' : true
   })
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsEverOpened, setSettingsEverOpened] = useState(false)
 
   const handleToggleCollapse = () => {
     setCollapsed((prev) => {
@@ -97,9 +125,33 @@ export default function DashboardShellNew({
             team={team}
             userTeams={userTeams}
             planData={planData}
+            onOpenSettings={() => {
+              setSettingsEverOpened(true)
+              setSettingsOpen(true)
+            }}
           />
           <main className="flex-1 overflow-auto">{children}</main>
         </div>
+        {settingsEverOpened && (
+          <SettingsDialog
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            profile={{
+              fullName: user.fullName ?? '',
+              email: user.email,
+              avatarUrl: user.avatarUrl,
+            }}
+            team={team ? { name: team.name, slug: team.slug } : null}
+            teamId={team?.id}
+            usage={usage}
+            members={members}
+            invitations={invitations}
+            currentUserRole={currentUserRole}
+            currentUserId={user.id}
+            planData={planData ?? null}
+            storeData={storeData}
+          />
+        )}
       </div>
     </LanguageProvider>
   )

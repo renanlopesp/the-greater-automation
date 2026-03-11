@@ -54,36 +54,29 @@ export default function AppSidebarNew({
       style={{ width: collapsed ? 56 : 240 }}
     >
       {/* Logo / Brand area */}
-      <div
-        className={`flex h-[48px] shrink-0 items-center ${
-          collapsed ? 'justify-center px-3' : 'px-4'
-        }`}
-      >
-        {collapsed ? (
+      <div className="flex h-[48px] shrink-0 items-center overflow-hidden px-4">
+        <div className="flex items-center gap-2.5 overflow-hidden">
           <div className="bg-foreground text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold">
             {teamName?.[0]?.toUpperCase() ?? 'S'}
           </div>
-        ) : (
-          <span className="text-foreground text-sm font-semibold whitespace-nowrap">
+          <span
+            className={`text-foreground overflow-hidden text-sm font-semibold whitespace-nowrap transition-[opacity,max-width] duration-300 ease-in-out ${
+              collapsed ? 'max-w-0 opacity-0' : 'max-w-[200px] opacity-100'
+            }`}
+          >
             {teamName ?? 'Snew'}
           </span>
-        )}
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav
-        className={`flex-1 pt-3 pb-1 transition-[padding] duration-300 ${
-          collapsed ? 'px-1.5' : 'px-2'
-        }`}
-      >
+      <nav className="flex-1 px-2 pt-3 pb-1">
         {navItems.map((item) => (
           <Link
             key={item.path}
             href={item.path}
             title={collapsed ? t(item.labelKey) : undefined}
-            className={`relative mb-0.5 flex w-full items-center rounded-md transition-colors ${
-              collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2'
-            } ${
+            className={`relative mb-0.5 flex w-full items-center gap-2.5 overflow-hidden rounded-md px-3 py-2 transition-colors ${
               isActive(item.path)
                 ? 'bg-accent text-foreground font-medium'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'

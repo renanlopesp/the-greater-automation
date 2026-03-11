@@ -244,6 +244,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         planData={planData}
         orchestratorId={orchestratorId}
         initialLanguage={cookieStore.get('lang')?.value}
+        members={members}
+        invitations={invitations}
+        currentUserRole={currentUserRole}
+        storeData={storeData}
       >
         {children}
       </DashboardShellNew>

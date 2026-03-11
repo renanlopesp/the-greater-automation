@@ -43,6 +43,7 @@ interface TopBarProps {
   team: { id: string; name: string; slug: string } | null
   userTeams: { id: string; name: string; role: string }[]
   planData?: PlanData | null
+  onOpenSettings?: () => void
 }
 
 export default function TopBar({
@@ -53,6 +54,7 @@ export default function TopBar({
   team,
   userTeams,
   planData,
+  onOpenSettings,
 }: TopBarProps) {
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
@@ -162,7 +164,13 @@ export default function TopBar({
 
               <div className="border-border my-1 border-t" />
 
-              <button className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors">
+              <button
+                onClick={() => {
+                  setDropdownOpen(false)
+                  onOpenSettings?.()
+                }}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors"
+              >
                 <Settings className="h-4 w-4" />
                 {t('topbar.accountSettings')}
               </button>
