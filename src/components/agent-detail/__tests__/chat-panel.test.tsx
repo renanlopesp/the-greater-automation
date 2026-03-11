@@ -16,11 +16,7 @@ vi.mock('@/components/ai-elements/conversation', () => ({
       {children}
     </div>
   ),
-  ConversationEmptyState: ({ title, description }: any) => (
-    <div data-testid="empty-state">
-      {title} - {description}
-    </div>
-  ),
+  ConversationEmptyState: ({ children }: any) => <div data-testid="empty-state">{children}</div>,
   ConversationScrollButton: () => <div data-testid="scroll-button" />,
 }))
 
@@ -173,13 +169,11 @@ describe('ChatPanel', () => {
       mockChatState()
       render(<ChatPanel {...defaultProps} />)
 
-      const suggestions = screen.getAllByTestId('suggestion')
-      expect(suggestions).toHaveLength(2)
       expect(screen.getByText('Hello')).toBeInTheDocument()
       expect(screen.getByText('Help me')).toBeInTheDocument()
     })
 
-    it('should show starters even when messages exist', () => {
+    it('should not show starters when messages exist', () => {
       mockChatState({
         messages: [
           {
@@ -191,7 +185,8 @@ describe('ChatPanel', () => {
       })
       render(<ChatPanel {...defaultProps} />)
 
-      expect(screen.getAllByTestId('suggestion')).toHaveLength(2)
+      // Starters are inside empty state which is hidden when messages exist
+      expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument()
     })
 
     it('should not show empty state when messages exist', () => {
@@ -339,7 +334,7 @@ describe('ChatPanel', () => {
 
       const promptInput = screen.getByTestId('prompt-input-textarea')
       expect(promptInput).toBeInTheDocument()
-      expect(promptInput).toHaveAttribute('placeholder', 'Chat com Test Agent...')
+      expect(promptInput).toHaveAttribute('placeholder', 'Pergunte qualquer coisa ao Test Agent...')
     })
   })
 
