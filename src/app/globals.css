@@ -293,48 +293,47 @@ summary {
   }
 }
 
-@layer base {
-  .conic-border {
-    position: relative;
-    z-index: 0;
-    border-radius: 1rem;
-    padding: 1px;
-    background: conic-gradient(
-      from var(--conic-angle),
-      var(--border) 55%,
-      hsl(142 71% 30% / 0.4) 68%,
-      hsl(142 71% 50% / 0.7) 77%,
-      hsl(142 71% 65% / 0.5) 86%,
-      var(--border) 96%
-    );
-    animation: conic-spin 3.5s linear infinite;
-  }
+/* Conic border classes — outside @layer so Tailwind v4 doesn't tree-shake them */
+.conic-border {
+  position: relative;
+  z-index: 0;
+  border-radius: 1rem;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--conic-angle),
+    var(--border) 55%,
+    hsl(142 71% 30% / 0.4) 68%,
+    hsl(142 71% 50% / 0.7) 77%,
+    hsl(142 71% 65% / 0.5) 86%,
+    var(--border) 96%
+  );
+  animation: conic-spin 3.5s linear infinite;
+}
 
-  /* Glow layer — blurred arc that tracks the spinning gradient */
-  .conic-border::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 1.3rem;
-    background: conic-gradient(
-      from var(--conic-angle),
-      transparent 55%,
-      hsl(142 71% 45% / 0.12) 68%,
-      hsl(142 71% 55% / 0.2) 78%,
-      hsl(142 71% 65% / 0.1) 88%,
-      transparent 96%
-    );
-    filter: blur(12px);
-    animation: conic-spin 3.5s linear infinite;
-    z-index: -1;
-  }
+/* Glow layer — blurred arc that tracks the spinning gradient */
+.conic-border::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 1.3rem;
+  background: conic-gradient(
+    from var(--conic-angle),
+    transparent 55%,
+    hsl(142 71% 45% / 0.12) 68%,
+    hsl(142 71% 55% / 0.2) 78%,
+    hsl(142 71% 65% / 0.1) 88%,
+    transparent 96%
+  );
+  filter: blur(12px);
+  animation: conic-spin 3.5s linear infinite;
+  z-index: -1;
+}
 
-  .conic-border-inner {
-    border-radius: calc(1rem - 1.5px);
-    background: var(--background);
-  }
+.conic-border-inner {
+  border-radius: calc(1rem - 1.5px);
+  background: var(--background);
+}
 
-  .animate-fade-in {
-    animation: fade-in 0.3s ease-out;
-  }
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
