@@ -74,7 +74,7 @@ describe('AppSidebar', () => {
     const userButton = screen.getByText('Test User')
     await user.click(userButton)
 
-    expect(screen.getByText('Dark mode')).toBeInTheDocument()
+    expect(screen.getByText('Modo escuro')).toBeInTheDocument()
   })
 
   it('renders user info in header', () => {
@@ -90,8 +90,8 @@ describe('AppSidebar', () => {
     const userButton = screen.getByText('Test User')
     await user.click(userButton)
 
-    expect(screen.getByText('Account Settings')).toBeInTheDocument()
-    expect(screen.getByText('Sign out')).toBeInTheDocument()
+    expect(screen.getByText('Configurações da conta')).toBeInTheDocument()
+    expect(screen.getByText('Sair')).toBeInTheDocument()
   })
 
   it('shows workspace list in dropdown', async () => {
