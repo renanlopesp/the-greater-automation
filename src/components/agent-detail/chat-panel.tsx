@@ -4,14 +4,14 @@ import type { UIMessage } from 'ai'
 import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
 import BoringAvatar from 'boring-avatars'
 import {
+  ArrowUpIcon,
   CopyIcon,
+  FileIcon,
+  SquareIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
-  PaperclipIcon,
-  XIcon,
-  FileIcon,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   Conversation,
@@ -29,16 +29,11 @@ import {
 import {
   PromptInput,
   PromptInputTextarea,
-  PromptInputHeader,
   PromptInputFooter,
-  PromptInputTools,
-  PromptInputButton,
   PromptInputSubmit,
-  usePromptInputAttachments,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
-import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAgentChat } from '@/hooks/use-agent-chat'
@@ -58,6 +53,7 @@ interface ChatPanelProps {
   agentName: string
   agentPalette: string
   conversationStarters: string[]
+  coworkers?: { id: string; name: string }[]
   currentUserId: string
   initialConversationId: string | null
   initialMessages: {
@@ -68,10 +64,21 @@ interface ChatPanelProps {
     sender_name: string | null
     sender_avatar: string | null
   }[]
+  initialQuery?: string
 }
 
-function AgentAvatar({ name, palette }: { name: string; palette: string }) {
-  return <BoringAvatar name={name} variant="bauhaus" size={28} colors={getAgentPalette(palette)} />
+function AgentAvatar({
+  name,
+  palette,
+  size = 28,
+}: {
+  name: string
+  palette: string
+  size?: number
+}) {
+  return (
+    <BoringAvatar name={name} variant="bauhaus" size={size} colors={getAgentPalette(palette)} />
+  )
 }
 
 /** Format a tool name for display (SCREAMING_SNAKE -> Title Case) */
@@ -265,50 +272,50 @@ function ChatMessageItem({
   )
 }
 
-function AttachButton() {
-  const attachments = usePromptInputAttachments()
-  return (
-    <PromptInputButton tooltip="Anexar arquivos" onClick={() => attachments.openFileDialog()}>
-      <PaperclipIcon className="size-4" />
-    </PromptInputButton>
-  )
-}
+const VISIBLE_COWORKERS = 3
 
-function AttachmentPreviews() {
-  const attachments = usePromptInputAttachments()
-  if (attachments.files.length === 0) return null
+function AgentPills({ agents }: { agents: { id: string; name: string }[] }) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const visible = agents.slice(0, VISIBLE_COWORKERS)
+  const overflow = agents.length - VISIBLE_COWORKERS
+
+  if (agents.length === 0) return null
 
   return (
-    <PromptInputHeader>
-      {attachments.files.map((file) => {
-        const isImage = file.mediaType?.startsWith('image/')
-        return (
-          <div
-            key={file.id}
-            className="bg-muted group relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
-          >
-            {isImage && file.url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={file.url}
-                alt={file.filename ?? 'attachment'}
-                className="h-8 w-8 rounded object-cover"
-              />
-            ) : (
-              <FileIcon className="text-muted-foreground h-4 w-4 shrink-0" />
-            )}
-            <span className="max-w-[120px] truncate">{file.filename ?? 'file'}</span>
-            <button
-              type="button"
-              onClick={() => attachments.remove(file.id)}
-              className="text-muted-foreground hover:text-foreground -mr-1 shrink-0"
-            >
-              <XIcon className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )
-      })}
-    </PromptInputHeader>
+    <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto">
+      <button
+        type="button"
+        onClick={() => setSelected(null)}
+        className={cn(
+          'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+          selected === null
+            ? 'bg-foreground text-background'
+            : 'bg-background text-muted-foreground hover:text-foreground'
+        )}
+      >
+        Todos
+      </button>
+      {visible.map((agent) => (
+        <button
+          key={agent.id}
+          type="button"
+          onClick={() => setSelected(selected === agent.id ? null : agent.id)}
+          className={cn(
+            'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+            selected === agent.id
+              ? 'bg-foreground text-background'
+              : 'bg-background text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {agent.name}
+        </button>
+      ))}
+      {overflow > 0 && (
+        <span className="text-muted-foreground bg-background shrink-0 rounded-full px-2.5 py-1 text-xs">
+          +{overflow}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -317,9 +324,11 @@ export default function ChatPanel({
   agentName,
   agentPalette,
   conversationStarters,
+  coworkers = [],
   currentUserId,
   initialConversationId,
   initialMessages,
+  initialQuery,
 }: ChatPanelProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
@@ -327,6 +336,7 @@ export default function ChatPanel({
       onSkillMutation: invalidateWorkflows,
       initialConversationId,
       initialMessages,
+      initialQuery,
     })
 
   const hasMessages = messages.length > 0
@@ -380,12 +390,29 @@ export default function ChatPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Conversation className="flex-1">
-        <ConversationContent className="mx-auto max-w-3xl">
+        <ConversationContent className="mx-auto max-w-2xl">
           {!hasMessages ? (
-            <ConversationEmptyState
-              title={`Chat com ${agentName}`}
-              description="Faça uma pergunta ou escolha uma sugestão abaixo."
-            />
+            <ConversationEmptyState>
+              <AgentAvatar name={agentName} palette={agentPalette} size={48} />
+              <h2 className="text-foreground mt-4 text-xl font-semibold">{agentName}</h2>
+              <p className="text-muted-foreground mt-1 max-w-md text-center text-sm leading-relaxed">
+                Faça uma pergunta ou escolha uma sugestão abaixo.
+              </p>
+              {conversationStarters.length > 0 && (
+                <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3">
+                  {conversationStarters.map((starter) => (
+                    <button
+                      key={starter}
+                      type="button"
+                      onClick={() => handleSuggestionClick(starter)}
+                      className="border-border hover:bg-muted/50 rounded-xl border p-4 text-left transition-colors"
+                    >
+                      <p className="text-foreground text-sm leading-snug">{starter}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ConversationEmptyState>
           ) : (
             visibleMessages.map((message) => (
               <ChatMessageItem
@@ -411,28 +438,23 @@ export default function ChatPanel({
         </div>
       )}
 
-      {/* Prompt input area */}
-      <div className="bg-background border-t px-4 py-3">
-        <div className="mx-auto max-w-3xl">
-          {/* Suggestion chips — always visible */}
-          {conversationStarters.length > 0 && (
-            <div className="mb-3">
-              <Suggestions>
-                {conversationStarters.map((starter) => (
-                  <Suggestion key={starter} suggestion={starter} onClick={handleSuggestionClick} />
-                ))}
-              </Suggestions>
-            </div>
-          )}
-
-          <PromptInput onSubmit={handleSubmit} multiple>
-            <AttachmentPreviews />
-            <PromptInputTextarea placeholder={`Chat com ${agentName}...`} disabled={isLoading} />
+      {/* Prompt input area — matches localhost:8080/new-chat layout */}
+      <div className="bg-background sticky bottom-0 border-t px-4 py-4">
+        <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted mx-auto max-w-2xl [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:shadow-none">
+          <PromptInput onSubmit={handleSubmit}>
+            <PromptInputTextarea
+              placeholder={`Pergunte qualquer coisa ao ${agentName}...`}
+              disabled={isLoading}
+            />
             <PromptInputFooter>
-              <PromptInputTools>
-                <AttachButton />
-              </PromptInputTools>
-              <PromptInputSubmit status={status} onStop={stop} />
+              <AgentPills agents={coworkers} />
+              <PromptInputSubmit status={status} onStop={stop} variant="ghost" size="icon-sm">
+                {status === 'streaming' ? (
+                  <SquareIcon className="size-4" />
+                ) : (
+                  <ArrowUpIcon className="size-4" />
+                )}
+              </PromptInputSubmit>
             </PromptInputFooter>
           </PromptInput>
         </div>

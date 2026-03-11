@@ -13,8 +13,13 @@ export default function CoworkerRecommendation() {
       <div className="border-border bg-background flex flex-col items-start gap-5 rounded-2xl border p-7 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="bg-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm">
-              {'\u{1F4E3}'}
+            <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/coworker-avatars/conversion-optimizer.jpg"
+                alt="Marketing Agent"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div className="flex items-center gap-1.5">
               <p className="text-foreground text-sm font-medium">Marketing Agent</p>

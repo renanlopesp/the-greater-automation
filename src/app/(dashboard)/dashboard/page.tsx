@@ -5,6 +5,45 @@ import { fetchTeam, fetchAgentsWithSkills, fetchRunsToday } from '@/lib/queries/
 import HomeClientNew from '@/components/home/home-client-new'
 import type { AgentCard, Metric } from '@/data/home-dashboard'
 
+// Available avatar JPGs in public/images/coworker-avatars/
+const avatarSlugs = [
+  'customer-service',
+  'upsell-retention',
+  'review-reputation',
+  'churn-prediction',
+  'vip-relationship',
+  'sentiment-intelligence',
+  'conversion-optimizer',
+  'retention-booster',
+  'ad-waste-detector',
+  'content-engine',
+  'email-performance',
+  'competitor-watch',
+  'pricing-intelligence',
+  'market-gap-finder',
+  'share-of-voice',
+  'revenue-intelligence',
+  'cohort-analyzer',
+  'funnel-diagnostics',
+  'attribution-mapper',
+  'store-audit-scanner',
+  'checkout-auditor',
+  'data-quality-guard',
+  'compliance-scanner',
+  'task-prioritizer',
+  'weekly-briefing',
+  'workflow-automator',
+  'inventory-alerts',
+]
+
+/** Pick a deterministic avatar for any agent name */
+function pickAvatar(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0
+  const idx = Math.abs(hash) % avatarSlugs.length
+  return `/images/coworker-avatars/${avatarSlugs[idx]}.jpg`
+}
+
 export default async function DashboardPage() {
   const supabase = await createServerClient()
   const {
@@ -40,27 +79,30 @@ export default async function DashboardPage() {
   const userName =
     profile?.full_name ?? user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? undefined
 
-  // Transform real agents into AgentCard shape
-  const agentCards: AgentCard[] = agentsWithSkills.map((agent) => ({
-    id: agent.id,
-    name: agent.name,
-    emoji: '🤖',
-    badge: {
-      label: agent.is_active ? 'Ativo' : 'Inativo',
-      color: agent.is_active ? ('green' as const) : ('neutral' as const),
-    },
-    pulse: agent.is_active ?? false,
-    inactive: !agent.is_active,
-    stat1: agent.description ?? '',
-    stat2: `${agent.skillCount} skill${agent.skillCount !== 1 ? 's' : ''}`,
-    stat3: `${agent.skills?.length ?? 0} workflow${(agent.skills?.length ?? 0) !== 1 ? 's' : ''}`,
-    summary: agent.description ?? 'Sem descrição',
-    kpis: [
-      { label: 'Workflows', value: String(agent.skills?.length ?? 0) },
-      { label: 'Skills', value: String(agent.skillCount ?? 0) },
-    ],
-    actions: [],
-  }))
+  // Transform real agents into AgentCard shape (exclude orchestrator — it's the AskBar, not a co-worker)
+  const agentCards: AgentCard[] = agentsWithSkills
+    .filter((a) => !a.is_orchestrator)
+    .map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      emoji: '🤖',
+      avatarUrl: agent.avatar_url || pickAvatar(agent.name),
+      badge: {
+        label: agent.is_active ? 'Ativo' : 'Inativo',
+        color: agent.is_active ? ('green' as const) : ('neutral' as const),
+      },
+      pulse: agent.is_active ?? false,
+      inactive: !agent.is_active,
+      stat1: agent.description ?? '',
+      stat2: `${agent.skillCount} skill${agent.skillCount !== 1 ? 's' : ''}`,
+      stat3: `${agent.skills?.length ?? 0} workflow${(agent.skills?.length ?? 0) !== 1 ? 's' : ''}`,
+      summary: agent.description ?? 'Sem descrição',
+      kpis: [
+        { label: 'Workflows', value: String(agent.skills?.length ?? 0) },
+        { label: 'Skills', value: String(agent.skillCount ?? 0) },
+      ],
+      actions: [],
+    }))
 
   // Build real metrics from database data
   const activeAgentCount = agentsWithSkills.filter((a) => a.is_active).length
@@ -96,12 +138,15 @@ export default async function DashboardPage() {
     },
   ]
 
+  const orchestrator = agentsWithSkills.find((a) => a.is_orchestrator)
+
   return (
     <HomeClientNew
       agents={agentCards.length > 0 ? agentCards : undefined}
       metrics={metrics}
       teamName={team?.name ?? undefined}
       userName={userName}
+      orchestratorId={orchestrator?.id}
     />
   )
 }

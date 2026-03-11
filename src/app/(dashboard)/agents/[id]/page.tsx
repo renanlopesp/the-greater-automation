@@ -15,8 +15,15 @@ import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
 import SetupChecklist, { type SetupStep } from '@/components/agent-detail/setup-checklist'
 
-export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AgentDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ q?: string }>
+}) {
   const { id } = await params
+  const { q: initialQuery } = await searchParams
   const supabase = await createServerClient()
 
   // Parallel: auth + agent + profile + conversation — no dependency between them
@@ -42,6 +49,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
     { data: messagingLink },
     { count: skillCount },
     { count: workflowCount },
+    { data: teamAgents },
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, avatar_url').eq('id', user.id).single(),
     getActiveConversation(supabase, id, user.id),
@@ -62,6 +70,13 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
       .from('agent_workflows')
       .select('id', { count: 'exact', head: true })
       .eq('agent_id', id),
+    supabase
+      .from('agents')
+      .select('id, name')
+      .eq('team_id', agent.team_id)
+      .eq('is_active', true)
+      .neq('is_orchestrator', true)
+      .order('name'),
   ])
 
   const canDeleteChats = teamMember?.role === 'owner' || teamMember?.role === 'admin'
@@ -96,34 +111,34 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      {/* Compact agent header */}
-      <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" asChild>
-                <Link href="/dashboard">
-                  <ArrowLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Voltar ao painel</TooltipContent>
-          </Tooltip>
-          <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className="truncate text-sm font-semibold">{agent.name}</h1>
-              <AgentStatus status={agent.status} isActive={agent.is_active} />
+      {/* Orchestrator: no header (matches /chat clean layout). Other agents: compact header */}
+      {!isOrchestrator && (
+        <header className="flex items-center justify-between border-b px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" asChild>
+                  <Link href="/dashboard">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Voltar ao painel</TooltipContent>
+            </Tooltip>
+            <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h1 className="truncate text-sm font-semibold">{agent.name}</h1>
+                <AgentStatus status={agent.status} isActive={agent.is_active} />
+              </div>
+              {agent.description && (
+                <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
+              )}
             </div>
-            {agent.description && (
-              <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
-            )}
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5">
-          <PresenceIndicator agentId={id} currentUser={currentUser} />
-          {!isOrchestrator && (
+          <div className="flex items-center gap-1.5">
+            <PresenceIndicator agentId={id} currentUser={currentUser} />
             <Suspense
               fallback={
                 <Tooltip>
@@ -138,11 +153,11 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
             >
               <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
             </Suspense>
-          )}
-          <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
-          <NewChatButton />
-        </div>
-      </header>
+            <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
+            <NewChatButton />
+          </div>
+        </header>
+      )}
 
       {/* Setup checklist — shown when agent has incomplete setup steps (not for orchestrator) */}
       {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
@@ -153,9 +168,11 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ id
         agentName={agent.name}
         agentPalette={agent.palette}
         conversationStarters={conversationStarters}
+        coworkers={(teamAgents ?? []).map((a) => ({ id: a.id, name: a.name }))}
         currentUserId={user.id}
         initialConversationId={activeConversation?.conversationId ?? null}
         initialMessages={activeConversation?.messages ?? []}
+        initialQuery={initialQuery}
       />
     </div>
   )

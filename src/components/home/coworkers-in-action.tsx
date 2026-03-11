@@ -28,8 +28,19 @@ export default function CoworkersInAction({ onSelectAgent, agents }: CoworkersIn
           >
             <div className="flex flex-1 flex-col gap-3 p-7">
               <div className="flex items-center gap-2.5">
-                <div className="bg-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm">
-                  {card.emoji}
+                <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                  {card.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={card.avatarUrl}
+                      alt={card.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-sm">
+                      {card.emoji}
+                    </span>
+                  )}
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <p className="text-foreground text-sm leading-tight font-medium">{card.name}</p>

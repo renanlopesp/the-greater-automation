@@ -1,59 +1,102 @@
 'use client'
 
-import { useLanguage } from '@/contexts/language-context'
+import Link from 'next/link'
 import type { Agent } from '@/data/agents'
 
-const categoryEmojis: Record<string, string> = {
-  'Customer Service': '\uD83C\uDFE7',
-  Marketing: '\uD83D\uDCE3',
-  Competitors: '\uD83D\uDD0D',
-  Analytics: '\uD83D\uDCCA',
-  Audit: '\uD83D\uDEE1\uFE0F',
-  Productivity: '\u26A1',
+function getAvatarUrl(agentId: string): string {
+  return `/images/coworker-avatars/${agentId}.jpg`
 }
 
-function extractTypicalOutcome(detailedDescription: string): string {
-  const lines = detailedDescription.split('\n')
-  const expectedIdx = lines.findIndex((l) => l.toLowerCase().includes('expected outcomes'))
-  if (expectedIdx === -1) return ''
-
-  const outcomes: string[] = []
-  for (let i = expectedIdx + 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    if (line.startsWith('\u2022') || line.startsWith('-')) {
-      outcomes.push(line.replace(/^[\u2022\-]\s*/, ''))
-      if (outcomes.length >= 1) break
-    }
-  }
-  return outcomes[0] ?? ''
+// Typical outcomes per agent (matches reference)
+const typicalOutcomes: Record<string, string> = {
+  'customer-service':
+    'Reduces response time by up to 60% and resolves repetitive support questions automatically.',
+  'upsell-retention':
+    'Increases average order value by 15–30% through automated cross-sell and upsell flows.',
+  'review-reputation':
+    'Increases review volume by 40–60% and improves average star rating within 30 days.',
+  'churn-prediction':
+    'Reduces preventable churn by 25–40% through early intervention on at-risk accounts.',
+  'vip-relationship':
+    'Increases VIP retention by 20–35% through automated personalized milestone campaigns.',
+  'sentiment-intelligence':
+    'Surfaces hidden customer risks in real time across support, reviews, and social.',
+  'conversion-optimizer':
+    'Improves checkout conversion by identifying friction points and recommending targeted fixes.',
+  'retention-booster':
+    'Reduces churn rate by 15–30% through data-driven automated retention workflows.',
+  'ad-waste-detector':
+    'Reduces wasted ad spend by 20–40% by detecting underperforming campaigns and budget leaks.',
+  'content-engine':
+    'Drives consistent content output aligned to trending topics and audience intent signals.',
+  'email-performance':
+    'Improves email engagement by 15–30% through segment-specific optimization and A/B testing.',
+  'competitor-watch':
+    'Detects competitor price drops and new campaigns before they impact your sales.',
+  'pricing-intelligence':
+    'Keeps pricing competitive while protecting margin through real-time market signals.',
+  'market-gap-finder':
+    'Surfaces first-mover product opportunities in underserved niches before competitors act.',
+  'share-of-voice':
+    'Benchmarks brand visibility vs competitors and identifies channels with growth potential.',
+  'revenue-intelligence':
+    'Identifies hidden growth opportunities in traffic, products, and customer segments.',
+  'cohort-analyzer':
+    'Reveals which acquisition channels produce the highest-quality customers over time.',
+  'funnel-diagnostics':
+    'Pinpoints the exact step where revenue is lost and surfaces actionable fixes.',
+  'attribution-mapper':
+    'Maps true ROI across all channels so budget flows to what actually drives revenue.',
+  'store-audit-scanner':
+    'Delivers a prioritized health report covering UX, SEO, speed, and conversion blockers.',
+  'checkout-auditor':
+    'Identifies checkout friction reducing conversion and recommends targeted improvements.',
+  'data-quality-guard':
+    'Detects tracking gaps and attribution errors that cause flawed reporting decisions.',
+  'compliance-scanner':
+    'Flags GDPR, CCPA, and platform policy violations before they become legal risks.',
+  'task-prioritizer':
+    'Surfaces the highest-impact actions across all agents so nothing critical is missed.',
+  'weekly-briefing':
+    'Delivers a curated weekly summary of performance and key actions to the right people.',
+  'workflow-automator':
+    'Automates cross-tool workflows triggered by store events, reducing manual operations.',
+  'inventory-alerts':
+    'Prevents stockouts by triggering reorder alerts before inventory reaches critical levels.',
 }
 
 interface AgentCardProps {
   agent: Agent
-  onClick: (agent: Agent) => void
+  isActive?: boolean
 }
 
-export default function AgentCard({ agent, onClick }: AgentCardProps) {
-  const { t } = useLanguage()
-  const emoji = categoryEmojis[agent.category] ?? '\uD83E\uDD16'
-  const typicalOutcome = extractTypicalOutcome(agent.detailedDescription)
+export default function AgentCard({ agent, isActive }: AgentCardProps) {
+  const avatarSrc = getAvatarUrl(agent.id)
+  const outcome = typicalOutcomes[agent.id]
 
-  return (
-    <button
-      onClick={() => onClick(agent)}
-      className="group border-border bg-background hover:border-foreground/50 flex cursor-pointer flex-col rounded-2xl border text-left transition-colors"
-    >
-      <div className="flex flex-1 flex-col gap-3 p-6">
+  const card = (
+    <div className="group border-border bg-background hover:border-foreground/50 flex cursor-pointer flex-col rounded-2xl border transition-colors">
+      <div className="flex flex-1 flex-col gap-3 p-7">
+        {/* Avatar + Name + Active dot */}
         <div className="flex items-center gap-2.5">
-          <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm">
-            {emoji}
+          <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatarSrc} alt={agent.category} className="h-full w-full object-cover" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-foreground truncate text-sm leading-tight font-medium">
-              {agent.name}
-            </p>
-            <p className="text-muted-foreground text-[11px]">{agent.category}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <p className="text-foreground text-sm leading-tight font-medium">{agent.name}</p>
+            {isActive && (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                  style={{ backgroundColor: 'hsl(142 71% 45%)' }}
+                />
+                <span
+                  className="relative inline-flex h-2 w-2 rounded-full"
+                  style={{ backgroundColor: 'hsl(142 71% 45%)' }}
+                />
+              </span>
+            )}
           </div>
         </div>
 
@@ -61,15 +104,24 @@ export default function AgentCard({ agent, onClick }: AgentCardProps) {
           {agent.description}
         </p>
 
-        {typicalOutcome && (
-          <div className="border-border mt-auto border-t pt-3">
-            <p className="text-muted-foreground/60 mb-0.5 text-[11px]">
-              {t('discover.typicalOutcome')}
-            </p>
-            <p className="text-muted-foreground text-[12px] leading-snug">{typicalOutcome}</p>
-          </div>
-        )}
+        {/* Typical Outcome — always occupies space, visible only on hover */}
+        <div
+          className={`border-border mt-auto border-t pt-4 transition-opacity duration-200 ${
+            outcome ? 'opacity-0 group-hover:opacity-100' : 'invisible'
+          }`}
+        >
+          <p className="text-muted-foreground/60 mb-1.5 text-[11px]">Typical outcome</p>
+          <p className="text-muted-foreground line-clamp-3 text-[13px] leading-relaxed">
+            {outcome}
+          </p>
+        </div>
       </div>
-    </button>
+    </div>
   )
+
+  if (isActive) {
+    return <Link href={`/agents/${agent.id}`}>{card}</Link>
+  }
+
+  return card
 }

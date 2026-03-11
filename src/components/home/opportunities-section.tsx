@@ -17,8 +17,19 @@ export default function OpportunitiesSection() {
           >
             <div className="flex min-w-0 flex-1 flex-col gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="bg-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm">
-                  {opp.emoji}
+                <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                  {opp.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={opp.avatarUrl}
+                      alt={opp.agent}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-sm">
+                      {opp.emoji}
+                    </span>
+                  )}
                 </div>
                 <p className="text-foreground text-sm font-medium">{opp.agent}</p>
               </div>

@@ -21,6 +21,8 @@ export interface HomeClientNewProps {
   teamName?: string
   /** Logged-in user's display name */
   userName?: string
+  /** Orchestrator agent ID for routing AskBar messages */
+  orchestratorId?: string
 }
 
 // ── Status dot config ────────────────────────────────────────────
@@ -56,8 +58,19 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
       >
         <div className="border-border flex shrink-0 items-start justify-between border-b px-8 pt-8 pb-5">
           <div className="flex items-center gap-3">
-            <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg">
-              {agent.emoji}
+            <div className="bg-muted h-9 w-9 shrink-0 overflow-hidden rounded-full">
+              {agent.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={agent.avatarUrl}
+                  alt={agent.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-lg">
+                  {agent.emoji}
+                </span>
+              )}
             </div>
             <div>
               <h2 className="text-foreground text-lg leading-tight font-medium">{agent.name}</h2>
@@ -150,6 +163,7 @@ export default function HomeClientNew({
   metrics,
   teamName,
   userName,
+  orchestratorId,
 }: HomeClientNewProps = {}) {
   const [now, setNow] = useState(() => new Date())
   const [scenarioIdx, setScenarioIdx] = useState(0)
@@ -179,7 +193,7 @@ export default function HomeClientNew({
 
         <MetricsCards metrics={metrics ?? scenario.metrics} scenarioIdx={scenarioIdx} />
 
-        <AskBar />
+        <AskBar orchestratorId={orchestratorId} />
 
         <div className="border-border border-t" />
 
