@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import NewChatClient from '@/components/chat/new-chat-client'
+import type { CoworkerItem } from '@/components/chat/coworker-selector'
 
 export default async function ChatPage() {
   const supabase = await createServerClient()
@@ -12,15 +13,24 @@ export default async function ChatPage() {
   if (!user) redirect('/login')
 
   const teamId = await getActiveTeamId(supabase, user.id)
-  if (!teamId) redirect('/dashboard')
 
-  const { data: orchestrator } = await supabase
-    .from('agents')
-    .select('id')
-    .eq('team_id', teamId)
-    .eq('is_orchestrator', true)
-    .limit(1)
-    .single()
+  let agents: CoworkerItem[] = []
 
-  return <NewChatClient orchestratorId={orchestrator?.id ?? null} />
+  if (teamId) {
+    const { data } = await supabase
+      .from('agents')
+      .select('id, name, palette, is_orchestrator')
+      .eq('team_id', teamId)
+      .eq('is_active', true)
+
+    if (data) {
+      agents = data.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        emoji: agent.is_orchestrator ? '🤖' : '⚡',
+      }))
+    }
+  }
+
+  return <NewChatClient agents={agents} />
 }

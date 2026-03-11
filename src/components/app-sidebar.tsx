@@ -154,7 +154,7 @@ export default function AppSidebar({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onOpenSettings?.()}>
                   <Settings className="mr-2 size-4" />
-                  Account Settings
+                  Configurações da conta
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
                   {theme === 'dark' ? (
@@ -162,12 +162,12 @@ export default function AppSidebar({
                   ) : (
                     <Moon className="mr-2 size-4" />
                   )}
-                  {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                  {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 size-4" />
-                  Sign out
+                  Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
-import DashboardShell from '@/components/dashboard-shell'
+import DashboardShellNew from '@/components/dashboard-shell-new'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   fetchTeamMembers,
@@ -236,21 +236,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <TooltipProvider>
-      <DashboardShell
+      <DashboardShellNew
         user={userData}
         team={team}
         userTeams={userTeams}
         usage={usage}
-        members={members}
-        invitations={invitations}
-        pendingUserInvitations={pendingUserInvitations}
-        currentUserRole={currentUserRole}
         planData={planData}
-        storeData={storeData}
         orchestratorId={orchestratorId}
       >
         {children}
-      </DashboardShell>
+      </DashboardShellNew>
     </TooltipProvider>
   )
 }

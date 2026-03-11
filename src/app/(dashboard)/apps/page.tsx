@@ -1,38 +1,30 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { getActiveTeamId } from '@/lib/get-active-team'
-import { getAppConnections } from '@/lib/composio/actions/get-app-connections'
-import { getComposioApps } from '@/lib/composio/actions/get-composio-apps'
+import { apps as staticApps } from '@/data/apps'
 import AppsClient from '@/components/apps/apps-client'
 
 export default async function AppsPage() {
   const supabase = await createServerClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) {
+    redirect('/login')
+  }
 
-  const teamId = await getActiveTeamId(supabase, user.id)
-  if (!teamId) redirect('/dashboard')
+  const { data: connections } = await supabase
+    .from('app_connections')
+    .select('id, app_id, account_label')
+    .eq('user_id', user.id)
 
-  const [connections, catalog] = await Promise.all([getAppConnections(), getComposioApps()])
+  const connectedAppIds = new Set((connections ?? []).map((c) => c.app_id))
 
-  const connectedIds = new Set(connections.map((c) => c.app_id))
-
-  const apps = catalog.map((app) => ({
-    id: app.id,
-    name: app.name,
-    logoUrl: app.logoUrl,
-    category: app.category,
-    isConnected: connectedIds.has(app.id),
+  const mergedApps = staticApps.map((app) => ({
+    ...app,
+    connected: connectedAppIds.has(app.id),
   }))
 
-  // Sort: connected first, then alphabetical
-  apps.sort((a, b) => {
-    if (a.isConnected !== b.isConnected) return a.isConnected ? -1 : 1
-    return a.name.localeCompare(b.name)
-  })
-
-  return <AppsClient apps={apps} />
+  return <AppsClient apps={mergedApps} />
 }

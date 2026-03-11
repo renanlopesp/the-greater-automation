@@ -2,107 +2,83 @@
 
 import { useState } from 'react'
 import { Bell } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import NotificationCard, {
-  type NotificationItem,
-} from '@/components/notifications/notification-card'
+import { useLanguage } from '@/contexts/language-context'
+import { notifications as initialData, type Notification } from '@/data/notifications'
+import NotificationCard from './notification-card'
 
-const EXAMPLE_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    category: 'sales',
-    title: 'Daily sales report ready',
-    description:
-      'Your store had 24 orders today totaling R$3,450. Revenue is up 8% from yesterday.',
-    isRead: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    category: 'inventory',
-    title: '3 products running low',
-    description: 'Camiseta Premium, Tênis Runner, and Mochila Urban are below reorder threshold.',
-    isRead: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    category: 'workflow',
-    title: 'Workflow "Abandoned Cart" completed',
-    description: 'Successfully sent 12 recovery emails. 3 customers returned to complete purchase.',
-    isRead: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: '4',
-    category: 'integration',
-    title: 'Nuvemshop sync completed',
-    description: 'All 156 products and 89 orders synced successfully.',
-    isRead: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-]
+export default function NotificationsClient() {
+  const { t } = useLanguage()
+  const [items, setItems] = useState<Notification[]>(initialData)
 
-interface NotificationsClientProps {
-  notifications?: NotificationItem[]
-}
+  const unread = items.filter((n) => !n.read)
+  const read = items.filter((n) => n.read)
 
-export default function NotificationsClient({
-  notifications: initialNotifications,
-}: NotificationsClientProps) {
-  const [notifications, setNotifications] = useState(initialNotifications ?? EXAMPLE_NOTIFICATIONS)
-
-  const unread = notifications.filter((n) => !n.isRead)
-  const read = notifications.filter((n) => n.isRead)
-
-  function markAllRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+  const markAllRead = () => {
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
-  function markRead(id: string) {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+  const markRead = (id: string) => {
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 pt-16 pb-8">
-      <div className="mb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
+    <div className="bg-background h-full overflow-y-auto">
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        {/* Header */}
+        <div className="mb-1 flex items-start justify-between">
+          <div>
+            <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+              {t('notifications.title')}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">{t('notifications.subtitle')}</p>
+          </div>
+          {unread.length > 0 && (
+            <button
+              onClick={markAllRead}
+              className="text-muted-foreground hover:text-foreground mt-1 shrink-0 text-xs font-medium transition-colors"
+            >
+              {t('notifications.markAllRead')}
+            </button>
+          )}
+        </div>
+
+        {/* New section */}
         {unread.length > 0 && (
-          <Button variant="ghost" size="sm" className="text-xs" onClick={markAllRead}>
-            Mark all as read
-          </Button>
+          <div className="mt-8">
+            <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+              {t('notifications.new')} &middot; {unread.length}
+            </h3>
+            <div className="border-border bg-background divide-border divide-y overflow-hidden rounded-2xl border">
+              {unread.map((n) => (
+                <NotificationCard key={n.id} notification={n} onClick={() => markRead(n.id)} />
+              ))}
+            </div>
+          </div>
         )}
+
+        {/* Earlier section */}
+        {read.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
+              {t('notifications.earlier')}
+            </h3>
+            <div className="border-border bg-background divide-border divide-y overflow-hidden rounded-2xl border">
+              {read.map((n) => (
+                <NotificationCard key={n.id} notification={n} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {items.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Bell className="text-muted-foreground h-10 w-10" />
+            <p className="text-muted-foreground mt-3 text-sm">No notifications yet</p>
+          </div>
+        )}
+
+        <div className="h-10" />
       </div>
-      <p className="text-muted-foreground mb-8 text-sm">Actions recommended by your agents</p>
-
-      {unread.length > 0 && (
-        <div className="mb-8 space-y-3">
-          <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            New
-          </h3>
-          {unread.map((n) => (
-            <NotificationCard key={n.id} notification={n} onClick={() => markRead(n.id)} />
-          ))}
-        </div>
-      )}
-
-      {read.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-            Earlier
-          </h3>
-          {read.map((n) => (
-            <NotificationCard key={n.id} notification={n} />
-          ))}
-        </div>
-      )}
-
-      {notifications.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Bell className="text-muted-foreground size-10" />
-          <p className="text-muted-foreground mt-3 text-sm">No notifications yet</p>
-        </div>
-      )}
     </div>
   )
 }
