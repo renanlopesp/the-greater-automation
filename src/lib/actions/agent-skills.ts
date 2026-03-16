@@ -104,3 +104,19 @@ export async function toggleSkill(
 ): Promise<ActionResult> {
   return updateSkill(skillId, agentId, { is_enabled: enabled })
 }
+
+export async function getAgentSkills(agentId: string) {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('agent_skills')
+    .select('id, name, description, content, source, is_enabled, type, parameters, version')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending: true })
+
+  return data ?? []
+}

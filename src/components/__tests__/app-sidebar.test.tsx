@@ -52,49 +52,56 @@ function renderSidebar(props = {}) {
 }
 
 describe('AppSidebar', () => {
-  it('renders platform navigation links', () => {
+  it('renders navigation links', () => {
     renderSidebar()
-    expect(screen.getByText('Painel')).toBeInTheDocument()
-    expect(screen.getByText('Área de Trabalho')).toBeInTheDocument()
-    expect(screen.getByText('Execuções')).toBeInTheDocument()
+    expect(screen.getByText('Home')).toBeInTheDocument()
+    expect(screen.getByText('Co-workers')).toBeInTheDocument()
+    expect(screen.getByText('Apps')).toBeInTheDocument()
+    expect(screen.getByText('Notifications')).toBeInTheDocument()
+    expect(screen.getByText('History')).toBeInTheDocument()
   })
 
-  it('renders tool menu items', () => {
+  it('renders footer items', () => {
     renderSidebar()
-    expect(screen.getByText('Buscar')).toBeInTheDocument()
-    expect(screen.getByText('Integrações')).toBeInTheDocument()
+    expect(screen.getByText('Discover')).toBeInTheDocument()
   })
 
-  it('renders theme toggle', () => {
+  it('renders theme toggle in dropdown', async () => {
+    const user = userEvent.setup()
     renderSidebar()
-    expect(screen.getByText('Alternar tema')).toBeInTheDocument()
+
+    // Open the user dropdown
+    const userButton = screen.getByText('Test User')
+    await user.click(userButton)
+
+    expect(screen.getByText('Modo escuro')).toBeInTheDocument()
   })
 
-  it('renders user info in footer', () => {
+  it('renders user info in header', () => {
     renderSidebar()
     expect(screen.getByText('Test User')).toBeInTheDocument()
-    expect(screen.getByText('test@example.com')).toBeInTheDocument()
+    expect(screen.getByText('TU')).toBeInTheDocument()
   })
 
   it('opens dropdown menu on user button click', async () => {
     const user = userEvent.setup()
     renderSidebar()
 
-    // The user menu button contains the user's name
-    const userButtons = screen.getAllByText('Test User')
-    // Click the one that is inside the trigger (first occurrence)
-    await user.click(userButtons[0])
+    const userButton = screen.getByText('Test User')
+    await user.click(userButton)
 
-    expect(screen.getByText('Configurações')).toBeInTheDocument()
+    expect(screen.getByText('Configurações da conta')).toBeInTheDocument()
     expect(screen.getByText('Sair')).toBeInTheDocument()
   })
 
-  it('calls onOpenCommandMenu when Search is clicked', async () => {
+  it('shows workspace list in dropdown', async () => {
     const user = userEvent.setup()
-    const onOpen = vi.fn()
-    renderSidebar({ onOpenCommandMenu: onOpen })
+    renderSidebar()
 
-    await user.click(screen.getByText('Buscar'))
-    expect(onOpen).toHaveBeenCalled()
+    const userButton = screen.getByText('Test User')
+    await user.click(userButton)
+
+    expect(screen.getByText('Workspaces')).toBeInTheDocument()
+    expect(screen.getByText('Test Team')).toBeInTheDocument()
   })
 })

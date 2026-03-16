@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
-import DashboardShell from '@/components/dashboard-shell'
+import DashboardShellNew from '@/components/dashboard-shell-new'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   fetchTeamMembers,
@@ -234,26 +234,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: null,
       }
 
-  const sidebarOpen = cookieStore.get('sidebar_state')?.value === 'true'
-
   return (
     <TooltipProvider>
-      <DashboardShell
+      <DashboardShellNew
         user={userData}
         team={team}
         userTeams={userTeams}
         usage={usage}
+        planData={planData}
+        orchestratorId={orchestratorId}
+        initialLanguage={cookieStore.get('lang')?.value}
         members={members}
         invitations={invitations}
-        pendingUserInvitations={pendingUserInvitations}
         currentUserRole={currentUserRole}
-        defaultSidebarOpen={sidebarOpen}
-        planData={planData}
         storeData={storeData}
-        orchestratorId={orchestratorId}
       >
         {children}
-      </DashboardShell>
+      </DashboardShellNew>
     </TooltipProvider>
   )
 }

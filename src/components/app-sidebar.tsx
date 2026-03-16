@@ -5,20 +5,20 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
+  Bell,
+  Bot,
   Check,
-  ChevronsUpDown,
-  FolderKanban,
-  LayoutDashboard,
+  ChevronDown,
+  Clock,
+  Compass,
+  Home,
+  LayoutGrid,
   LogOut,
-  MessageCircle,
   Moon,
-  Package,
-  Play,
-  Plug,
-  Search,
+  Plus,
   Settings,
   Sun,
-  Truck,
+  Zap,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -34,22 +34,15 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from '@/components/ui/sidebar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import type { UsageData, UserData, TeamData, PlanData } from '@/types/navigation'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
-
-const TOOL_ITEMS = [
-  { label: 'Buscar', icon: Search, action: 'command-menu' as const },
-  { label: 'Integrações', icon: Plug, action: 'settings' as const },
-]
 
 interface AppSidebarProps {
   user: UserData
@@ -59,6 +52,7 @@ interface AppSidebarProps {
   planData?: PlanData | null
   orchestratorId?: string | null
   hasStore?: boolean
+  notificationCount?: number
   onOpenCommandMenu?: () => void
   onOpenSettings?: () => void
   onSwitchWorkspace?: (name: string, transition: () => Promise<void>) => void
@@ -80,9 +74,10 @@ export default function AppSidebar({
   user,
   team,
   userTeams,
+  usage,
   planData,
   orchestratorId,
-  hasStore,
+  notificationCount = 0,
   onOpenCommandMenu,
   onOpenSettings,
   onSwitchWorkspace,
@@ -110,58 +105,40 @@ export default function AppSidebar({
     }
   }
 
-  const platformItems = useMemo(
+  const navItems = useMemo(
     () => [
-      { label: 'Painel', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Home', icon: Home, href: '/dashboard' },
       ...(orchestratorId
-        ? [{ label: 'Chat', href: `/agents/${orchestratorId}`, icon: MessageCircle }]
+        ? [{ label: 'New Chat', icon: Plus, href: `/agents/${orchestratorId}` }]
         : []),
-      { label: 'Área de Trabalho', href: '/workspace', icon: FolderKanban },
-      { label: 'Execuções', href: '/runs', icon: Play },
-      ...(hasStore
-        ? [
-            { label: 'Produtos', href: '/products', icon: Package },
-            { label: 'Fornecedores', href: '/suppliers', icon: Truck },
-          ]
-        : []),
+      { label: 'Co-workers', icon: Bot, href: '/agents' },
+      { label: 'Apps', icon: LayoutGrid, href: '/apps' },
+      { label: 'Notifications', icon: Bell, href: '/notifications', badge: notificationCount },
+      { label: 'History', icon: Clock, href: '/history' },
     ],
-    [orchestratorId, hasStore]
+    [orchestratorId, notificationCount]
   )
 
+  const creditsRemaining = usage ? Math.max(0, usage.aiCreditsLimit - usage.aiCreditsUsed) : null
+
   return (
-    <Sidebar collapsible="icon" side="left">
-      <SidebarHeader>
+    <Sidebar side="left" className="w-[240px] min-w-[240px] border-r">
+      <SidebarHeader className="p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={team?.name ?? 'Selecionar workspace'}>
-                  <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 535 323"
-                      fill="none"
-                      className="size-4"
-                    >
-                      <path
-                        d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z"
-                        fill="currentColor"
-                      />
-                      <path
-                        d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </div>
+                <SidebarMenuButton size="lg" className="w-full">
+                  <Avatar className="size-8 rounded-full">
+                    <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? 'User'} />
+                    <AvatarFallback className="rounded-full text-xs">
+                      {getInitials(user.fullName, user.email)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{team?.name ?? 'Snew'}</span>
-                    <span className="text-muted-foreground truncate text-xs">
-                      {team
-                        ? (userTeams.find((t) => t.id === team.id)?.role ?? 'member')
-                        : 'Sem workspace'}
-                    </span>
+                    <span className="truncate font-semibold">{user.fullName ?? 'User'}</span>
                   </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
+                  <ChevronDown className="ml-auto size-4 opacity-50" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="min-w-56 rounded-lg" side="bottom" align="start">
@@ -174,122 +151,18 @@ export default function AppSidebar({
                     {team?.id === t.id && <Check className="ml-2 size-4" />}
                   </DropdownMenuItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Plataforma</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {platformItems.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={item.label}
-                  >
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {TOOL_ITEMS.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton
-                    tooltip={item.label}
-                    onClick={() => {
-                      if (item.action === 'command-menu') onOpenCommandMenu?.()
-                      else if (item.action === 'settings') onOpenSettings?.()
-                    }}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            >
-              <Sun className="dark:hidden" />
-              <Moon className="hidden dark:block" />
-              <span>Alternar tema</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {planData && planData.planId !== 'free' && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip={`${planData.planName} plan`}
-                onClick={() => onOpenSettings?.()}
-              >
-                <span className="bg-primary/10 text-primary flex size-4 shrink-0 items-center justify-center rounded text-[10px] leading-none font-bold">
-                  {planData.planId === 'enterprise' ? 'E' : 'P'}
-                </span>
-                <span>{planData.planName} plan</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
-          <SidebarMenuItem>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={user.fullName ?? user.email}>
-                  <Avatar className="size-8 rounded-full">
-                    <AvatarImage src={user.avatarUrl ?? undefined} alt={user.fullName ?? 'User'} />
-                    <AvatarFallback className="rounded-full">
-                      {getInitials(user.fullName, user.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user.fullName ?? 'User'}</span>
-                    <span className="text-muted-foreground truncate text-xs">{user.email}</span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="end" className="min-w-56 rounded-lg">
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="size-8 rounded-full">
-                      <AvatarImage
-                        src={user.avatarUrl ?? undefined}
-                        alt={user.fullName ?? 'User'}
-                      />
-                      <AvatarFallback className="rounded-full">
-                        {getInitials(user.fullName, user.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user.fullName ?? 'User'}</span>
-                      <span className="text-muted-foreground truncate text-xs">{user.email}</span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onOpenSettings?.()}>
                   <Settings className="mr-2 size-4" />
-                  Configurações
+                  Configurações da conta
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                  {theme === 'dark' ? (
+                    <Sun className="mr-2 size-4" />
+                  ) : (
+                    <Moon className="mr-2 size-4" />
+                  )}
+                  {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
@@ -300,9 +173,60 @@ export default function AppSidebar({
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarFooter>
+      </SidebarHeader>
 
-      <SidebarRail data-sidebar="rail" className="after:content-none!" />
+      <SidebarContent className="px-3">
+        <SidebarMenu className="gap-0.5">
+          {navItems.map((item) => {
+            const isActive =
+              item.href === '/dashboard'
+                ? pathname === '/dashboard'
+                : pathname.startsWith(item.href)
+            return (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton asChild isActive={isActive} className="h-9 gap-3 px-3 text-sm">
+                  <Link href={item.href}>
+                    <item.icon className="size-4" />
+                    <span className={isActive ? 'font-medium' : ''}>{item.label}</span>
+                    {'badge' in item && item.badge ? (
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto h-5 min-w-5 justify-center rounded-full px-1.5 text-[11px]"
+                      >
+                        {item.badge}
+                      </Badge>
+                    ) : null}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarContent>
+
+      <SidebarFooter className="mt-auto space-y-2 p-3">
+        {creditsRemaining !== null && (
+          <div className="text-muted-foreground flex items-center gap-2 px-3 py-1.5 text-sm">
+            <Zap className="size-4" />
+            <span>{creditsRemaining} credits remaining</span>
+          </div>
+        )}
+        {planData?.planId === 'free' && (
+          <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenSettings?.()}>
+            Upgrade
+          </Button>
+        )}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="text-muted-foreground h-9 gap-3 px-3 text-sm">
+              <Link href="/agents">
+                <Compass className="size-4" />
+                <span>Discover</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   )
 }

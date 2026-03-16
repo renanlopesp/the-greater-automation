@@ -1,20 +1,11 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import {
-  fetchTeam,
-  fetchAgentsWithSkills,
-  fetchWorkflows,
-  fetchRunsToday,
-} from '@/lib/queries/dashboard'
-import DashboardClient from '@/components/dashboard/dashboard-client'
 import { getActiveTeamId } from '@/lib/get-active-team'
+import { fetchTeam, fetchAgentsWithSkills } from '@/lib/queries/dashboard'
+import HomeClientNew from '@/components/home/home-client-new'
+import type { AgentCard } from '@/data/home-dashboard'
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ connected?: string; error?: string }>
-}) {
+export default async function DashboardPage() {
   const supabase = await createServerClient()
   const {
     data: { user },
@@ -22,9 +13,6 @@ export default async function DashboardPage({
 
   if (!user) redirect('/login')
 
-  const { connected, error: connectionError } = await searchParams
-
-  // Get user's active team (respects workspace switcher cookie)
   const teamId = await getActiveTeamId(supabase, user.id)
   if (!teamId) {
     return (
@@ -36,116 +24,54 @@ export default async function DashboardPage({
     )
   }
 
-  return (
-    <Suspense
-      fallback={
-        <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pt-12 pb-12">
-          {/* Page header */}
-          <div className="flex flex-col gap-1">
-            <div className="bg-muted h-8 w-40 animate-pulse rounded-lg" />
-            <div className="bg-muted h-4 w-72 animate-pulse rounded" />
-          </div>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div
-                key={i}
-                className="bg-card border-border flex items-center gap-3 rounded-xl border p-4"
-              >
-                <div className="bg-muted h-9 w-9 animate-pulse rounded-lg" />
-                <div className="flex flex-col gap-1">
-                  <div className="bg-muted h-7 w-8 animate-pulse rounded" />
-                  <div className="bg-muted h-3 w-16 animate-pulse rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Agents section */}
-          <div className="flex flex-col gap-3">
-            <div className="bg-muted h-6 w-20 animate-pulse rounded" />
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 2 }, (_, i) => (
-                <div key={i} className="bg-muted h-[308px] animate-pulse rounded-2xl" />
-              ))}
-            </div>
-          </div>
-
-          {/* Workflows section */}
-          <div className="flex flex-col gap-3">
-            <div className="bg-muted h-6 w-28 animate-pulse rounded" />
-            <div className="bg-muted h-9 w-80 animate-pulse rounded-lg" />
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="bg-muted h-12 animate-pulse rounded-lg" />
-              ))}
-            </div>
-          </div>
-        </div>
-      }
-    >
-      <DashboardData teamId={teamId} connectedApp={connected} connectionError={connectionError} />
-    </Suspense>
-  )
-}
-
-/** Async Server Component — heavy data queries streamed via Suspense */
-async function DashboardData({
-  teamId,
-  connectedApp,
-  connectionError,
-}: {
-  teamId: string
-  connectedApp?: string
-  connectionError?: string
-}) {
-  const supabase = await createServerClient()
-
-  const [team, agents, workflows, runsToday] = await Promise.all([
+  // Fetch all data in parallel — including user profile for name
+  const [team, agentsWithSkills, profile] = await Promise.all([
     fetchTeam(supabase, teamId),
     fetchAgentsWithSkills(supabase, teamId),
-    fetchWorkflows(supabase, teamId, 'recently-edited'),
-    fetchRunsToday(supabase, teamId),
+    supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single()
+      .then((r) => r.data),
   ])
 
-  // Separate orchestrator from specialist agents
-  const orchestrator = agents.find((a) => a.is_orchestrator)
-  const specialistAgents = agents.filter((a) => !a.is_orchestrator)
+  const userName =
+    profile?.full_name ?? user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? undefined
+
+  // Transform real agents into AgentCard shape (exclude orchestrator — it's the AskBar, not a co-worker)
+  const agentCards: AgentCard[] = agentsWithSkills
+    .filter((a) => !a.is_orchestrator)
+    .map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      emoji: '🤖',
+      avatarUrl: agent.avatar_url || undefined,
+      badge: {
+        label: agent.is_active ? 'Ativo' : 'Inativo',
+        color: agent.is_active ? ('green' as const) : ('neutral' as const),
+      },
+      pulse: agent.is_active ?? false,
+      inactive: !agent.is_active,
+      stat1: agent.description ?? '',
+      stat2: `${agent.skillCount} skill${agent.skillCount !== 1 ? 's' : ''}`,
+      stat3: `${agent.skills?.length ?? 0} workflow${(agent.skills?.length ?? 0) !== 1 ? 's' : ''}`,
+      summary: agent.description ?? 'Sem descrição',
+      kpis: [
+        { label: 'Workflows', value: String(agent.skills?.length ?? 0) },
+        { label: 'Skills', value: String(agent.skillCount ?? 0) },
+      ],
+      actions: [],
+    }))
+
+  const orchestrator = agentsWithSkills.find((a) => a.is_orchestrator)
 
   return (
-    <DashboardClient
-      team={{ name: team?.name ?? 'My Team', avatar_url: team?.avatar_url ?? null }}
-      orchestrator={
-        orchestrator
-          ? {
-              id: orchestrator.id,
-              name: orchestrator.name,
-              description: orchestrator.description,
-              palette: orchestrator.palette,
-            }
-          : null
-      }
-      initialAgents={specialistAgents.map((a) => ({
-        agent: {
-          id: a.id,
-          name: a.name,
-          description: a.description,
-          avatar_url: a.avatar_url,
-          palette: a.palette,
-          is_active: a.is_active,
-        },
-        workflows: a.skills.map((s) => ({
-          id: s.id,
-          name: s.name,
-        })),
-        skillCount: a.skillCount,
-      }))}
-      initialWorkflows={workflows}
-      runsToday={runsToday}
-      teamId={teamId}
-      connectedApp={connectedApp}
-      connectionError={connectionError}
+    <HomeClientNew
+      agents={agentCards.length > 0 ? agentCards : undefined}
+      teamName={team?.name ?? undefined}
+      userName={userName}
+      orchestratorId={orchestrator?.id}
     />
   )
 }

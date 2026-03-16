@@ -28,6 +28,7 @@ interface UseAgentChatOptions {
   onSkillMutation?: () => void
   initialConversationId?: string | null
   initialMessages?: ServerMessage[]
+  initialQuery?: string
 }
 
 export function useAgentChat(
@@ -70,7 +71,7 @@ export function useAgentChat(
 
   // Stable transport — recreated only when agentId changes.
   // body() is called during fetch (not render), so reading the ref there is safe.
-  /* eslint-disable react-hooks/refs */
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -85,7 +86,6 @@ export function useAgentChat(
       }),
     [agentId]
   )
-  /* eslint-enable react-hooks/refs */
 
   // Detect completed skill-mutating tool calls and notify parent
   const onFinish = useCallback(({ message }: { message: UIMessage }) => {
@@ -111,6 +111,16 @@ export function useAgentChat(
     setMessages,
     stop,
   } = useChat({ transport, onFinish, messages: serverMessages })
+
+  // Auto-send initial query from ?q= param (fires exactly once on mount)
+  const sentInitialRef = useRef(false)
+  useEffect(() => {
+    if (options?.initialQuery && !sentInitialRef.current) {
+      sentInitialRef.current = true
+      aiSendMessage({ text: options.initialQuery })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Realtime subscription: new messages from other users
   useEffect(() => {

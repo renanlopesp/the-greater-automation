@@ -39,6 +39,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-green: var(--green);
+  --color-green-bg: var(--green-bg);
+  --color-amber: var(--amber);
+  --color-amber-bg: var(--amber-bg);
+  --color-status-blue: var(--blue);
+  --color-blue-bg: var(--blue-bg);
+  --color-purple: var(--purple);
+  --color-purple-bg: var(--purple-bg);
+  --color-surface: var(--surface);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
@@ -63,42 +72,51 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.2101 0.0318 264.6645);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2101 0.0318 264.6645);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2101 0.0318 264.6645);
-  --primary: oklch(0.6716 0.1368 48.513);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.536 0.0398 196.028);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.967 0.0029 264.5419);
-  --muted-foreground: oklch(0.551 0.0234 264.3637);
-  --accent: oklch(0.9491 0 0);
-  --accent-foreground: oklch(0.2101 0.0318 264.6645);
-  --destructive: oklch(0.6368 0.2078 25.3313);
-  --destructive-foreground: oklch(0.9851 0 0);
-  --border: oklch(0.9276 0.0058 264.5313);
-  --input: oklch(0.9276 0.0058 264.5313);
-  --ring: oklch(0.6716 0.1368 48.513);
-  --chart-1: oklch(0.594 0.0443 196.0233);
-  --chart-2: oklch(0.7214 0.1337 49.9802);
-  --chart-3: oklch(0.8721 0.0864 68.5474);
-  --chart-4: oklch(0.6268 0 0);
-  --chart-5: oklch(0.683 0 0);
-  --sidebar: oklch(0.967 0.0029 264.5419);
-  --sidebar-foreground: oklch(0.2101 0.0318 264.6645);
-  --sidebar-primary: oklch(0.6716 0.1368 48.513);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(1 0 0);
-  --sidebar-accent-foreground: oklch(0.2101 0.0318 264.6645);
-  --sidebar-border: oklch(0.9276 0.0058 264.5313);
-  --sidebar-ring: oklch(0.6716 0.1368 48.513);
-  --font-sans: Geist Mono, ui-monospace, monospace;
+  --background: hsl(210 30% 99%);
+  --foreground: hsl(210 15% 10%);
+  --card: hsl(210 25% 99%);
+  --card-foreground: hsl(210 15% 10%);
+  --popover: hsl(210 25% 99%);
+  --popover-foreground: hsl(210 15% 10%);
+  --primary: hsl(210 15% 10%);
+  --primary-foreground: hsl(210 30% 99%);
+  --secondary: hsl(210 20% 95%);
+  --secondary-foreground: hsl(210 15% 10%);
+  --muted: hsl(210 20% 95%);
+  --muted-foreground: hsl(210 10% 45%);
+  --accent: hsl(210 20% 95%);
+  --accent-foreground: hsl(210 15% 10%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(210 15% 88%);
+  --input: hsl(210 15% 88%);
+  --ring: hsl(210 15% 10%);
+  --chart-1: hsl(210 60% 50%);
+  --chart-2: hsl(170 45% 50%);
+  --chart-3: hsl(40 80% 55%);
+  --chart-4: hsl(0 0% 40%);
+  --chart-5: hsl(0 0% 50%);
+  --sidebar: hsl(210 33% 99%);
+  --sidebar-foreground: hsl(210 15% 10%);
+  --sidebar-primary: hsl(210 15% 10%);
+  --sidebar-primary-foreground: hsl(210 30% 99%);
+  --sidebar-accent: hsl(210 20% 95%);
+  --sidebar-accent-foreground: hsl(210 15% 10%);
+  --sidebar-border: hsl(210 15% 88%);
+  --sidebar-ring: hsl(210 15% 10%);
+  --green: hsl(142 72% 29%);
+  --green-bg: hsl(142 76% 96%);
+  --amber: hsl(38 92% 40%);
+  --amber-bg: hsl(38 100% 95%);
+  --blue: hsl(217 91% 45%);
+  --blue-bg: hsl(217 91% 95%);
+  --purple: hsl(270 70% 50%);
+  --purple-bg: hsl(270 70% 96%);
+  --surface: hsl(210 25% 98%);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-serif: serif;
-  --font-mono: JetBrains Mono, monospace;
-  --radius: 0.75rem;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.375rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
   --shadow-blur: 4px;
@@ -118,42 +136,51 @@
 }
 
 .dark {
-  --background: oklch(0.1797 0.0043 308.1928);
-  --foreground: oklch(0.8109 0 0);
-  --card: oklch(0.1822 0 0);
-  --card-foreground: oklch(0.8109 0 0);
-  --popover: oklch(0.1797 0.0043 308.1928);
-  --popover-foreground: oklch(0.8109 0 0);
-  --primary: oklch(0.7214 0.1337 49.9802);
-  --primary-foreground: oklch(0.1797 0.0043 308.1928);
-  --secondary: oklch(0.594 0.0443 196.0233);
-  --secondary-foreground: oklch(0.1797 0.0043 308.1928);
-  --muted: oklch(0.252 0 0);
-  --muted-foreground: oklch(0.6268 0 0);
-  --accent: oklch(0.3211 0 0);
-  --accent-foreground: oklch(0.8109 0 0);
-  --destructive: oklch(0.594 0.0443 196.0233);
-  --destructive-foreground: oklch(0.1797 0.0043 308.1928);
-  --border: oklch(0.252 0 0);
-  --input: oklch(0.252 0 0);
-  --ring: oklch(0.7214 0.1337 49.9802);
-  --chart-1: oklch(0.594 0.0443 196.0233);
-  --chart-2: oklch(0.7214 0.1337 49.9802);
-  --chart-3: oklch(0.8721 0.0864 68.5474);
-  --chart-4: oklch(0.6268 0 0);
-  --chart-5: oklch(0.683 0 0);
-  --sidebar: oklch(0.1822 0 0);
-  --sidebar-foreground: oklch(0.8109 0 0);
-  --sidebar-primary: oklch(0.7214 0.1337 49.9802);
-  --sidebar-primary-foreground: oklch(0.1797 0.0043 308.1928);
-  --sidebar-accent: oklch(0.3211 0 0);
-  --sidebar-accent-foreground: oklch(0.8109 0 0);
-  --sidebar-border: oklch(0.252 0 0);
-  --sidebar-ring: oklch(0.7214 0.1337 49.9802);
-  --font-sans: Geist Mono, ui-monospace, monospace;
+  --background: hsl(0 0% 7%);
+  --foreground: hsl(0 0% 96%);
+  --card: hsl(0 0% 9%);
+  --card-foreground: hsl(0 0% 96%);
+  --popover: hsl(0 0% 9%);
+  --popover-foreground: hsl(0 0% 96%);
+  --primary: hsl(0 0% 96%);
+  --primary-foreground: hsl(0 0% 7%);
+  --secondary: hsl(0 0% 15%);
+  --secondary-foreground: hsl(0 0% 96%);
+  --muted: hsl(0 0% 15%);
+  --muted-foreground: hsl(0 0% 64%);
+  --accent: hsl(0 0% 15%);
+  --accent-foreground: hsl(0 0% 96%);
+  --destructive: hsl(0 62% 50%);
+  --destructive-foreground: hsl(0 0% 96%);
+  --border: hsl(0 0% 15%);
+  --input: hsl(0 0% 15%);
+  --ring: hsl(0 0% 96%);
+  --chart-1: hsl(210 60% 60%);
+  --chart-2: hsl(170 45% 55%);
+  --chart-3: hsl(40 80% 60%);
+  --chart-4: hsl(0 0% 50%);
+  --chart-5: hsl(0 0% 60%);
+  --sidebar: hsl(0 0% 9%);
+  --sidebar-foreground: hsl(0 0% 96%);
+  --sidebar-primary: hsl(0 0% 96%);
+  --sidebar-primary-foreground: hsl(0 0% 7%);
+  --sidebar-accent: hsl(0 0% 15%);
+  --sidebar-accent-foreground: hsl(0 0% 96%);
+  --sidebar-border: hsl(0 0% 15%);
+  --sidebar-ring: hsl(0 0% 96%);
+  --green: hsl(142 72% 42%);
+  --green-bg: hsl(142 40% 12%);
+  --amber: hsl(38 92% 55%);
+  --amber-bg: hsl(38 60% 12%);
+  --blue: hsl(217 91% 65%);
+  --blue-bg: hsl(217 60% 12%);
+  --purple: hsl(270 70% 65%);
+  --purple-bg: hsl(270 40% 12%);
+  --surface: hsl(0 0% 10%);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-serif: serif;
-  --font-mono: JetBrains Mono, monospace;
-  --radius: 0.75rem;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.375rem;
   --shadow-x: 0px;
   --shadow-y: 1px;
   --shadow-blur: 4px;
@@ -208,4 +235,105 @@ summary {
   .scrollbar-visible::-webkit-scrollbar-thumb:hover {
     background-color: var(--foreground);
   }
+}
+
+/* Compact workflow cards inside modal sidebar — outside @layer for higher specificity */
+.modal-workflows .divide-y > div {
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+}
+.modal-workflows .h-12.w-12 {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.625rem;
+}
+.modal-workflows .flex-shrink-0.h-12.w-12 {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.625rem;
+}
+.modal-workflows .text-xl {
+  font-size: 0.875rem;
+}
+.modal-workflows .rounded-2xl {
+  border-radius: 0.625rem;
+}
+.modal-workflows .bg-muted\/20 {
+  padding: 0.5rem 0.75rem;
+}
+/* Hide action controls (play, switch, delete) in modal — keep it clean like reference */
+.modal-workflows .divide-y > div > div:last-child:not(.min-w-0) {
+  display: none;
+}
+.modal-workflows .divide-y > div > button:last-child {
+  display: none;
+}
+
+/* ── Conic gradient spinning border for live metric cards ─────────── */
+@property --conic-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes conic-spin {
+  to {
+    --conic-angle: 360deg;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Conic border classes — outside @layer so Tailwind v4 doesn't tree-shake them */
+.conic-border {
+  position: relative;
+  z-index: 0;
+  border-radius: 1rem;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--conic-angle),
+    var(--border) 55%,
+    hsl(142 71% 30% / 0.4) 68%,
+    hsl(142 71% 50% / 0.7) 77%,
+    hsl(142 71% 65% / 0.5) 86%,
+    var(--border) 96%
+  );
+  animation: conic-spin 3.5s linear infinite;
+}
+
+/* Glow layer — blurred arc that tracks the spinning gradient */
+.conic-border::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 1.3rem;
+  background: conic-gradient(
+    from var(--conic-angle),
+    transparent 55%,
+    hsl(142 71% 45% / 0.12) 68%,
+    hsl(142 71% 55% / 0.2) 78%,
+    hsl(142 71% 65% / 0.1) 88%,
+    transparent 96%
+  );
+  filter: blur(12px);
+  animation: conic-spin 3.5s linear infinite;
+  z-index: -1;
+}
+
+.conic-border-inner {
+  border-radius: calc(1rem - 1.5px);
+  background: var(--background);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
