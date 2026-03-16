@@ -2,15 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Mic, ArrowUp } from 'lucide-react'
-import { useLanguage } from '@/contexts/language-context'
+import { ArrowUp } from 'lucide-react'
 
 interface AskBarProps {
   orchestratorId?: string
 }
 
+const quickSuggestions = [
+  'Quais carrinhos têm maior chance de conversão?',
+  'Aprovar sequência WhatsApp de recuperação',
+  'Quais clientes estão em risco de churn?',
+]
+
 export default function AskBar({ orchestratorId }: AskBarProps) {
-  const { t } = useLanguage()
   const router = useRouter()
   const [askValue, setAskValue] = useState('')
 
@@ -23,15 +27,9 @@ export default function AskBar({ orchestratorId }: AskBarProps) {
     router.push(target)
   }
 
-  const quickSuggestions = [
-    t('home.askBar.atRisk'),
-    t('home.askBar.topProducts'),
-    t('home.askBar.monthForecast'),
-  ]
-
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="border-border bg-muted/40 focus-within:border-foreground/30 focus-within:bg-background overflow-hidden rounded-2xl border transition-all">
+      <div className="border-border bg-muted/40 focus-within:border-foreground/30 focus-within:bg-background overflow-hidden rounded-2xl border shadow-sm transition-all">
         <textarea
           rows={2}
           value={askValue}
@@ -42,22 +40,23 @@ export default function AskBar({ orchestratorId }: AskBarProps) {
               sendMessage(askValue)
             }
           }}
-          placeholder={t('home.askBar.placeholder')}
-          className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-4 pt-4 pb-2 text-sm leading-relaxed outline-none"
+          placeholder='Pergunte algo sobre sua loja… ex: "quais clientes não compram há 60 dias?"'
+          className="placeholder:text-muted-foreground max-h-32 w-full resize-none rounded-t-2xl bg-transparent px-4 pt-4 pb-2 text-sm leading-relaxed outline-none"
         />
-        <div className="flex items-center justify-between px-3 pt-1 pb-3">
-          <button className="text-muted-foreground hover:text-foreground flex h-7 w-7 items-center justify-center transition-colors">
-            <Plus className="h-4 w-4" />
-          </button>
+        <div className="flex items-center justify-end px-3 pt-1 pb-3">
           <button
             onClick={() => sendMessage(askValue)}
-            className="text-muted-foreground hover:text-foreground flex h-8 w-8 shrink-0 items-center justify-center transition-colors"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all ${
+              askValue.trim()
+                ? 'bg-foreground text-background border-foreground'
+                : 'border-border text-foreground/40 hover:border-foreground/40 hover:text-foreground/60'
+            }`}
           >
-            {askValue.trim() ? <ArrowUp className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            <ArrowUp className="h-4 w-4" />
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         {quickSuggestions.map((chip) => (
           <button
             key={chip}

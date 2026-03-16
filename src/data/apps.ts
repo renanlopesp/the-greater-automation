@@ -2,8 +2,12 @@ export interface AppIntegration {
   id: string
   name: string
   emoji: string
+  logoUrl?: string
+  category?: string
   description: string
   connected: boolean
+  authType?: 'oauth' | 'api_key' | 'none'
+  isNative?: boolean
 }
 
 export const apps: AppIntegration[] = [

@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
-import { Search, MoreHorizontal, Clock } from 'lucide-react'
-import { useLanguage } from '@/contexts/language-context'
-import { conversations as staticConversations, type Conversation } from '@/data/conversations'
+import { useState, useMemo } from 'react'
+import { Search, MoreHorizontal } from 'lucide-react'
 
 export interface ConversationRow {
   id: string
@@ -15,33 +13,24 @@ export interface ConversationRow {
   agents: { name: string; palette: string | null } | null
 }
 
-function getDateBucket(dateStr: string | null): 'today' | 'yesterday' | 'older' {
-  if (!dateStr) return 'older'
+const mockChats = [
+  { id: '1', title: 'Win-back campaign strategy', date: 'today', group: 'Today' },
+  { id: '2', title: 'Competitor pricing analysis', date: 'today', group: 'Today' },
+  { id: '3', title: 'Checkout drop-off review', date: 'yesterday', group: 'Yesterday' },
+  { id: '4', title: 'Weekend revenue insights', date: 'yesterday', group: 'Yesterday' },
+  { id: '5', title: 'Ad waste breakdown', date: 'Mar 28', group: 'Mar 28' },
+]
+
+function getDateBucket(dateStr: string | null): string {
+  if (!dateStr) return 'Older'
   const now = new Date()
   const date = new Date(dateStr)
   const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const diff = nowDay.getTime() - dateDay.getTime()
-  if (diff === 0) return 'today'
-  if (diff === 86400000) return 'yesterday'
-  return 'older'
-}
-
-function formatTimestamp(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function rowToConversation(row: ConversationRow): Conversation {
-  return {
-    id: row.id,
-    title: row.title ?? 'Sem título',
-    lastMessage: row.agents?.name ?? '',
-    timestamp: formatTimestamp(row.updated_at),
-    date: getDateBucket(row.updated_at),
-    messages: [],
-  }
+  if (diff === 0) return 'Today'
+  if (diff === 86400000) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 interface HistoryClientProps {
@@ -49,121 +38,102 @@ interface HistoryClientProps {
 }
 
 export default function HistoryClient({ conversations: conversationRows }: HistoryClientProps) {
-  const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
 
-  const conversations: Conversation[] = useMemo(() => {
-    if (conversationRows !== undefined) {
-      return conversationRows.map(rowToConversation)
+  const chats = useMemo(() => {
+    if (conversationRows && conversationRows.length > 0) {
+      return conversationRows.map((row) => ({
+        id: row.id,
+        title: row.title ?? 'Untitled',
+        group: getDateBucket(row.updated_at),
+      }))
     }
-    return staticConversations
+    return mockChats
   }, [conversationRows])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return conversations
+    if (!search.trim()) return chats
     const q = search.toLowerCase()
-    return conversations.filter(
-      (c) => c.title.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q)
-    )
-  }, [search, conversations])
+    return chats.filter((c) => c.title.toLowerCase().includes(q))
+  }, [search, chats])
 
   const grouped = useMemo(() => {
-    const groups: { label: string; key: string; items: Conversation[] }[] = []
-    const dateLabels = {
-      today: t('history.today'),
-      yesterday: t('history.yesterday'),
-      older: 'Anteriores',
-    }
-
-    for (const conv of filtered) {
-      const label = dateLabels[conv.date]
-      const existing = groups.find((g) => g.key === conv.date)
+    const groupMap = new Map<string, typeof chats>()
+    for (const chat of filtered) {
+      const existing = groupMap.get(chat.group)
       if (existing) {
-        existing.items.push(conv)
+        existing.push(chat)
       } else {
-        groups.push({ label, key: conv.date, items: [conv] })
+        groupMap.set(chat.group, [chat])
       }
     }
-
-    return groups
-  }, [filtered, t])
+    return Array.from(groupMap.entries()).map(([label, items]) => ({ label, items }))
+  }, [filtered])
 
   return (
     <div className="bg-background h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 py-10">
+      <div className="mx-auto max-w-3xl px-6 pt-16 pb-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-foreground text-2xl font-semibold tracking-tight">
-            {t('history.title')}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {conversations.length} {t('history.conversations')}
-          </p>
+          <h1 className="text-foreground text-2xl font-medium">History</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{chats.length} conversations</p>
         </div>
 
         {/* Search */}
         <div className="relative mb-6">
-          <Search className="text-muted-foreground absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
+          <Search className="text-muted-foreground absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
           <input
             type="text"
-            placeholder={t('history.searchPlaceholder')}
+            placeholder="Search chats..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-muted text-foreground placeholder:text-muted-foreground focus:ring-ring w-full rounded-full border-none py-2.5 pr-4 pl-10 text-sm focus:ring-2 focus:outline-none"
+            className="bg-muted text-foreground placeholder:text-muted-foreground w-full rounded-2xl border-none px-4 py-3 pl-10 text-sm focus:outline-none"
           />
         </div>
 
         {/* Grouped conversations */}
         <div className="space-y-6">
           {grouped.map((group) => (
-            <div key={group.key}>
+            <div key={group.label}>
               <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
                 {group.label}
               </h3>
-              <div className="border-border bg-background divide-border divide-y overflow-hidden rounded-2xl border">
-                {group.items.map((conv) => (
-                  <div
-                    key={conv.id}
-                    className="group hover:bg-muted/40 relative flex cursor-pointer items-center justify-between px-5 py-3.5 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-foreground truncate text-sm">{conv.title}</p>
-                    </div>
-                    <div className="ml-4 flex shrink-0 items-center gap-2">
-                      <span className="text-muted-foreground text-xs">{conv.timestamp}</span>
-                      <div className="relative">
+              <div>
+                {group.items.map((chat, idx) => (
+                  <div key={chat.id}>
+                    <div className="group relative flex cursor-pointer items-center justify-between py-3">
+                      <p className="text-foreground text-sm">{chat.title}</p>
+                      <div className="ml-4 flex shrink-0 items-center gap-2">
+                        <span className="text-muted-foreground text-xs">{chat.group}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            setMenuOpen(menuOpen === conv.id ? null : conv.id)
+                            setMenuOpen(menuOpen === chat.id ? null : chat.id)
                           }}
                           className="text-muted-foreground hover:text-foreground p-1 opacity-0 transition-opacity group-hover:opacity-100"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
-                        {menuOpen === conv.id && (
-                          <div
-                            ref={menuRef}
-                            className="border-border bg-background absolute top-8 right-0 z-20 w-36 rounded-xl border py-1 shadow-lg"
-                          >
+                        {menuOpen === chat.id && (
+                          <div className="border-border bg-background absolute top-10 right-0 z-20 w-36 rounded-xl border py-1 shadow-lg">
                             <button
                               onClick={() => setMenuOpen(null)}
                               className="text-foreground hover:bg-muted w-full px-4 py-2 text-left text-sm transition-colors"
                             >
-                              {t('history.share')}
+                              Share
                             </button>
                             <button
                               onClick={() => setMenuOpen(null)}
                               className="hover:bg-muted w-full px-4 py-2 text-left text-sm text-red-500 transition-colors"
                             >
-                              {t('history.delete')}
+                              Delete
                             </button>
                           </div>
                         )}
                       </div>
                     </div>
+                    {idx < group.items.length - 1 && <div className="bg-border h-px" />}
                   </div>
                 ))}
               </div>
@@ -173,16 +143,9 @@ export default function HistoryClient({ conversations: conversationRows }: Histo
 
         {filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Clock className="text-muted-foreground h-10 w-10" />
-            <p className="text-muted-foreground mt-3 text-sm">
-              {search
-                ? 'Nenhuma conversa encontrada'
-                : 'Nenhuma conversa ainda. Comece a conversar com um co-worker!'}
-            </p>
+            <p className="text-muted-foreground text-sm">No conversations found</p>
           </div>
         )}
-
-        <div className="h-10" />
       </div>
     </div>
   )

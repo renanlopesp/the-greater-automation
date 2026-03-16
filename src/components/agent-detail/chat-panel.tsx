@@ -393,8 +393,8 @@ export default function ChatPanel({
         <ConversationContent className="mx-auto max-w-2xl">
           {!hasMessages ? (
             <ConversationEmptyState>
-              <AgentAvatar name={agentName} palette={agentPalette} size={48} />
-              <h2 className="text-foreground mt-4 text-xl font-semibold">{agentName}</h2>
+              <AgentAvatar name={agentName} palette={agentPalette} size={72} />
+              <h2 className="text-foreground mt-6 text-xl font-semibold">{agentName}</h2>
               <p className="text-muted-foreground mt-1 max-w-md text-center text-sm leading-relaxed">
                 Faça uma pergunta ou escolha uma sugestão abaixo.
               </p>
@@ -438,17 +438,20 @@ export default function ChatPanel({
         </div>
       )}
 
-      {/* Prompt input area — matches localhost:8080/new-chat layout */}
-      <div className="bg-background sticky bottom-0 border-t px-4 py-4">
-        <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted mx-auto max-w-2xl [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:shadow-none">
+      {/* Prompt input area — matches reference installed agent layout */}
+      <div className="bg-background sticky bottom-0 px-4 py-4">
+        <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted/40 mx-auto max-w-2xl [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-none">
           <PromptInput onSubmit={handleSubmit}>
-            <PromptInputTextarea
-              placeholder={`Pergunte qualquer coisa ao ${agentName}...`}
-              disabled={isLoading}
-            />
+            <PromptInputTextarea placeholder={`Message ${agentName}...`} disabled={isLoading} />
             <PromptInputFooter>
-              <AgentPills agents={coworkers} />
-              <PromptInputSubmit status={status} onStop={stop} variant="ghost" size="icon-sm">
+              <div className="flex-1" />
+              <PromptInputSubmit
+                status={status}
+                onStop={stop}
+                variant="outline"
+                size="icon-sm"
+                className="border-border h-8 w-8 rounded-full border"
+              >
                 {status === 'streaming' ? (
                   <SquareIcon className="size-4" />
                 ) : (

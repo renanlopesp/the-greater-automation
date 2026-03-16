@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import AppSidebarNew from '@/components/app-sidebar-new'
 import TopBar from '@/components/top-bar'
@@ -58,7 +58,7 @@ export default function DashboardShellNew({
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
     const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
-    return stored !== null ? stored === 'true' : true
+    return stored === null || stored === 'true'
   })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)

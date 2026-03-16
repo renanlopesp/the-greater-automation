@@ -8,12 +8,11 @@ import {
   Check,
   Plus,
   Settings,
-  Sun,
-  Moon,
+  Palette,
   LogOut,
-  RefreshCw,
   PanelLeft,
   Globe,
+  ChevronDown,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useLanguage } from '@/contexts/language-context'
@@ -97,15 +96,11 @@ export default function TopBar({
       <div className="flex-1" />
 
       {/* Action buttons */}
-      <button className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 rounded-lg px-3 text-sm transition-colors">
+      <button className="border-border hover:border-foreground/40 h-7 rounded-lg border px-2.5 text-[11px] text-gray-600 transition-colors">
         {t('topbar.feedback')}
       </button>
-      <button className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 rounded-lg px-3 text-sm transition-colors">
-        {t('topbar.documents')}
-      </button>
-      <button className="text-muted-foreground hover:text-foreground hover:bg-accent flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors">
-        <RefreshCw className="h-3.5 w-3.5" />
-        {t('topbar.ask')}
+      <button className="border-border hover:border-foreground/40 h-7 rounded-lg border px-2.5 text-[11px] text-gray-600 transition-colors">
+        {t('topbar.support')}
       </button>
 
       <div className="bg-border mx-1 h-5 w-px" />
@@ -181,8 +176,9 @@ export default function TopBar({
                 }}
                 className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors"
               >
-                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {theme === 'dark' ? t('topbar.theme.light') : t('topbar.theme.dark')}
+                <Palette className="h-4 w-4" />
+                <span className="flex-1 text-left">{language === 'pt-BR' ? 'Tema' : 'Theme'}</span>
+                <ChevronDown className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={() => {
@@ -192,7 +188,11 @@ export default function TopBar({
                 className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors"
               >
                 <Globe className="h-4 w-4" />
-                {language === 'pt-BR' ? t('topbar.language.en') : t('topbar.language.ptBR')}
+                <span className="flex-1 text-left">{t('topbar.language')}</span>
+                <span className="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium">
+                  {language === 'pt-BR' ? 'PT' : 'EN'}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5" />
               </button>
 
               <div className="border-border my-1 border-t" />

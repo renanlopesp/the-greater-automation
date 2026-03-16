@@ -1,48 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
-import { fetchTeam, fetchAgentsWithSkills, fetchRunsToday } from '@/lib/queries/dashboard'
+import { fetchTeam, fetchAgentsWithSkills } from '@/lib/queries/dashboard'
 import HomeClientNew from '@/components/home/home-client-new'
-import type { AgentCard, Metric } from '@/data/home-dashboard'
-
-// Available avatar JPGs in public/images/coworker-avatars/
-const avatarSlugs = [
-  'customer-service',
-  'upsell-retention',
-  'review-reputation',
-  'churn-prediction',
-  'vip-relationship',
-  'sentiment-intelligence',
-  'conversion-optimizer',
-  'retention-booster',
-  'ad-waste-detector',
-  'content-engine',
-  'email-performance',
-  'competitor-watch',
-  'pricing-intelligence',
-  'market-gap-finder',
-  'share-of-voice',
-  'revenue-intelligence',
-  'cohort-analyzer',
-  'funnel-diagnostics',
-  'attribution-mapper',
-  'store-audit-scanner',
-  'checkout-auditor',
-  'data-quality-guard',
-  'compliance-scanner',
-  'task-prioritizer',
-  'weekly-briefing',
-  'workflow-automator',
-  'inventory-alerts',
-]
-
-/** Pick a deterministic avatar for any agent name */
-function pickAvatar(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0
-  const idx = Math.abs(hash) % avatarSlugs.length
-  return `/images/coworker-avatars/${avatarSlugs[idx]}.jpg`
-}
+import type { AgentCard } from '@/data/home-dashboard'
 
 export default async function DashboardPage() {
   const supabase = await createServerClient()
@@ -64,10 +25,9 @@ export default async function DashboardPage() {
   }
 
   // Fetch all data in parallel — including user profile for name
-  const [team, agentsWithSkills, runsToday, profile] = await Promise.all([
+  const [team, agentsWithSkills, profile] = await Promise.all([
     fetchTeam(supabase, teamId),
     fetchAgentsWithSkills(supabase, teamId),
-    fetchRunsToday(supabase, teamId),
     supabase
       .from('profiles')
       .select('full_name')
@@ -86,7 +46,7 @@ export default async function DashboardPage() {
       id: agent.id,
       name: agent.name,
       emoji: '🤖',
-      avatarUrl: agent.avatar_url || pickAvatar(agent.name),
+      avatarUrl: agent.avatar_url || undefined,
       badge: {
         label: agent.is_active ? 'Ativo' : 'Inativo',
         color: agent.is_active ? ('green' as const) : ('neutral' as const),
@@ -104,46 +64,11 @@ export default async function DashboardPage() {
       actions: [],
     }))
 
-  // Build real metrics from database data
-  const activeAgentCount = agentsWithSkills.filter((a) => a.is_active).length
-  const totalSkills = agentsWithSkills.reduce((acc, a) => acc + (a.skillCount ?? 0), 0)
-  const totalWorkflows = agentsWithSkills.reduce((acc, a) => acc + (a.skills?.length ?? 0), 0)
-
-  const metrics: Metric[] = [
-    {
-      label: 'home.metrics.activeAgents',
-      value: String(activeAgentCount),
-      sub: activeAgentCount > 0 ? 'home.metrics.operating' : 'home.metrics.noneActive',
-      pulse: activeAgentCount > 0,
-    },
-    {
-      label: 'home.metrics.executionsToday',
-      value: String(runsToday),
-      sub: 'home.metrics.workflowRuns',
-    },
-    {
-      label: 'home.metrics.workflows',
-      value: String(totalWorkflows),
-      sub: 'home.metrics.configured',
-    },
-    {
-      label: 'home.metrics.skills',
-      value: String(totalSkills),
-      sub: 'home.metrics.available',
-    },
-    {
-      label: 'home.metrics.coworkers',
-      value: String(agentsWithSkills.length),
-      sub: 'home.metrics.inTeam',
-    },
-  ]
-
   const orchestrator = agentsWithSkills.find((a) => a.is_orchestrator)
 
   return (
     <HomeClientNew
       agents={agentCards.length > 0 ? agentCards : undefined}
-      metrics={metrics}
       teamName={team?.name ?? undefined}
       userName={userName}
       orchestratorId={orchestrator?.id}

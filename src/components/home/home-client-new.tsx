@@ -3,20 +3,21 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import dynamic from 'next/dynamic'
 import { useLanguage } from '@/contexts/language-context'
 import GreetingSectionNew from './greeting-section-new'
-import MetricsCards from './metrics-cards'
 import AskBar from './ask-bar'
 import CoworkerRecommendation from './coworker-recommendation'
 import CoworkersInAction from './coworkers-in-action'
 import OpportunitiesSection from './opportunities-section'
-import { scenarios, type AgentCard, type Metric } from '@/data/home-dashboard'
+import { type AgentCard } from '@/data/home-dashboard'
+
+const IntentCards = dynamic(() => import('./intent-cards'), { ssr: false })
+const ConnectAppsSection = dynamic(() => import('./connect-apps-section'), { ssr: false })
 
 export interface HomeClientNewProps {
   /** Real agents from database, transformed to AgentCard shape */
   agents?: AgentCard[]
-  /** Real metrics from database */
-  metrics?: Metric[]
   /** Team name for personalized greeting */
   teamName?: string
   /** Logged-in user's display name */
@@ -160,44 +161,26 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
 // ── Main Component ───────────────────────────────────────────────
 export default function HomeClientNew({
   agents,
-  metrics,
-  teamName,
-  userName,
+  teamName: _teamName,
+  userName: _userName,
   orchestratorId,
 }: HomeClientNewProps = {}) {
-  const [now, setNow] = useState(() => new Date())
-  const [scenarioIdx, setScenarioIdx] = useState(0)
   const [selectedAgent, setSelectedAgent] = useState<AgentCard | null>(null)
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(id)
-  }, [])
-
-  const isLive = scenarioIdx === 0
-  const scenario = scenarios[scenarioIdx]
-  const cycleScenario = () => setScenarioIdx((i) => (i + 1) % scenarios.length)
 
   return (
     <div className="bg-background h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-16 px-6 py-10">
-        <GreetingSectionNew
-          now={now}
-          scenario={scenario}
-          scenarioIdx={scenarioIdx}
-          totalScenarios={scenarios.length}
-          isLive={isLive}
-          onCycleScenario={cycleScenario}
-          userName={userName}
-        />
-
-        <MetricsCards metrics={metrics ?? scenario.metrics} scenarioIdx={scenarioIdx} />
+        <GreetingSectionNew />
 
         <AskBar orchestratorId={orchestratorId} />
+
+        <IntentCards />
 
         <div className="border-border border-t" />
 
         <CoworkerRecommendation />
+
+        <ConnectAppsSection />
 
         <CoworkersInAction onSelectAgent={setSelectedAgent} agents={agents} />
 

@@ -1,19 +1,10 @@
-import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveConversation } from '@/lib/queries/agent-conversations'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import AgentAvatar from '@/components/agent-detail/agent-avatar'
-import AgentStatus from '@/components/agent-detail/agent-status'
-import NewChatButton from '@/components/agent-detail/new-chat-button'
-import ChatHistoryButton from '@/components/agent-detail/chat-history-button'
-import PresenceIndicator from '@/components/agent-detail/presence-indicator'
 import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
 import SetupChecklist, { type SetupStep } from '@/components/agent-detail/setup-checklist'
+import AgentWorkspacePanel from '@/components/agent-detail/agent-workspace-panel'
 
 export default async function AgentDetailPage({
   params,
@@ -109,71 +100,53 @@ export default async function AgentDetailPage({
     avatarUrl: profile?.avatar_url ?? null,
   }
 
+  // Orchestrator agents keep the full-width chat layout (no workspace panel)
+  if (isOrchestrator) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
+        <ChatPanel
+          agentId={id}
+          agentName={agent.name}
+          agentPalette={agent.palette}
+          conversationStarters={conversationStarters}
+          coworkers={(teamAgents ?? []).map((a) => ({ id: a.id, name: a.name }))}
+          currentUserId={user.id}
+          initialConversationId={activeConversation?.conversationId ?? null}
+          initialMessages={activeConversation?.messages ?? []}
+          initialQuery={initialQuery}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      {/* Orchestrator: no header (matches /chat clean layout). Other agents: compact header */}
-      {!isOrchestrator && (
-        <header className="flex items-center justify-between border-b px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" asChild>
-                  <Link href="/dashboard">
-                    <ArrowLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Voltar ao painel</TooltipContent>
-            </Tooltip>
-            <AgentAvatar name={agent.name} palette={agent.palette} size={32} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h1 className="truncate text-sm font-semibold">{agent.name}</h1>
-                <AgentStatus status={agent.status} isActive={agent.is_active} />
-              </div>
-              {agent.description && (
-                <p className="text-muted-foreground truncate text-xs">{agent.description}</p>
-              )}
-            </div>
-          </div>
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+      {/* Left panel — Chat */}
+      <div className="border-border flex w-[440px] shrink-0 flex-col border-r">
+        {/* Setup checklist */}
+        {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
 
-          <div className="flex items-center gap-1.5">
-            <PresenceIndicator agentId={id} currentUser={currentUser} />
-            <Suspense
-              fallback={
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" disabled>
-                      <SlidersHorizontal className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Configurações</TooltipContent>
-                </Tooltip>
-              }
-            >
-              <AgentSidebarData agentId={id} userId={user.id} teamId={agent.team_id} />
-            </Suspense>
-            <ChatHistoryButton agentId={id} canDelete={canDeleteChats} />
-            <NewChatButton />
-          </div>
-        </header>
-      )}
+        <ChatPanel
+          agentId={id}
+          agentName={agent.name}
+          agentPalette={agent.palette}
+          conversationStarters={conversationStarters}
+          coworkers={(teamAgents ?? []).map((a) => ({ id: a.id, name: a.name }))}
+          currentUserId={user.id}
+          initialConversationId={activeConversation?.conversationId ?? null}
+          initialMessages={activeConversation?.messages ?? []}
+          initialQuery={initialQuery}
+        />
+      </div>
 
-      {/* Setup checklist — shown when agent has incomplete setup steps (not for orchestrator) */}
-      {setupSteps.length > 0 && <SetupChecklist agentName={agent.name} steps={setupSteps} />}
-
-      {/* Chat takes all remaining space — history loaded on server, no client useEffect */}
-      <ChatPanel
-        agentId={id}
-        agentName={agent.name}
-        agentPalette={agent.palette}
-        conversationStarters={conversationStarters}
-        coworkers={(teamAgents ?? []).map((a) => ({ id: a.id, name: a.name }))}
-        currentUserId={user.id}
-        initialConversationId={activeConversation?.conversationId ?? null}
-        initialMessages={activeConversation?.messages ?? []}
-        initialQuery={initialQuery}
-      />
+      {/* Right panel — Workspace tabs */}
+      <div className="flex-1">
+        <AgentWorkspacePanel
+          agentId={id}
+          agentName={agent.name}
+          category={agent.description ?? undefined}
+        />
+      </div>
     </div>
   )
 }

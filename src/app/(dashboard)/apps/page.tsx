@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { apps as staticApps } from '@/data/apps'
+import { getComposioApps } from '@/lib/composio/actions/get-composio-apps'
+import { getAppConnections } from '@/lib/composio/actions/get-app-connections'
 import AppsClient from '@/components/apps/apps-client'
+import type { AppIntegration } from '@/data/apps'
 
 export default async function AppsPage() {
   const supabase = await createServerClient()
@@ -14,17 +16,21 @@ export default async function AppsPage() {
     redirect('/login')
   }
 
-  const { data: connections } = await supabase
-    .from('app_connections')
-    .select('id, app_id, account_label')
-    .eq('user_id', user.id)
+  const [composioApps, connections] = await Promise.all([getComposioApps(), getAppConnections()])
 
-  const connectedAppIds = new Set((connections ?? []).map((c) => c.app_id))
+  const connectedAppIds = new Set(connections.map((c) => c.app_id))
 
-  const mergedApps = staticApps.map((app) => ({
-    ...app,
+  const apps: AppIntegration[] = composioApps.map((app) => ({
+    id: app.id,
+    name: app.name,
+    emoji: '',
+    logoUrl: app.logoUrl || undefined,
+    category: app.category,
+    description: '',
     connected: connectedAppIds.has(app.id),
+    authType: app.authType,
+    isNative: app.id === 'nuvemshop',
   }))
 
-  return <AppsClient apps={mergedApps} />
+  return <AppsClient apps={apps} />
 }

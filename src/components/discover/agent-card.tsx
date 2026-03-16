@@ -2,10 +2,8 @@
 
 import Link from 'next/link'
 import type { Agent } from '@/data/agents'
-
-function getAvatarUrl(agentId: string): string {
-  return `/images/coworker-avatars/${agentId}.jpg`
-}
+import type { AvatarMap } from '@/hooks/use-coworker-avatars'
+import CoworkerAvatar from '@/components/coworker-avatar'
 
 // Typical outcomes per agent (matches reference)
 const typicalOutcomes: Record<string, string> = {
@@ -68,10 +66,12 @@ const typicalOutcomes: Record<string, string> = {
 interface AgentCardProps {
   agent: Agent
   isActive?: boolean
+  avatars?: AvatarMap
+  onOpenWizard?: (agentId: string, agentName: string) => void
 }
 
-export default function AgentCard({ agent, isActive }: AgentCardProps) {
-  const avatarSrc = getAvatarUrl(agent.id)
+export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: AgentCardProps) {
+  const avatarSrc = avatars?.[agent.id]
   const outcome = typicalOutcomes[agent.id]
 
   const card = (
@@ -79,10 +79,7 @@ export default function AgentCard({ agent, isActive }: AgentCardProps) {
       <div className="flex flex-1 flex-col gap-3 p-7">
         {/* Avatar + Name + Active dot */}
         <div className="flex items-center gap-2.5">
-          <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={avatarSrc} alt={agent.category} className="h-full w-full object-cover" />
-          </div>
+          <CoworkerAvatar src={avatarSrc} name={agent.name} size="xs" />
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <p className="text-foreground text-sm leading-tight font-medium">{agent.name}</p>
             {isActive && (
@@ -121,6 +118,18 @@ export default function AgentCard({ agent, isActive }: AgentCardProps) {
 
   if (isActive) {
     return <Link href={`/agents/${agent.id}`}>{card}</Link>
+  }
+
+  if (onOpenWizard) {
+    return (
+      <button
+        type="button"
+        className="block w-full text-left"
+        onClick={() => onOpenWizard(agent.id, agent.name)}
+      >
+        {card}
+      </button>
+    )
   }
 
   return card

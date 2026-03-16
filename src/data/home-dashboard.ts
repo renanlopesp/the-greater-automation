@@ -488,7 +488,7 @@ export const agentCards: AgentCard[] = [
 export const opportunities: Opportunity[] = [
   {
     emoji: '\u{1F4C8}',
-    avatarUrl: '/images/coworker-avatars/revenue-intelligence.jpg',
+    avatarUrl: '/images/coworkers/revenue-intelligence.png',
     agent: 'Sales Analyst',
     summary:
       'Taxa de abandono no checkout mobile 34% maior que desktop, com 89 sessões afetadas hoje. Ação imediata pode recuperar ~R$3.200.',
@@ -497,7 +497,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     emoji: '\u{1F52D}',
-    avatarUrl: '/images/coworker-avatars/competitor-watch.jpg',
+    avatarUrl: '/images/coworkers/competitor-watch.png',
     agent: 'Competitors',
     summary:
       'Concorrente reduziu preço em 3 SKUs core, identificado às 03:14. Pode afetar diretamente a conversão no segmento de eletrônicos.',
@@ -506,7 +506,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     emoji: '\u{1F4CA}',
-    avatarUrl: '/images/coworker-avatars/revenue-intelligence.jpg',
+    avatarUrl: '/images/coworkers/cohort-analyzer.png',
     agent: 'Analytics',
     summary:
       'Tráfego orgânico 18% maior nos finais de semana — oportunidade de alta confiança para campanhas direcionadas.',

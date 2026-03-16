@@ -1,97 +1,136 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, ShieldCheck } from 'lucide-react'
-import { useLanguage } from '@/contexts/language-context'
-import { apps as staticApps, type AppIntegration } from '@/data/apps'
+import { useState, useMemo, useTransition } from 'react'
+import { Search, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react'
+import { type AppIntegration } from '@/data/apps'
+import { initiateAppConnection } from '@/lib/composio/actions/initiate-connection'
 import { cn } from '@/lib/utils'
 
 interface AppsClientProps {
-  apps?: AppIntegration[]
+  apps: AppIntegration[]
 }
 
-export default function AppsClient({ apps: appsProp }: AppsClientProps) {
-  const { t } = useLanguage()
-  const catalog = appsProp ?? staticApps
+export default function AppsClient({ apps }: AppsClientProps) {
   const [search, setSearch] = useState('')
-  const [appState, setAppState] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(catalog.map((a) => [a.id, a.connected]))
-  )
+  const [connectingId, setConnectingId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  const connectedCount = Object.values(appState).filter(Boolean).length
+  const connectedCount = apps.filter((a) => a.connected).length
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return catalog
+    if (!search.trim()) return apps
     const q = search.toLowerCase()
-    return catalog.filter((a) => a.name.toLowerCase().includes(q))
-  }, [search, catalog])
+    return apps.filter((a) => a.name.toLowerCase().includes(q))
+  }, [search, apps])
 
-  const toggleConnect = (id: string) => {
-    setAppState((prev) => ({ ...prev, [id]: !prev[id] }))
+  const handleConnect = (app: AppIntegration) => {
+    if (app.connected) return
+
+    setConnectingId(app.id)
+
+    if (app.isNative && app.id === 'nuvemshop') {
+      window.location.assign('/api/nuvemshop/connect')
+      return
+    }
+
+    startTransition(async () => {
+      try {
+        const result = await initiateAppConnection(app.id)
+        if ('redirectUrl' in result) {
+          window.location.href = result.redirectUrl
+        } else {
+          console.error('Connect error:', result.error)
+          setConnectingId(null)
+        }
+      } catch {
+        setConnectingId(null)
+      }
+    })
   }
 
   return (
     <div className="bg-background h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mx-auto max-w-3xl px-6 pt-16 pb-6">
         {/* Header */}
         <div className="mb-2">
-          <h1 className="text-foreground text-2xl font-semibold tracking-tight">
-            {t('apps.title')}
-          </h1>
+          <h1 className="text-foreground text-2xl font-medium">Apps</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            {t('apps.subtitle')}{' '}
-            <span className="text-foreground font-medium">
-              {connectedCount} {t('apps.connected').toLowerCase()}
-            </span>
-            .
+            Connect your tools so co-workers can act on your data.{' '}
+            <span className="text-foreground font-bold">{connectedCount} connected</span>.
           </p>
         </div>
 
         {/* Security note */}
-        <div className="border-border bg-muted/40 my-5 flex items-start gap-3 rounded-xl border p-4">
+        <div className="border-border mb-5 flex items-start gap-3 rounded-lg border px-4 py-3">
           <ShieldCheck className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-muted-foreground text-sm leading-relaxed">{t('apps.securityNote')}</p>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Credentials are encrypted and tokens are automatically refreshed — we never store your
+            passwords.
+          </p>
         </div>
 
         {/* Search */}
-        <div className="relative mb-6">
-          <Search className="text-muted-foreground absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
+        <div className="relative mb-5">
+          <Search className="text-muted-foreground absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
           <input
             type="text"
-            placeholder={t('apps.searchPlaceholder')}
+            placeholder="Search apps..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-muted text-foreground placeholder:text-muted-foreground focus:ring-ring w-full rounded-full border-none py-2.5 pr-4 pl-10 text-sm focus:ring-2 focus:outline-none"
+            className="bg-muted text-foreground placeholder:text-muted-foreground w-full rounded-2xl border-none px-4 py-3 pl-10 text-sm focus:outline-none"
           />
         </div>
 
         {/* Apps grid */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           {filtered.map((app) => {
-            const connected = appState[app.id] ?? false
+            const isConnecting = connectingId === app.id && (isPending || app.isNative)
             return (
               <div
                 key={app.id}
-                className="border-border bg-background hover:border-foreground/30 flex items-center gap-4 rounded-2xl border p-5 transition-colors"
+                className="group border-border bg-background flex items-center gap-3 rounded-2xl border p-4"
               >
-                <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg">
-                  {app.emoji}
-                </div>
+                {app.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={app.logoUrl}
+                    alt={app.name}
+                    className="h-8 w-8 shrink-0 rounded-lg object-contain"
+                  />
+                ) : app.emoji ? (
+                  <span className="text-2xl leading-none">{app.emoji}</span>
+                ) : (
+                  <span className="bg-muted text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium">
+                    {app.name.charAt(0)}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-foreground text-sm font-medium">{app.name}</p>
-                  <p className="text-muted-foreground truncate text-xs">{app.description}</p>
                 </div>
-                <button
-                  onClick={() => toggleConnect(app.id)}
-                  className={cn(
-                    'shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                    connected
-                      ? 'bg-foreground text-background hover:opacity-90'
-                      : 'border-border text-foreground hover:bg-muted border'
+                <div className="shrink-0">
+                  {app.connected ? (
+                    <div className="relative flex items-center">
+                      <span className="bg-muted text-muted-foreground flex items-center gap-1 rounded-full px-2.5 py-1 text-xs group-hover:hidden">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Connected
+                      </span>
+                      <button className="text-muted-foreground hover:text-foreground hidden rounded-full border border-red-200 px-2.5 py-1 text-xs group-hover:flex">
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleConnect(app)}
+                      disabled={isConnecting}
+                      className={cn(
+                        'border-border text-foreground rounded-full border px-2.5 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100',
+                        isConnecting && 'opacity-70'
+                      )}
+                    >
+                      {isConnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Connect'}
+                    </button>
                   )}
-                >
-                  {connected ? t('apps.connected') : t('apps.connect')}
-                </button>
+                </div>
               </div>
             )
           })}
@@ -102,8 +141,6 @@ export default function AppsClient({ apps: appsProp }: AppsClientProps) {
             <p className="text-muted-foreground text-sm">No apps found</p>
           </div>
         )}
-
-        <div className="h-10" />
       </div>
     </div>
   )

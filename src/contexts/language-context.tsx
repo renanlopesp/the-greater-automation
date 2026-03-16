@@ -16,6 +16,7 @@ const translations = {
     'nav.notifications': 'Notifications',
     // ── TopBar ────────────────────────────────────────────────
     'topbar.feedback': 'Feedback',
+    'topbar.support': 'Support',
     'topbar.documents': 'Documents',
     'topbar.ask': 'Ask',
     'topbar.notifications': 'Notifications',
@@ -154,6 +155,7 @@ const translations = {
     'nav.notifications': 'Notificações',
     // ── TopBar ────────────────────────────────────────────────
     'topbar.feedback': 'Feedback',
+    'topbar.support': 'Suporte',
     'topbar.documents': 'Documentos',
     'topbar.ask': 'Perguntar',
     'topbar.notifications': 'Notificações',

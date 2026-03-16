@@ -54,17 +54,24 @@ export default function AppSidebarNew({
       style={{ width: collapsed ? 56 : 240 }}
     >
       {/* Logo / Brand area */}
-      <div className="flex h-[48px] shrink-0 items-center overflow-hidden px-4">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="bg-foreground text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold">
-            {teamName?.[0]?.toUpperCase() ?? 'S'}
+      <div className="flex h-[48px] shrink-0 items-center overflow-hidden px-2">
+        <div className="flex w-full items-center gap-2.5 overflow-hidden px-2">
+          <div className="bg-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-md p-[5px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/snew.svg"
+              alt="Snew"
+              width={14}
+              height={14}
+              className="invert dark:invert-0"
+            />
           </div>
           <span
             className={`text-foreground overflow-hidden text-sm font-semibold whitespace-nowrap transition-[opacity,max-width] duration-300 ease-in-out ${
               collapsed ? 'max-w-0 opacity-0' : 'max-w-[200px] opacity-100'
             }`}
           >
-            {teamName ?? 'Snew'}
+            Snew
           </span>
         </div>
       </div>
