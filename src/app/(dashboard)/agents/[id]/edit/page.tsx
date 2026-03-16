@@ -28,7 +28,6 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
   return (
     <div className="mx-auto max-w-5xl p-6">
       <AgentForm
-        mode="edit"
         agent={{
           id: agent.id,
           name: agent.name,

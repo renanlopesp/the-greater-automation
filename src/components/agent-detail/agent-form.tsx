@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PALETTE_MAP, type PaletteName } from '@/lib/agent-palettes'
-import { createAgent, updateAgent } from '@/lib/actions/agents'
+import { updateAgent } from '@/lib/actions/agents'
 import PalettePicker from './palette-picker'
 import StarterEditor from './starter-editor'
 
@@ -43,28 +43,27 @@ interface Workflow {
 }
 
 interface AgentFormProps {
-  mode: 'create' | 'edit'
-  agent?: AgentData
+  agent: AgentData
   workflows: Workflow[]
   teamId: string
   userId: string
 }
 
-export default function AgentForm({ mode, agent, workflows, teamId, userId }: AgentFormProps) {
+export default function AgentForm({ agent, workflows, teamId, userId }: AgentFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
   // Form state
-  const [name, setName] = useState(agent?.name ?? '')
-  const [description, setDescription] = useState(agent?.description ?? '')
-  const [palette, setPalette] = useState<PaletteName>((agent?.palette as PaletteName) ?? 'blue')
-  const [systemPrompt, setSystemPrompt] = useState(agent?.system_prompt ?? '')
-  const [model, setModel] = useState(agent?.model ?? '')
-  const [temperature, setTemperature] = useState(agent?.temperature ?? 0.7)
-  const [maxTokens, setMaxTokens] = useState(agent?.max_tokens ?? 4096)
+  const [name, setName] = useState(agent.name)
+  const [description, setDescription] = useState(agent.description ?? '')
+  const [palette, setPalette] = useState<PaletteName>((agent.palette as PaletteName) ?? 'blue')
+  const [systemPrompt, setSystemPrompt] = useState(agent.system_prompt ?? '')
+  const [model, setModel] = useState(agent.model ?? '')
+  const [temperature, setTemperature] = useState(agent.temperature ?? 0.7)
+  const [maxTokens, setMaxTokens] = useState(agent.max_tokens ?? 4096)
   const [starters, setStarters] = useState<string[]>(() => {
-    const raw = agent?.conversation_starters
+    const raw = agent.conversation_starters
     if (Array.isArray(raw)) return raw.filter((s): s is string => typeof s === 'string')
     return []
   })
@@ -74,45 +73,23 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
     setError(null)
 
     startTransition(async () => {
-      if (mode === 'create') {
-        const result = await createAgent({
-          teamId,
-          userId,
-          name,
-          description: description || undefined,
-          palette,
-          systemPrompt: systemPrompt || undefined,
-          model: model || undefined,
-          temperature,
-          maxTokens,
-          conversationStarters: starters.filter(Boolean),
-        })
+      const result = await updateAgent(agent.id, {
+        name,
+        description,
+        palette,
+        systemPrompt,
+        model,
+        temperature,
+        maxTokens,
+        conversationStarters: starters.filter(Boolean),
+      })
 
-        if (result.error) {
-          setError(result.error)
-          return
-        }
-
-        router.push(`/agents/${result.id}`)
-      } else if (agent) {
-        const result = await updateAgent(agent.id, {
-          name,
-          description,
-          palette,
-          systemPrompt,
-          model,
-          temperature,
-          maxTokens,
-          conversationStarters: starters.filter(Boolean),
-        })
-
-        if (result.error) {
-          setError(result.error)
-          return
-        }
-
-        router.push(`/agents/${agent.id}`)
+      if (result.error) {
+        setError(result.error)
+        return
       }
+
+      router.push(`/agents/${agent.id}`)
     })
   }
 
@@ -121,16 +98,14 @@ export default function AgentForm({ mode, agent, workflows, teamId, userId }: Ag
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-foreground text-2xl font-bold">
-          {mode === 'create' ? 'Criar agente' : 'Editar agente'}
-        </h1>
+        <h1 className="text-foreground text-2xl font-bold">Editar agente</h1>
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending || !name.trim()}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'create' ? 'Criar' : 'Salvar alterações'}
+            Salvar alterações
           </Button>
         </div>
       </div>
