@@ -511,12 +511,26 @@ export default function InstallWizardModal({
         <div className="flex flex-col items-center px-10 pt-10 pb-8">
           {/* Avatar with subtle static rings */}
           <div className="relative mb-6 flex items-center justify-center">
-            <span className="border-border/20 absolute h-40 w-40 rounded-full border" />
             <span
-              className="border-border/30 absolute h-34 w-34 rounded-full border"
-              style={{ width: 136, height: 136 }}
+              className="border-border/30 absolute h-40 w-40 rounded-full border"
+              style={{
+                animation: 'wizardPulseRing 3s ease-out infinite',
+              }}
             />
-            <span className="border-border/40 absolute h-[120px] w-[120px] rounded-full border" />
+            <span
+              className="border-border/40 absolute h-36 w-36 rounded-full border"
+              style={{
+                animation: 'wizardPulseRing 3s ease-out infinite',
+                animationDelay: '0.5s',
+              }}
+            />
+            <span
+              className="border-border/50 absolute h-[120px] w-[120px] rounded-full border"
+              style={{
+                animation: 'wizardPulseRing 3s ease-out infinite',
+                animationDelay: '1s',
+              }}
+            />
             <CoworkerAvatar src={avatarSrc} name={agentName} size="xl" />
           </div>
 
@@ -581,6 +595,19 @@ export default function InstallWizardModal({
           to {
             opacity: 1;
             transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes wizardPulseRing {
+          0% {
+            transform: scale(0.85);
+            opacity: 0;
+          }
+          30% {
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.15);
+            opacity: 0;
           }
         }
       `}</style>

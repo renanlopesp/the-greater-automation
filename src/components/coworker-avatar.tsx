@@ -11,6 +11,9 @@ const SIZES = {
   xl: 96,
 } as const
 
+// Resolution to request from Next.js Image — higher than display size for retina/sharp rendering
+const IMAGE_RESOLUTION = 300
+
 interface CoworkerAvatarProps {
   src: string | undefined
   name: string
@@ -37,8 +40,8 @@ export default function CoworkerAvatar({ src, name, size = 'xs', className }: Co
         <Image
           src={src}
           alt={name}
-          width={px}
-          height={px}
+          width={IMAGE_RESOLUTION}
+          height={IMAGE_RESOLUTION}
           className="relative h-full w-full object-cover"
         />
       )}
