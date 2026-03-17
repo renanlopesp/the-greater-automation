@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface WizardData {
   category: string
@@ -483,6 +484,7 @@ export default function InstallWizardModal({
     }
   }, [])
 
+  if (!FEATURE_FLAGS.MOCK_INSTALL_WIZARD) return null
   if (!data) return null
 
   const modal = (

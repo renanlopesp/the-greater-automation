@@ -159,7 +159,7 @@ const translations = {
     'topbar.ask': 'Perguntar',
     'topbar.notifications': 'Notificações',
     'topbar.newWorkspace': 'Novo workspace',
-    'topbar.accountSettings': 'Configurações da conta',
+    'topbar.accountSettings': 'Configurações',
     'topbar.theme.light': 'Modo claro',
     'topbar.theme.dark': 'Modo escuro',
     'topbar.language': 'Idioma',

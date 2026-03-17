@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface IntentCard {
   id: string
@@ -131,6 +132,8 @@ export default function IntentCards() {
   const [page, setPage] = useState(0)
   const [activeCard, setActiveCard] = useState<IntentCard | null>(null)
 
+  if (!FEATURE_FLAGS.MOCK_INTENT_CARDS) return null
+
   const visibleCards = CARD_POOL.slice(
     page * CARDS_PER_PAGE,
     page * CARDS_PER_PAGE + CARDS_PER_PAGE
@@ -141,6 +144,11 @@ export default function IntentCards() {
 
   return (
     <>
+      {process.env.NODE_ENV === 'development' && (
+        <span className="relative z-10 mb-1 inline-block rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+          MOCK
+        </span>
+      )}
       <div className="flex flex-col gap-3">
         <div className="relative">
           <button

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CheckCheck } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface Notification {
   id: string
@@ -93,6 +94,9 @@ const categoryColors: Record<string, { background: string; color: string }> = {
 
 export default function NotificationsClient() {
   const [selected, setSelected] = useState<Notification | null>(null)
+
+  if (!FEATURE_FLAGS.MOCK_NOTIFICATIONS) return null
+
   const unread = notifications.filter((n) => !n.read)
   const read = notifications.filter((n) => n.read)
 
@@ -122,7 +126,12 @@ export default function NotificationsClient() {
 
   return (
     <div className="bg-background min-h-full px-6 pt-16 pb-6">
-      <div className="mx-auto max-w-3xl">
+      <div className="relative mx-auto max-w-3xl">
+        {process.env.NODE_ENV === 'development' && (
+          <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+            MOCK
+          </span>
+        )}
         <div className="mb-10 flex items-center justify-between">
           <div>
             <h1 className="text-foreground text-2xl font-medium">Notifications</h1>

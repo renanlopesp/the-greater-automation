@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { Agent } from '@/data/agents'
 import type { AvatarMap } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 // Typical outcomes per agent (matches reference)
 const typicalOutcomes: Record<string, string> = {
@@ -102,16 +103,18 @@ export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: Ag
         </p>
 
         {/* Typical Outcome — always occupies space, visible only on hover */}
-        <div
-          className={`border-border mt-auto border-t pt-4 transition-opacity duration-200 ${
-            outcome ? 'opacity-0 group-hover:opacity-100' : 'invisible'
-          }`}
-        >
-          <p className="text-muted-foreground/60 mb-1.5 text-[11px]">Typical outcome</p>
-          <p className="text-muted-foreground line-clamp-3 text-[13px] leading-relaxed">
-            {outcome}
-          </p>
-        </div>
+        {FEATURE_FLAGS.MOCK_TYPICAL_OUTCOMES && (
+          <div
+            className={`border-border mt-auto border-t pt-4 transition-opacity duration-200 ${
+              outcome ? 'opacity-0 group-hover:opacity-100' : 'invisible'
+            }`}
+          >
+            <p className="text-muted-foreground/60 mb-1.5 text-[11px]">Typical outcome</p>
+            <p className="text-muted-foreground line-clamp-3 text-[13px] leading-relaxed">
+              {outcome}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

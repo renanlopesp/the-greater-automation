@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface HomeApp {
   id: string
@@ -74,8 +75,15 @@ const homeApps: HomeApp[] = [
 ]
 
 export default function ConnectAppsSection() {
+  if (!FEATURE_FLAGS.MOCK_CONNECT_APPS) return null
+
   return (
-    <div>
+    <div className="relative">
+      {process.env.NODE_ENV === 'development' && (
+        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+          MOCK
+        </span>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-foreground text-lg font-medium">Conecte seus apps</h2>
         <Link

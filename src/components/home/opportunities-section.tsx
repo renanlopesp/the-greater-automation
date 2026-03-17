@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface OpportunityItem {
   id: string
@@ -234,8 +235,15 @@ export default function OpportunitiesSection() {
   const { avatars } = useCoworkerAvatars()
   const [selectedOpp, setSelectedOpp] = useState<OpportunityItem | null>(null)
 
+  if (!FEATURE_FLAGS.MOCK_OPPORTUNITIES) return null
+
   return (
-    <div>
+    <div className="relative">
+      {process.env.NODE_ENV === 'development' && (
+        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+          MOCK
+        </span>
+      )}
       <h2 className="text-foreground mb-4 text-lg font-medium">Oportunidades detectadas</h2>
       <div className="border-border bg-background overflow-hidden rounded-2xl border">
         {opportunities.map((opp, i) => {

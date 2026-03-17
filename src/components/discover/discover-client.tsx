@@ -8,6 +8,7 @@ import { agents as catalog, type Agent, type AgentCategory } from '@/data/agents
 import CategoryTabs, { type DiscoverFilter } from './category-tabs'
 import AgentCard from './agent-card'
 import InstallWizardModal from './install-wizard-modal'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 // Recommended agents — hand-picked IDs
 const recommendedIds = new Set([
@@ -68,8 +69,15 @@ export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) 
     return result
   }, [filter, search, activeSet])
 
+  if (!FEATURE_FLAGS.MOCK_DISCOVER_CATALOG) return null
+
   return (
-    <div className="bg-background h-full overflow-y-auto">
+    <div className="bg-background relative h-full overflow-y-auto">
+      {process.env.NODE_ENV === 'development' && (
+        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+          MOCK
+        </span>
+      )}
       <div className="mx-auto max-w-5xl px-6 py-10">
         {/* Header */}
         <div className="mb-8">

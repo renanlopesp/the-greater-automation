@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { type AgentCard } from '@/data/home-dashboard'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface CoworkerInActionCard {
   id: string
@@ -74,8 +75,15 @@ interface CoworkersInActionProps {
 export default function CoworkersInAction({ onSelectAgent, agents }: CoworkersInActionProps) {
   const { avatars } = useCoworkerAvatars()
 
+  if (!FEATURE_FLAGS.MOCK_COWORKERS_IN_ACTION) return null
+
   return (
-    <div>
+    <div className="relative">
+      {process.env.NODE_ENV === 'development' && (
+        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+          MOCK
+        </span>
+      )}
       <h2 className="text-foreground mb-4 text-lg font-medium">Co-workers em ação</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {mockCoworkers.map((cw) => {

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Search, MoreHorizontal } from 'lucide-react'
+import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 export interface ConversationRow {
   id: string
@@ -49,7 +50,7 @@ export default function HistoryClient({ conversations: conversationRows }: Histo
         group: getDateBucket(row.updated_at),
       }))
     }
-    return mockChats
+    return FEATURE_FLAGS.MOCK_HISTORY ? mockChats : []
   }, [conversationRows])
 
   const filtered = useMemo(() => {
@@ -73,7 +74,12 @@ export default function HistoryClient({ conversations: conversationRows }: Histo
 
   return (
     <div className="bg-background h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl px-6 pt-16 pb-6">
+      <div className="relative mx-auto max-w-3xl px-6 pt-16 pb-6">
+        {process.env.NODE_ENV === 'development' && FEATURE_FLAGS.MOCK_HISTORY && (
+          <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+            MOCK
+          </span>
+        )}
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-foreground text-2xl font-medium">History</h1>
