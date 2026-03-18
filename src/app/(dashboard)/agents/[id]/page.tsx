@@ -53,7 +53,7 @@ export default async function AgentDetailPage({
       .single(),
     supabase
       .from('stores')
-      .select('id, platform, platform_store_id, settings')
+      .select('id, platform, platform_store_id, platform_access_token, settings')
       .eq('team_id', agent.team_id)
       .single(),
     supabase.from('messaging_links').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
@@ -133,6 +133,10 @@ export default async function AgentDetailPage({
           agentPalette={agent.palette}
           teamId={agent.team_id}
           currentUserId={user.id}
+          storeConnected={
+            storeData?.platform === 'manual' ||
+            (!!storeData?.platform_store_id && !!storeData?.platform_access_token)
+          }
           initialConversationId={activeConversation?.conversationId ?? null}
           initialMessages={activeConversation?.messages ?? []}
         />

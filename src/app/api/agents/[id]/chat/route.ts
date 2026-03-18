@@ -283,7 +283,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
       })
 
-      const response = result.toUIMessageStreamResponse({ sendReasoning: true })
+      const response = result.toUIMessageStreamResponse({ sendReasoning: true, sendSources: true })
       const headers = new Headers(response.headers)
       headers.set('X-Conversation-Id', orchConvId)
       return new Response(response.body, { status: response.status, headers })
@@ -442,7 +442,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     agent.team_id
       ? supabase
           .from('stores')
-          .select('id, platform, platform_store_id')
+          .select('id, platform, platform_store_id, platform_access_token')
           .eq('team_id', agent.team_id)
           .limit(1)
           .single()
@@ -456,8 +456,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (store) {
     storeId = store.id
     if (store.platform && store.platform !== 'manual' && store.platform_store_id) {
-      // Only add to Composio apps if the platform uses Composio (not nuvemshop, which uses native API)
-      if (store.platform !== 'nuvemshop') {
+      if (store.platform === 'nuvemshop') {
+        // Nuvemshop uses native API — add to connectedApps so the agent knows it's available
+        if (store.platform_access_token) {
+          connectedApps.push({ appId: 'nuvemshop', actions: [] })
+        }
+      } else {
+        // Other platforms use Composio
         agentAppIds.add(store.platform)
       }
     }
@@ -663,7 +668,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
 
     // Return streaming response with conversation ID header
-    const response = result.toUIMessageStreamResponse({ sendReasoning: true })
+    const response = result.toUIMessageStreamResponse({ sendReasoning: true, sendSources: true })
     const headers = new Headers(response.headers)
     headers.set('X-Conversation-Id', conversationId)
 

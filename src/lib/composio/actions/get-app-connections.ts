@@ -54,13 +54,13 @@ export async function getAppConnections(): Promise<AppConnection[]> {
     if (teamMember) {
       const { data: store } = await supabase
         .from('stores')
-        .select('id, platform, created_at')
+        .select('id, platform, platform_access_token, created_at')
         .eq('team_id', teamMember.team_id)
         .eq('platform', 'nuvemshop')
         .limit(1)
-        .single()
+        .maybeSingle()
 
-      if (store) {
+      if (store?.platform_access_token) {
         nuvemshopConnection = {
           id: `nuvemshop_${store.id}`,
           app_id: 'nuvemshop',

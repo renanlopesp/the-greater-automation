@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { Search, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react'
 import { type AppIntegration } from '@/data/apps'
 import { initiateAppConnection } from '@/lib/composio/actions/initiate-connection'
+import { disconnectApp } from '@/lib/composio/actions/disconnect-app'
 import { cn } from '@/lib/utils'
 
 interface AppsClientProps {
@@ -13,9 +14,10 @@ interface AppsClientProps {
 export default function AppsClient({ apps }: AppsClientProps) {
   const [search, setSearch] = useState('')
   const [connectingId, setConnectingId] = useState<string | null>(null)
+  const [disconnectedIds, setDisconnectedIds] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
 
-  const connectedCount = apps.filter((a) => a.connected).length
+  const connectedCount = apps.filter((a) => a.connected && !disconnectedIds.has(a.id)).length
 
   const filtered = useMemo(() => {
     if (!search.trim()) return apps
@@ -44,6 +46,15 @@ export default function AppsClient({ apps }: AppsClientProps) {
         }
       } catch {
         setConnectingId(null)
+      }
+    })
+  }
+
+  const handleDisconnect = (app: AppIntegration) => {
+    startTransition(async () => {
+      const result = await disconnectApp(app.id)
+      if (result.success) {
+        setDisconnectedIds((prev) => new Set(prev).add(app.id))
       }
     })
   }
@@ -108,13 +119,16 @@ export default function AppsClient({ apps }: AppsClientProps) {
                   <p className="text-foreground text-sm font-medium">{app.name}</p>
                 </div>
                 <div className="shrink-0">
-                  {app.connected ? (
+                  {app.connected && !disconnectedIds.has(app.id) ? (
                     <div className="relative flex items-center">
                       <span className="bg-muted text-muted-foreground flex items-center gap-1 rounded-full px-2.5 py-1 text-xs group-hover:hidden">
                         <CheckCircle2 className="h-3 w-3" />
                         Connected
                       </span>
-                      <button className="text-muted-foreground hover:text-foreground hidden rounded-full border border-red-200 px-2.5 py-1 text-xs group-hover:flex">
+                      <button
+                        onClick={() => handleDisconnect(app)}
+                        className="hidden rounded-full border border-red-200 px-2.5 py-1 text-xs text-red-600 group-hover:flex hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                      >
                         Disconnect
                       </button>
                     </div>

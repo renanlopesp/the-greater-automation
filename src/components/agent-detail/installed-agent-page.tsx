@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Clock,
   Copy,
@@ -16,7 +17,6 @@ import {
   ClipboardList,
   ThumbsUp,
   ThumbsDown,
-  MoreHorizontal,
 } from 'lucide-react'
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { useAgentWorkspaceStore } from '@/stores/agent-workspace-store'
@@ -29,22 +29,14 @@ import ModuleList from './module-list'
 import AgentResultsTab from './agent-results-tab'
 import AgentConnectionsTab from './agent-connections-tab'
 import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputSubmit,
-  type PromptInputMessage,
-} from '@/components/ai-elements/prompt-input'
-import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
-import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
-import BoringAvatar from 'boring-avatars'
-import { getAgentPalette } from '@/lib/agent-palettes'
+import { isTextUIPart, isReasoningUIPart } from 'ai'
+import { generateFollowUps } from '@/lib/actions/follow-ups'
 
 interface InstalledAgentPageProps {
   agentId: string
@@ -55,6 +47,7 @@ interface InstalledAgentPageProps {
   agentAvatarSrc?: string
   teamId: string
   currentUserId: string
+  storeConnected?: boolean
   initialConversationId: string | null
   initialMessages: {
     id: string
@@ -72,13 +65,6 @@ const SUGGESTION_PILLS = [
   'Ajustar oferta de desconto',
 ]
 
-const CHAT_FOLLOW_UPS = [
-  'Mais detalhes sobre isso',
-  'Resumir em 3 pontos',
-  'Quais próximos passos?',
-  'Gerar relatório completo',
-]
-
 export default function InstalledAgentPage({
   agentId,
   agentName,
@@ -88,6 +74,7 @@ export default function InstalledAgentPage({
   agentAvatarSrc: agentAvatarSrcProp,
   teamId,
   currentUserId,
+  storeConnected = false,
   initialConversationId,
   initialMessages,
 }: InstalledAgentPageProps) {
@@ -103,26 +90,28 @@ export default function InstalledAgentPage({
   const avatarKey = AGENT_TYPE_AVATAR_MAP[agentType] ?? agentName.toLowerCase().replace(/\s+/g, '-')
   const agentAvatarSrc = agentAvatarSrcProp ?? avatars[avatarKey] ?? undefined
 
-  const { messages, status, isLoading, isStreaming, sendMessage, stop } = useAgentChat(
-    agentId,
-    currentUserId,
-    {
-      initialConversationId,
-      initialMessages,
-    }
-  )
+  const { messages, isLoading, isStreaming, sendMessage } = useAgentChat(agentId, currentUserId, {
+    initialConversationId,
+    initialMessages,
+  })
 
   const visibleMessages = messages.filter((m) => m.role === 'user' || m.role === 'assistant')
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id ?? null
 
-  const handleSubmit = useCallback(
-    (msg: PromptInputMessage) => {
-      if (msg.text.trim()) {
-        sendMessage(msg.text.trim())
-      }
-    },
-    [sendMessage]
-  )
+  // Dynamic follow-ups via React Query — keyed by last assistant message ID
+  const lastAssistantText = !isStreaming
+    ? visibleMessages
+        .findLast((m) => m.role === 'assistant')
+        ?.parts?.filter(isTextUIPart)
+        .map((p) => p.text)
+        .join('')
+    : null
+  const { data: dynamicFollowUps = [] } = useQuery({
+    queryKey: ['follow-ups', lastAssistantId],
+    queryFn: () => generateFollowUps(lastAssistantText ?? '', agentName),
+    enabled: !!lastAssistantId && !!lastAssistantText && !isStreaming,
+    staleTime: Infinity,
+  })
 
   const handleChatSend = useCallback(() => {
     if (chatInput.trim()) {
@@ -188,13 +177,39 @@ export default function InstalledAgentPage({
             >
               {/* Scrollable area: activity feed + chat messages */}
               <Conversation className="flex-1">
-                <ConversationContent className="mx-auto w-full max-w-2xl px-5 pt-5 pb-6">
+                <ConversationContent className="mx-auto w-full max-w-3xl px-5 pt-5 pb-6">
                   {/* Activity feed — always at top */}
                   <AgentActivityFeed
                     agentId={agentId}
                     agentName={agentName}
                     agentAvatarSrc={agentAvatarSrc}
                   />
+
+                  {/* Connection prompt — when store not connected */}
+                  {!storeConnected && (
+                    <div className="border-border bg-muted/30 my-3 flex items-center justify-between rounded-xl border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
+                          <Plug className="text-muted-foreground h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-foreground text-sm font-medium">
+                            Plataforma não conectada
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Conecte sua loja para ativar os módulos
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('connections')}
+                        className="bg-foreground text-background hover:bg-foreground/90 shrink-0 rounded-lg px-4 py-2 text-xs font-medium transition-colors"
+                      >
+                        Conectar
+                      </button>
+                    </div>
+                  )}
 
                   {/* Chat messages below activity */}
                   {visibleMessages.map((message) => {
@@ -206,6 +221,16 @@ export default function InstalledAgentPage({
                       .join('')
                     const reasoningParts = parts.filter(isReasoningUIPart)
                     const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
+                    const sourceParts = parts.filter(
+                      (
+                        p
+                      ): p is {
+                        type: 'source-url'
+                        sourceId: string
+                        url: string
+                        title?: string
+                      } => (p as { type: string }).type === 'source-url'
+                    )
                     const isLast = message.id === lastAssistantId
 
                     return (
@@ -277,10 +302,7 @@ export default function InstalledAgentPage({
                               >
                                 <RefreshCw className="h-3.5 w-3.5" />
                               </button>
-                              <div className="text-muted-foreground/50 ml-1 flex items-center gap-1 text-xs">
-                                <ClipboardList className="h-3 w-3" />
-                                <span>fontes</span>
-                              </div>
+                              {sourceParts.length > 0 && <SourcesDropdown sources={sourceParts} />}
                             </div>
                             <div className="flex items-center gap-0.5">
                               <button
@@ -297,36 +319,33 @@ export default function InstalledAgentPage({
                               >
                                 <ThumbsDown className="h-3.5 w-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                title="Mais opções"
-                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </button>
                             </div>
                           </div>
                         )}
                         {/* Acompanhamentos — after last assistant message */}
-                        {!isUser && isLast && !isStreaming && textContent && (
-                          <div className="mt-2 flex w-full flex-col">
-                            <p className="text-foreground/50 mb-1.5 text-xs font-medium">
-                              Acompanhamentos
-                            </p>
-                            <div className="divide-border flex flex-col divide-y">
-                              {CHAT_FOLLOW_UPS.map((chip) => (
-                                <button
-                                  key={chip}
-                                  onClick={() => handleSuggestion(chip)}
-                                  className="text-foreground/70 hover:text-foreground group flex items-center gap-2 py-2 text-left text-sm transition-colors"
-                                >
-                                  <CornerDownRight className="text-muted-foreground group-hover:text-foreground/60 h-3 w-3 shrink-0 transition-colors" />
-                                  {chip}
-                                </button>
-                              ))}
+                        {!isUser &&
+                          isLast &&
+                          !isStreaming &&
+                          textContent &&
+                          dynamicFollowUps.length > 0 && (
+                            <div className="mt-2 flex w-full flex-col">
+                              <p className="text-foreground/50 mb-1.5 text-xs font-medium">
+                                Acompanhamentos
+                              </p>
+                              <div className="divide-border flex flex-col divide-y">
+                                {dynamicFollowUps.map((chip) => (
+                                  <button
+                                    key={chip}
+                                    onClick={() => handleSuggestion(chip)}
+                                    className="text-foreground/70 hover:text-foreground group flex items-center gap-2 py-2 text-left text-sm transition-colors"
+                                  >
+                                    <CornerDownRight className="text-muted-foreground group-hover:text-foreground/60 h-3 w-3 shrink-0 transition-colors" />
+                                    {chip}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </Message>
                     )
                   })}
@@ -417,6 +436,50 @@ export default function InstalledAgentPage({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SourcesDropdown({ sources }: { sources: Array<{ url: string; title?: string }> }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="relative ml-1">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="text-muted-foreground hover:text-foreground/70 flex items-center gap-1 text-xs transition-colors"
+      >
+        <ClipboardList className="h-3 w-3" />
+        <span>
+          {sources.length} {sources.length === 1 ? 'fonte' : 'fontes'}
+        </span>
+      </button>
+      {open && (
+        <div className="bg-popover border-border absolute bottom-full left-0 z-50 mb-2 w-72 rounded-xl border p-1.5 shadow-lg">
+          <p className="text-muted-foreground px-2 py-1 text-[11px] font-medium">Fontes</p>
+          {sources.map((s, i) => {
+            let hostname = ''
+            try {
+              hostname = new URL(s.url).hostname
+            } catch {
+              hostname = s.url
+            }
+            return (
+              <a
+                key={i}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:bg-muted flex flex-col gap-0.5 rounded-lg px-2 py-1.5 transition-colors"
+              >
+                <span className="text-foreground truncate text-xs">{s.title || hostname}</span>
+                <span className="text-muted-foreground truncate text-[11px]">{hostname}</span>
+              </a>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

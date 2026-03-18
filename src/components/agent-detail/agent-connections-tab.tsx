@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { useAgentModules } from '@/hooks/use-agent-modules'
-import { cn } from '@/lib/utils'
 
 const APP_DISPLAY_NAMES: Record<string, string> = {
   nuvemshop: 'Nuvemshop',
@@ -120,7 +119,7 @@ export default function AgentConnectionsTab({ agentId }: AgentConnectionsTabProp
                 <>
                   <XCircle className="text-muted-foreground h-4 w-4" />
                   <Link
-                    href="/apps"
+                    href="/workspace?settings=store"
                     className="rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400"
                   >
                     Reconectar

@@ -126,14 +126,26 @@ export async function fetchAgentModulesWithStatus(
   let activeConnections: string[] = []
 
   if (agentRow?.team_id) {
+    // Fetch Composio app connections (e.g. google_analytics, gmail)
     const { data: connRows } = await supabase
-      .from('app_connections' as never)
-      .select('app_key')
+      .from('app_connections')
+      .select('app_id')
       .eq('team_id', agentRow.team_id)
-      .eq('status', 'active')
 
     if (connRows) {
-      activeConnections = (connRows as { app_key: string }[]).map((c) => c.app_key)
+      activeConnections = connRows.map((c) => c.app_id)
+    }
+
+    // Also check native store connection (Nuvemshop/Shopify use stores table, not app_connections)
+    const { data: store } = await supabase
+      .from('stores')
+      .select('platform, platform_store_id, platform_access_token')
+      .eq('team_id', agentRow.team_id)
+      .limit(1)
+      .maybeSingle()
+
+    if (store?.platform && store.platform_store_id && store.platform_access_token) {
+      activeConnections.push(store.platform)
     }
   }
 
