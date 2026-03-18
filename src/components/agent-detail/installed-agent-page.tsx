@@ -188,7 +188,7 @@ export default function InstalledAgentPage({
             >
               {/* Scrollable area: activity feed + chat messages */}
               <Conversation className="flex-1">
-                <ConversationContent className="px-6 pt-5 pb-6">
+                <ConversationContent className="mx-auto w-full max-w-2xl px-5 pt-5 pb-6">
                   {/* Activity feed — always at top */}
                   <AgentActivityFeed
                     agentId={agentId}
@@ -334,9 +334,9 @@ export default function InstalledAgentPage({
                 <ConversationScrollButton />
               </Conversation>
 
-              {/* Chat input — fixed at bottom, same padding as content */}
-              <div className="shrink-0 px-6 pt-2 pb-5">
-                <div className="flex w-full flex-col gap-2">
+              {/* Chat input — fixed at bottom, same max-w as content */}
+              <div className="shrink-0 pt-2 pb-5">
+                <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-5">
                   {/* Rounded input box */}
                   <div className="border-border focus-within:border-foreground/30 focus-within:bg-background bg-muted/40 overflow-hidden rounded-2xl border shadow-sm transition-all">
                     <textarea
