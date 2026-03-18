@@ -67,11 +67,20 @@ const typicalOutcomes: Record<string, string> = {
 interface AgentCardProps {
   agent: Agent
   isActive?: boolean
+  isInstalled?: boolean
+  installedAgentPageId?: string
   avatars?: AvatarMap
   onOpenWizard?: (agentId: string, agentName: string) => void
 }
 
-export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: AgentCardProps) {
+export default function AgentCard({
+  agent,
+  isActive,
+  isInstalled,
+  installedAgentPageId,
+  avatars,
+  onOpenWizard,
+}: AgentCardProps) {
   const avatarSrc = avatars?.[agent.id]
   const outcome = typicalOutcomes[agent.id]
 
@@ -93,6 +102,11 @@ export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: Ag
                   className="relative inline-flex h-2 w-2 rounded-full"
                   style={{ backgroundColor: 'hsl(142 71% 45%)' }}
                 />
+              </span>
+            )}
+            {isInstalled && !isActive && (
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-950 dark:text-green-400">
+                Instalado
               </span>
             )}
           </div>
@@ -121,6 +135,11 @@ export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: Ag
 
   if (isActive) {
     return <Link href={`/agents/${agent.id}`}>{card}</Link>
+  }
+
+  // If this agent type is installed (module-based), link to the installed agent page
+  if (isInstalled && installedAgentPageId) {
+    return <Link href={`/agents/${installedAgentPageId}`}>{card}</Link>
   }
 
   if (onOpenWizard) {

@@ -535,7 +535,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Composio agents get full automation instructions (app events, composio_action, auth awareness).
   // Agents with neither get no automation instructions.
   const automationMode = hasComposioApps ? 'full' : storeId ? 'retail' : false
-  const systemPrompt = buildAgentSystemPrompt(
+  let systemPrompt = buildAgentSystemPrompt(
     agentConfig,
     staticSkills,
     connectedApps,
@@ -543,6 +543,88 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     knowledgeSkills,
     automationMode
   )
+
+  // 10b. For module-based agents, inject module context + recent activity summary
+  if ((agent as Record<string, unknown>).agent_type) {
+    const agentType = (agent as Record<string, unknown>).agent_type as string
+    const { data: moduleRows } = await supabase
+      .from('agent_modules' as never)
+      .select('name, description, module_type, enabled')
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: true })
+
+    if (moduleRows && (moduleRows as unknown[]).length > 0) {
+      type ModRow = {
+        name: string
+        description: string | null
+        module_type: string
+        enabled: boolean
+      }
+      const mods = moduleRows as ModRow[]
+
+      // Fetch last 24h activity summary
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const { data: activityRows } = await supabase
+        .from('workflow_run_outputs' as never)
+        .select('output_type, output_data, summary_text')
+        .eq('agent_modules.agent_id' as never, agentId)
+        .gte('created_at', yesterday.toISOString())
+        .eq('output_type', 'kpi-summary')
+        .limit(5)
+
+      type ActivityRow = {
+        output_data: { kpis?: { label: string; value: string }[]; summary?: string }
+      }
+      const actRows = (activityRows ?? []) as ActivityRow[]
+      const latestKpis = actRows[0]?.output_data?.kpis ?? []
+      const latestSummary = actRows[0]?.output_data?.summary ?? ''
+
+      const moduleLines = mods
+        .map(
+          (m) =>
+            `- **${m.name}** (${m.module_type}): ${m.description ?? ''} [${m.enabled ? 'ativo' : 'pausado'}]`
+        )
+        .join('\n')
+
+      const kpiLines =
+        latestKpis.length > 0
+          ? latestKpis.map((k) => `  - ${k.label}: ${k.value}`).join('\n')
+          : '  Sem dados recentes.'
+
+      const moduleContext = [
+        '',
+        `## Módulos Ativos (agent_type: ${agentType})`,
+        '',
+        'Você é um agente especializado com os seguintes módulos pré-configurados:',
+        moduleLines,
+        '',
+        '## Atividade Recente (últimas 24h)',
+        '',
+        latestSummary ? `Resumo: ${latestSummary}` : 'Sem resumo disponível.',
+        '',
+        'KPIs:',
+        kpiLines,
+        '',
+        '## Ferramentas de Módulo Disponíveis',
+        '',
+        '- **AGENT_QUERY_MODULE_DATA** — consulta dados de performance dos módulos (KPIs, atividade recente, resultados)',
+        '- **AGENT_TRIGGER_MODULE** — aciona um módulo para executar imediatamente',
+        '',
+        'Use estas ferramentas quando o usuário perguntar sobre performance, resultados, ou quiser acionar uma análise.',
+      ].join('\n')
+
+      systemPrompt = systemPrompt + moduleContext
+    }
+
+    // Add module tools to relayTools
+    const { buildPlatformTools: buildModuleTools } = await import('@/lib/ai/platform-tools')
+    const moduleTools = buildModuleTools(agentId, agent.team_id ?? '', supabase)
+    Object.assign(relayTools, {
+      AGENT_QUERY_MODULE_DATA: moduleTools.AGENT_QUERY_MODULE_DATA,
+      AGENT_TRIGGER_MODULE: moduleTools.AGENT_TRIGGER_MODULE,
+    })
+  }
 
   // 11. Update agent status to 'running'
   await supabase.from('agents').update({ status: 'running' }).eq('id', agentId)

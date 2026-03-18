@@ -24,7 +24,7 @@ export const FEATURE_FLAGS = {
   MOCK_GREETING_STATS: true,
 
   /** Agent workspace — "hoje" tab with hardcoded activity log, stats, files */
-  MOCK_AGENT_WORKSPACE: true,
+  MOCK_AGENT_WORKSPACE: false,
 
   /** History — Hardcoded conversation list */
   MOCK_HISTORY: true,

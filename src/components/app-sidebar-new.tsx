@@ -5,6 +5,19 @@ import { usePathname } from 'next/navigation'
 import { Home, Plus, Bot, LayoutGrid, Clock, Zap } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 import type { UsageData, PlanData } from '@/types/navigation'
+import { useEffect, useState } from 'react'
+import { createBrowserClient } from '@/lib/supabase/client'
+import BoringAvatar from 'boring-avatars'
+import { getAgentPalette } from '@/lib/agent-palettes'
+import { cn } from '@/lib/utils'
+
+interface InstalledAgent {
+  id: string
+  name: string
+  palette: string | null
+  avatar_url: string | null
+  status: string | null
+}
 
 interface AppSidebarNewProps {
   collapsed: boolean
@@ -24,6 +37,7 @@ export default function AppSidebarNew({
 }: AppSidebarNewProps) {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const [installedAgents, setInstalledAgents] = useState<InstalledAgent[]>([])
 
   const navItems = [
     { labelKey: 'nav.home', icon: Home, path: '/dashboard' },
@@ -47,6 +61,52 @@ export default function AppSidebarNew({
   }
 
   const creditsRemaining = usage ? Math.max(0, usage.aiCreditsLimit - usage.aiCreditsUsed) : null
+
+  // Load installed (module-based) agents
+  useEffect(() => {
+    async function loadInstalledAgents() {
+      try {
+        const supabase = createBrowserClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Get team for this user
+        const { data: memberRow } = await supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .single()
+
+        if (!memberRow?.team_id) return
+
+        const { data: agents } = await supabase
+          .from('agents')
+          .select('id, name, palette, avatar_url, status')
+          .eq('team_id', memberRow.team_id)
+          .not('agent_type', 'is', null)
+          .order('name')
+
+        if (agents) {
+          setInstalledAgents(
+            agents.map((a) => ({
+              id: a.id,
+              name: a.name,
+              palette: a.palette ?? null,
+              avatar_url: (a as Record<string, unknown>).avatar_url as string | null,
+              status: (a as Record<string, unknown>).status as string | null,
+            }))
+          )
+        }
+      } catch {
+        // Silently fail — sidebar agent list is non-critical
+      }
+    }
+
+    loadInstalledAgents()
+  }, [])
 
   return (
     <aside
@@ -77,7 +137,7 @@ export default function AppSidebarNew({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 pt-3 pb-1">
+      <nav className="flex flex-col overflow-y-auto px-2 pt-3 pb-1" style={{ flex: '1 1 0' }}>
         {navItems.map((item) => (
           <Link
             key={item.path}
@@ -100,6 +160,56 @@ export default function AppSidebarNew({
             </div>
           </Link>
         ))}
+
+        {/* Installed agents section */}
+        {installedAgents.length > 0 && (
+          <div className="mt-4">
+            {!collapsed && (
+              <p className="text-muted-foreground mb-1 px-3 text-[11px] font-medium tracking-wide uppercase">
+                Co-workers
+              </p>
+            )}
+            {installedAgents.map((agent) => {
+              const agentPath = `/agents/${agent.id}`
+              const active = pathname === agentPath
+              const isRunning = agent.status === 'running'
+              return (
+                <Link
+                  key={agent.id}
+                  href={agentPath}
+                  title={collapsed ? agent.name : undefined}
+                  className={cn(
+                    'relative mb-0.5 flex w-full items-center gap-2.5 overflow-hidden rounded-md px-3 py-1.5 transition-colors',
+                    active
+                      ? 'bg-accent text-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                >
+                  {/* Avatar with optional running dot */}
+                  <div className="relative shrink-0">
+                    <BoringAvatar
+                      name={agent.name}
+                      variant="bauhaus"
+                      size={28}
+                      colors={getAgentPalette(agent.palette ?? 'blue')}
+                    />
+                    {isRunning && (
+                      <span className="absolute right-0 bottom-0 h-2 w-2 rounded-full border border-white bg-green-500" />
+                    )}
+                  </div>
+
+                  <div
+                    className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[opacity,max-width] duration-300 ease-in-out ${
+                      collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'
+                    }`}
+                  >
+                    <span className="flex-1 truncate text-left text-sm">{agent.name}</span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Bottom */}

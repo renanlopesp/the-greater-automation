@@ -5,6 +5,7 @@ import ChatPanel from '@/components/agent-detail/chat-panel'
 import AgentSidebar from '@/components/agent-detail/agent-sidebar'
 import SetupChecklist, { type SetupStep } from '@/components/agent-detail/setup-checklist'
 import AgentWorkspacePanel from '@/components/agent-detail/agent-workspace-panel'
+import InstalledAgentPage from '@/components/agent-detail/installed-agent-page'
 
 export default async function AgentDetailPage({
   params,
@@ -114,6 +115,26 @@ export default async function AgentDetailPage({
           initialConversationId={activeConversation?.conversationId ?? null}
           initialMessages={activeConversation?.messages ?? []}
           initialQuery={initialQuery}
+        />
+      </div>
+    )
+  }
+
+  // Module-based agents (agent_type is set) get the installed agent page layout
+  const agentType = (agent as Record<string, unknown>).agent_type as string | null | undefined
+  if (agentType) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <InstalledAgentPage
+          agentId={id}
+          agentName={agent.name}
+          agentDescription={agent.description}
+          agentType={agentType}
+          agentPalette={agent.palette}
+          teamId={agent.team_id}
+          currentUserId={user.id}
+          initialConversationId={activeConversation?.conversationId ?? null}
+          initialMessages={activeConversation?.messages ?? []}
         />
       </div>
     )

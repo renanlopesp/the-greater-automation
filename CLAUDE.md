@@ -91,6 +91,8 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Supabase (@supabase/ssr), Vercel AI SDK, TanStack React Query, Zustand, shadcn/ui (new-york), Tailwind CSS v4 (036-agent-modules-system)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19.2.3, shadcn/ui (new-york), Tailwind CSS v4, TanStack React Query, Zustand, lucide-react, next-themes (031-layout-redesign)
 - Supabase PostgreSQL (existing — unchanged), localStorage (sidebar state, language preference) (031-layout-redesign)
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, @supabase/ssr, Composio SDK (032-restore-data-integration)

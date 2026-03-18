@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { X, Loader2 } from 'lucide-react'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
+import { installAgent } from '@/lib/modules/provision'
 
 interface WizardData {
   category: string
@@ -452,20 +454,35 @@ function parseHook(hook: string): React.ReactNode[] {
   })
 }
 
+/** Maps catalog agent IDs to agent_type keys in the module registry */
+const CATALOG_ID_TO_AGENT_TYPE: Record<string, string> = {
+  'upsell-retention': 'carrinho-conversao',
+  'abandoned-cart': 'carrinho-conversao',
+}
+
 export interface InstallWizardModalProps {
   agentId: string
   agentName: string
   onClose: () => void
+  teamId: string
+  userId: string
+  onInstallSuccess?: (installedAgentId: string) => void
 }
 
 export default function InstallWizardModal({
   agentId,
   agentName,
   onClose,
+  teamId,
+  userId,
+  onInstallSuccess,
 }: InstallWizardModalProps) {
   const { avatars } = useCoworkerAvatars()
+  const router = useRouter()
   const data = wizardData[agentId]
   const avatarSrc = avatars?.[agentId]
+  const [isInstalling, setIsInstalling] = useState(false)
+  const [installError, setInstallError] = useState<string | null>(null)
 
   // Close on Escape
   useEffect(() => {
@@ -486,6 +503,40 @@ export default function InstallWizardModal({
 
   if (!FEATURE_FLAGS.MOCK_INSTALL_WIZARD) return null
   if (!data) return null
+
+  const agentType = CATALOG_ID_TO_AGENT_TYPE[agentId]
+
+  async function handleInstall() {
+    if (!agentType) {
+      // No module-based agent type for this catalog entry — just close
+      onClose()
+      return
+    }
+
+    setIsInstalling(true)
+    setInstallError(null)
+
+    try {
+      const result = await installAgent(agentType, teamId, userId)
+
+      if ('error' in result) {
+        setInstallError(result.error)
+        setIsInstalling(false)
+        return
+      }
+
+      const installedAgentId = result.agentId
+
+      if (onInstallSuccess) {
+        onInstallSuccess(installedAgentId)
+      } else {
+        router.push(`/agents/${installedAgentId}`)
+      }
+    } catch (err) {
+      setInstallError(err instanceof Error ? err.message : 'Falha ao instalar agente')
+      setIsInstalling(false)
+    }
+  }
 
   const modal = (
     <div
@@ -575,12 +626,19 @@ export default function InstallWizardModal({
             </div>
           </div>
 
+          {/* Error message */}
+          {installError && (
+            <p className="mt-4 text-center text-[13px] text-red-500">{installError}</p>
+          )}
+
           {/* CTA button */}
           <button
-            className="bg-foreground text-background mt-10 w-full rounded-2xl py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
-            onClick={onClose}
+            className="bg-foreground text-background mt-10 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-60"
+            onClick={handleInstall}
+            disabled={isInstalling}
           >
-            Ativar {agentName}
+            {isInstalling && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isInstalling ? 'Instalando...' : `Ativar ${agentName}`}
           </button>
 
           {/* CTA note */}

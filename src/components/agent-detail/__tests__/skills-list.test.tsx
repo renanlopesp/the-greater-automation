@@ -20,7 +20,7 @@ vi.mock('@/lib/actions/agent-skills', () => ({
   toggleSkill: vi.fn(),
 }))
 
-const mockKnowledgeSkills: Skill[] = [
+const mockContextSkills: Skill[] = [
   {
     id: '1',
     name: 'Product Guidelines',
@@ -28,7 +28,7 @@ const mockKnowledgeSkills: Skill[] = [
     content: 'Always mention our product name: SuperApp.',
     source: 'manual',
     is_enabled: true,
-    type: 'knowledge',
+    type: 'context',
     parameters: null,
     version: 1,
   },
@@ -39,70 +39,55 @@ const mockKnowledgeSkills: Skill[] = [
     content: '## Steps\n1. Greet the customer\n2. Identify the issue\n3. Provide solution',
     source: 'manual',
     is_enabled: true,
-    type: 'procedure',
-    parameters: { tone: 'friendly' },
+    type: 'context',
+    parameters: null,
     version: 1,
   },
 ]
 
 describe('SkillsList', () => {
-  it('renders knowledge skills with names and badges', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+  it('renders context skills with names and badges', () => {
+    render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     expect(screen.getByText('Product Guidelines')).toBeInTheDocument()
     expect(screen.getByText('Support Protocol')).toBeInTheDocument()
-    expect(screen.getByText('Conhecimento')).toBeInTheDocument()
-    expect(screen.getByText('Procedimento')).toBeInTheDocument()
+    expect(screen.getAllByText('Contexto').length).toBeGreaterThan(0)
   })
 
   it('shows description when available', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+    render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     expect(screen.getByText('Company product naming')).toBeInTheDocument()
   })
 
-  it('shows step count for procedure skills', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText(/3 etapas/)).toBeInTheDocument()
-  })
-
-  it('shows parameter count for procedure skills', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText(/1 parâmetros/)).toBeInTheDocument()
-  })
-
   it('shows enable/disable toggle for skills', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+    render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     const toggles = screen.getAllByRole('switch', { name: 'Toggle skill' })
     expect(toggles.length).toBe(2)
   })
 
-  it('shows "Add skill" button', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
-    expect(screen.getByText('Adicionar skill')).toBeInTheDocument()
+  it('shows "Adicionar contexto" button', () => {
+    render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
+    expect(screen.getByText('Adicionar contexto')).toBeInTheDocument()
   })
 
   it('shows empty state when no skills', () => {
     render(<SkillsList skills={[]} agentId="agent-1" />)
-    expect(screen.getByText('Nenhum skill ainda')).toBeInTheDocument()
-    expect(
-      screen.getByText('Adicione skills para ensinar conhecimentos especializados ao agente')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Nenhum contexto ainda')).toBeInTheDocument()
   })
 
   it('renders brain icon for all skills', () => {
-    const { container } = render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+    const { container } = render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     const icons = container.querySelectorAll('svg')
     expect(icons.length).toBeGreaterThan(0)
   })
 
   it('shows delete button on hover (opacity controlled by group-hover)', () => {
-    const { container } = render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+    const { container } = render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     const deleteButtons = container.querySelectorAll('button[type="button"]')
-    // Delete buttons exist but are hidden via opacity-0 group-hover:opacity-100
     expect(deleteButtons.length).toBeGreaterThan(0)
   })
 
   it('renders enabled skills with checked toggle', () => {
-    render(<SkillsList skills={mockKnowledgeSkills} agentId="agent-1" />)
+    render(<SkillsList skills={mockContextSkills} agentId="agent-1" />)
     const toggles = screen.getAllByRole('switch', { name: 'Toggle skill' })
     toggles.forEach((toggle) => {
       expect(toggle).toHaveAttribute('data-state', 'checked')
@@ -118,7 +103,7 @@ describe('SkillsList', () => {
         content: 'This is disabled',
         source: 'manual',
         is_enabled: false,
-        type: 'knowledge',
+        type: 'context',
         parameters: null,
         version: 1,
       },
@@ -126,6 +111,26 @@ describe('SkillsList', () => {
     render(<SkillsList skills={disabledSkills} agentId="agent-1" />)
     const toggle = screen.getByRole('switch', { name: 'Toggle skill' })
     expect(toggle).toHaveAttribute('data-state', 'unchecked')
+  })
+
+  it('filters out non-context skills', () => {
+    const mixedSkills: Skill[] = [
+      ...mockContextSkills,
+      {
+        id: '99',
+        name: 'Legacy Knowledge',
+        description: null,
+        content: 'Old skill',
+        source: 'manual',
+        is_enabled: true,
+        type: 'knowledge',
+        parameters: null,
+        version: 1,
+      },
+    ]
+    render(<SkillsList skills={mixedSkills} agentId="agent-1" />)
+    expect(screen.getByText('Product Guidelines')).toBeInTheDocument()
+    expect(screen.queryByText('Legacy Knowledge')).not.toBeInTheDocument()
   })
 })
 

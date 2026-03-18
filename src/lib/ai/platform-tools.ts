@@ -525,15 +525,14 @@ export function buildPlatformTools(
     },
 
     SNEW_CREATE_SKILL: {
-      description: 'Create a knowledge or procedure skill on a specific agent. Requires agent_id.',
+      description: 'Create an agent context entry on a specific agent. Requires agent_id.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          agent_id: { type: 'string', description: 'The agent to add the skill to' },
-          name: { type: 'string', description: 'Skill name' },
-          description: { type: 'string', description: 'What this skill does' },
-          content: { type: 'string', description: 'Full instruction/knowledge text' },
-          type: { type: 'string', enum: ['knowledge', 'procedure'], description: 'Skill type' },
+          agent_id: { type: 'string', description: 'The agent to add the context entry to' },
+          name: { type: 'string', description: 'Context entry name' },
+          description: { type: 'string', description: 'What this context entry covers' },
+          content: { type: 'string', description: 'Full context/knowledge text' },
         },
         required: ['agent_id', 'name', 'content'],
       }),
@@ -542,7 +541,6 @@ export function buildPlatformTools(
         name: string
         description?: string
         content: string
-        type?: string
       }) => {
         const supabase = await getClient()
         const { data, error } = await supabase
@@ -552,7 +550,7 @@ export function buildPlatformTools(
             name: params.name,
             description: params.description ?? null,
             content: params.content,
-            type: params.type ?? 'knowledge',
+            type: 'context',
             version: 1,
             metadata: {},
             source: 'chat',
@@ -561,7 +559,7 @@ export function buildPlatformTools(
           .single()
         if (error) {
           if (error.code === '23505')
-            return { error: 'A skill with this name already exists on this agent' }
+            return { error: 'A context entry with this name already exists on this agent' }
           return { error: error.message }
         }
         return { success: true, skill_id: data.id, name: data.name, type: data.type }
@@ -737,6 +735,173 @@ export function buildPlatformTools(
       },
     },
 
+    // ── Module tools (available when agent has agent_type) ──────────────
+
+    AGENT_QUERY_MODULE_DATA: {
+      description:
+        "Query this agent's module performance data — KPIs, activity, recent results. Use this to answer questions about the agent's own work.",
+      inputSchema: jsonSchema<{ timeframe: 'today' | 'week' | 'month' }>({
+        type: 'object',
+        properties: {
+          timeframe: {
+            type: 'string',
+            enum: ['today', 'week', 'month'],
+            description: 'Time window for the data query',
+          },
+        },
+        required: ['timeframe'],
+      }),
+      execute: async ({ timeframe }: { timeframe: 'today' | 'week' | 'month' }) => {
+        const supabase = await getClient()
+
+        const now = new Date()
+        let startDate: Date
+        if (timeframe === 'today') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        } else if (timeframe === 'week') {
+          startDate = new Date(now)
+          startDate.setDate(startDate.getDate() - 7)
+        } else {
+          startDate = new Date(now)
+          startDate.setDate(startDate.getDate() - 30)
+        }
+
+        const { data: rows } = await supabase
+          .from('workflow_run_outputs' as never)
+          .select(
+            'id, output_type, output_data, summary_text, created_at, agent_modules!inner(agent_id)'
+          )
+          .eq('agent_modules.agent_id' as never, userId)
+          .gte('created_at', startDate.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (!rows || (rows as unknown[]).length === 0) {
+          return {
+            summary: 'Sem dados de atividade no período selecionado.',
+            kpis: [],
+            actions: [],
+          }
+        }
+
+        type OutputRow = {
+          id: string
+          output_type: string
+          output_data: Record<string, unknown>
+          summary_text: string | null
+          created_at: string
+        }
+        const typedRows = rows as OutputRow[]
+
+        // Find kpi-summary rows
+        const kpiRows = typedRows.filter((r) => r.output_type === 'kpi-summary')
+        const actionRows = typedRows.filter((r) => r.output_type !== 'kpi-summary')
+
+        // Aggregate KPIs
+        const kpiAgg = new Map<string, string>()
+        for (const row of kpiRows) {
+          const kpis = (row.output_data?.kpis ?? []) as { label: string; value: string }[]
+          for (const kpi of kpis) {
+            kpiAgg.set(kpi.label, kpi.value)
+          }
+        }
+
+        const kpiSummary = Array.from(kpiAgg.entries())
+          .map(([label, value]) => `${label}: ${value}`)
+          .join(', ')
+
+        const latestSummary = kpiRows[0]?.output_data?.summary as string | undefined
+
+        const recentActions = actionRows.slice(0, 10).map((r) => ({
+          type: r.output_type,
+          summary: r.summary_text ?? r.output_type,
+          at: r.created_at,
+        }))
+
+        return {
+          timeframe,
+          summary: latestSummary ?? 'Dados disponíveis para o período.',
+          kpis: kpiSummary || 'Sem KPIs registrados.',
+          recentActions,
+          totalOutputs: (rows as unknown[]).length,
+        }
+      },
+    },
+
+    AGENT_TRIGGER_MODULE: {
+      description:
+        'Trigger a module workflow to run now (on-demand execution). Use when the user asks to run an analysis, check carts, or execute a specific module task immediately.',
+      inputSchema: jsonSchema<{ module_type: string }>({
+        type: 'object',
+        properties: {
+          module_type: {
+            type: 'string',
+            description:
+              'The module type to trigger (e.g. "abandoned-cart", "conversion-optimizer", "urgency-manager", "upsell-engine")',
+          },
+        },
+        required: ['module_type'],
+      }),
+      execute: async ({ module_type }: { module_type: string }) => {
+        const supabase = await getClient()
+
+        // Find the module for this agent (userId is agentId in module context)
+        const { data: moduleRow } = await supabase
+          .from('agent_modules' as never)
+          .select('id, name')
+          .eq('module_type', module_type)
+          .limit(1)
+          .single()
+
+        if (!moduleRow) {
+          return { error: `Módulo "${module_type}" não encontrado.` }
+        }
+
+        type ModuleRow = { id: string; name: string }
+        const mod = moduleRow as ModuleRow
+
+        // Find the primary workflow for this module
+        const { data: workflowRow } = await supabase
+          .from('agent_workflows' as never)
+          .select('id, name')
+          .eq('module_id' as never, mod.id)
+          .limit(1)
+          .single()
+
+        if (!workflowRow) {
+          return { error: `Nenhum workflow encontrado para o módulo "${mod.name}".` }
+        }
+
+        type WorkflowRow = { id: string; name: string }
+        const workflow = workflowRow as WorkflowRow
+
+        // Create a workflow run record
+        const { data: runRow, error: runError } = await supabase
+          .from('agent_workflow_runs' as never)
+          .insert({
+            workflow_id: workflow.id,
+            status: 'running',
+            started_at: new Date().toISOString(),
+          } as never)
+          .select('id')
+          .single()
+
+        if (runError) {
+          return { error: `Falha ao iniciar o workflow: ${runError.message}` }
+        }
+
+        type RunRow = { id: string }
+        const run = runRow as RunRow
+
+        return {
+          success: true,
+          message: `Módulo "${mod.name}" acionado com sucesso.`,
+          runId: run.id,
+          workflowName: workflow.name,
+        }
+      },
+    },
+
     // Merge retail tools when store exists
     ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient, ownerUserId) : {}),
   }
@@ -883,7 +1048,7 @@ export function buildPlatformSystemPrompt(
     '- NEVER list features the agent "can do" unless those workflows already exist.',
     '',
     '**After creation — auto-setup:**',
-    "- After creating the agent, IMMEDIATELY create 2-3 knowledge skills that match the agent's domain using SNEW_CREATE_SKILL.",
+    "- After creating the agent, IMMEDIATELY create 2-3 context entries that match the agent's domain using SNEW_CREATE_SKILL.",
     '- Example: "Brand Voice" (marketing) → skills: "Brand Tone Guide" (how to write in brand voice), "Social Media Best Practices" (platform-specific tips).',
     '- Example: "Security Guardian" → skills: "Security Alert Triage" (how to classify alerts), "Incident Response Playbook" (steps for handling incidents).',
     '- Keep skill content practical and actionable (200-400 words each). These are starter skills the user can refine later.',
@@ -1022,7 +1187,7 @@ export function buildOrchestratorSystemPrompt(
     '- **SNEW_CHECK_CONNECTIONS** — check connected apps',
     '- **SNEW_LIST_AVAILABLE_APPS** — list all available integrations',
     '- **SNEW_LIST_APP_CAPABILITIES** — inspect actions/triggers for an app',
-    '- **SNEW_CREATE_SKILL** — create knowledge/procedure skills',
+    '- **SNEW_CREATE_SKILL** — create agent context entries',
     '- **SNEW_LIST_SKILLS** — list skills on an agent',
     '',
 

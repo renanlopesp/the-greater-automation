@@ -6,6 +6,8 @@ export interface Agent {
   detailedDescription: string
   tools: string[]
   tags: string[]
+  /** Maps to an installable agent type in the module registry (e.g. 'carrinho-conversao') */
+  agentType?: string
 }
 
 export type AgentCategory =
@@ -50,6 +52,7 @@ export const agents: Agent[] = [
       'The Upsell & Retention Agent analyzes customer purchase patterns and engagement signals to surface high-probability upsell and cross-sell opportunities.\n\nWhat it analyzes:\n• Purchase history and product affinity\n• Browsing behavior and wishlist activity\n• Cart abandonment patterns\n• Customer lifetime value tiers\n\nWhat actions it generates:\n• Personalized product recommendations (Email/WhatsApp)\n• Bundle and upgrade offers for repeat buyers\n• Post-purchase upsell sequences\n• Loyalty milestone reward triggers\n\nExpected outcomes:\n• 15-30% increase in average order value\n• Higher repeat purchase frequency\n• Improved customer lifetime value',
     tools: ['Shopify', 'Gmail', 'Web Search'],
     tags: ['Customer Service', 'Upsell', 'Retention'],
+    agentType: 'carrinho-conversao',
   },
   {
     id: 'review-reputation',
