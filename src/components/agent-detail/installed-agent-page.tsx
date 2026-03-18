@@ -1,7 +1,15 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Clock, Copy, Plug, SlidersHorizontal, ArrowUp, Square } from 'lucide-react'
+import {
+  Clock,
+  Copy,
+  Plug,
+  SlidersHorizontal,
+  ArrowUp,
+  Square,
+  CornerDownRight,
+} from 'lucide-react'
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { useAgentWorkspaceStore } from '@/stores/agent-workspace-store'
 import { useAgentChat } from '@/hooks/use-agent-chat'
@@ -56,6 +64,13 @@ const SUGGESTION_PILLS = [
   'Ajustar oferta de desconto',
 ]
 
+const CHAT_FOLLOW_UPS = [
+  'Mais detalhes sobre isso',
+  'Resumir em 3 pontos',
+  'Quais próximos passos?',
+  'Gerar relatório completo',
+]
+
 export default function InstalledAgentPage({
   agentId,
   agentName,
@@ -69,6 +84,7 @@ export default function InstalledAgentPage({
   initialMessages,
 }: InstalledAgentPageProps) {
   const { setActiveTab, activeTab, selectedArtifactId } = useAgentWorkspaceStore()
+  const [chatInput, setChatInput] = useState('')
   const hasArtifact = !!selectedArtifactId
 
   // Resolve avatar — try prop first, then look up by agentType's first module ID, then agent name slug
@@ -99,6 +115,13 @@ export default function InstalledAgentPage({
     },
     [sendMessage]
   )
+
+  const handleChatSend = useCallback(() => {
+    if (chatInput.trim()) {
+      sendMessage(chatInput.trim())
+      setChatInput('')
+    }
+  }, [chatInput, sendMessage])
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -213,6 +236,26 @@ export default function InstalledAgentPage({
                             </>
                           )}
                         </MessageContent>
+                        {/* Acompanhamentos — after last assistant message */}
+                        {!isUser && isLast && !isStreaming && textContent && (
+                          <div className="mt-2 flex w-full flex-col">
+                            <p className="text-foreground/50 mb-1.5 text-xs font-medium">
+                              Acompanhamentos
+                            </p>
+                            <div className="divide-border flex flex-col divide-y">
+                              {CHAT_FOLLOW_UPS.map((chip) => (
+                                <button
+                                  key={chip}
+                                  onClick={() => handleSuggestion(chip)}
+                                  className="text-foreground/70 hover:text-foreground group flex items-center gap-2 py-2 text-left text-sm transition-colors"
+                                >
+                                  <CornerDownRight className="text-muted-foreground group-hover:text-foreground/60 h-3 w-3 shrink-0 transition-colors" />
+                                  {chip}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </Message>
                     )
                   })}
@@ -221,48 +264,56 @@ export default function InstalledAgentPage({
               </Conversation>
 
               {/* Chat input — fixed at bottom */}
-              <div className="shrink-0 px-8 pt-2 pb-6">
-                <div className="mx-auto max-w-2xl">
-                  {/* Textarea */}
-                  <div className="[&_[data-slot=input-group]]:border-border/60 [&_[data-slot=input-group]]:bg-muted/30 [&_[data-slot=input-group]]:focus-within:border-border [&_[data-slot=input-group]]:focus-within:bg-background [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:transition-all">
-                    <PromptInput onSubmit={handleSubmit}>
-                      <PromptInputTextarea
-                        placeholder={`Message ${agentName}...`}
-                        disabled={isLoading}
-                      />
-                      <PromptInputFooter>
-                        <div className="flex-1" />
-                        <PromptInputSubmit
-                          status={status}
-                          onStop={stop}
-                          variant="outline"
-                          size="icon-sm"
-                          className="border-border h-8 w-8 rounded-full border"
-                        >
-                          {status === 'streaming' ? (
-                            <Square className="size-4" />
-                          ) : (
-                            <ArrowUp className="size-4" />
-                          )}
-                        </PromptInputSubmit>
-                      </PromptInputFooter>
-                    </PromptInput>
+              <div className="shrink-0 px-5 pt-2 pb-5">
+                <div className="mx-auto flex max-w-2xl flex-col gap-2">
+                  {/* Rounded input box */}
+                  <div className="border-border focus-within:border-foreground/30 focus-within:bg-background bg-muted/40 overflow-hidden rounded-2xl border shadow-sm transition-all">
+                    <textarea
+                      rows={2}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleChatSend()
+                        }
+                      }}
+                      placeholder={`Message ${agentName}...`}
+                      disabled={isLoading}
+                      className="text-foreground placeholder:text-muted-foreground max-h-36 w-full resize-none bg-transparent px-5 pt-4 pb-4 text-sm leading-relaxed outline-none"
+                    />
                   </div>
-
-                  {/* Suggestion pills + send button row */}
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <div className="flex flex-1 flex-wrap gap-1.5">
+                  {/* Chips + send button — outside box */}
+                  <div className="flex items-center gap-2">
+                    <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
                       {SUGGESTION_PILLS.map((pill) => (
                         <button
                           key={pill}
                           type="button"
                           onClick={() => handleSuggestion(pill)}
-                          className="border-border text-muted-foreground hover:text-foreground/80 hover:border-foreground/20 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap transition-all"
+                          className="border-border bg-background text-muted-foreground hover:text-foreground/80 hover:border-foreground/20 hover:bg-muted/60 shrink-0 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap transition-all"
                         >
                           {pill}
                         </button>
                       ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleChatSend}
+                      disabled={!chatInput.trim() || isLoading}
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all',
+                        chatInput.trim()
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'border-border text-foreground/40 hover:border-foreground/40 hover:text-foreground/60'
+                      )}
+                    >
+                      {isStreaming ? (
+                        <Square className="h-4 w-4" />
+                      ) : (
+                        <ArrowUp className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
