@@ -9,6 +9,14 @@ import {
   ArrowUp,
   Square,
   CornerDownRight,
+  Share,
+  Download,
+  CopyIcon,
+  RefreshCw,
+  ClipboardList,
+  ThumbsUp,
+  ThumbsDown,
+  MoreHorizontal,
 } from 'lucide-react'
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { useAgentWorkspaceStore } from '@/stores/agent-workspace-store'
@@ -236,6 +244,69 @@ export default function InstalledAgentPage({
                             </>
                           )}
                         </MessageContent>
+                        {/* Action bar — assistant messages only, after streaming */}
+                        {!isUser && textContent && !isStreaming && (
+                          <div className="mt-2 flex w-full items-center justify-between">
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                title="Compartilhar"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <Share className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Download"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Copiar"
+                                onClick={() => navigator.clipboard.writeText(textContent)}
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <CopyIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Regenerar"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                              </button>
+                              <div className="text-muted-foreground/50 ml-1 flex items-center gap-1 text-xs">
+                                <ClipboardList className="h-3 w-3" />
+                                <span>fontes</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                title="Útil"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <ThumbsUp className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Não útil"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <ThumbsDown className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Mais opções"
+                                className="text-muted-foreground/60 hover:text-foreground/70 hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {/* Acompanhamentos — after last assistant message */}
                         {!isUser && isLast && !isStreaming && textContent && (
                           <div className="mt-2 flex w-full flex-col">
@@ -263,9 +334,9 @@ export default function InstalledAgentPage({
                 <ConversationScrollButton />
               </Conversation>
 
-              {/* Chat input — fixed at bottom */}
-              <div className="shrink-0 px-5 pt-2 pb-5">
-                <div className="mx-auto flex max-w-2xl flex-col gap-2">
+              {/* Chat input — fixed at bottom, same width as content */}
+              <div className="shrink-0 px-6 pt-2 pb-5">
+                <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
                   {/* Rounded input box */}
                   <div className="border-border focus-within:border-foreground/30 focus-within:bg-background bg-muted/40 overflow-hidden rounded-2xl border shadow-sm transition-all">
                     <textarea
