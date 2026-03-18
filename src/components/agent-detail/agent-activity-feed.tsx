@@ -46,23 +46,41 @@ export default function AgentActivityFeed({
 
   return (
     <div className="space-y-3">
-      {/* Hero: avatar + name */}
+      {/* Hero: avatar + name — matches prototype: 64px avatar, 85px container */}
       <div className="flex flex-col items-center gap-1 pt-4 pb-1">
         <div
           className="relative flex items-center justify-center"
-          style={{ width: 84, height: 84 }}
+          style={{ width: 85, height: 85 }}
         >
           {/* Outer pulse ring */}
-          <span className="absolute inset-0 animate-[pulse_2.5s_ease-out_infinite] rounded-full border border-[hsl(200_90%_55%/0.18)]" />
+          <div
+            className="absolute inset-0 rounded-full border border-[hsl(200_90%_55%/0.18)]"
+            style={{ animation: 'pulse-ring-outer 2.5s ease-out infinite' }}
+          />
           {/* Inner pulse ring */}
-          <span className="absolute inset-0 animate-[pulse_2.5s_ease-out_infinite_1.25s] rounded-full border border-[hsl(200_90%_55%/0.30)]" />
-          {/* Avatar */}
+          <div
+            className="absolute inset-0 rounded-full border border-[hsl(200_90%_55%/0.30)]"
+            style={{ animation: 'pulse-ring-outer 2.5s ease-out infinite 1.25s' }}
+          />
+          {/* Avatar — 64px */}
           <div className="relative z-10">
-            <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="lg" />
+            <CoworkerAvatar
+              src={agentAvatarSrc}
+              name={agentName}
+              size="md"
+              className="!h-16 !w-16"
+            />
           </div>
         </div>
         <p className="text-foreground/80 mt-0 text-[13px] font-medium">{agentName}</p>
       </div>
+      <style>{`
+        @keyframes pulse-ring-outer {
+          0% { transform: scale(0.95); opacity: 0; }
+          30% { opacity: 1; }
+          100% { transform: scale(1.08); opacity: 0; }
+        }
+      `}</style>
 
       {!hasData ? (
         /* Empty state */

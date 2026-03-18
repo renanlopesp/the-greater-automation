@@ -107,13 +107,14 @@ export default function InstalledAgentPage({
   )
 
   return (
-    <div className="bg-muted/40 flex h-full flex-col overflow-hidden">
-      {/* Topbar */}
-      <div className="border-border/50 flex h-11 shrink-0 items-center justify-between border-b px-4">
-        {/* Left: avatar + name */}
-        <div className="flex items-center gap-2.5">
-          <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="xs" />
-          <span className="text-foreground/80 text-xs font-medium">{agentName}</span>
+    <div className="bg-muted/40 flex h-full w-full flex-1 flex-col overflow-hidden">
+      {/* Topbar — no border */}
+      <div className="flex h-12 shrink-0 items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="xs" className="!h-5 !w-5" />
+          <span className="text-foreground/70 text-[12px] leading-none font-normal">
+            {agentName}
+          </span>
         </div>
 
         {/* Right: icon buttons */}
@@ -145,16 +146,11 @@ export default function InstalledAgentPage({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Chat+activity OR workspace tabs */}
         {activeTab === 'activity' ? (
-          <div
-            className={cn(
-              'flex flex-col overflow-hidden transition-all',
-              hasArtifact ? 'w-[520px] shrink-0' : 'flex-1'
-            )}
-          >
-            {/* White card container */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* White card */}
             <div
               className={cn(
-                'border-border/40 bg-background m-3 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm',
+                'border-border/40 bg-background mx-3 mb-3 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm',
                 hasArtifact && 'mr-0 rounded-r-none'
               )}
             >

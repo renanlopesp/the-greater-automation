@@ -124,7 +124,7 @@ export default async function AgentDetailPage({
   const agentType = (agent as Record<string, unknown>).agent_type as string | null | undefined
   if (agentType) {
     return (
-      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+      <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden">
         <InstalledAgentPage
           agentId={id}
           agentName={agent.name}
