@@ -19,11 +19,10 @@ export async function toggleModule(moduleId: string, enabled: boolean): Promise<
     return { success: false, error: moduleError.message }
   }
 
-  // Update associated workflows: pause if disabling, resume if enabling
-  const workflowStatus = enabled ? 'active' : 'draft'
+  // Update associated workflows: enable if enabling, disable if disabling
   const { error: workflowError } = await supabase
     .from('agent_workflows' as never)
-    .update({ status: workflowStatus } as never)
+    .update({ is_enabled: enabled } as never)
     .eq('module_id' as never, moduleId)
 
   if (workflowError) {

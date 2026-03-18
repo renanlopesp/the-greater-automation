@@ -5,6 +5,7 @@ import { Clock, Copy, Plug, SlidersHorizontal, ArrowUp, Square } from 'lucide-re
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { useAgentWorkspaceStore } from '@/stores/agent-workspace-store'
 import { useAgentChat } from '@/hooks/use-agent-chat'
+import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import { cn } from '@/lib/utils'
 import AgentActivityFeed from './agent-activity-feed'
 import ArtifactPanel from './artifact-panel'
@@ -60,7 +61,7 @@ export default function InstalledAgentPage({
   agentDescription,
   agentType,
   agentPalette,
-  agentAvatarSrc,
+  agentAvatarSrc: agentAvatarSrcProp,
   teamId,
   currentUserId,
   initialConversationId,
@@ -68,6 +69,14 @@ export default function InstalledAgentPage({
 }: InstalledAgentPageProps) {
   const { setActiveTab, activeTab, selectedArtifactId } = useAgentWorkspaceStore()
   const hasArtifact = !!selectedArtifactId
+
+  // Resolve avatar — try prop first, then look up by agentType's first module ID, then agent name slug
+  const { avatars } = useCoworkerAvatars()
+  const AGENT_TYPE_AVATAR_MAP: Record<string, string> = {
+    'carrinho-conversao': 'abandoned-cart',
+  }
+  const avatarKey = AGENT_TYPE_AVATAR_MAP[agentType] ?? agentName.toLowerCase().replace(/\s+/g, '-')
+  const agentAvatarSrc = agentAvatarSrcProp ?? avatars[avatarKey] ?? undefined
 
   const { messages, status, isLoading, isStreaming, sendMessage, stop } = useAgentChat(
     agentId,
@@ -100,9 +109,9 @@ export default function InstalledAgentPage({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Topbar */}
-      <div className="border-border bg-background flex shrink-0 items-center justify-between border-b px-4 py-2">
+      <div className="flex h-12 shrink-0 items-center justify-between px-4">
         {/* Left: avatar + name */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="xs" />
           <span className="text-foreground text-sm font-medium">{agentName}</span>
         </div>
@@ -132,19 +141,19 @@ export default function InstalledAgentPage({
         </div>
       </div>
 
-      {/* Main panels */}
+      {/* Main content */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Left panel: chat+activity OR workspace tabs */}
+        {/* Chat+activity OR workspace tabs */}
         {activeTab === 'activity' ? (
           <div
             className={cn(
-              'border-border flex flex-col overflow-hidden transition-all',
-              hasArtifact ? 'w-[420px] shrink-0 border-r' : 'flex-1'
+              'flex flex-col overflow-hidden transition-all',
+              hasArtifact ? 'border-border w-[520px] shrink-0 border-r' : 'flex-1'
             )}
           >
             {/* Scrollable area: activity feed + chat messages */}
             <Conversation className="flex-1">
-              <ConversationContent className="mx-auto max-w-xl">
+              <ConversationContent className="mx-auto max-w-2xl px-6 pt-5 pb-6">
                 {/* Activity feed — always at top */}
                 <AgentActivityFeed
                   agentId={agentId}
@@ -167,10 +176,10 @@ export default function InstalledAgentPage({
                           <BoringAvatar
                             name={agentName}
                             variant="bauhaus"
-                            size={28}
+                            size={20}
                             colors={getAgentPalette(agentPalette)}
                           />
-                          <span className="text-muted-foreground text-sm font-medium">
+                          <span className="text-foreground/60 text-xs font-medium">
                             {agentName}
                           </span>
                         </div>
@@ -189,24 +198,11 @@ export default function InstalledAgentPage({
               <ConversationScrollButton />
             </Conversation>
 
-            {/* Chat input — fixed at bottom */}
-            <div className="bg-background shrink-0 px-4 py-3">
-              <div className="mx-auto max-w-xl">
-                {/* Suggestion pills */}
-                <div className="scrollbar-none mb-2 flex gap-2 overflow-x-auto pb-1">
-                  {SUGGESTION_PILLS.map((pill) => (
-                    <button
-                      key={pill}
-                      type="button"
-                      onClick={() => handleSuggestion(pill)}
-                      className="border-border text-muted-foreground hover:text-foreground shrink-0 rounded-full border px-3 py-1 text-xs transition-colors"
-                    >
-                      {pill}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted/40 [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-none">
+            {/* Chat input — fixed at bottom of card */}
+            <div className="shrink-0 px-5 pt-2 pb-5">
+              <div className="mx-auto max-w-2xl">
+                {/* Textarea box */}
+                <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted/40 [&_[data-slot=input-group]]:focus-within:border-foreground/30 [&_[data-slot=input-group]]:focus-within:bg-background [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:transition-all">
                   <PromptInput onSubmit={handleSubmit}>
                     <PromptInputTextarea
                       placeholder={`Message ${agentName}...`}
@@ -229,6 +225,20 @@ export default function InstalledAgentPage({
                       </PromptInputSubmit>
                     </PromptInputFooter>
                   </PromptInput>
+                </div>
+
+                {/* Suggestion pills — below textarea, wrapping */}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {SUGGESTION_PILLS.map((pill) => (
+                    <button
+                      key={pill}
+                      type="button"
+                      onClick={() => handleSuggestion(pill)}
+                      className="border-border bg-background text-muted-foreground hover:text-foreground/80 hover:border-foreground/20 hover:bg-muted/60 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap transition-all"
+                    >
+                      {pill}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -254,7 +264,11 @@ export default function InstalledAgentPage({
         )}
 
         {/* Right panel: artifact (conditional) */}
-        {hasArtifact && <ArtifactPanel />}
+        {hasArtifact && (
+          <div className="mr-3 mb-3 flex flex-1 flex-col overflow-hidden">
+            <ArtifactPanel />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -274,7 +288,7 @@ function TopbarButton({
       type="button"
       title={title}
       onClick={onClick}
-      className="hover:bg-muted text-muted-foreground rounded-md p-1.5 transition-colors"
+      className="text-muted-foreground hover:text-foreground hover:bg-muted/60 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
     >
       {icon}
     </button>

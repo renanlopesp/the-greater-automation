@@ -59,18 +59,20 @@ export async function installAgent(
 
   const agentId = agent.id
 
-  // 2. Set agent_type via RPC to bypass PostgREST schema cache
+  // 2. Set agent_type directly via raw SQL to bypass PostgREST schema cache
   const { error: typeError } = await supabase.rpc(
-    'set_agent_type' as never,
+    'execute_sql' as never,
     {
-      p_agent_id: agentId,
-      p_agent_type: agentType,
+      query: `UPDATE agents SET agent_type = '${agentType}' WHERE id = '${agentId}'`,
     } as never
   )
 
   if (typeError) {
-    // Non-fatal: agent_type column may not have RPC yet; log and continue.
-    console.warn(`Could not set agent_type via RPC: ${typeError.message}`)
+    // Fallback: try direct update (may work if schema cache is refreshed)
+    await supabase
+      .from('agents')
+      .update({ agent_type: agentType } as never)
+      .eq('id', agentId)
   }
 
   // 3. Create module rows and their workflows
@@ -97,14 +99,22 @@ export async function installAgent(
 
     // 4. Create workflow rows for this module
     for (const workflowDef of moduleDef.workflows) {
+      const triggerConfig: Record<string, unknown> = { type: workflowDef.triggerType }
+      if (workflowDef.cronExpression) {
+        triggerConfig.cron_expression = workflowDef.cronExpression
+      }
+
       const { error: workflowError } = await supabase.from('agent_workflows' as never).insert({
         agent_id: agentId,
         module_id: moduleId,
         name: workflowDef.stepDescriptions.join(' → '),
-        trigger_type: workflowDef.triggerType,
-        cron_expression: workflowDef.cronExpression ?? null,
-        status: 'active',
-        step_descriptions: workflowDef.stepDescriptions,
+        description: `Module: ${moduleDef.name}`,
+        trigger_config: triggerConfig,
+        actions: workflowDef.stepDescriptions.map((step) => ({
+          type: 'ai_transform',
+          description: step,
+        })),
+        is_enabled: true,
       } as never)
 
       if (workflowError) {

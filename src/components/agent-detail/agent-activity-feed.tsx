@@ -47,13 +47,21 @@ export default function AgentActivityFeed({
   return (
     <div className="space-y-3">
       {/* Hero: avatar + name */}
-      <div className="flex flex-col items-center gap-2 py-4">
-        <div className="relative">
-          {/* Pulse ring */}
-          <span className="border-muted-foreground/20 absolute -inset-1 animate-pulse rounded-full border" />
-          <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="lg" />
+      <div className="flex flex-col items-center gap-1 pt-4 pb-1">
+        <div
+          className="relative flex items-center justify-center"
+          style={{ width: 84, height: 84 }}
+        >
+          {/* Outer pulse ring */}
+          <span className="absolute inset-0 animate-[pulse_2.5s_ease-out_infinite] rounded-full border border-[hsl(200_90%_55%/0.18)]" />
+          {/* Inner pulse ring */}
+          <span className="absolute inset-0 animate-[pulse_2.5s_ease-out_infinite_1.25s] rounded-full border border-[hsl(200_90%_55%/0.30)]" />
+          {/* Avatar */}
+          <div className="relative z-10">
+            <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="lg" />
+          </div>
         </div>
-        <p className="text-foreground text-sm font-medium">{agentName}</p>
+        <p className="text-foreground/80 mt-0 text-[13px] font-medium">{agentName}</p>
       </div>
 
       {!hasData ? (
