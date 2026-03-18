@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils'
 
 interface AppsClientProps {
   apps: AppIntegration[]
+  teamId: string | null
 }
 
-export default function AppsClient({ apps }: AppsClientProps) {
+export default function AppsClient({ apps, teamId }: AppsClientProps) {
   const [search, setSearch] = useState('')
   const [connectingId, setConnectingId] = useState<string | null>(null)
   const [disconnectedIds, setDisconnectedIds] = useState<Set<string>>(new Set())
@@ -31,7 +32,8 @@ export default function AppsClient({ apps }: AppsClientProps) {
     setConnectingId(app.id)
 
     if (app.isNative && app.id === 'nuvemshop') {
-      window.location.assign('/api/nuvemshop/connect')
+      const params = teamId ? `?team_id=${teamId}` : ''
+      window.location.assign(`/api/nuvemshop/connect${params}`)
       return
     }
 

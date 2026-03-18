@@ -16,7 +16,11 @@ export default async function AppsPage() {
     redirect('/login')
   }
 
-  const [composioApps, connections] = await Promise.all([getComposioApps(), getAppConnections()])
+  const [composioApps, connections, { data: teamMember }] = await Promise.all([
+    getComposioApps(),
+    getAppConnections(),
+    supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1).single(),
+  ])
 
   const connectedAppIds = new Set(connections.map((c) => c.app_id))
 
@@ -32,5 +36,5 @@ export default async function AppsPage() {
     isNative: app.id === 'nuvemshop',
   }))
 
-  return <AppsClient apps={apps} />
+  return <AppsClient apps={apps} teamId={teamMember?.team_id ?? null} />
 }
