@@ -25,7 +25,8 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
-import { isTextUIPart } from 'ai'
+import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
+import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
 import BoringAvatar from 'boring-avatars'
 import { getAgentPalette } from '@/lib/agent-palettes'
 
@@ -167,20 +168,24 @@ export default function InstalledAgentPage({
                   {/* Chat messages below activity */}
                   {visibleMessages.map((message) => {
                     const isUser = message.role === 'user'
-                    const textContent = (message.parts ?? [])
+                    const parts = message.parts ?? []
+                    const textContent = parts
                       .filter(isTextUIPart)
                       .map((p) => p.text)
                       .join('')
+                    const reasoningParts = parts.filter(isReasoningUIPart)
+                    const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
+                    const isLast = message.id === lastAssistantId
 
                     return (
                       <Message key={message.id} from={message.role as 'user' | 'assistant'}>
                         {!isUser && (
                           <div className="mb-1 flex items-center gap-2">
-                            <BoringAvatar
+                            <CoworkerAvatar
+                              src={agentAvatarSrc}
                               name={agentName}
-                              variant="bauhaus"
-                              size={20}
-                              colors={getAgentPalette(agentPalette)}
+                              size="xs"
+                              className="!h-5 !w-5"
                             />
                             <span className="text-foreground/60 text-xs font-medium">
                               {agentName}
@@ -191,7 +196,15 @@ export default function InstalledAgentPage({
                           {isUser ? (
                             <p className="whitespace-pre-wrap">{textContent}</p>
                           ) : (
-                            <MessageResponse>{textContent}</MessageResponse>
+                            <>
+                              {reasoningParts.length > 0 && (
+                                <Reasoning>
+                                  <ReasoningTrigger>Pensando...</ReasoningTrigger>
+                                  <ReasoningContent>{reasoningText}</ReasoningContent>
+                                </Reasoning>
+                              )}
+                              <MessageResponse>{textContent}</MessageResponse>
+                            </>
                           )}
                         </MessageContent>
                       </Message>
