@@ -107,34 +107,34 @@ export default function InstalledAgentPage({
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="bg-muted/40 flex h-full flex-col overflow-hidden">
       {/* Topbar */}
-      <div className="flex h-12 shrink-0 items-center justify-between px-4">
+      <div className="border-border/50 flex h-11 shrink-0 items-center justify-between border-b px-4">
         {/* Left: avatar + name */}
         <div className="flex items-center gap-2.5">
           <CoworkerAvatar src={agentAvatarSrc} name={agentName} size="xs" />
-          <span className="text-foreground text-sm font-medium">{agentName}</span>
+          <span className="text-foreground/80 text-xs font-medium">{agentName}</span>
         </div>
 
         {/* Right: icon buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <TopbarButton
-            icon={<Clock className="h-4 w-4" />}
+            icon={<Clock className="h-[15px] w-[15px]" />}
             title="Histórico"
             onClick={() => setActiveTab('activity')}
           />
           <TopbarButton
-            icon={<Copy className="h-4 w-4" />}
+            icon={<Copy className="h-[15px] w-[15px]" />}
             title="Arquivos"
             onClick={() => setActiveTab('results')}
           />
           <TopbarButton
-            icon={<Plug className="h-4 w-4" />}
+            icon={<Plug className="h-[15px] w-[15px]" />}
             title="Integrações"
             onClick={() => setActiveTab('connections')}
           />
           <TopbarButton
-            icon={<SlidersHorizontal className="h-4 w-4" />}
+            icon={<SlidersHorizontal className="h-[15px] w-[15px]" />}
             title="Configurações"
             onClick={() => setActiveTab('configure')}
           />
@@ -148,97 +148,107 @@ export default function InstalledAgentPage({
           <div
             className={cn(
               'flex flex-col overflow-hidden transition-all',
-              hasArtifact ? 'border-border w-[520px] shrink-0 border-r' : 'flex-1'
+              hasArtifact ? 'w-[520px] shrink-0' : 'flex-1'
             )}
           >
-            {/* Scrollable area: activity feed + chat messages */}
-            <Conversation className="flex-1">
-              <ConversationContent className="mx-auto max-w-2xl px-6 pt-5 pb-6">
-                {/* Activity feed — always at top */}
-                <AgentActivityFeed
-                  agentId={agentId}
-                  agentName={agentName}
-                  agentAvatarSrc={agentAvatarSrc}
-                />
+            {/* White card container */}
+            <div
+              className={cn(
+                'border-border/40 bg-background m-3 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm',
+                hasArtifact && 'mr-0 rounded-r-none'
+              )}
+            >
+              {/* Scrollable area: activity feed + chat messages */}
+              <Conversation className="flex-1">
+                <ConversationContent className="mx-auto w-full max-w-2xl px-8 pt-8 pb-6">
+                  {/* Activity feed — always at top */}
+                  <AgentActivityFeed
+                    agentId={agentId}
+                    agentName={agentName}
+                    agentAvatarSrc={agentAvatarSrc}
+                  />
 
-                {/* Chat messages below activity */}
-                {visibleMessages.map((message) => {
-                  const isUser = message.role === 'user'
-                  const textContent = (message.parts ?? [])
-                    .filter(isTextUIPart)
-                    .map((p) => p.text)
-                    .join('')
+                  {/* Chat messages below activity */}
+                  {visibleMessages.map((message) => {
+                    const isUser = message.role === 'user'
+                    const textContent = (message.parts ?? [])
+                      .filter(isTextUIPart)
+                      .map((p) => p.text)
+                      .join('')
 
-                  return (
-                    <Message key={message.id} from={message.role as 'user' | 'assistant'}>
-                      {!isUser && (
-                        <div className="mb-1 flex items-center gap-2">
-                          <BoringAvatar
-                            name={agentName}
-                            variant="bauhaus"
-                            size={20}
-                            colors={getAgentPalette(agentPalette)}
-                          />
-                          <span className="text-foreground/60 text-xs font-medium">
-                            {agentName}
-                          </span>
-                        </div>
-                      )}
-                      <MessageContent>
-                        {isUser ? (
-                          <p className="whitespace-pre-wrap">{textContent}</p>
-                        ) : (
-                          <MessageResponse>{textContent}</MessageResponse>
+                    return (
+                      <Message key={message.id} from={message.role as 'user' | 'assistant'}>
+                        {!isUser && (
+                          <div className="mb-1 flex items-center gap-2">
+                            <BoringAvatar
+                              name={agentName}
+                              variant="bauhaus"
+                              size={20}
+                              colors={getAgentPalette(agentPalette)}
+                            />
+                            <span className="text-foreground/60 text-xs font-medium">
+                              {agentName}
+                            </span>
+                          </div>
                         )}
-                      </MessageContent>
-                    </Message>
-                  )
-                })}
-              </ConversationContent>
-              <ConversationScrollButton />
-            </Conversation>
+                        <MessageContent>
+                          {isUser ? (
+                            <p className="whitespace-pre-wrap">{textContent}</p>
+                          ) : (
+                            <MessageResponse>{textContent}</MessageResponse>
+                          )}
+                        </MessageContent>
+                      </Message>
+                    )
+                  })}
+                </ConversationContent>
+                <ConversationScrollButton />
+              </Conversation>
 
-            {/* Chat input — fixed at bottom of card */}
-            <div className="shrink-0 px-5 pt-2 pb-5">
-              <div className="mx-auto max-w-2xl">
-                {/* Textarea box */}
-                <div className="[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-muted/40 [&_[data-slot=input-group]]:focus-within:border-foreground/30 [&_[data-slot=input-group]]:focus-within:bg-background [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-sm [&_[data-slot=input-group]]:transition-all">
-                  <PromptInput onSubmit={handleSubmit}>
-                    <PromptInputTextarea
-                      placeholder={`Message ${agentName}...`}
-                      disabled={isLoading}
-                    />
-                    <PromptInputFooter>
-                      <div className="flex-1" />
-                      <PromptInputSubmit
-                        status={status}
-                        onStop={stop}
-                        variant="outline"
-                        size="icon-sm"
-                        className="border-border h-8 w-8 rounded-full border"
-                      >
-                        {status === 'streaming' ? (
-                          <Square className="size-4" />
-                        ) : (
-                          <ArrowUp className="size-4" />
-                        )}
-                      </PromptInputSubmit>
-                    </PromptInputFooter>
-                  </PromptInput>
-                </div>
+              {/* Chat input — fixed at bottom */}
+              <div className="shrink-0 px-8 pt-2 pb-6">
+                <div className="mx-auto max-w-2xl">
+                  {/* Textarea */}
+                  <div className="[&_[data-slot=input-group]]:border-border/60 [&_[data-slot=input-group]]:bg-muted/30 [&_[data-slot=input-group]]:focus-within:border-border [&_[data-slot=input-group]]:focus-within:bg-background [&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:transition-all">
+                    <PromptInput onSubmit={handleSubmit}>
+                      <PromptInputTextarea
+                        placeholder={`Message ${agentName}...`}
+                        disabled={isLoading}
+                      />
+                      <PromptInputFooter>
+                        <div className="flex-1" />
+                        <PromptInputSubmit
+                          status={status}
+                          onStop={stop}
+                          variant="outline"
+                          size="icon-sm"
+                          className="border-border h-8 w-8 rounded-full border"
+                        >
+                          {status === 'streaming' ? (
+                            <Square className="size-4" />
+                          ) : (
+                            <ArrowUp className="size-4" />
+                          )}
+                        </PromptInputSubmit>
+                      </PromptInputFooter>
+                    </PromptInput>
+                  </div>
 
-                {/* Suggestion pills — below textarea, wrapping */}
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {SUGGESTION_PILLS.map((pill) => (
-                    <button
-                      key={pill}
-                      type="button"
-                      onClick={() => handleSuggestion(pill)}
-                      className="border-border bg-background text-muted-foreground hover:text-foreground/80 hover:border-foreground/20 hover:bg-muted/60 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap transition-all"
-                    >
-                      {pill}
-                    </button>
-                  ))}
+                  {/* Suggestion pills + send button row */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <div className="flex flex-1 flex-wrap gap-1.5">
+                      {SUGGESTION_PILLS.map((pill) => (
+                        <button
+                          key={pill}
+                          type="button"
+                          onClick={() => handleSuggestion(pill)}
+                          className="border-border text-muted-foreground hover:text-foreground/80 hover:border-foreground/20 rounded-full border px-3 py-1.5 text-[11px] whitespace-nowrap transition-all"
+                        >
+                          {pill}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
