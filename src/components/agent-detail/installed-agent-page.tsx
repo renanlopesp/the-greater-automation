@@ -198,8 +198,14 @@ export default function InstalledAgentPage({
                           ) : (
                             <>
                               {reasoningParts.length > 0 && (
-                                <Reasoning>
-                                  <ReasoningTrigger>Pensando...</ReasoningTrigger>
+                                <Reasoning
+                                  isStreaming={
+                                    isStreaming &&
+                                    isLast &&
+                                    parts[parts.length - 1]?.type === 'reasoning'
+                                  }
+                                >
+                                  <ReasoningTrigger />
                                   <ReasoningContent>{reasoningText}</ReasoningContent>
                                 </Reasoning>
                               )}
