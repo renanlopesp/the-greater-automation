@@ -128,13 +128,14 @@ export default function AgentCard({
     </div>
   )
 
-  if (isActive) {
-    return <Link href={`/agents/${agent.id}`}>{card}</Link>
+  // Installed/active module-based agents link to the real agent page (UUID)
+  if ((isActive || isInstalled) && installedAgentPageId) {
+    return <Link href={`/agents/${installedAgentPageId}`}>{card}</Link>
   }
 
-  // If this agent type is installed (module-based), link to the installed agent page
-  if (isInstalled && installedAgentPageId) {
-    return <Link href={`/agents/${installedAgentPageId}`}>{card}</Link>
+  // Legacy active agents (non-module) link by catalog ID
+  if (isActive) {
+    return <Link href={`/agents/${agent.id}`}>{card}</Link>
   }
 
   if (onOpenWizard) {
