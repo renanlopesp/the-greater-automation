@@ -82,117 +82,123 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
     store = created
   }
 
-  // 2. Create 4 specialized agents
+  // 2. Create specialized agents (only if priorities were selected — legacy onboarding)
   let agentsCreated = 0
   let skillsCreated = 0
-  const segmentSkills = SEGMENT_SKILLS[input.segment]
-  const agentsByRole: Record<string, string> = {} // role -> agent id
 
-  // Build default notification_settings per role based on priorities
-  const roleNotificationDefaults: Record<string, Record<string, unknown>> = {}
-  if (input.priorities.includes('controle_de_estoque')) {
-    roleNotificationDefaults.estoquista = { telegram_enabled: true, report_hour: 21 }
-  }
-  if (input.priorities.includes('monitorar_concorrencia')) {
-    roleNotificationDefaults.vigia_de_preco = { telegram_enabled: true, report_hour: 21 }
-  }
-  if (input.priorities.includes('resumo_de_vendas')) {
-    roleNotificationDefaults.caixa = { telegram_enabled: true, report_hour: 21 }
-  }
+  if (input.priorities.length > 0) {
+    const segmentSkills = SEGMENT_SKILLS[input.segment]
+    const agentsByRole: Record<string, string> = {} // role -> agent id
 
-  // Create all agents + their skills in parallel (each pair is independent)
-  const agentResults = await Promise.allSettled(
-    AGENT_ROLES.map(async (role) => {
-      const notificationSettings = roleNotificationDefaults[role.role] ?? {}
-
-      const { data: agent, error: agentError } = await supabase
-        .from('agents')
-        .insert({
-          team_id: input.teamId,
-          created_by: input.userId,
-          name: role.name,
-          description: role.description,
-          system_prompt: role.is_orchestrator
-            ? null // orchestrator prompt is built dynamically
-            : `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
-          palette: role.palette,
-          model: 'gpt-4o',
-          is_orchestrator: role.is_orchestrator ?? false,
-          notification_settings: notificationSettings as unknown as Json,
-        })
-        .select('id')
-        .single()
-
-      if (agentError) {
-        console.error(`[provision-store] Failed to create agent ${role.name}:`, agentError.message)
-        return null
-      }
-
-      // 3. Create segment-specific skill for this agent role (skip orchestrator — it delegates)
-      const skill = role.is_orchestrator ? undefined : segmentSkills[role.role]
-      if (skill && agent) {
-        const { error: skillError } = await supabase.from('agent_skills').insert({
-          agent_id: agent.id,
-          name: skill.title,
-          description: `Conhecimento especializado do segmento para ${role.name}`,
-          content: skill.content,
-          type: 'knowledge',
-          version: 1,
-          metadata: { segment: input.segment, role: role.role },
-          source: 'manual',
-        })
-
-        if (!skillError) skillsCreated++
-        else
-          console.error(
-            `[provision-store] Failed to create skill for ${role.name}:`,
-            skillError.message
-          )
-      }
-
-      return { role: role.role, agentId: agent.id }
-    })
-  )
-
-  for (const result of agentResults) {
-    if (result.status === 'fulfilled' && result.value) {
-      agentsCreated++
-      agentsByRole[result.value.role] = result.value.agentId
+    // Build default notification_settings per role based on priorities
+    const roleNotificationDefaults: Record<string, Record<string, unknown>> = {}
+    if (input.priorities.includes('controle_de_estoque')) {
+      roleNotificationDefaults.estoquista = { telegram_enabled: true, report_hour: 21 }
     }
-  }
+    if (input.priorities.includes('monitorar_concorrencia')) {
+      roleNotificationDefaults.vigia_de_preco = { telegram_enabled: true, report_hour: 21 }
+    }
+    if (input.priorities.includes('resumo_de_vendas')) {
+      roleNotificationDefaults.caixa = { telegram_enabled: true, report_hour: 21 }
+    }
 
-  // 3b. Create pre-built workflows based on selected priorities
-  await provisionWorkflows(
-    supabase,
-    input.priorities,
-    agentsByRole,
-    input.teamId,
-    input.userId,
-    input.platform
-  )
+    // Create all agents + their skills in parallel (each pair is independent)
+    const agentResults = await Promise.allSettled(
+      AGENT_ROLES.map(async (role) => {
+        const notificationSettings = roleNotificationDefaults[role.role] ?? {}
 
-  // 4. Create default global stock alert (threshold=5)
-  if (input.priorities.includes('controle_de_estoque')) {
-    await supabase.from('store_stock_alerts').insert({
-      store_id: store.id,
-      product_id: null, // global default
-      threshold: 5,
-      is_enabled: true,
-    })
-  }
+        const { data: agent, error: agentError } = await supabase
+          .from('agents')
+          .insert({
+            team_id: input.teamId,
+            created_by: input.userId,
+            name: role.name,
+            description: role.description,
+            system_prompt: role.is_orchestrator
+              ? null // orchestrator prompt is built dynamically
+              : `You are the ${role.name}, a specialized assistant for the store "${input.storeName}". ${role.description}`,
+            palette: role.palette,
+            model: 'gpt-4o',
+            is_orchestrator: role.is_orchestrator ?? false,
+            notification_settings: notificationSettings as unknown as Json,
+          })
+          .select('id')
+          .single()
 
-  // 4b. Set default daily summary schedule if resumo_de_vendas is a priority
-  if (input.priorities.includes('resumo_de_vendas')) {
-    await supabase
-      .from('stores')
-      .update({
-        settings: {
-          daily_summary_hour: 21,
-          daily_summary_enabled: true,
-        },
+        if (agentError) {
+          console.error(
+            `[provision-store] Failed to create agent ${role.name}:`,
+            agentError.message
+          )
+          return null
+        }
+
+        // 3. Create segment-specific skill for this agent role (skip orchestrator — it delegates)
+        const skill = role.is_orchestrator ? undefined : segmentSkills[role.role]
+        if (skill && agent) {
+          const { error: skillError } = await supabase.from('agent_skills').insert({
+            agent_id: agent.id,
+            name: skill.title,
+            description: `Conhecimento especializado do segmento para ${role.name}`,
+            content: skill.content,
+            type: 'knowledge',
+            version: 1,
+            metadata: { segment: input.segment, role: role.role },
+            source: 'manual',
+          })
+
+          if (!skillError) skillsCreated++
+          else
+            console.error(
+              `[provision-store] Failed to create skill for ${role.name}:`,
+              skillError.message
+            )
+        }
+
+        return { role: role.role, agentId: agent.id }
       })
-      .eq('id', store.id)
-  }
+    )
+
+    for (const result of agentResults) {
+      if (result.status === 'fulfilled' && result.value) {
+        agentsCreated++
+        agentsByRole[result.value.role] = result.value.agentId
+      }
+    }
+
+    // 3b. Create pre-built workflows based on selected priorities
+    await provisionWorkflows(
+      supabase,
+      input.priorities,
+      agentsByRole,
+      input.teamId,
+      input.userId,
+      input.platform
+    )
+
+    // 4. Create default global stock alert (threshold=5)
+    if (input.priorities.includes('controle_de_estoque')) {
+      await supabase.from('store_stock_alerts').insert({
+        store_id: store.id,
+        product_id: null, // global default
+        threshold: 5,
+        is_enabled: true,
+      })
+    }
+
+    // 4b. Set default daily summary schedule if resumo_de_vendas is a priority
+    if (input.priorities.includes('resumo_de_vendas')) {
+      await supabase
+        .from('stores')
+        .update({
+          settings: {
+            daily_summary_hour: 21,
+            daily_summary_enabled: true,
+          },
+        })
+        .eq('id', store.id)
+    }
+  } // end if (priorities.length > 0)
 
   // 5. Set has_store=true on the team
   await supabase.from('teams').update({ has_store: true }).eq('id', input.teamId)
