@@ -5,8 +5,6 @@ import { usePathname } from 'next/navigation'
 import { Home, Plus, Bot, LayoutGrid, Clock, Zap } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 import type { UsageData, PlanData } from '@/types/navigation'
-import { useEffect, useState } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
 import CoworkerAvatar from '@/components/coworker-avatar'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import { cn } from '@/lib/utils'
@@ -15,19 +13,18 @@ const AGENT_TYPE_AVATAR_MAP: Record<string, string> = {
   'carrinho-conversao': 'abandoned-cart',
 }
 
-interface InstalledAgent {
-  id: string
-  name: string
-  agentType: string | null
-  status: string | null
-}
-
 interface AppSidebarNewProps {
   collapsed: boolean
   onToggleCollapse: () => void
   usage?: UsageData | null
   planData?: PlanData | null
   orchestratorId?: string | null
+  installedAgents?: Array<{
+    id: string
+    name: string
+    agentType: string | null
+    status: string | null
+  }>
   teamName?: string | null
 }
 
@@ -36,13 +33,12 @@ export default function AppSidebarNew({
   usage,
   planData,
   orchestratorId,
+  installedAgents = [],
   teamName,
 }: AppSidebarNewProps) {
   const pathname = usePathname()
   const { t } = useLanguage()
   const { avatars } = useCoworkerAvatars()
-  const [installedAgents, setInstalledAgents] = useState<InstalledAgent[]>([])
-
   const navItems = [
     { labelKey: 'nav.home', icon: Home, path: '/dashboard' },
     {
@@ -65,51 +61,6 @@ export default function AppSidebarNew({
   }
 
   const creditsRemaining = usage ? Math.max(0, usage.aiCreditsLimit - usage.aiCreditsUsed) : null
-
-  // Load installed (module-based) agents
-  useEffect(() => {
-    async function loadInstalledAgents() {
-      try {
-        const supabase = createBrowserClient()
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return
-
-        // Get team for this user
-        const { data: memberRow } = await supabase
-          .from('team_members')
-          .select('team_id')
-          .eq('user_id', user.id)
-          .limit(1)
-          .single()
-
-        if (!memberRow?.team_id) return
-
-        const { data: agents } = await supabase
-          .from('agents')
-          .select('id, name, status')
-          .eq('team_id', memberRow.team_id)
-          .not('agent_type', 'is', null)
-          .order('name')
-
-        if (agents) {
-          setInstalledAgents(
-            agents.map((a) => ({
-              id: a.id,
-              name: a.name,
-              agentType: (a as Record<string, unknown>).agent_type as string | null,
-              status: (a as Record<string, unknown>).status as string | null,
-            }))
-          )
-        }
-      } catch {
-        // Silently fail — sidebar agent list is non-critical
-      }
-    }
-
-    loadInstalledAgents()
-  }, [])
 
   return (
     <aside
@@ -164,54 +115,55 @@ export default function AppSidebarNew({
           </Link>
         ))}
 
-        {/* Installed agents section */}
+        {/* Installed agents — matches prototype: border-t, "ativos" label, 20px avatar with dot */}
         {installedAgents.length > 0 && (
-          <div className="mt-4">
+          <div
+            className={cn(
+              'border-border flex flex-col border-t pt-3 pb-2',
+              collapsed ? 'items-center gap-1 px-1.5' : 'gap-1 px-2.5'
+            )}
+          >
             {!collapsed && (
-              <p className="text-muted-foreground mb-1 px-3 text-[11px] font-medium tracking-wide uppercase">
-                Co-workers
-              </p>
+              <p className="text-muted-foreground/50 mb-1 px-1 text-[10px] font-medium">ativos</p>
             )}
             {installedAgents.map((agent) => {
               const agentPath = `/agents/${agent.id}`
               const active = pathname === agentPath
-              const isRunning = agent.status === 'running'
+              const avatarKey =
+                AGENT_TYPE_AVATAR_MAP[agent.agentType ?? ''] ??
+                agent.name.toLowerCase().replace(/\s+/g, '-')
               return (
                 <Link
                   key={agent.id}
                   href={agentPath}
                   title={collapsed ? agent.name : undefined}
                   className={cn(
-                    'relative mb-0.5 flex w-full items-center gap-2.5 overflow-hidden rounded-md px-3 py-1.5 transition-colors',
-                    active
-                      ? 'bg-accent text-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    'flex w-full items-center rounded-md transition-colors',
+                    collapsed ? 'justify-center p-1' : 'gap-2.5 px-2 py-1.5',
+                    active ? 'bg-accent' : 'hover:bg-accent/60'
                   )}
                 >
-                  {/* Avatar */}
                   <div className="relative shrink-0">
                     <CoworkerAvatar
-                      src={
-                        avatars[
-                          AGENT_TYPE_AVATAR_MAP[agent.agentType ?? ''] ??
-                            agent.name.toLowerCase().replace(/\s+/g, '-')
-                        ]
-                      }
+                      src={avatars[avatarKey]}
                       name={agent.name}
                       size="xs"
-                      className="!h-7 !w-7"
+                      className={cn(
+                        collapsed ? '!h-6 !w-6' : '!h-5 !w-5',
+                        'ring-1 transition-all',
+                        active ? 'ring-foreground/30' : 'ring-border'
+                      )}
                     />
-                    {isRunning && (
-                      <span className="absolute right-0 bottom-0 h-2 w-2 rounded-full border border-white bg-green-500" />
-                    )}
+                    <span className="bg-foreground/40 ring-background absolute right-0 bottom-0 h-2 w-2 animate-pulse rounded-full ring-1" />
                   </div>
-
                   <div
-                    className={`flex min-w-0 flex-1 items-center overflow-hidden transition-[opacity,max-width] duration-300 ease-in-out ${
+                    className={`min-w-0 flex-1 overflow-hidden transition-[opacity,max-width] duration-300 ease-in-out ${
                       collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'
                     }`}
                   >
-                    <span className="flex-1 truncate text-left text-sm">{agent.name}</span>
+                    <span className="text-foreground/80 block truncate text-left text-[12px]">
+                      {agent.name}
+                    </span>
                   </div>
                 </Link>
               )

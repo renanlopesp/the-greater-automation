@@ -26,6 +26,12 @@ interface DashboardShellNewProps {
   usage: UsageData | null
   planData?: PlanData | null
   orchestratorId?: string | null
+  installedAgents?: Array<{
+    id: string
+    name: string
+    agentType: string | null
+    status: string | null
+  }>
   initialLanguage?: string
   members?: TeamMember[]
   invitations?: TeamInvitation[]
@@ -49,6 +55,7 @@ export default function DashboardShellNew({
   usage,
   planData,
   orchestratorId,
+  installedAgents = [],
   initialLanguage,
   members = [],
   invitations = [],
@@ -95,6 +102,7 @@ export default function DashboardShellNew({
             usage={usage}
             planData={planData}
             orchestratorId={orchestratorId}
+            installedAgents={installedAgents}
             teamName={team?.name}
           />
         </div>
@@ -111,6 +119,7 @@ export default function DashboardShellNew({
             usage={usage}
             planData={planData}
             orchestratorId={orchestratorId}
+            installedAgents={installedAgents}
             teamName={team?.name}
           />
         </div>

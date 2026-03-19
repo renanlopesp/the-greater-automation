@@ -153,33 +153,57 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
   let pendingUserInvitations: Awaited<ReturnType<typeof fetchPendingInvitationsForUser>> = []
   let orchestratorId: string | null = null
+  let installedAgents: Array<{
+    id: string
+    name: string
+    agentType: string | null
+    status: string | null
+  }> = []
 
   if (team) {
-    const [storeResult, fetchedMembers, fetchedInvitations, fetchedPending, orchResult] =
-      await Promise.all([
-        supabase
-          .from('stores')
-          .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
-          .eq('team_id', activeTeamId!)
-          .single(),
-        fetchTeamMembers(supabase, team.id),
-        fetchTeamInvitations(supabase, team.id),
-        userEmail
-          ? fetchPendingInvitationsForUser(supabase, userEmail)
-          : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
-        supabase
-          .from('agents')
-          .select('id')
-          .eq('team_id', activeTeamId!)
-          .eq('is_orchestrator', true)
-          .limit(1)
-          .single(),
-      ])
+    const [
+      storeResult,
+      fetchedMembers,
+      fetchedInvitations,
+      fetchedPending,
+      orchResult,
+      installedResult,
+    ] = await Promise.all([
+      supabase
+        .from('stores')
+        .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+        .eq('team_id', activeTeamId!)
+        .single(),
+      fetchTeamMembers(supabase, team.id),
+      fetchTeamInvitations(supabase, team.id),
+      userEmail
+        ? fetchPendingInvitationsForUser(supabase, userEmail)
+        : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
+      supabase
+        .from('agents')
+        .select('id')
+        .eq('team_id', activeTeamId!)
+        .eq('is_orchestrator', true)
+        .limit(1)
+        .single(),
+      supabase
+        .from('agents')
+        .select('*')
+        .eq('team_id', activeTeamId!)
+        .not('agent_type' as never, 'is', null)
+        .order('name'),
+    ])
 
     members = fetchedMembers
     invitations = fetchedInvitations
     pendingUserInvitations = fetchedPending
     orchestratorId = orchResult.data?.id ?? null
+    installedAgents = (installedResult.data ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      agentType: (a as Record<string, unknown>).agent_type as string | null,
+      status: (a as Record<string, unknown>).status as string | null,
+    }))
 
     const currentMember = fetchedMembers.find((m) => m.id === user.id)
     if (currentMember) {
@@ -248,6 +272,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         usage={usage}
         planData={planData}
         orchestratorId={orchestratorId}
+        installedAgents={installedAgents}
         initialLanguage={cookieStore.get('lang')?.value}
         members={members}
         invitations={invitations}
