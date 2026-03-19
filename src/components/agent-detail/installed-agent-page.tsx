@@ -177,12 +177,18 @@ export default function InstalledAgentPage({
             >
               {/* Scrollable area: activity feed + chat messages */}
               <Conversation className="flex-1">
-                <ConversationContent className="mx-auto w-full max-w-3xl px-5 pt-5 pb-6">
-                  {/* Activity feed — always at top */}
+                <ConversationContent
+                  className={cn(
+                    'mx-auto w-full px-5 pt-5 pb-6',
+                    hasArtifact ? 'max-w-none' : 'max-w-3xl'
+                  )}
+                >
+                  {/* Activity feed — compact when artifact panel is open */}
                   <AgentActivityFeed
                     agentId={agentId}
                     agentName={agentName}
                     agentAvatarSrc={agentAvatarSrc}
+                    compact={hasArtifact}
                   />
 
                   {/* Connection prompt — when store not connected */}
