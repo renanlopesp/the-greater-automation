@@ -93,7 +93,7 @@ export default function AgentActivityFeed({
           <div className="border-border rounded-xl border">
             {/* Summary message */}
             {data.summary && (
-              <div className="border-border border-b p-3">
+              <div className="p-3">
                 <p className="text-foreground text-xs leading-relaxed">
                   {parseBoldText(data.summary)}
                 </p>
