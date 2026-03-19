@@ -55,18 +55,22 @@ export default function DiscoverClient({
   const activeSet = useMemo(() => new Set(activeIds), [activeIds])
   const installedTypeSet = useMemo(() => new Set(installedTypes), [installedTypes])
 
-  // Build a set of catalog IDs that are "active" — includes both legacy agents (by UUID)
-  // and module-based agents (by mapping agent_type back to catalog ID)
+  // Build a set of catalog IDs that are "active" — only includes IDs present in the catalog
+  const catalogIds = useMemo(() => new Set(catalog.map((a) => a.id)), [])
   const activeCatalogIds = useMemo(() => {
-    const ids = new Set(activeIds)
-    // Module-based installed agents are active — map agent_type to catalog ID
+    const ids = new Set<string>()
+    // Legacy agents that match catalog IDs
+    for (const id of activeIds) {
+      if (catalogIds.has(id)) ids.add(id)
+    }
+    // Module-based installed agents — map agent_type back to catalog ID
     for (const [catalogId, agentType] of Object.entries(CATALOG_ID_TO_AGENT_TYPE)) {
       if (installedTypeSet.has(agentType)) {
         ids.add(catalogId)
       }
     }
     return ids
-  }, [activeIds, installedTypeSet])
+  }, [activeIds, installedTypeSet, catalogIds])
 
   const activeCount = activeCatalogIds.size
 
