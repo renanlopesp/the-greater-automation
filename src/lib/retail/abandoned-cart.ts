@@ -27,16 +27,14 @@ export async function checkAbandonedCarts(
     return { notified: 0 }
   }
 
-  // Get Telegram chat link
+  // Get Telegram chat link (optional — module runs without it, just can't notify)
   const { data: link } = await supabase
     .from('messaging_links')
     .select('external_chat_id')
     .eq('team_id', store.team_id)
     .eq('channel_type', 'telegram')
     .eq('is_verified', true)
-    .single()
-
-  if (!link?.external_chat_id) return { notified: 0 }
+    .maybeSingle()
 
   // Fetch abandoned checkouts from Nuvemshop
   const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
@@ -94,15 +92,17 @@ export async function checkAbandonedCarts(
 
       if (error) continue
 
-      // Send Telegram notification
-      const message = formatAbandonedCartNotification(checkout, store.name)
+      // Send Telegram notification (only if linked)
       let sent = false
-      try {
-        await sendMessage(link.external_chat_id, message, 'Markdown')
-        sent = true
-        notified++
-      } catch {
-        // Best effort
+      if (link?.external_chat_id) {
+        const message = formatAbandonedCartNotification(checkout, store.name)
+        try {
+          await sendMessage(link.external_chat_id, message, 'Markdown')
+          sent = true
+          notified++
+        } catch {
+          // Best effort
+        }
       }
 
       // Collect cart data for workflow_run_outputs
