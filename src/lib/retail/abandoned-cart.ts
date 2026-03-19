@@ -172,14 +172,14 @@ export async function checkRecoveredCarts(
   const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
   const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
 
-  // Get Telegram chat link
+  // Get Telegram chat link (optional)
   const { data: link } = await supabase
     .from('messaging_links')
     .select('external_chat_id')
     .eq('team_id', store.team_id)
     .eq('channel_type', 'telegram')
     .eq('is_verified', true)
-    .single()
+    .maybeSingle()
 
   let recovered = 0
   const recoveredCarts: Array<{
