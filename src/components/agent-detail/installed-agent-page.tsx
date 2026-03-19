@@ -169,12 +169,7 @@ export default function InstalledAgentPage({
         {activeTab === 'activity' ? (
           <div className="flex min-w-0 flex-1 flex-col">
             {/* White card */}
-            <div
-              className={cn(
-                'border-border/40 bg-background mx-3 mb-3 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm',
-                hasArtifact && 'mr-0 rounded-r-none'
-              )}
-            >
+            <div className="border-border/40 bg-background mr-1.5 mb-3 ml-3 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm">
               {/* Scrollable area: activity feed + chat messages */}
               <Conversation className="flex-1">
                 <ConversationContent className="mx-auto w-full max-w-3xl px-5 pt-5 pb-6">
@@ -431,7 +426,7 @@ export default function InstalledAgentPage({
 
         {/* Right panel: artifact (conditional) */}
         {hasArtifact && (
-          <div className="mr-3 mb-3 flex flex-1 flex-col overflow-hidden">
+          <div className="border-border/40 bg-background mr-3 mb-3 ml-1.5 flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm">
             <ArtifactPanel />
           </div>
         )}
