@@ -105,31 +105,32 @@ export default function ArtifactPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Panel header */}
-      <div className="flex shrink-0 items-center justify-between px-5 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-foreground/90 text-[13px] leading-snug font-medium">
-            {loading ? 'Carregando...' : (artifact?.summary_text ?? 'Detalhe da ação')}
-          </p>
-          {artifact?.created_at && (
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              {formatTimestamp(artifact.created_at)}
-            </p>
-          )}
-        </div>
-
+      {/* Header — close button */}
+      <div className="flex h-12 shrink-0 items-center justify-end px-4">
         <button
           type="button"
           onClick={() => setSelectedArtifact(null)}
-          className="hover:bg-muted text-muted-foreground hover:text-foreground ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+          className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
           title="Fechar painel"
         >
           <PanelRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
+      {/* Title */}
+      <div className="border-border/40 shrink-0 border-b px-5 pb-3">
+        <p className="text-foreground/90 text-[13px] leading-snug font-medium">
+          {loading ? 'Carregando...' : (artifact?.summary_text ?? 'Detalhe da ação')}
+        </p>
+        {artifact?.created_at && (
+          <p className="text-muted-foreground mt-0.5 text-[11px]">
+            {formatTimestamp(artifact.created_at)}
+          </p>
+        )}
+      </div>
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="flex-1 overflow-y-auto px-5 py-5">
         {loading && (
           <div className="flex items-center justify-center py-8">
             <div className="border-muted-foreground/20 border-t-muted-foreground h-6 w-6 animate-spin rounded-full border-2" />

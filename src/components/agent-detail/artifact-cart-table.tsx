@@ -7,15 +7,24 @@ interface ArtifactCartTableProps {
   data: CartTableOutput
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  enviado: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  convertido: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  aguardando: 'bg-muted text-muted-foreground',
+const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
+  enviado: {
+    bg: 'bg-orange-50 dark:bg-orange-900/20',
+    text: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  },
+  convertido: {
+    bg: 'bg-green-50 dark:bg-green-900/20',
+    text: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  },
+  aguardando: {
+    bg: 'bg-muted/50',
+    text: 'bg-muted text-muted-foreground',
+  },
 }
 
 export default function ArtifactCartTable({ data }: ArtifactCartTableProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Summary row */}
       <div className="flex gap-4 text-xs">
         <span className="text-muted-foreground">
@@ -32,42 +41,45 @@ export default function ArtifactCartTable({ data }: ArtifactCartTableProps) {
         </span>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-border border-b">
-              <th className="text-muted-foreground pb-2 text-left font-medium">Cliente</th>
-              <th className="text-muted-foreground pb-2 text-left font-medium">Produto</th>
-              <th className="text-muted-foreground pb-2 text-right font-medium">Valor</th>
-              <th className="text-muted-foreground pb-2 text-right font-medium">Abandonado</th>
-              <th className="text-muted-foreground pb-2 text-right font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-border divide-y">
-            {data.carts.map((cart, i) => (
-              <tr key={i}>
-                <td className="py-2 font-medium">{cart.customer_name}</td>
-                <td className="text-muted-foreground max-w-[120px] truncate py-2">
-                  {cart.product}
-                </td>
-                <td className="py-2 text-right">R${cart.value.toLocaleString('pt-BR')}</td>
-                <td className="text-muted-foreground py-2 text-right">{cart.abandoned_ago}</td>
-                <td className="py-2 text-right">
+      {/* Cart cards */}
+      {data.carts.length > 0 ? (
+        <div className="space-y-3">
+          {data.carts.map((cart, i) => {
+            const styles = STATUS_STYLES[cart.status] ?? STATUS_STYLES.aguardando
+            return (
+              <div key={i} className={cn('border-border rounded-xl border p-4', styles.bg)}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-foreground text-sm font-medium">{cart.customer_name}</p>
                   <span
                     className={cn(
-                      'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium',
-                      STATUS_STYLES[cart.status] ?? STATUS_STYLES.aguardando
+                      'shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium',
+                      styles.text
                     )}
                   >
                     {cart.status}
                   </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+                <div className="mt-2 space-y-1">
+                  <p className="text-foreground/70 text-xs">
+                    <span className="text-foreground/50">Produto:</span> {cart.product}
+                  </p>
+                  <p className="text-foreground/70 text-xs">
+                    <span className="text-foreground/50">Valor:</span> R$
+                    {cart.value.toLocaleString('pt-BR')}
+                  </p>
+                  <p className="text-foreground/70 text-xs">
+                    <span className="text-foreground/50">Abandonado há:</span> {cart.abandoned_ago}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-muted-foreground py-4 text-center text-xs">
+          Nenhum carrinho abandonado detectado neste ciclo.
+        </p>
+      )}
     </div>
   )
 }
