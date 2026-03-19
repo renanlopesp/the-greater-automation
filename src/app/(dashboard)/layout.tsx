@@ -186,11 +186,39 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .eq('is_orchestrator', true)
         .limit(1)
         .single(),
-      supabase
+      (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (s: string) => {
+              eq: (
+                k: string,
+                v: string
+              ) => {
+                not: (
+                  k: string,
+                  op: string,
+                  v: null
+                ) => {
+                  order: (
+                    k: string
+                  ) => Promise<{
+                    data: Array<{
+                      id: string
+                      name: string
+                      agent_type: string
+                      status: string | null
+                    }> | null
+                  }>
+                }
+              }
+            }
+          }
+        }
+      )
         .from('agents')
-        .select('*')
+        .select('id, name, agent_type, status')
         .eq('team_id', activeTeamId!)
-        .not('agent_type' as never, 'is', null)
+        .not('agent_type', 'is', null)
         .order('name'),
     ])
 
@@ -201,8 +229,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     installedAgents = (installedResult.data ?? []).map((a) => ({
       id: a.id,
       name: a.name,
-      agentType: (a as Record<string, unknown>).agent_type as string | null,
-      status: (a as Record<string, unknown>).status as string | null,
+      agentType: a.agent_type,
+      status: a.status,
     }))
 
     const currentMember = fetchedMembers.find((m) => m.id === user.id)
