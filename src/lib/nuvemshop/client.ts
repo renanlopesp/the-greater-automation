@@ -27,7 +27,7 @@ import {
   type NuvemshopStore,
 } from './types'
 
-const NUVEMSHOP_API_BASE = 'https://api.nuvemshop.com.br/2025-03'
+const NUVEMSHOP_API_BASE = 'https://api.nuvemshop.com.br/v1'
 const NUVEMSHOP_AUTH_URL = 'https://www.nuvemshop.com.br/apps/authorize/token'
 const MIN_REQUEST_INTERVAL = 500 // 500ms between requests (2 req/sec)
 const MAX_RETRIES = 3

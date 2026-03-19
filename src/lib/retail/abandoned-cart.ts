@@ -60,18 +60,6 @@ export async function checkAbandonedCarts(
     return createdAt < delayThreshold
   })
 
-  if (abandoned.length === 0) return { notified: 0 }
-
-  // Get already-notified checkout IDs
-  const checkoutIds = abandoned.map((c) => c.id)
-  const { data: existing } = await supabase
-    .from('store_abandoned_cart_notifications')
-    .select('checkout_id')
-    .eq('store_id', storeId)
-    .in('checkout_id', checkoutIds)
-
-  const notifiedSet = new Set((existing ?? []).map((e) => e.checkout_id))
-
   let notified = 0
   const newCarts: Array<{
     customer_name: string
@@ -81,54 +69,66 @@ export async function checkAbandonedCarts(
     status: 'enviado' | 'convertido' | 'aguardando'
   }> = []
 
-  for (const checkout of abandoned) {
-    if (notifiedSet.has(checkout.id)) continue
+  if (abandoned.length > 0) {
+    // Get already-notified checkout IDs
+    const checkoutIds = abandoned.map((c) => c.id)
+    const { data: existing } = await supabase
+      .from('store_abandoned_cart_notifications')
+      .select('checkout_id')
+      .eq('store_id', storeId)
+      .in('checkout_id', checkoutIds)
 
-    // Insert tracking record
-    const { error } = await supabase.from('store_abandoned_cart_notifications').insert({
-      store_id: storeId,
-      checkout_id: checkout.id,
-      checkout_total: checkout.total ? parseFloat(String(checkout.total)) : null,
-      customer_name: checkout.contact_name ?? null,
-      customer_email: checkout.contact_email ?? null,
-    })
+    const notifiedSet = new Set((existing ?? []).map((e) => e.checkout_id))
 
-    if (error) continue
+    for (const checkout of abandoned) {
+      if (notifiedSet.has(checkout.id)) continue
 
-    // Send Telegram notification
-    const message = formatAbandonedCartNotification(checkout, store.name)
-    let sent = false
-    try {
-      await sendMessage(link.external_chat_id, message, 'Markdown')
-      sent = true
-      notified++
-    } catch {
-      // Best effort
+      // Insert tracking record
+      const { error } = await supabase.from('store_abandoned_cart_notifications').insert({
+        store_id: storeId,
+        checkout_id: checkout.id,
+        checkout_total: checkout.total ? parseFloat(String(checkout.total)) : null,
+        customer_name: checkout.contact_name ?? null,
+        customer_email: checkout.contact_email ?? null,
+      })
+
+      if (error) continue
+
+      // Send Telegram notification
+      const message = formatAbandonedCartNotification(checkout, store.name)
+      let sent = false
+      try {
+        await sendMessage(link.external_chat_id, message, 'Markdown')
+        sent = true
+        notified++
+      } catch {
+        // Best effort
+      }
+
+      // Collect cart data for workflow_run_outputs
+      const diffMs = Date.now() - new Date(checkout.created_at).getTime()
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+      const abandonedAgo =
+        diffHours > 0
+          ? `${diffHours}h${diffMinutes > 0 ? ` ${diffMinutes}min` : ''}`
+          : `${diffMinutes}min`
+
+      const products = checkout.products as Array<{ name?: string }> | null
+      const productName = products?.[0]?.name ?? 'Produto desconhecido'
+
+      newCarts.push({
+        customer_name: checkout.contact_name ?? 'Cliente anônimo',
+        product: productName,
+        value: checkout.total ? parseFloat(String(checkout.total)) : 0,
+        abandoned_ago: abandonedAgo,
+        status: sent ? 'enviado' : 'aguardando',
+      })
     }
+  } // end if (abandoned.length > 0)
 
-    // Collect cart data for workflow_run_outputs
-    const diffMs = Date.now() - new Date(checkout.created_at).getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-    const abandonedAgo =
-      diffHours > 0
-        ? `${diffHours}h${diffMinutes > 0 ? ` ${diffMinutes}min` : ''}`
-        : `${diffMinutes}min`
-
-    const products = checkout.products as Array<{ name?: string }> | null
-    const productName = products?.[0]?.name ?? 'Produto desconhecido'
-
-    newCarts.push({
-      customer_name: checkout.contact_name ?? 'Cliente anônimo',
-      product: productName,
-      value: checkout.total ? parseFloat(String(checkout.total)) : 0,
-      abandoned_ago: abandonedAgo,
-      status: sent ? 'enviado' : 'aguardando',
-    })
-  }
-
-  // Write workflow_run_outputs if we have a run ID and a module
-  if (workflowRunId && newCarts.length > 0) {
+  // Always write outputs so the activity feed shows the module is running
+  if (workflowRunId) {
     await writeAbandonedCartOutputs(supabase, workflowRunId, store.team_id, newCarts, notified)
   }
 

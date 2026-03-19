@@ -30,10 +30,18 @@ export async function GET(request: NextRequest) {
 
   const settled = await Promise.allSettled(
     stores.map(async (store) => {
-      const [productResult, orderResult] = await Promise.all([
+      const [productSettled, orderSettled] = await Promise.allSettled([
         syncProducts(store.id),
         syncOrders(store.id),
       ])
+      const productResult =
+        productSettled.status === 'fulfilled'
+          ? productSettled.value
+          : { synced: 0, created: 0, updated: 0, errors: 0 }
+      const orderResult =
+        orderSettled.status === 'fulfilled'
+          ? orderSettled.value
+          : { synced: 0, created: 0, updated: 0, errors: 0 }
 
       // Check abandoned carts and recoveries (best-effort, don't fail the sync)
       let abandonedNotified = 0
