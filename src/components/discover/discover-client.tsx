@@ -54,7 +54,21 @@ export default function DiscoverClient({
 
   const activeSet = useMemo(() => new Set(activeIds), [activeIds])
   const installedTypeSet = useMemo(() => new Set(installedTypes), [installedTypes])
-  const activeCount = activeSet.size
+
+  // Build a set of catalog IDs that are "active" — includes both legacy agents (by UUID)
+  // and module-based agents (by mapping agent_type back to catalog ID)
+  const activeCatalogIds = useMemo(() => {
+    const ids = new Set(activeIds)
+    // Module-based installed agents are active — map agent_type to catalog ID
+    for (const [catalogId, agentType] of Object.entries(CATALOG_ID_TO_AGENT_TYPE)) {
+      if (installedTypeSet.has(agentType)) {
+        ids.add(catalogId)
+      }
+    }
+    return ids
+  }, [activeIds, installedTypeSet])
+
+  const activeCount = activeCatalogIds.size
 
   // Category counts for tabs
   const categoryCounts = useMemo(() => {
@@ -70,7 +84,7 @@ export default function DiscoverClient({
 
     // Apply category / special filter
     if (filter === 'Active') {
-      result = result.filter((a) => activeSet.has(a.id))
+      result = result.filter((a) => activeCatalogIds.has(a.id))
     } else if (filter === 'Recommended') {
       result = result.filter((a) => recommendedIds.has(a.id))
     } else if (filter !== 'All') {
@@ -89,7 +103,7 @@ export default function DiscoverClient({
     }
 
     return result
-  }, [filter, search, activeSet])
+  }, [filter, search, activeCatalogIds])
 
   if (!FEATURE_FLAGS.MOCK_DISCOVER_CATALOG) return null
 
@@ -180,12 +194,12 @@ export default function DiscoverClient({
               <AgentCard
                 key={agent.id}
                 agent={agent}
-                isActive={activeSet.has(agent.id)}
+                isActive={activeCatalogIds.has(agent.id)}
                 isInstalled={isInstalled}
                 installedAgentPageId={installedAgentPageId}
                 avatars={avatars}
                 onOpenWizard={
-                  activeSet.has(agent.id) || isInstalled
+                  activeCatalogIds.has(agent.id) || isInstalled
                     ? undefined
                     : (id, name) => setSelectedAgent({ id, name })
                 }

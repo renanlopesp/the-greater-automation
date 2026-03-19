@@ -104,11 +104,6 @@ export default function AgentCard({
                 />
               </span>
             )}
-            {isInstalled && !isActive && (
-              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-950 dark:text-green-400">
-                Instalado
-              </span>
-            )}
           </div>
         </div>
 
