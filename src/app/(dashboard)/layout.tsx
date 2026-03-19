@@ -35,8 +35,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const cookieStore = await cookies()
   const selectedTeamId = cookieStore.get('selected_team_id')?.value
 
-  let activeTeamId = memberRows?.[0]?.team_id
-  if (selectedTeamId && memberRows?.some((m) => m.team_id === selectedTeamId)) {
+  // No team memberships → user needs onboarding
+  if (!memberRows || memberRows.length === 0) {
+    redirect('/onboarding')
+  }
+
+  let activeTeamId = memberRows[0]?.team_id
+  if (selectedTeamId && memberRows.some((m) => m.team_id === selectedTeamId)) {
     activeTeamId = selectedTeamId
   }
 
