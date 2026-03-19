@@ -7,15 +7,18 @@ import { useLanguage } from '@/contexts/language-context'
 import type { UsageData, PlanData } from '@/types/navigation'
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@/lib/supabase/client'
-import BoringAvatar from 'boring-avatars'
-import { getAgentPalette } from '@/lib/agent-palettes'
+import CoworkerAvatar from '@/components/coworker-avatar'
+import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import { cn } from '@/lib/utils'
+
+const AGENT_TYPE_AVATAR_MAP: Record<string, string> = {
+  'carrinho-conversao': 'abandoned-cart',
+}
 
 interface InstalledAgent {
   id: string
   name: string
-  palette: string | null
-  avatar_url: string | null
+  agentType: string | null
   status: string | null
 }
 
@@ -37,6 +40,7 @@ export default function AppSidebarNew({
 }: AppSidebarNewProps) {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const { avatars } = useCoworkerAvatars()
   const [installedAgents, setInstalledAgents] = useState<InstalledAgent[]>([])
 
   const navItems = [
@@ -84,7 +88,7 @@ export default function AppSidebarNew({
 
         const { data: agents } = await supabase
           .from('agents')
-          .select('id, name, palette, avatar_url, status')
+          .select('id, name, status')
           .eq('team_id', memberRow.team_id)
           .not('agent_type', 'is', null)
           .order('name')
@@ -94,8 +98,7 @@ export default function AppSidebarNew({
             agents.map((a) => ({
               id: a.id,
               name: a.name,
-              palette: a.palette ?? null,
-              avatar_url: (a as Record<string, unknown>).avatar_url as string | null,
+              agentType: (a as Record<string, unknown>).agent_type as string | null,
               status: (a as Record<string, unknown>).status as string | null,
             }))
           )
@@ -185,13 +188,18 @@ export default function AppSidebarNew({
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
-                  {/* Avatar with optional running dot */}
+                  {/* Avatar */}
                   <div className="relative shrink-0">
-                    <BoringAvatar
+                    <CoworkerAvatar
+                      src={
+                        avatars[
+                          AGENT_TYPE_AVATAR_MAP[agent.agentType ?? ''] ??
+                            agent.name.toLowerCase().replace(/\s+/g, '-')
+                        ]
+                      }
                       name={agent.name}
-                      variant="bauhaus"
-                      size={28}
-                      colors={getAgentPalette(agent.palette ?? 'blue')}
+                      size="xs"
+                      className="!h-7 !w-7"
                     />
                     {isRunning && (
                       <span className="absolute right-0 bottom-0 h-2 w-2 rounded-full border border-white bg-green-500" />
