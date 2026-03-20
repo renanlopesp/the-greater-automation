@@ -34,7 +34,7 @@ export default function CoworkerRecommendation({
           return (
             <div
               key={rec.id}
-              className="border-border bg-background hover:border-foreground/20 flex cursor-pointer flex-col rounded-2xl border p-5 transition-colors"
+              className="border-border bg-background hover:border-foreground/20 group flex cursor-pointer flex-col rounded-2xl border p-5 transition-all"
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2.5">
@@ -45,7 +45,7 @@ export default function CoworkerRecommendation({
                   {rec.description}
                 </p>
               </div>
-              <div className="border-border mt-auto border-t pt-3">
+              <div className="border-border mt-auto border-t pt-3 opacity-0 transition-opacity group-hover:opacity-100">
                 <p className="text-muted-foreground/60 mb-1 text-[11px] font-medium">
                   Resultado esperado
                 </p>
