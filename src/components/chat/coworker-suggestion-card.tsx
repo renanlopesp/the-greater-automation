@@ -25,7 +25,11 @@ export default function CoworkerSuggestionCard({
   const router = useRouter()
   const { avatars } = useCoworkerAvatars()
   const { t } = useLanguage()
-  const avatarSrc = avatars[coworker.catalogId]
+  // Try catalogId first, then derive from name (same pattern as sidebar)
+  const avatarKey = avatars[coworker.catalogId]
+    ? coworker.catalogId
+    : coworker.name.toLowerCase().replace(/\s+/g, '-')
+  const avatarSrc = avatars[avatarKey] ?? avatars[coworker.catalogId]
   const isEn = t('nav.home') === 'Home'
 
   const handleCardClick = () => {
