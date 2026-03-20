@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { useLanguage } from '@/contexts/language-context'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
-import { agents as catalog, type Agent, type AgentCategory } from '@/data/agents'
+import { agents as catalog } from '@/data/agents'
 import CategoryTabs, { type DiscoverFilter } from './category-tabs'
 import AgentCard from './agent-card'
 import InstallWizardModal from './install-wizard-modal'
+import ConnectionTour from '@/components/agent-detail/connection-tour'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 // Recommended agents — hand-picked IDs
@@ -20,19 +22,57 @@ const recommendedIds = new Set([
   'task-prioritizer',
 ])
 
-interface DiscoverClientProps {
-  activeIds?: string[]
+/** Maps catalog agent IDs to their module registry agent_type */
+const CATALOG_ID_TO_AGENT_TYPE: Record<string, string> = {
+  'upsell-retention': 'carrinho-conversao',
+  'abandoned-cart': 'carrinho-conversao',
 }
 
-export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) {
-  const { t } = useLanguage()
+interface DiscoverClientProps {
+  activeIds?: string[]
+  teamId?: string
+  userId?: string
+  installedTypes?: string[]
+  installedTypeToAgentId?: Record<string, string>
+}
+
+export default function DiscoverClient({
+  activeIds = [],
+  teamId = '',
+  userId = '',
+  installedTypes = [],
+  installedTypeToAgentId = {},
+}: DiscoverClientProps) {
+  useLanguage()
   const { avatars } = useCoworkerAvatars()
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<DiscoverFilter>('All')
   const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string } | null>(null)
+  const [pendingInstallAgentId, setPendingInstallAgentId] = useState<string | null>(null)
+  const [showConnectionTour, setShowConnectionTour] = useState(false)
 
   const activeSet = useMemo(() => new Set(activeIds), [activeIds])
-  const activeCount = activeSet.size
+  const installedTypeSet = useMemo(() => new Set(installedTypes), [installedTypes])
+
+  // Build a set of catalog IDs that are "active" — only includes IDs present in the catalog
+  const catalogIds = useMemo(() => new Set(catalog.map((a) => a.id)), [])
+  const activeCatalogIds = useMemo(() => {
+    const ids = new Set<string>()
+    // Legacy agents that match catalog IDs
+    for (const id of activeIds) {
+      if (catalogIds.has(id)) ids.add(id)
+    }
+    // Module-based installed agents — map agent_type back to catalog ID
+    for (const [catalogId, agentType] of Object.entries(CATALOG_ID_TO_AGENT_TYPE)) {
+      if (installedTypeSet.has(agentType)) {
+        ids.add(catalogId)
+      }
+    }
+    return ids
+  }, [activeIds, installedTypeSet, catalogIds])
+
+  const activeCount = activeCatalogIds.size
 
   // Category counts for tabs
   const categoryCounts = useMemo(() => {
@@ -48,11 +88,11 @@ export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) 
 
     // Apply category / special filter
     if (filter === 'Active') {
-      result = result.filter((a) => activeSet.has(a.id))
+      result = result.filter((a) => activeCatalogIds.has(a.id))
     } else if (filter === 'Recommended') {
       result = result.filter((a) => recommendedIds.has(a.id))
     } else if (filter !== 'All') {
-      result = result.filter((a) => a.category === filter)
+      result = result.filter((a) => (a.category as string) === filter)
     }
 
     // Apply search
@@ -67,9 +107,45 @@ export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) 
     }
 
     return result
-  }, [filter, search, activeSet])
+  }, [filter, search, activeCatalogIds])
 
   if (!FEATURE_FLAGS.MOCK_DISCOVER_CATALOG) return null
+
+  function handleInstallSuccess(installedAgentId: string) {
+    setPendingInstallAgentId(installedAgentId)
+    const agentType = selectedAgent ? CATALOG_ID_TO_AGENT_TYPE[selectedAgent.id] : null
+
+    if (agentType) {
+      setSelectedAgent(null)
+      setShowConnectionTour(true)
+    } else {
+      setSelectedAgent(null)
+      router.push(`/agents/${installedAgentId}`)
+    }
+  }
+
+  function handleConnectionTourComplete() {
+    setShowConnectionTour(false)
+    if (pendingInstallAgentId) {
+      router.push(`/agents/${pendingInstallAgentId}`)
+    }
+  }
+
+  function handleConnectionTourSkip() {
+    setShowConnectionTour(false)
+    if (pendingInstallAgentId) {
+      router.push(`/agents/${pendingInstallAgentId}`)
+    }
+  }
+
+  // Determine agent type for connection tour
+  const tourAgentType =
+    showConnectionTour && selectedAgent
+      ? CATALOG_ID_TO_AGENT_TYPE[selectedAgent.id]
+      : showConnectionTour && pendingInstallAgentId
+        ? // Derive from installed agent context if selectedAgent was cleared
+          null
+        : null
 
   return (
     <div className="bg-background relative h-full overflow-y-auto">
@@ -113,17 +189,27 @@ export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) 
 
         {/* Agent Grid */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              isActive={activeSet.has(agent.id)}
-              avatars={avatars}
-              onOpenWizard={
-                activeSet.has(agent.id) ? undefined : (id, name) => setSelectedAgent({ id, name })
-              }
-            />
-          ))}
+          {filtered.map((agent) => {
+            const agentType = CATALOG_ID_TO_AGENT_TYPE[agent.id]
+            const isInstalled = agentType ? installedTypeSet.has(agentType) : false
+            const installedAgentPageId = agentType ? installedTypeToAgentId[agentType] : undefined
+
+            return (
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                isActive={activeCatalogIds.has(agent.id)}
+                isInstalled={isInstalled}
+                installedAgentPageId={installedAgentPageId}
+                avatars={avatars}
+                onOpenWizard={
+                  activeCatalogIds.has(agent.id) || isInstalled
+                    ? undefined
+                    : (id, name) => setSelectedAgent({ id, name })
+                }
+              />
+            )
+          })}
         </div>
 
         {filtered.length === 0 && (
@@ -140,6 +226,18 @@ export default function DiscoverClient({ activeIds = [] }: DiscoverClientProps) 
           agentId={selectedAgent.id}
           agentName={selectedAgent.name}
           onClose={() => setSelectedAgent(null)}
+          teamId={teamId}
+          userId={userId}
+          onInstallSuccess={handleInstallSuccess}
+        />
+      )}
+
+      {showConnectionTour && tourAgentType && (
+        <ConnectionTour
+          agentType={tourAgentType}
+          teamId={teamId}
+          onComplete={handleConnectionTourComplete}
+          onSkip={handleConnectionTourSkip}
         />
       )}
     </div>

@@ -67,11 +67,20 @@ const typicalOutcomes: Record<string, string> = {
 interface AgentCardProps {
   agent: Agent
   isActive?: boolean
+  isInstalled?: boolean
+  installedAgentPageId?: string
   avatars?: AvatarMap
   onOpenWizard?: (agentId: string, agentName: string) => void
 }
 
-export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: AgentCardProps) {
+export default function AgentCard({
+  agent,
+  isActive,
+  isInstalled,
+  installedAgentPageId,
+  avatars,
+  onOpenWizard,
+}: AgentCardProps) {
   const avatarSrc = avatars?.[agent.id]
   const outcome = typicalOutcomes[agent.id]
 
@@ -119,6 +128,12 @@ export default function AgentCard({ agent, isActive, avatars, onOpenWizard }: Ag
     </div>
   )
 
+  // Installed/active module-based agents link to the real agent page (UUID)
+  if ((isActive || isInstalled) && installedAgentPageId) {
+    return <Link href={`/agents/${installedAgentPageId}`}>{card}</Link>
+  }
+
+  // Legacy active agents (non-module) link by catalog ID
   if (isActive) {
     return <Link href={`/agents/${agent.id}`}>{card}</Link>
   }

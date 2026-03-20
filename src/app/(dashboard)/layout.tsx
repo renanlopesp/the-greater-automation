@@ -35,8 +35,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const cookieStore = await cookies()
   const selectedTeamId = cookieStore.get('selected_team_id')?.value
 
-  let activeTeamId = memberRows?.[0]?.team_id
-  if (selectedTeamId && memberRows?.some((m) => m.team_id === selectedTeamId)) {
+  // No team memberships → user needs onboarding
+  if (!memberRows || memberRows.length === 0) {
+    redirect('/onboarding')
+  }
+
+  let activeTeamId = memberRows[0]?.team_id
+  if (selectedTeamId && memberRows.some((m) => m.team_id === selectedTeamId)) {
     activeTeamId = selectedTeamId
   }
 
@@ -148,33 +153,85 @@ export default async function DashboardLayout({ children }: { children: React.Re
   let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
   let pendingUserInvitations: Awaited<ReturnType<typeof fetchPendingInvitationsForUser>> = []
   let orchestratorId: string | null = null
+  let installedAgents: Array<{
+    id: string
+    name: string
+    agentType: string | null
+    status: string | null
+  }> = []
 
   if (team) {
-    const [storeResult, fetchedMembers, fetchedInvitations, fetchedPending, orchResult] =
-      await Promise.all([
-        supabase
-          .from('stores')
-          .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
-          .eq('team_id', activeTeamId!)
-          .single(),
-        fetchTeamMembers(supabase, team.id),
-        fetchTeamInvitations(supabase, team.id),
-        userEmail
-          ? fetchPendingInvitationsForUser(supabase, userEmail)
-          : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
-        supabase
-          .from('agents')
-          .select('id')
-          .eq('team_id', activeTeamId!)
-          .eq('is_orchestrator', true)
-          .limit(1)
-          .single(),
-      ])
+    const [
+      storeResult,
+      fetchedMembers,
+      fetchedInvitations,
+      fetchedPending,
+      orchResult,
+      installedResult,
+    ] = await Promise.all([
+      supabase
+        .from('stores')
+        .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+        .eq('team_id', activeTeamId!)
+        .single(),
+      fetchTeamMembers(supabase, team.id),
+      fetchTeamInvitations(supabase, team.id),
+      userEmail
+        ? fetchPendingInvitationsForUser(supabase, userEmail)
+        : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
+      supabase
+        .from('agents')
+        .select('id')
+        .eq('team_id', activeTeamId!)
+        .eq('is_orchestrator', true)
+        .limit(1)
+        .single(),
+      (
+        supabase as unknown as {
+          from: (t: string) => {
+            select: (s: string) => {
+              eq: (
+                k: string,
+                v: string
+              ) => {
+                not: (
+                  k: string,
+                  op: string,
+                  v: null
+                ) => {
+                  order: (
+                    k: string
+                  ) => Promise<{
+                    data: Array<{
+                      id: string
+                      name: string
+                      agent_type: string
+                      status: string | null
+                    }> | null
+                  }>
+                }
+              }
+            }
+          }
+        }
+      )
+        .from('agents')
+        .select('id, name, agent_type, status')
+        .eq('team_id', activeTeamId!)
+        .not('agent_type', 'is', null)
+        .order('name'),
+    ])
 
     members = fetchedMembers
     invitations = fetchedInvitations
     pendingUserInvitations = fetchedPending
     orchestratorId = orchResult.data?.id ?? null
+    installedAgents = (installedResult.data ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      agentType: a.agent_type,
+      status: a.status,
+    }))
 
     const currentMember = fetchedMembers.find((m) => m.id === user.id)
     if (currentMember) {
@@ -243,6 +300,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         usage={usage}
         planData={planData}
         orchestratorId={orchestratorId}
+        installedAgents={installedAgents}
         initialLanguage={cookieStore.get('lang')?.value}
         members={members}
         invitations={invitations}

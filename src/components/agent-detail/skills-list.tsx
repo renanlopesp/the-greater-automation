@@ -73,30 +73,6 @@ export function parseSkillSections(content: string): SkillSection[] {
   return sections
 }
 
-/**
- * Count steps in content by looking for numbered items in ## Steps section
- */
-function countSteps(content: string): number {
-  const sections = parseSkillSections(content)
-  const stepsSection = sections.find((s) => s.heading.toLowerCase() === 'steps')
-
-  if (!stepsSection || !stepsSection.content) return 0
-
-  // Count lines that start with numbers (e.g., "1.", "2.", etc.)
-  const lines = stepsSection.content.split('\n')
-  return lines.filter((line) => /^\s*\d+\.\s+/.test(line)).length
-}
-
-/**
- * Count parameters from parameters JSON
- */
-function countParameters(parameters: unknown | null): number {
-  if (!parameters) return 0
-  if (Array.isArray(parameters)) return parameters.length
-  if (typeof parameters === 'object') return Object.keys(parameters).length
-  return 0
-}
-
 interface SkillsListProps {
   skills: Skill[]
   agentId: string
@@ -188,15 +164,10 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
     })
   }
 
-  const skillMeta = useMemo(
-    () =>
-      skills.map((skill) => ({
-        ...skill,
-        stepCount: countSteps(skill.content),
-        paramCount: countParameters(skill.parameters),
-      })),
-    [skills]
-  )
+  // Only show context-type skills
+  const contextSkills = useMemo(() => skills.filter((s) => s.type === 'context'), [skills])
+
+  const skillMeta = useMemo(() => contextSkills, [contextSkills])
 
   return (
     <div className="space-y-3">
@@ -211,17 +182,10 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold">{skill.name}</p>
-                    <Badge variant={skill.type === 'knowledge' ? 'secondary' : 'default'}>
-                      {skill.type === 'knowledge' ? 'Conhecimento' : 'Procedimento'}
-                    </Badge>
+                    <Badge variant="secondary">Contexto</Badge>
                   </div>
                   {skill.description && (
                     <p className="text-muted-foreground truncate text-xs">{skill.description}</p>
-                  )}
-                  {skill.type === 'procedure' && expandedId !== skill.id && (
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {skill.paramCount} parâmetros · {skill.stepCount} etapas
-                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -255,11 +219,11 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
             </div>
           ))}
 
-          {skills.length === 0 && !showForm && (
+          {skillMeta.length === 0 && !showForm && (
             <div className="px-4 py-8 text-center">
-              <p className="text-muted-foreground text-sm">Nenhum skill ainda</p>
+              <p className="text-muted-foreground text-sm">Nenhum contexto ainda</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                Adicione skills para ensinar conhecimentos especializados ao agente
+                Adicione contexto para fornecer conhecimentos especializados ao agente
               </p>
             </div>
           )}
@@ -268,7 +232,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
         {showForm ? (
           <div className="space-y-3 border-t p-4">
             <Input
-              placeholder="Nome do skill"
+              placeholder="Nome do contexto"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               autoFocus
@@ -279,7 +243,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
               onChange={(e) => setFormDescription(e.target.value)}
             />
             <Textarea
-              placeholder="Conteúdo do skill — instruções ou conhecimento para o agente..."
+              placeholder="Conteúdo — instruções ou conhecimento contextual para o agente..."
               value={formContent}
               onChange={(e) => setFormContent(e.target.value)}
               rows={4}
@@ -304,7 +268,7 @@ export default function SkillsList({ skills, agentId }: SkillsListProps) {
             className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex w-full items-center justify-center gap-2 border-t px-4 py-3 text-sm transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Adicionar skill
+            Adicionar contexto
           </button>
         )}
       </div>

@@ -7,13 +7,12 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { StoreNameStep } from '@/components/onboarding/store-name-step'
 import { SegmentStep } from '@/components/onboarding/segment-step'
 import { PlatformStep } from '@/components/onboarding/platform-step'
-import { PrioritiesStep } from '@/components/onboarding/priorities-step'
 import { TelegramStep } from '@/components/onboarding/telegram-step'
-import type { Segment, Platform, Priority } from '@/lib/retail/segment-skills'
+import type { Segment, Platform } from '@/lib/retail/segment-skills'
 
-type Step = 'name' | 'segment' | 'platform' | 'priorities' | 'telegram' | 'done'
+type Step = 'name' | 'segment' | 'platform' | 'telegram' | 'done'
 
-const STEP_ORDER: Step[] = ['name', 'segment', 'platform', 'priorities', 'telegram']
+const STEP_ORDER: Step[] = ['name', 'segment', 'platform', 'telegram']
 const STORAGE_KEY = 'snew_onboarding_state'
 
 interface SavedState {
@@ -21,7 +20,6 @@ interface SavedState {
   segment: Segment | null
   platform: Platform | null
   platformUrl: string
-  priorities: Priority[]
   step: Step
   nuvemshopConnected: boolean
 }
@@ -38,7 +36,6 @@ function OnboardingContent() {
   const [segment, setSegment] = useState<Segment | null>(null)
   const [platform, setPlatform] = useState<Platform | null>(null)
   const [platformUrl, setPlatformUrl] = useState('')
-  const [priorities, setPriorities] = useState<Priority[]>([])
   const [nuvemshopConnected, setNuvemshopConnected] = useState(false)
 
   // Restore state from sessionStorage after OAuth redirect
@@ -53,7 +50,6 @@ function OnboardingContent() {
         setSegment(state.segment)
         setPlatform(state.platform)
         setPlatformUrl(state.platformUrl)
-        setPriorities(state.priorities)
         setStep(state.step)
         if (state.nuvemshopConnected || connected === 'nuvemshop') {
           setNuvemshopConnected(true)
@@ -81,7 +77,6 @@ function OnboardingContent() {
     (step === 'platform' && platform === 'nuvemshop' && nuvemshopConnected) ||
     (step === 'platform' && platform === 'shopify' && platformUrl.trim().length > 0) ||
     (step === 'platform' && platform === 'manual') ||
-    (step === 'priorities' && priorities.length > 0) ||
     step === 'telegram'
 
   const goBack = () => {
@@ -97,7 +92,6 @@ function OnboardingContent() {
       segment,
       platform,
       platformUrl,
-      priorities,
       step: 'platform',
       nuvemshopConnected: false,
     }
@@ -106,7 +100,7 @@ function OnboardingContent() {
   }
 
   const goNext = async () => {
-    if (step === 'priorities') {
+    if (step === 'platform') {
       setLoading(true)
       setError(null)
       try {
@@ -118,7 +112,6 @@ function OnboardingContent() {
             segment,
             platform,
             platform_url: platformUrl || undefined,
-            priorities,
           }),
         })
         if (!res.ok) {
@@ -135,7 +128,7 @@ function OnboardingContent() {
     }
 
     if (step === 'telegram') {
-      router.push('/workspace')
+      router.push('/dashboard')
       return
     }
 
@@ -182,7 +175,6 @@ function OnboardingContent() {
               onConnectNuvemshop={handleConnectNuvemshop}
             />
           )}
-          {step === 'priorities' && <PrioritiesStep value={priorities} onChange={setPriorities} />}
           {step === 'telegram' && (
             <TelegramStep onSkip={finishOnboarding} onLinked={finishOnboarding} />
           )}
@@ -203,7 +195,7 @@ function OnboardingContent() {
           )}
           {step !== 'telegram' && (
             <Button onClick={goNext} disabled={!canProceed || loading}>
-              {loading ? 'Criando loja...' : step === 'priorities' ? 'Criar minha loja' : 'Próximo'}
+              {loading ? 'Criando loja...' : step === 'platform' ? 'Criar minha loja' : 'Próximo'}
             </Button>
           )}
         </CardFooter>

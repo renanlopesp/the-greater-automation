@@ -18,7 +18,8 @@ const CreateStoreSchema = z.object({
   platform_url: z.string().url().optional().or(z.literal('')),
   priorities: z
     .array(z.enum(PRIORITIES as unknown as [string, ...string[]]) as z.ZodType<Priority>)
-    .min(1),
+    .optional()
+    .default([]),
 })
 
 // POST /api/onboarding — Create store and provision agents

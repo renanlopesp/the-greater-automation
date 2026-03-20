@@ -592,6 +592,9 @@ export async function runAgentChat(options: AgentChatOptions) {
   const provider = getOpenAIProvider()
   const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
 
+  // Add OpenAI web search for grounded responses with source citations
+  allTools['web_search'] = provider.tools.webSearch({ searchContextSize: 'medium' })
+
   // Stream with native tool calling + multi-step loop
   const reasoning = isReasoningModel(modelId)
   const result = streamText({
