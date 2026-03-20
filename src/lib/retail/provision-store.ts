@@ -82,13 +82,26 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
     store = created
   }
 
-  // 2. Create specialized agents (only if priorities were selected — legacy onboarding)
+  // 2. Always create the orchestrator agent + specialized agents based on priorities
   let agentsCreated = 0
   let skillsCreated = 0
 
-  if (input.priorities.length > 0) {
+  {
     const segmentSkills = SEGMENT_SKILLS[input.segment]
     const agentsByRole: Record<string, string> = {} // role -> agent id
+
+    // Check if orchestrator already exists (idempotency)
+    const { data: existingOrchestrator } = await supabase
+      .from('agents')
+      .select('id')
+      .eq('team_id', input.teamId)
+      .eq('is_orchestrator', true)
+      .maybeSingle()
+
+    // Determine which roles to create: orchestrator always (unless exists), specialists only with priorities
+    const rolesToCreate = (
+      input.priorities.length > 0 ? AGENT_ROLES : AGENT_ROLES.filter((r) => r.is_orchestrator)
+    ).filter((r) => !(r.is_orchestrator && existingOrchestrator))
 
     // Build default notification_settings per role based on priorities
     const roleNotificationDefaults: Record<string, Record<string, unknown>> = {}
@@ -104,7 +117,7 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
 
     // Create all agents + their skills in parallel (each pair is independent)
     const agentResults = await Promise.allSettled(
-      AGENT_ROLES.map(async (role) => {
+      rolesToCreate.map(async (role) => {
         const notificationSettings = roleNotificationDefaults[role.role] ?? {}
 
         const { data: agent, error: agentError } = await supabase
@@ -198,7 +211,7 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
         })
         .eq('id', store.id)
     }
-  } // end if (priorities.length > 0)
+  } // end agent provisioning block
 
   // 5. Set has_store=true on the team
   await supabase.from('teams').update({ has_store: true }).eq('id', input.teamId)

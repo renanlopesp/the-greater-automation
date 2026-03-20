@@ -6,6 +6,7 @@ import type { Json } from '@/lib/supabase/database.types'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
 import { loadAgentContext } from '@/lib/ai/load-agent-context'
 import { runAgentChatSync } from '@/lib/ai/agent-chat'
+import { agents as catalog } from '@/data/agents'
 
 type SupabaseClient =
   | Awaited<ReturnType<typeof createServerClient>>
@@ -902,6 +903,341 @@ export function buildPlatformTools(
       },
     },
 
+    SNEW_INSTALL_AGENT: {
+      description:
+        'Install a co-worker agent from the catalog into the current team workspace. Use when the user asks to install or activate a specific agent type.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          catalog_id: {
+            type: 'string',
+            description:
+              "The catalog agent ID to install (e.g. 'abandoned-cart', 'upsell-retention', 'competitor-watch')",
+          },
+        },
+        required: ['catalog_id'],
+      }),
+      execute: async (params: { catalog_id: string }) => {
+        const entry = catalog.find((a) => a.id === params.catalog_id)
+        if (!entry) {
+          return {
+            error: `Agent "${params.catalog_id}" not found in catalog. Available IDs: ${catalog.map((a) => a.id).join(', ')}`,
+          }
+        }
+
+        const supabase = await getClient()
+
+        // Check if an agent with this agent_type is already installed
+        if (entry.agentType) {
+          const { data: existing } = await supabase
+            .from('agents')
+            .select('id, name')
+            .eq('team_id', teamId)
+            .eq('agent_type' as never, entry.agentType)
+            .maybeSingle()
+
+          if (existing) {
+            return {
+              already_installed: true,
+              message: `"${entry.name}" is already installed in this workspace.`,
+              agent_id: (existing as { id: string }).id,
+            }
+          }
+        }
+
+        // Create the agent
+        const { data: agent, error: agentError } = await supabase
+          .from('agents')
+          .insert({
+            team_id: teamId,
+            created_by: ownerUserId,
+            name: entry.name,
+            description: entry.description,
+            model: 'gpt-4o',
+            is_orchestrator: false,
+          })
+          .select('id, name')
+          .single()
+
+        if (agentError || !agent) {
+          return { error: agentError?.message ?? 'Failed to create agent' }
+        }
+
+        // Set agent_type if available (bypass PostgREST schema cache)
+        if (entry.agentType) {
+          const { error: typeError } = await supabase.rpc(
+            'execute_sql' as never,
+            {
+              query: `UPDATE agents SET agent_type = '${entry.agentType}' WHERE id = '${agent.id}'`,
+            } as never
+          )
+
+          if (typeError) {
+            await supabase
+              .from('agents')
+              .update({ agent_type: entry.agentType } as never)
+              .eq('id', agent.id)
+          }
+        }
+
+        return {
+          success: true,
+          agent_id: agent.id,
+          name: agent.name,
+          message: `"${agent.name}" has been installed successfully.`,
+        }
+      },
+    },
+
+    SNEW_GET_AGENT_ACTIVITY: {
+      description:
+        'Get recent activity from a specific co-worker agent. Returns recent workflow outputs, KPIs, and action summaries for that agent.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          agent_name: {
+            type: 'string',
+            description: 'Name of the co-worker agent to query',
+          },
+        },
+        required: ['agent_name'],
+      }),
+      execute: async (params: { agent_name: string }) => {
+        const supabase = await getClient()
+
+        // Find agent by name in this team
+        const { data: agent } = await supabase
+          .from('agents')
+          .select('id, name, description')
+          .eq('team_id', teamId)
+          .ilike('name', params.agent_name)
+          .maybeSingle()
+
+        if (!agent) {
+          return { error: `Agent "${params.agent_name}" not found in this workspace.` }
+        }
+
+        // Get modules for this agent
+        const { data: modules } = await supabase
+          .from('agent_modules' as never)
+          .select('id, name, module_type')
+          .eq('agent_id' as never, agent.id)
+
+        if (!modules || (modules as unknown[]).length === 0) {
+          return {
+            agent_name: agent.name,
+            message: 'This agent has no modules with recorded activity.',
+            outputs: [],
+          }
+        }
+
+        const moduleIds = (modules as { id: string }[]).map((m) => m.id)
+
+        // Query recent workflow_run_outputs for these modules
+        const { data: outputs } = await supabase
+          .from('workflow_run_outputs' as never)
+          .select('output_type, output_data, summary_text, created_at')
+          .in('module_id' as never, moduleIds)
+          .order('created_at' as never, { ascending: false })
+          .limit(10)
+
+        if (!outputs || (outputs as unknown[]).length === 0) {
+          return {
+            agent_name: agent.name,
+            message: 'No recent activity recorded.',
+            outputs: [],
+          }
+        }
+
+        type OutputRow = {
+          output_type: string
+          output_data: Record<string, unknown>
+          summary_text: string | null
+          created_at: string
+        }
+        const rows = outputs as OutputRow[]
+
+        const kpiRows = rows.filter((r) => r.output_type === 'kpi-summary')
+        const actionRows = rows.filter((r) => r.output_type !== 'kpi-summary')
+
+        const kpiAgg = new Map<string, string>()
+        for (const row of kpiRows) {
+          const kpis = (row.output_data?.kpis ?? []) as { label: string; value: string }[]
+          for (const kpi of kpis) {
+            kpiAgg.set(kpi.label, kpi.value)
+          }
+        }
+
+        return {
+          agent_name: agent.name,
+          total_outputs: rows.length,
+          kpis: Array.from(kpiAgg.entries()).map(([label, value]) => ({ label, value })),
+          recent_actions: actionRows.slice(0, 5).map((r) => ({
+            type: r.output_type,
+            summary: r.summary_text ?? r.output_type,
+            at: r.created_at,
+          })),
+          latest_summary: kpiRows[0]?.output_data?.summary as string | undefined,
+        }
+      },
+    },
+
+    SNEW_GET_ALL_AGENTS_ACTIVITY: {
+      description:
+        'Get a summary of recent activity across all active co-worker agents in the workspace. Use for cross-agent overviews like "what are all my agents doing?".',
+      inputSchema: jsonSchema({ type: 'object', properties: {} }),
+      execute: async () => {
+        const supabase = await getClient()
+
+        // Get all non-orchestrator agents for this team
+        const { data: agents } = await supabase
+          .from('agents')
+          .select('id, name, description')
+          .eq('team_id', teamId)
+          .eq('is_orchestrator', false)
+          .order('name')
+
+        if (!agents || agents.length === 0) {
+          return { message: 'No co-worker agents installed.', agents: [] }
+        }
+
+        const summaries: Array<{
+          agent_name: string
+          total_outputs: number
+          latest_summary: string | null
+          kpis: { label: string; value: string }[]
+        }> = []
+
+        for (const agent of agents) {
+          const { data: modules } = await supabase
+            .from('agent_modules' as never)
+            .select('id')
+            .eq('agent_id' as never, agent.id)
+
+          if (!modules || (modules as unknown[]).length === 0) {
+            summaries.push({
+              agent_name: agent.name,
+              total_outputs: 0,
+              latest_summary: null,
+              kpis: [],
+            })
+            continue
+          }
+
+          const moduleIds = (modules as { id: string }[]).map((m) => m.id)
+
+          const { data: outputs } = await supabase
+            .from('workflow_run_outputs' as never)
+            .select('output_type, output_data, summary_text, created_at')
+            .in('module_id' as never, moduleIds)
+            .order('created_at' as never, { ascending: false })
+            .limit(10)
+
+          if (!outputs || (outputs as unknown[]).length === 0) {
+            summaries.push({
+              agent_name: agent.name,
+              total_outputs: 0,
+              latest_summary: null,
+              kpis: [],
+            })
+            continue
+          }
+
+          type OutputRow = {
+            output_type: string
+            output_data: Record<string, unknown>
+            summary_text: string | null
+            created_at: string
+          }
+          const rows = outputs as OutputRow[]
+          const kpiRows = rows.filter((r) => r.output_type === 'kpi-summary')
+
+          const kpiAgg = new Map<string, string>()
+          for (const row of kpiRows) {
+            const kpis = (row.output_data?.kpis ?? []) as { label: string; value: string }[]
+            for (const kpi of kpis) {
+              kpiAgg.set(kpi.label, kpi.value)
+            }
+          }
+
+          summaries.push({
+            agent_name: agent.name,
+            total_outputs: rows.length,
+            latest_summary: (kpiRows[0]?.output_data?.summary as string) ?? null,
+            kpis: Array.from(kpiAgg.entries()).map(([label, value]) => ({ label, value })),
+          })
+        }
+
+        return {
+          total_agents: agents.length,
+          agents: summaries,
+        }
+      },
+    },
+
+    SNEW_CREATE_NOTIFICATION: {
+      description:
+        'Create a notification for the team. Use this to surface important insights, opportunities, or urgent actions the user should take. Notifications appear in the platform UI.',
+      inputSchema: jsonSchema({
+        type: 'object',
+        properties: {
+          urgency: {
+            type: 'string',
+            enum: ['urgent', 'opportunity', 'insight'],
+            description:
+              'urgent = requires immediate attention, opportunity = time-sensitive but not critical, insight = informational/analytical',
+          },
+          title: {
+            type: 'string',
+            description: 'Short, action-oriented title (max ~80 chars)',
+          },
+          body: {
+            type: 'string',
+            description: 'Optional body text explaining the reasoning or context (1-3 sentences)',
+          },
+          cta_url: {
+            type: 'string',
+            description: 'Optional URL for the call-to-action button',
+          },
+        },
+        required: ['urgency', 'title'],
+      }),
+      execute: async (params: {
+        urgency: 'urgent' | 'opportunity' | 'insight'
+        title: string
+        body?: string
+        cta_url?: string
+      }) => {
+        const urgencyToType = (
+          urgency: 'urgent' | 'opportunity' | 'insight'
+        ): 'general' | 'workflow_run_failed' => {
+          if (urgency === 'urgent') return 'workflow_run_failed'
+          return 'general'
+        }
+
+        const serviceClient = createServiceRoleClient()
+        const { data, error } = await serviceClient
+          .from('notifications')
+          .insert({
+            team_id: teamId,
+            user_id: ownerUserId,
+            title: params.title,
+            message: params.body ?? null,
+            type: urgencyToType(params.urgency),
+            read: false,
+          })
+          .select('id')
+          .single()
+
+        if (error) return { error: error.message }
+        return {
+          success: true,
+          notification_id: data.id,
+          message: `Notification created: "${params.title}"`,
+        }
+      },
+    },
+
     // Merge retail tools when store exists
     ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient, ownerUserId) : {}),
   }
@@ -1200,6 +1536,43 @@ export function buildOrchestratorSystemPrompt(
     '- Keep messages concise. If more detail is needed, ask if the user wants it.',
     '',
     "**Language (CRITICAL):** Always respond in the language of the user's CURRENT message. If they write in Portuguese, respond in Portuguese. If in English, respond in English.",
+    '',
+
+    // ── Structured Output Markers ─────────────────────────────────────────
+    '## Structured Output Markers',
+    '',
+    'Embed these HTML comment markers in your responses. They are invisible to users but power the UI.',
+    '',
+    '**Co-worker attribution (when you used SNEW_ASK_AGENT):**',
+    'After delegating to a specialist agent, include this marker once in your response:',
+    '```',
+    '<!-- snew:coworker {"id":"<agent-uuid>","name":"<Agent Name>","catalogId":"<agent-uuid>","type":"used","reason":"<brief reason why this agent was consulted>"} -->',
+    '```',
+    '',
+    '**Co-worker suggestion (when a relevant agent is NOT installed):**',
+    'If the user asks about a domain that would benefit from a specialist not yet in the workspace, include:',
+    '```',
+    '<!-- snew:coworker {"id":"<catalog-slug>","name":"<Agent Name>","catalogId":"<catalog-slug>","type":"suggested","reason":"<why this agent would help>"} -->',
+    '```',
+    '',
+    '**Follow-up suggestions (REQUIRED at end of EVERY response):**',
+    "Always end your response with 3-4 follow-up suggestions in the user's language:",
+    '```',
+    '<!-- snew:followups ["Suggestion 1 in user\'s language","Suggestion 2","Suggestion 3"] -->',
+    '```',
+    'Make the suggestions relevant to what was just discussed. If the user is asking about stock, suggest related stock questions. If about workflows, suggest workflow actions.',
+    '',
+    '**Artifact markers (when responding with structured data):**',
+    'When your response includes tabular data, KPIs, reports, or campaign lists, emit an artifact marker so the UI can render an interactive panel:',
+    '```',
+    '<!-- snew:artifact {"id":"unique-id","title":"Artifact Title","type":"data|table|document|campaign-table","columns":["col1","col2"],"rows":[{"col1":"val1","col2":"val2"}],"kpis":[{"label":"Label","value":"123","delta":"+5%","positive":true}]} -->',
+    '```',
+    'Artifact types:',
+    '- `data` — KPI/metrics table. Use `rows` with objects: `{"label":"Metric","value":"123","delta":"+5%","positive":true}`',
+    '- `table` — generic table. Use `columns` (string array) and `rows` (objects keyed by column name)',
+    '- `document` — markdown report. Use `content` field with the full markdown text',
+    '- `campaign-table` — marketing table. Use `rows` with: `{"segment":"...","product":"...","channel":"...","potentialValue":"...","status":"...","priority":"High|Medium|Low"}`',
+    'Rules: always provide `id` (short unique slug) and `title`. Place the marker at the END of your response. Do NOT emit artifacts for simple answers.',
     '',
 
     // ── Retail Context (when store exists) ────────────────────────────

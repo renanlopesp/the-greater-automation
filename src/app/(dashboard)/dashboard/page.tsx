@@ -24,8 +24,8 @@ export default async function DashboardPage() {
     )
   }
 
-  // Fetch all data in parallel — including user profile for name
-  const [team, agentsWithSkills, profile] = await Promise.all([
+  // Fetch all data in parallel — including user profile for name and app connections
+  const [team, agentsWithSkills, profile, appConnectionsResult] = await Promise.all([
     fetchTeam(supabase, teamId),
     fetchAgentsWithSkills(supabase, teamId),
     supabase
@@ -34,6 +34,7 @@ export default async function DashboardPage() {
       .eq('id', user.id)
       .single()
       .then((r) => r.data),
+    supabase.from('app_connections').select('app_id').eq('team_id', teamId),
   ])
 
   const userName =
@@ -66,12 +67,25 @@ export default async function DashboardPage() {
 
   const orchestrator = agentsWithSkills.find((a) => a.is_orchestrator)
 
+  // Collect connected app IDs and installed agent types for recommendations
+  const connectedAppIds = (appConnectionsResult.data ?? []).map((r) => r.app_id)
+  const installedAgentTypes = agentsWithSkills
+    .filter((a) => !a.is_orchestrator)
+    .flatMap((a) => {
+      const types: string[] = [a.id]
+      const agentType = (a as Record<string, unknown>).agent_type as string | undefined
+      if (agentType) types.push(agentType)
+      return types
+    })
+
   return (
     <HomeClientNew
       agents={agentCards.length > 0 ? agentCards : undefined}
       teamName={team?.name ?? undefined}
       userName={userName}
       orchestratorId={orchestrator?.id}
+      installedAgentTypes={installedAgentTypes}
+      connectedAppIds={connectedAppIds}
     />
   )
 }

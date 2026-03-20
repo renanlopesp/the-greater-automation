@@ -5,67 +5,6 @@ import { Plus } from 'lucide-react'
 import { type AgentCard } from '@/data/home-dashboard'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
-import { FEATURE_FLAGS } from '@/lib/feature-flags'
-
-interface CoworkerInActionCard {
-  id: string
-  name: string
-  summary: string
-  resultLabel: string
-  resultValue: string
-}
-
-const mockCoworkers: CoworkerInActionCard[] = [
-  {
-    id: 'abandoned-cart',
-    name: 'Carrinho Abandonado',
-    summary:
-      '47 carrinhos abandonados nas últimas 8h, totalizando R$3.840 em risco. O co-worker identificou os clientes com maior probabilidade de conversão e já enviou 12 mensagens de recuperação.',
-    resultLabel: 'Resultado recente',
-    resultValue: 'R$3.840 em risco',
-  },
-  {
-    id: 'sales-analyst',
-    name: 'Sales Analyst',
-    summary:
-      'O co-worker identificou 34 clientes com alta propensão de compra nas últimas 8h e reengajou 12 carrinhos abandonados automaticamente.',
-    resultLabel: 'Resultado recente',
-    resultValue: '12 carrinhos reengajados',
-  },
-  {
-    id: 'retention',
-    name: 'Retenção',
-    summary:
-      '284 clientes estão inativos há 45+ dias, representando um risco de R$12.600 em receita. Campanha win-back aguarda aprovação.',
-    resultLabel: 'Resultado recente',
-    resultValue: 'Risco R$12.600',
-  },
-  {
-    id: 'customer-service',
-    name: 'Customer Service',
-    summary:
-      'O co-worker respondeu 156 perguntas automaticamente nas últimas 8h com 94% de satisfação e tempo médio de 2 minutos.',
-    resultLabel: 'Resultado recente',
-    resultValue: '2min médio · 94% satisfação',
-  },
-  {
-    id: 'marketing-agent',
-    name: 'Marketing Agent',
-    summary:
-      'O co-worker identificou 38 oportunidades de upsell com potencial de R$8.400/mês. Já enviou 28 e-mails personalizados e aguarda aprovação para 10 mensagens via WhatsApp para clientes VIP.',
-    resultLabel: 'Resultado recente',
-    resultValue: 'R$8.400/mês potencial',
-  },
-]
-
-// Map mock IDs to actual coworker_avatars table IDs
-const AVATAR_ID_MAP: Record<string, string> = {
-  'abandoned-cart': 'abandoned-cart',
-  'sales-analyst': 'revenue-intelligence',
-  retention: 'upsell-retention',
-  'customer-service': 'customer-service',
-  'marketing-agent': 'conversion-optimizer',
-}
 
 interface CoworkersInActionProps {
   onSelectAgent: (agent: AgentCard) => void
@@ -75,35 +14,30 @@ interface CoworkersInActionProps {
 export default function CoworkersInAction({ onSelectAgent, agents }: CoworkersInActionProps) {
   const { avatars } = useCoworkerAvatars()
 
-  if (!FEATURE_FLAGS.MOCK_COWORKERS_IN_ACTION) return null
+  const activeAgents = agents?.filter((a) => !a.inactive) ?? []
+
+  if (activeAgents.length === 0) return null
 
   return (
-    <div className="relative">
-      {process.env.NODE_ENV === 'development' && (
-        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
-          MOCK
-        </span>
-      )}
+    <div>
       <h2 className="text-foreground mb-4 text-lg font-medium">Co-workers em ação</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {mockCoworkers.map((cw) => {
-          const avatarId = AVATAR_ID_MAP[cw.id] ?? cw.id
-          const avatarUrl = avatars[avatarId]
+        {activeAgents.map((agent) => {
+          const avatarUrl = agent.avatarUrl ?? avatars[agent.id]
 
           return (
             <div
-              key={cw.id}
-              onClick={() => {
-                const match = agents?.find((a) => a.id === cw.id || a.name === cw.name)
-                if (match) onSelectAgent(match)
-              }}
+              key={agent.id}
+              onClick={() => onSelectAgent(agent)}
               className="group border-border bg-background hover:border-foreground/50 flex cursor-pointer flex-col rounded-2xl border transition-colors"
             >
               <div className="flex flex-1 flex-col gap-3 p-7">
                 <div className="flex items-center gap-2.5">
-                  <CoworkerAvatar src={avatarUrl} name={cw.name} size="xs" />
+                  <CoworkerAvatar src={avatarUrl} name={agent.name} size="xs" />
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <p className="text-foreground text-sm leading-tight font-medium">{cw.name}</p>
+                    <p className="text-foreground text-sm leading-tight font-medium">
+                      {agent.name}
+                    </p>
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span
                         className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
@@ -117,12 +51,16 @@ export default function CoworkersInAction({ onSelectAgent, agents }: CoworkersIn
                   </div>
                 </div>
                 <p className="text-muted-foreground line-clamp-2 text-[13px] leading-relaxed">
-                  {cw.summary}
+                  {agent.summary}
                 </p>
-                <div className="border-border mt-auto border-t pt-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <p className="text-muted-foreground/60 mb-1 text-[11px]">{cw.resultLabel}</p>
-                  <p className="text-muted-foreground text-[13px]">{cw.resultValue}</p>
-                </div>
+                {agent.kpis.length > 0 && (
+                  <div className="border-border mt-auto border-t pt-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <p className="text-muted-foreground/60 mb-1 text-[11px]">Resultado recente</p>
+                    <p className="text-muted-foreground text-[13px]">
+                      {agent.kpis[0].value} {agent.kpis[0].label}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )

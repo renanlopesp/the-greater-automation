@@ -125,19 +125,8 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get link IDs first to clean up dependent records
-  const { data: links } = await supabase
-    .from('messaging_links')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('channel_type', 'telegram')
-
-  if (links && links.length > 0) {
-    const linkIds = links.map((l) => l.id)
-    // Delete queued messages that reference these links (FK constraint)
-    await supabase.from('telegram_message_queue').delete().in('link_id', linkIds)
-  }
-
+  // FK on telegram_message_queue is ON DELETE CASCADE, so dependent rows
+  // are automatically cleaned up when the messaging_link is deleted.
   const { error } = await supabase
     .from('messaging_links')
     .delete()

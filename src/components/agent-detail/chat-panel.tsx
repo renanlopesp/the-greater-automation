@@ -65,6 +65,10 @@ interface ChatPanelProps {
     sender_avatar: string | null
   }[]
   initialQuery?: string
+  /** Optional custom empty state renderer. If provided, replaces the default empty state. */
+  renderEmptyState?: (onSuggestionClick: (text: string) => void) => React.ReactNode
+  /** Optional custom avatar renderer for assistant messages. */
+  renderAvatar?: () => React.ReactNode
 }
 
 function AgentAvatar({
@@ -97,6 +101,7 @@ function ChatMessageItem({
   currentUserId,
   feedback,
   onFeedback,
+  renderAvatar,
 }: {
   message: UIMessage
   agentName: string
@@ -105,6 +110,7 @@ function ChatMessageItem({
   currentUserId: string
   feedback: 'like' | 'dislike' | null
   onFeedback: (messageId: string, feedback: 'like' | 'dislike') => void
+  renderAvatar?: () => React.ReactNode
 }) {
   const isUser = message.role === 'user'
 
@@ -141,7 +147,7 @@ function ChatMessageItem({
       {/* Agent avatar for assistant messages */}
       {!isUser && (
         <div className="mb-1 flex items-center gap-2">
-          <AgentAvatar name={agentName} palette={agentPalette} />
+          {renderAvatar ? renderAvatar() : <AgentAvatar name={agentName} palette={agentPalette} />}
           <span className="text-muted-foreground text-sm font-medium">{agentName}</span>
         </div>
       )}
@@ -329,6 +335,8 @@ export default function ChatPanel({
   initialConversationId,
   initialMessages,
   initialQuery,
+  renderEmptyState,
+  renderAvatar,
 }: ChatPanelProps) {
   const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
@@ -392,27 +400,33 @@ export default function ChatPanel({
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto max-w-2xl">
           {!hasMessages ? (
-            <ConversationEmptyState>
-              <AgentAvatar name={agentName} palette={agentPalette} size={72} />
-              <h2 className="text-foreground mt-6 text-xl font-semibold">{agentName}</h2>
-              <p className="text-muted-foreground mt-1 max-w-md text-center text-sm leading-relaxed">
-                Faça uma pergunta ou escolha uma sugestão abaixo.
-              </p>
-              {conversationStarters.length > 0 && (
-                <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3">
-                  {conversationStarters.map((starter) => (
-                    <button
-                      key={starter}
-                      type="button"
-                      onClick={() => handleSuggestionClick(starter)}
-                      className="border-border hover:bg-muted/50 rounded-xl border p-4 text-left transition-colors"
-                    >
-                      <p className="text-foreground text-sm leading-snug">{starter}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </ConversationEmptyState>
+            renderEmptyState ? (
+              <ConversationEmptyState>
+                {renderEmptyState(handleSuggestionClick)}
+              </ConversationEmptyState>
+            ) : (
+              <ConversationEmptyState>
+                <AgentAvatar name={agentName} palette={agentPalette} size={72} />
+                <h2 className="text-foreground mt-6 text-xl font-semibold">{agentName}</h2>
+                <p className="text-muted-foreground mt-1 max-w-md text-center text-sm leading-relaxed">
+                  Faça uma pergunta ou escolha uma sugestão abaixo.
+                </p>
+                {conversationStarters.length > 0 && (
+                  <div className="mt-8 grid w-full max-w-lg grid-cols-2 gap-3">
+                    {conversationStarters.map((starter) => (
+                      <button
+                        key={starter}
+                        type="button"
+                        onClick={() => handleSuggestionClick(starter)}
+                        className="border-border hover:bg-muted/50 rounded-xl border p-4 text-left transition-colors"
+                      >
+                        <p className="text-foreground text-sm leading-snug">{starter}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </ConversationEmptyState>
+            )
           ) : (
             visibleMessages.map((message) => (
               <ChatMessageItem
@@ -424,6 +438,7 @@ export default function ChatPanel({
                 currentUserId={currentUserId}
                 feedback={getFeedback(message.id)}
                 onFeedback={toggleFeedback}
+                renderAvatar={renderAvatar}
               />
             ))
           )}

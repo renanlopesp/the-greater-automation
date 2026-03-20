@@ -40,12 +40,13 @@ export async function processMessage(
       ).count ?? 0) > 0
     : false
 
-  // Find or create conversation — prefer orchestrator agent for FK
+  // Find or create conversation — only use the orchestrator agent.
+  // Specialized agents (e.g. Carrinho & Conversão) should NOT receive
+  // Telegram conversations directly — only the orchestrator or app UI
+  // should interact with them.
   let conversationId = link.conversation_id
 
   if (!conversationId) {
-    // We need an agent_id for agent_conversations (FK constraint).
-    // Use the orchestrator agent if one exists, otherwise fall back to first agent.
     const { data: orchestratorAgent } = await supabase
       .from('agents')
       .select('id')
@@ -54,74 +55,61 @@ export async function processMessage(
       .limit(1)
       .single()
 
-    const conversationAgent =
-      orchestratorAgent ??
-      (
+    if (orchestratorAgent) {
+      const { data: conv } = await supabase
+        .from('agent_conversations')
+        .insert({
+          agent_id: orchestratorAgent.id,
+          user_id: link.user_id,
+          created_by: link.user_id,
+          is_active: true,
+          title: `Telegram – @${username}`,
+        })
+        .select('id')
+        .single()
+
+      if (conv) {
+        conversationId = conv.id
+        // Store conversation_id on the link for future messages
         await supabase
-          .from('agents')
-          .select('id')
-          .eq('team_id', link.team_id)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .single()
-      ).data
-
-    if (!conversationAgent) {
-      await sendMessage(
-        chatId,
-        'No agents found in your workspace. Create one first in the dashboard.'
-      )
-      return
+          .from('messaging_links')
+          .update({ conversation_id: conversationId })
+          .eq('id', link.id)
+      }
     }
-
-    const firstAgent = conversationAgent
-
-    const { data: conv } = await supabase
-      .from('agent_conversations')
-      .insert({
-        agent_id: firstAgent.id,
-        user_id: link.user_id,
-        created_by: link.user_id,
-        is_active: true,
-        title: `Telegram – @${username}`,
-      })
-      .select('id')
-      .single()
-
-    if (!conv) {
-      await sendMessage(chatId, 'Failed to create conversation. Please try again.')
-      return
-    }
-
-    conversationId = conv.id
-
-    // Store conversation_id on the link for future messages
-    await supabase
-      .from('messaging_links')
-      .update({ conversation_id: conversationId })
-      .eq('id', link.id)
+    // No orchestrator → process statelessly (no conversation persistence).
+    // The AI still responds, but messages won't appear under any agent's chat.
   }
 
-  // Persist user message
-  await supabase.from('agent_messages').insert({
-    conversation_id: conversationId,
-    role: 'user',
-    content: text,
-    sender_id: link.user_id,
-    metadata: { channel: 'telegram', chatId, username },
-  })
+  // Persist user message (only if we have a conversation)
+  if (conversationId) {
+    await supabase.from('agent_messages').insert({
+      conversation_id: conversationId,
+      role: 'user',
+      content: text,
+      sender_id: link.user_id,
+      metadata: { channel: 'telegram', chatId, username },
+    })
+  }
 
-  // Load conversation history (last 20 messages)
-  const { data: historyRows } = await supabase
-    .from('agent_messages')
-    .select('role, content')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(20)
+  // Load conversation history (last 20 messages) or just current message
+  let modelMessages: Array<{ role: 'user' | 'assistant'; content: string }>
 
-  const modelMessages = (historyRows ?? [])
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+  if (conversationId) {
+    const { data: historyRows } = await supabase
+      .from('agent_messages')
+      .select('role, content')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(20)
+
+    modelMessages = (historyRows ?? [])
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+  } else {
+    // Stateless — no orchestrator, just send current message
+    modelMessages = [{ role: 'user', content: text }]
+  }
 
   // Build platform tools + system prompt (pass service role client — no auth cookies in webhook)
   const platformTools = buildPlatformTools(link.user_id, link.team_id, supabase, store?.id)
@@ -159,13 +147,15 @@ export async function processMessage(
 
   const assistantText = result.text || 'I could not generate a response. Please try again.'
 
-  // Persist assistant response
-  await supabase.from('agent_messages').insert({
-    conversation_id: conversationId,
-    role: 'assistant',
-    content: assistantText,
-    metadata: { channel: 'telegram', usage: result.usage },
-  })
+  // Persist assistant response (only if we have a conversation)
+  if (conversationId) {
+    await supabase.from('agent_messages').insert({
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: assistantText,
+      metadata: { channel: 'telegram', chatId, username, usage: result.usage },
+    })
+  }
 
   // Track AI credits
   const credits = tokensToCredits(result.usage.totalTokens)

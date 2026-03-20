@@ -24,6 +24,10 @@ export interface HomeClientNewProps {
   userName?: string
   /** Orchestrator agent ID for routing AskBar messages */
   orchestratorId?: string
+  /** Agent types/IDs already installed — used to filter recommendations */
+  installedAgentTypes?: string[]
+  /** App IDs connected by the team */
+  connectedAppIds?: string[]
 }
 
 // ── Status dot config ────────────────────────────────────────────
@@ -164,6 +168,8 @@ export default function HomeClientNew({
   teamName: _teamName,
   userName: _userName,
   orchestratorId,
+  installedAgentTypes,
+  connectedAppIds,
 }: HomeClientNewProps = {}) {
   const [selectedAgent, setSelectedAgent] = useState<AgentCard | null>(null)
 
@@ -178,13 +184,13 @@ export default function HomeClientNew({
 
         <div className="border-border border-t" />
 
-        <CoworkerRecommendation />
+        <CoworkerRecommendation installedAgentTypes={installedAgentTypes} />
 
-        <ConnectAppsSection />
+        <ConnectAppsSection connectedAppIds={connectedAppIds} />
 
         <CoworkersInAction onSelectAgent={setSelectedAgent} agents={agents} />
 
-        <OpportunitiesSection />
+        <OpportunitiesSection opportunities={[]} />
 
         <div className="h-10" />
       </div>
