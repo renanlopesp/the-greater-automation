@@ -4,6 +4,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, type ReactNode } from 'react'
 import { useNotifications, useUnreadNotificationCount } from '@/hooks/use-notifications'
 
+// Mock Supabase client (prevents NEXT_PUBLIC_SUPABASE_URL error)
+vi.mock('@/lib/supabase/client', () => ({
+  createBrowserClient: vi.fn(() => ({
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn(),
+    })),
+    removeChannel: vi.fn(),
+  })),
+}))
+
 // Mock server actions
 vi.mock('@/lib/actions/notifications', () => ({
   getNotifications: vi.fn().mockResolvedValue({
@@ -36,6 +47,38 @@ vi.mock('@/lib/actions/notifications', () => ({
   markAsRead: vi.fn().mockResolvedValue({}),
   markAllAsRead: vi.fn().mockResolvedValue({}),
 }))
+
+// Mock fetch for API calls
+const mockFetch = vi.fn()
+vi.stubGlobal('fetch', mockFetch)
+
+beforeEach(() => {
+  mockFetch.mockReset()
+  // Default: GET /api/notifications returns mock data
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => [
+      {
+        id: '1',
+        urgency: 'opportunity',
+        title: 'Workflow published',
+        body: 'Your workflow "Test" was published.',
+        is_read: false,
+        created_at: '2026-02-17T10:00:00Z',
+        source_agent: null,
+      },
+      {
+        id: '2',
+        urgency: 'insight',
+        title: 'Workflow run completed',
+        body: 'Workflow "Daily" completed.',
+        is_read: true,
+        created_at: '2026-02-17T08:00:00Z',
+        source_agent: null,
+      },
+    ],
+  })
+})
 
 function createWrapper() {
   const queryClient = new QueryClient({

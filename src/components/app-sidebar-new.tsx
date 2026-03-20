@@ -46,7 +46,7 @@ export default function AppSidebarNew({
     {
       labelKey: 'nav.newChat',
       icon: Plus,
-      path: orchestratorId ? `/agents/${orchestratorId}` : '/chat',
+      path: '/chat',
     },
     { labelKey: 'nav.coworkers', icon: Bot, path: '/agents' },
     { labelKey: 'nav.apps', icon: LayoutGrid, path: '/apps' },

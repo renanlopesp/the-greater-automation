@@ -16,8 +16,8 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
     useNotifications()
   const { count: unreadCount } = useUnreadNotificationCount()
 
-  const handleNotificationClick = (notificationId: string, read: boolean) => {
-    if (!read) {
+  const handleNotificationClick = (notificationId: string, is_read: boolean) => {
+    if (!is_read) {
       markAsRead(notificationId)
     }
   }
@@ -73,20 +73,18 @@ export default function NotificationsPopover({ children }: NotificationsPopoverP
               {notifications.slice(0, 5).map((notification) => (
                 <button
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id, notification.read)}
-                  className={`hover:bg-accent/30 w-full rounded-md border p-3 text-left text-sm transition-colors ${!notification.read ? 'bg-accent/50' : ''}`}
+                  onClick={() => handleNotificationClick(notification.id, notification.is_read)}
+                  className={`hover:bg-accent/30 w-full rounded-md border p-3 text-left text-sm transition-colors ${!notification.is_read ? 'bg-accent/50' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <div className="font-medium">{notification.title}</div>
-                      <div className="text-muted-foreground mt-1 text-xs">
-                        {notification.message}
-                      </div>
+                      <div className="text-muted-foreground mt-1 text-xs">{notification.body}</div>
                       <div className="text-muted-foreground mt-2 text-xs">
-                        {formatRelativeTime(notification.created_at)}
+                        {formatRelativeTime(notification.created_at ?? '')}
                       </div>
                     </div>
-                    {!notification.read && (
+                    {!notification.is_read && (
                       <div className="bg-primary mt-1 h-2 w-2 flex-shrink-0 rounded-full" />
                     )}
                   </div>

@@ -19,8 +19,9 @@ import { useLanguage } from '@/contexts/language-context'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
 import type { UserData, PlanData } from '@/types/navigation'
-
-const NOTIFICATIONS_COUNT = 4
+import { useNotifications } from '@/hooks/use-notifications'
+import { NotificationPanel } from '@/components/notifications/notification-panel'
+import { cn } from '@/lib/utils'
 
 function getInitials(fullName: string | null, email: string): string {
   if (fullName) {
@@ -58,7 +59,9 @@ export default function TopBar({
   const { t, language, setLanguage } = useLanguage()
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const router = useRouter()
+  const { notifications, unreadCount, hasUrgent, markRead, markAllRead } = useNotifications()
 
   const initials = getInitials(user.fullName, user.email)
 
@@ -108,15 +111,30 @@ export default function TopBar({
       <button className="text-muted-foreground hover:text-foreground hover:bg-accent flex h-8 w-8 items-center justify-center rounded-lg transition-colors">
         <Folder className="h-4 w-4" />
       </button>
-      <button
-        onClick={() => router.push('/notifications')}
-        className="text-muted-foreground hover:text-foreground hover:bg-accent relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-      >
-        <Bell className="h-4 w-4" />
-        {NOTIFICATIONS_COUNT > 0 && (
-          <span className="bg-foreground absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full" />
+      <div className="relative">
+        <button
+          onClick={() => setNotificationsOpen((o) => !o)}
+          className="text-muted-foreground hover:text-foreground hover:bg-accent relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+        >
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span
+              className={cn(
+                'absolute top-1 right-1 h-1.5 w-1.5 rounded-full',
+                hasUrgent ? 'animate-pulse bg-red-500' : 'bg-foreground'
+              )}
+            />
+          )}
+        </button>
+        {notificationsOpen && (
+          <NotificationPanel
+            notifications={notifications}
+            onMarkRead={markRead}
+            onMarkAllRead={markAllRead}
+            onClose={() => setNotificationsOpen(false)}
+          />
         )}
-      </button>
+      </div>
 
       {/* Avatar + Dropdown */}
       <div className="relative ml-1">

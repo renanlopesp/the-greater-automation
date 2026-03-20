@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
-import NewChatClient from '@/components/chat/new-chat-client'
-import type { CoworkerItem } from '@/components/chat/coworker-selector'
+import { createServiceRoleClient } from '@/lib/supabase/server'
+import OrchestratorChatWrapper from '@/components/chat/orchestrator-chat-wrapper'
 
 export default async function ChatPage() {
   const supabase = await createServerClient()
@@ -13,24 +13,92 @@ export default async function ChatPage() {
   if (!user) redirect('/login')
 
   const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) redirect('/onboarding')
 
-  let agents: CoworkerItem[] = []
+  // Load active orchestrator conversation from `conversations` table (NOT agent_conversations)
+  const serviceClient = createServiceRoleClient()
 
-  if (teamId) {
-    const { data } = await supabase
-      .from('agents')
-      .select('id, name, palette, is_orchestrator')
-      .eq('team_id', teamId)
-      .eq('is_active', true)
+  const { data: activeConv } = await (
+    serviceClient as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          eq: (
+            k: string,
+            v: string
+          ) => {
+            eq: (
+              k: string,
+              v: string
+            ) => {
+              eq: (
+                k: string,
+                v: boolean
+              ) => {
+                order: (
+                  k: string,
+                  o: { ascending: boolean }
+                ) => {
+                  limit: (n: number) => {
+                    single: () => Promise<{ data: { id: string } | null }>
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  )
+    .from('conversations')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
 
-    if (data) {
-      agents = data.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        emoji: agent.is_orchestrator ? '🤖' : '⚡',
-      }))
+  let initialMessages: { id: string; role: string; content: string }[] = []
+
+  if (activeConv) {
+    const { data: msgs } = await (
+      serviceClient as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
+              k: string,
+              v: string
+            ) => {
+              order: (
+                k: string,
+                o: { ascending: boolean }
+              ) => {
+                limit: (n: number) => Promise<{
+                  data: Array<{ id: string; role: string; content: string }> | null
+                }>
+              }
+            }
+          }
+        }
+      }
+    )
+      .from('conversation_messages')
+      .select('id, role, content')
+      .eq('conversation_id', activeConv.id)
+      .order('created_at', { ascending: true })
+      .limit(50)
+
+    if (msgs) {
+      initialMessages = msgs
     }
   }
 
-  return <NewChatClient agents={agents} />
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
+      <OrchestratorChatWrapper
+        initialConversationId={activeConv?.id ?? null}
+        initialMessages={initialMessages}
+      />
+    </div>
+  )
 }

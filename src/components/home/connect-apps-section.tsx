@@ -2,17 +2,15 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface HomeApp {
   id: string
   name: string
   icon: React.ReactNode
   description: string
-  connected: boolean
 }
 
-const homeApps: HomeApp[] = [
+const APP_META: HomeApp[] = [
   {
     id: 'shopify',
     name: 'Shopify',
@@ -25,7 +23,6 @@ const homeApps: HomeApp[] = [
       </svg>
     ),
     description: 'Sincronize pedidos, produtos, clientes e dados de conversão em tempo real.',
-    connected: true,
   },
   {
     id: 'meta-ads',
@@ -36,7 +33,6 @@ const homeApps: HomeApp[] = [
       </svg>
     ),
     description: 'Monitore campanhas, ROAS e audiências do Facebook e Instagram Ads.',
-    connected: true,
   },
   {
     id: 'google-analytics',
@@ -49,7 +45,6 @@ const homeApps: HomeApp[] = [
       </svg>
     ),
     description: 'Acesse dados de tráfego, funis de conversão e comportamento de usuários.',
-    connected: false,
   },
   {
     id: 'gmail',
@@ -70,20 +65,19 @@ const homeApps: HomeApp[] = [
       </svg>
     ),
     description: 'Envie e monitore campanhas de e-mail diretamente pela sua caixa de saída.',
-    connected: false,
   },
 ]
 
-export default function ConnectAppsSection() {
-  if (!FEATURE_FLAGS.MOCK_CONNECT_APPS) return null
+interface ConnectAppsSectionProps {
+  /** App IDs that are connected in the DB */
+  connectedAppIds?: string[]
+}
+
+export default function ConnectAppsSection({ connectedAppIds = [] }: ConnectAppsSectionProps) {
+  const connectedSet = new Set(connectedAppIds.map((id) => id.toLowerCase()))
 
   return (
-    <div className="relative">
-      {process.env.NODE_ENV === 'development' && (
-        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
-          MOCK
-        </span>
-      )}
+    <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-foreground text-lg font-medium">Conecte seus apps</h2>
         <Link
@@ -94,30 +88,35 @@ export default function ConnectAppsSection() {
         </Link>
       </div>
       <div className="border-border divide-border divide-y overflow-hidden rounded-2xl border">
-        {homeApps.map((app) => (
-          <div
-            key={app.id}
-            className="hover:bg-muted/30 flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors"
-          >
-            <div className="bg-muted/60 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-              {app.icon}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                <p className="text-foreground text-sm font-medium">{app.name}</p>
-                {app.connected ? (
-                  <span className="text-[11px] text-green-600 dark:text-green-400">Conectado</span>
-                ) : (
-                  <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px]">
-                    Desconectado
-                  </span>
-                )}
+        {APP_META.map((app) => {
+          const connected = connectedSet.has(app.id)
+          return (
+            <div
+              key={app.id}
+              className="hover:bg-muted/30 flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors"
+            >
+              <div className="bg-muted/60 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+                {app.icon}
               </div>
-              <p className="text-muted-foreground text-[12px] leading-snug">{app.description}</p>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <p className="text-foreground text-sm font-medium">{app.name}</p>
+                  {connected ? (
+                    <span className="text-[11px] text-green-600 dark:text-green-400">
+                      Conectado
+                    </span>
+                  ) : (
+                    <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[10px]">
+                      Desconectado
+                    </span>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-[12px] leading-snug">{app.description}</p>
+              </div>
+              <ChevronRight className="text-muted-foreground/40 h-4 w-4 shrink-0" />
             </div>
-            <ChevronRight className="text-muted-foreground/40 h-4 w-4 shrink-0" />
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

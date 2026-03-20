@@ -25,7 +25,6 @@ const recommendedIds = new Set([
 /** Maps catalog agent IDs to their module registry agent_type */
 const CATALOG_ID_TO_AGENT_TYPE: Record<string, string> = {
   'upsell-retention': 'carrinho-conversao',
-  'abandoned-cart': 'carrinho-conversao',
 }
 
 interface DiscoverClientProps {

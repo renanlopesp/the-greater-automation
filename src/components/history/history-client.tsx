@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, MoreHorizontal } from 'lucide-react'
 import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
@@ -39,6 +40,7 @@ interface HistoryClientProps {
 }
 
 export default function HistoryClient({ conversations: conversationRows }: HistoryClientProps) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
 
@@ -108,7 +110,10 @@ export default function HistoryClient({ conversations: conversationRows }: Histo
               <div>
                 {group.items.map((chat, idx) => (
                   <div key={chat.id}>
-                    <div className="group relative flex cursor-pointer items-center justify-between py-3">
+                    <div
+                      className="group relative flex cursor-pointer items-center justify-between py-3"
+                      onClick={() => router.push(`/chat?c=${chat.id}`)}
+                    >
                       <p className="text-foreground text-sm">{chat.title}</p>
                       <div className="ml-4 flex shrink-0 items-center gap-2">
                         <span className="text-muted-foreground text-xs">{chat.group}</span>

@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'
 import CoworkerAvatar from '@/components/coworker-avatar'
-import { FEATURE_FLAGS } from '@/lib/feature-flags'
 
 interface OpportunityItem {
   id: string
@@ -231,22 +230,29 @@ function OpportunityDrawer({
   )
 }
 
-export default function OpportunitiesSection() {
+interface OpportunitiesSectionProps {
+  opportunities?: OpportunityItem[]
+}
+
+const FALLBACK_OPPORTUNITIES = opportunities
+
+export default function OpportunitiesSection({
+  opportunities: opportunitiesProp,
+}: OpportunitiesSectionProps = {}) {
   const { avatars } = useCoworkerAvatars()
   const [selectedOpp, setSelectedOpp] = useState<OpportunityItem | null>(null)
 
-  if (!FEATURE_FLAGS.MOCK_OPPORTUNITIES) return null
+  // Use prop if provided (even if empty array), otherwise fall back to hardcoded data
+  const items = opportunitiesProp !== undefined ? opportunitiesProp : FALLBACK_OPPORTUNITIES
+
+  if (items.length === 0) return null
 
   return (
-    <div className="relative">
-      {process.env.NODE_ENV === 'development' && (
-        <span className="absolute top-2 right-2 z-10 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
-          MOCK
-        </span>
-      )}
+    <div>
       <h2 className="text-foreground mb-4 text-lg font-medium">Oportunidades detectadas</h2>
+
       <div className="border-border bg-background overflow-hidden rounded-2xl border">
-        {opportunities.map((opp, i) => {
+        {items.map((opp, i) => {
           const avatarUrl = avatars[opp.avatarId]
           return (
             <div
