@@ -26,8 +26,10 @@ import { Message, MessageContent, MessageResponse } from '@/components/ai-elemen
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 
 import { useOrchestratorChat } from '@/hooks/use-orchestrator-chat'
+import { parseOrchestratorResponse } from '@/lib/chat/parse-orchestrator-response'
 import { generateFollowUps } from '@/lib/actions/follow-ups'
 import SnewAvatar from './snew-avatar'
+import CoworkerSuggestionCard from './coworker-suggestion-card'
 import OrchestratorEmptyState from './orchestrator-empty-state'
 
 const ORCHESTRATOR_STARTERS = [
@@ -129,8 +131,12 @@ export default function OrchestratorChatWrapper({
               const parts = msg.parts ?? []
               const textParts = parts.filter(isTextUIPart)
               const reasoningParts = parts.filter(isReasoningUIPart)
-              const textContent = textParts.map((p) => p.text).join('')
+              const rawText = textParts.map((p) => p.text).join('')
               const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
+
+              // Parse orchestrator markers from assistant text
+              const parsed = !isUser ? parseOrchestratorResponse(rawText) : null
+              const textContent = parsed?.text ?? rawText
 
               return (
                 <Message key={msg.id} from={msg.role}>
@@ -143,7 +149,7 @@ export default function OrchestratorChatWrapper({
                   )}
                   <MessageContent>
                     {isUser ? (
-                      <p className="whitespace-pre-wrap">{textContent}</p>
+                      <p className="whitespace-pre-wrap">{rawText}</p>
                     ) : (
                       <>
                         {reasoningParts.length > 0 && (
@@ -160,6 +166,18 @@ export default function OrchestratorChatWrapper({
                       </>
                     )}
                   </MessageContent>
+
+                  {/* Co-worker card — shows which agent was consulted or suggests one */}
+                  {parsed?.coworker && !isStreaming && (
+                    <div className="mt-2 max-w-md">
+                      <p className="text-foreground/50 mb-1.5 text-xs font-medium">
+                        {parsed.coworker.type === 'used'
+                          ? 'co-worker utilizado'
+                          : 'co-worker sugerido'}
+                      </p>
+                      <CoworkerSuggestionCard coworker={parsed.coworker} />
+                    </div>
+                  )}
 
                   {/* Action bar — same as InstalledAgentPage */}
                   {!isUser && textContent && !isStreaming && (

@@ -711,21 +711,96 @@ export function buildPlatformTools(
           return { error: `Failed to load context for agent "${targetAgent.name}"` }
         }
 
+        // Create a REAL conversation in the agent's tables so the user can see it
+        // when they visit the agent's chat page.
+        let conversationId: string | null = null
         try {
+          // Find existing active conversation or create new one
+          const { data: existingConv } = await supabase
+            .from('agent_conversations')
+            .select('id')
+            .eq('agent_id', params.agent_id)
+            .eq('user_id', ownerUserId)
+            .eq('is_active', true)
+            .limit(1)
+            .single()
+
+          if (existingConv) {
+            conversationId = existingConv.id
+          } else {
+            const { data: newConv } = await supabase
+              .from('agent_conversations')
+              .insert({
+                agent_id: params.agent_id,
+                user_id: ownerUserId,
+                created_by: ownerUserId,
+                is_active: true,
+                title: params.message.slice(0, 100),
+              })
+              .select('id')
+              .single()
+            conversationId = newConv?.id ?? null
+          }
+
+          // Persist the user message (from orchestrator) in the agent's conversation
+          if (conversationId) {
+            await supabase.from('agent_messages').insert({
+              conversation_id: conversationId,
+              role: 'user',
+              content: params.message,
+              sender_id: ownerUserId,
+              metadata: { source: 'orchestrator', channel: 'delegation' },
+            })
+          }
+        } catch {
+          // Non-fatal — conversation persistence should not block delegation
+        }
+
+        try {
+          // Load conversation history for context (last 20 messages)
+          let messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+            { role: 'user', content: params.message },
+          ]
+          if (conversationId) {
+            const { data: historyRows } = await supabase
+              .from('agent_messages')
+              .select('role, content')
+              .eq('conversation_id', conversationId)
+              .order('created_at', { ascending: true })
+              .limit(20)
+            if (historyRows && historyRows.length > 0) {
+              messages = historyRows
+                .filter((m) => m.role === 'user' || m.role === 'assistant')
+                .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+            }
+          }
+
           const result = await runAgentChatSync({
             userId: ctx.composioEntityId,
             agent: ctx.agentConfig,
-            messages: [{ role: 'user', content: params.message }],
+            messages,
             systemPrompt: ctx.systemPrompt,
             relayTools: ctx.relayTools,
             connectedAppIds: ctx.connectedAppIds.length > 0 ? ctx.connectedAppIds : undefined,
             connectedAccountMap: ctx.connectedAccountMap,
           })
 
+          // Persist the agent's response in the conversation
+          if (conversationId && result.text) {
+            await supabase.from('agent_messages').insert({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: result.text,
+              metadata: { source: 'orchestrator', channel: 'delegation' },
+            })
+          }
+
           return {
             agent_name: targetAgent.name,
+            agent_id: targetAgent.id,
             response: result.text,
             tokens_used: result.usage.totalTokens,
+            conversation_id: conversationId,
           }
         } catch (error) {
           return {
