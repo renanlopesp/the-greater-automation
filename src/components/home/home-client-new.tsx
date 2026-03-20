@@ -190,7 +190,7 @@ export default function HomeClientNew({
 
         <CoworkersInAction onSelectAgent={setSelectedAgent} agents={agents} />
 
-        <OpportunitiesSection opportunities={[]} />
+        <OpportunitiesSection />
 
         <div className="h-10" />
       </div>
