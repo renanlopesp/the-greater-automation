@@ -5,17 +5,16 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   FileText,
-  Bot,
   Play,
   LayoutDashboard,
   FolderKanban,
-  Plug,
   LayoutGrid,
   Bell,
   Clock,
   MessageCircle,
   Package,
   Truck,
+  Wand2,
 } from 'lucide-react'
 import {
   CommandDialog,
@@ -160,9 +159,9 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
                 <MessageCircle className="mr-2 h-4 w-4" />
                 New Chat
               </CommandItem>
-              <CommandItem onSelect={() => handleSelect('/agents')}>
-                <Bot className="mr-2 h-4 w-4" />
-                Co-workers
+              <CommandItem onSelect={() => handleSelect('/skills')}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Skills
               </CommandItem>
               <CommandItem onSelect={() => handleSelect('/apps')}>
                 <LayoutGrid className="mr-2 h-4 w-4" />
@@ -211,10 +210,10 @@ export default function CommandMenu({ teamId, open, onOpenChange }: CommandMenuP
           </CommandGroup>
         )}
         {agents.length > 0 && (
-          <CommandGroup heading="Agentes">
+          <CommandGroup heading="Skills">
             {agents.map((a) => (
-              <CommandItem key={a.id} onSelect={() => handleSelect(`/agents/${a.id}`)}>
-                <Bot className="mr-2 h-4 w-4" />
+              <CommandItem key={a.id} onSelect={() => handleSelect(`/skills`)}>
+                <Wand2 className="mr-2 h-4 w-4" />
                 {a.name}
               </CommandItem>
             ))}

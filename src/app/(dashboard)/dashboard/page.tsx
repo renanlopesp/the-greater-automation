@@ -86,6 +86,7 @@ export default async function DashboardPage() {
       orchestratorId={orchestrator?.id}
       installedAgentTypes={installedAgentTypes}
       connectedAppIds={connectedAppIds}
+      teamId={teamId}
     />
   )
 }

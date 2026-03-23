@@ -129,8 +129,10 @@ export default function OrchestratorChatWrapper({
               const parts = msg.parts ?? []
               const textParts = parts.filter(isTextUIPart)
               const reasoningParts = parts.filter(isReasoningUIPart)
-              const textContent = textParts.map((p) => p.text).join('')
+              const rawText = textParts.map((p) => p.text).join('')
               const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
+
+              const textContent = rawText
 
               return (
                 <Message key={msg.id} from={msg.role}>
@@ -143,7 +145,7 @@ export default function OrchestratorChatWrapper({
                   )}
                   <MessageContent>
                     {isUser ? (
-                      <p className="whitespace-pre-wrap">{textContent}</p>
+                      <p className="whitespace-pre-wrap">{rawText}</p>
                     ) : (
                       <>
                         {reasoningParts.length > 0 && (

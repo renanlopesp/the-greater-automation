@@ -18,10 +18,10 @@ export const FEATURE_FLAGS = {
   MOCK_CONNECT_APPS: true,
 
   /** Home — Intent cards carousel with hardcoded categories */
-  MOCK_INTENT_CARDS: false,
+  MOCK_INTENT_CARDS: true,
 
   /** Home — Greeting subtitle "3 agentes ativos · última atividade há 2h" */
-  MOCK_GREETING_STATS: false,
+  MOCK_GREETING_STATS: true,
 
   /** Agent workspace — "hoje" tab with hardcoded activity log, stats, files */
   MOCK_AGENT_WORKSPACE: false,

@@ -55,7 +55,7 @@ describe('AppSidebar', () => {
   it('renders navigation links', () => {
     renderSidebar()
     expect(screen.getByText('Home')).toBeInTheDocument()
-    expect(screen.getByText('Co-workers')).toBeInTheDocument()
+    expect(screen.getByText('Skills')).toBeInTheDocument()
     expect(screen.getByText('Apps')).toBeInTheDocument()
     expect(screen.getByText('Notifications')).toBeInTheDocument()
     expect(screen.getByText('History')).toBeInTheDocument()

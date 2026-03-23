@@ -1,3 +1,6 @@
+// DEPRECATED: This component belongs to the old multi-agent workspace.
+// It will be replaced by new skill-based workspace UI components.
+// Do not extend — use src/components/skills/ for new skill UI.
 'use client'
 
 import { useLanguage } from '@/contexts/language-context'

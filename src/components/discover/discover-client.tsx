@@ -1,3 +1,6 @@
+// DEPRECATED: This component belongs to the old multi-agent discover page.
+// It will be replaced by new skill-based discovery UI components.
+// Do not extend — use src/components/skills/ for new skill UI.
 'use client'
 
 import { useState, useMemo } from 'react'
