@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
   Bell,
-  Bot,
   Check,
   ChevronDown,
   Clock,
@@ -18,6 +17,7 @@ import {
   Plus,
   Settings,
   Sun,
+  Wand2,
   Zap,
 } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
@@ -111,7 +111,7 @@ export default function AppSidebar({
       ...(orchestratorId
         ? [{ label: 'New Chat', icon: Plus, href: `/agents/${orchestratorId}` }]
         : []),
-      { label: 'Co-workers', icon: Bot, href: '/agents' },
+      { label: 'Skills', icon: Wand2, href: '/skills' },
       { label: 'Apps', icon: LayoutGrid, href: '/apps' },
       { label: 'Notifications', icon: Bell, href: '/notifications', badge: notificationCount },
       { label: 'History', icon: Clock, href: '/history' },
@@ -219,7 +219,7 @@ export default function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground h-9 gap-3 px-3 text-sm">
-              <Link href="/agents">
+              <Link href="/skills">
                 <Compass className="size-4" />
                 <span>Discover</span>
               </Link>

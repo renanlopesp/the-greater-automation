@@ -1,3 +1,9 @@
+/**
+ * @deprecated This module writes to `agent_conversations` and `agent_messages` (legacy tables).
+ * These tables are deprecated in favor of `conversations` and `conversation_messages`.
+ * Will be migrated to the unified conversation tables in a future release.
+ */
+
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/telegram'
 import { runAgentChatSync } from '@/lib/ai/agent-chat'

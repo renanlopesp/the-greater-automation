@@ -91,6 +91,11 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Vercel AI SDK (useChat, streamText), TanStack React Query, Zustand, shadcn/ui (new-york), Tailwind CSS v4 (037-orchestrator-system)
+- Supabase PostgreSQL (agents, agent_conversations, agent_messages tables) (037-orchestrator-system)
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Vercel AI SDK, TanStack React Query, Zustand, shadcn/ui (new-york), Tailwind CSS v4 (038-single-agent-skills)
+- Supabase PostgreSQL (skills, skill_executions tables — single-agent architecture, agents table deprecated to 1 row) (038-single-agent-skills)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Supabase (@supabase/ssr), Vercel AI SDK, TanStack React Query, Zustand, shadcn/ui (new-york), Tailwind CSS v4 (036-agent-modules-system)
 
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19.2.3, shadcn/ui (new-york), Tailwind CSS v4, TanStack React Query, Zustand, lucide-react, next-themes (031-layout-redesign)

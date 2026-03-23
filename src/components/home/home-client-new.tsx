@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
@@ -8,8 +8,8 @@ import { useLanguage } from '@/contexts/language-context'
 import GreetingSectionNew from './greeting-section-new'
 import AskBar from './ask-bar'
 import CoworkerRecommendation from './coworker-recommendation'
-import CoworkersInAction from './coworkers-in-action'
 import OpportunitiesSection from './opportunities-section'
+import SkillsGrid from '@/components/dashboard/skills-grid'
 import { type AgentCard } from '@/data/home-dashboard'
 
 const IntentCards = dynamic(() => import('./intent-cards'), { ssr: false })
@@ -28,6 +28,8 @@ export interface HomeClientNewProps {
   installedAgentTypes?: string[]
   /** App IDs connected by the team */
   connectedAppIds?: string[]
+  /** Team ID — used to load skills grid */
+  teamId?: string
 }
 
 // ── Status dot config ────────────────────────────────────────────
@@ -164,15 +166,14 @@ function AgentDrawer({ agent, onClose }: { agent: AgentCard; onClose: () => void
 
 // ── Main Component ───────────────────────────────────────────────
 export default function HomeClientNew({
-  agents,
+  agents: _agents,
   teamName: _teamName,
   userName: _userName,
   orchestratorId,
   installedAgentTypes,
   connectedAppIds,
+  teamId,
 }: HomeClientNewProps = {}) {
-  const [selectedAgent, setSelectedAgent] = useState<AgentCard | null>(null)
-
   return (
     <div className="bg-background h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-16 px-6 py-10">
@@ -188,16 +189,12 @@ export default function HomeClientNew({
 
         <ConnectAppsSection connectedAppIds={connectedAppIds} />
 
-        <CoworkersInAction onSelectAgent={setSelectedAgent} agents={agents} />
+        {teamId && <SkillsGrid teamId={teamId} />}
 
         <OpportunitiesSection />
 
         <div className="h-10" />
       </div>
-
-      {selectedAgent && (
-        <AgentDrawer agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
-      )}
     </div>
   )
 }

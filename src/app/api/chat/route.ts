@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
   }
 
   // 4. Load team context in parallel
-  const [{ data: teamAgents }, { data: store }, { data: team }] = await Promise.all([
+  const [{ data: teamSkills }, { data: store }, { data: team }] = await Promise.all([
     serviceClient
-      .from('agents')
-      .select('id, name, description')
-      .eq('team_id', teamId)
-      .order('name'),
+      .from('skills' as never)
+      .select('slug, name, description, category, status')
+      .eq('team_id' as never, teamId)
+      .order('name' as never),
     serviceClient
       .from('stores')
       .select('id, name, segment, platform, platform_access_token')
@@ -185,7 +185,13 @@ export async function POST(request: NextRequest) {
   // 8. Build orchestrator system prompt
   const orchestratorPrompt = buildOrchestratorSystemPrompt(
     team?.name ?? 'Your workspace',
-    teamAgents ?? [],
+    (teamSkills as Array<{
+      slug: string
+      name: string
+      description: string | null
+      category: string
+      status: string
+    }> | null) ?? [],
     store
       ? {
           storeName: store.name,

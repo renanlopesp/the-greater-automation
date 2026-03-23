@@ -1,3 +1,6 @@
+// DEPRECATED: This component uses the old multi-agent catalog from @/data/agents.
+// It will be replaced by a skill-based recommendation component.
+// Do not extend — create a new component using @/data/skills instead.
 'use client'
 
 import { useCoworkerAvatars } from '@/hooks/use-coworker-avatars'

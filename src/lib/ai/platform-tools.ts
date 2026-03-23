@@ -4,134 +4,13 @@ import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
 import type { Json } from '@/lib/supabase/database.types'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
-import { loadAgentContext } from '@/lib/ai/load-agent-context'
-import { runAgentChatSync } from '@/lib/ai/agent-chat'
-import { agents as catalog } from '@/data/agents'
+import { fetchTeamSkills, fetchSkillBySlug, fetchSkillExecutions } from '@/lib/queries/skills'
+import { executeSkill } from '@/lib/ai/skill-executor'
+import { skills as skillCatalog } from '@/data/skills'
 
 type SupabaseClient =
   | Awaited<ReturnType<typeof createServerClient>>
   | ReturnType<typeof createServiceRoleClient>
-
-/** Domain keyword → starter skills mapping */
-const DOMAIN_SKILLS: Record<string, { name: string; description: string; content: string }[]> = {
-  marketing: [
-    {
-      name: 'Brand Tone Guide',
-      description: 'Guidelines for consistent brand voice across channels',
-      content:
-        'Brand Voice Principles:\n\n1. Be conversational but professional — write like a knowledgeable friend, not a corporate press release.\n2. Lead with value — every message should answer "why should I care?"\n3. Use active voice and strong verbs. Avoid passive constructions.\n4. Keep sentences short (under 20 words). One idea per sentence.\n5. Match tone to channel: LinkedIn (professional), Twitter/X (punchy), Instagram (visual storytelling), Email (personal).\n6. Avoid jargon unless the audience expects it. When in doubt, simplify.\n7. Every piece of content should have a clear CTA (call to action).',
-    },
-    {
-      name: 'Social Media Best Practices',
-      description: 'Platform-specific tips for engagement and reach',
-      content:
-        'Social Media Playbook:\n\n**Posting Cadence**: 3-5x/week on LinkedIn, 1-2x/day on Twitter/X, 4-7x/week on Instagram.\n\n**Content Mix**: 40% educational, 30% engaging (polls, questions), 20% promotional, 10% behind-the-scenes.\n\n**Engagement Rules**: Reply to comments within 2 hours. Ask follow-up questions. Never delete negative feedback — address it publicly.\n\n**Hashtags**: Use 3-5 relevant hashtags on LinkedIn, 1-2 on Twitter/X, up to 10 on Instagram. Research trending tags weekly.\n\n**Visuals**: Every post needs a visual. Carousel posts get 3x engagement on LinkedIn. Short video (<60s) outperforms static images.',
-    },
-  ],
-  security: [
-    {
-      name: 'Security Alert Triage',
-      description: 'How to classify and prioritize security alerts',
-      content:
-        'Alert Triage Framework:\n\n**P0 (Critical)**: Active breach, data exfiltration, ransomware. Response: immediate. Escalate to on-call lead within 5 minutes.\n\n**P1 (High)**: Unauthorized access attempt, privilege escalation, suspicious admin activity. Response: within 1 hour.\n\n**P2 (Medium)**: Failed login spikes, new unknown service detected, certificate expiring <7 days. Response: within 4 hours.\n\n**P3 (Low)**: Policy violations, outdated dependencies, informational alerts. Response: next business day.\n\n**Triage Steps**: 1. Identify scope (what systems?). 2. Assess impact (data at risk?). 3. Check if known/expected. 4. Document in incident log. 5. Escalate per priority level.',
-    },
-    {
-      name: 'Incident Response Playbook',
-      description: 'Step-by-step procedures for handling security incidents',
-      content:
-        'Incident Response Steps:\n\n1. **Detect & Identify**: Confirm the alert is real. Gather initial evidence (logs, timestamps, affected systems).\n2. **Contain**: Isolate affected systems. Revoke compromised credentials. Block malicious IPs.\n3. **Investigate**: Determine root cause, attack vector, and blast radius. Timeline reconstruction.\n4. **Eradicate**: Remove malware, patch vulnerabilities, close attack vector.\n5. **Recover**: Restore from clean backups. Monitor for recurrence. Gradually restore access.\n6. **Post-Mortem**: Document timeline, root cause, what worked, what failed. Update runbooks. Share lessons learned.',
-    },
-  ],
-  devops: [
-    {
-      name: 'Deployment Checklist',
-      description: 'Pre and post deployment verification steps',
-      content:
-        'Deployment Checklist:\n\n**Pre-Deploy**: 1. All tests passing (unit, integration, e2e). 2. Code reviewed and approved. 3. Database migrations tested on staging. 4. Environment variables verified. 5. Rollback plan documented. 6. Monitoring dashboards open.\n\n**Deploy**: 1. Deploy to staging first. 2. Run smoke tests. 3. Check error rates and latency. 4. Deploy to production (canary → full). 5. Monitor for 15 minutes.\n\n**Post-Deploy**: 1. Verify key user flows. 2. Check error rates vs baseline. 3. Confirm no performance regression. 4. Update deployment log. 5. Notify team in Slack.',
-    },
-    {
-      name: 'Monitoring & Alerting Guide',
-      description: 'Key metrics and thresholds for infrastructure monitoring',
-      content:
-        'Monitoring Essentials:\n\n**System Metrics**: CPU (alert >85%), Memory (alert >90%), Disk (alert >80%), Network I/O.\n\n**Application Metrics**: Response time p50/p95/p99, Error rate (alert >1%), Request throughput, Active connections.\n\n**Database Metrics**: Query latency, Connection pool usage, Replication lag, Slow queries (>1s).\n\n**Business Metrics**: Active users, Transaction success rate, API usage by endpoint.\n\n**Alert Rules**: Use escalation chains. P0: PagerDuty + Slack. P1: Slack + email. P2: Slack only. Suppress duplicate alerts within 5min window. Review alert fatigue monthly — silence noisy alerts.',
-    },
-  ],
-  analytics: [
-    {
-      name: 'Data Quality Checklist',
-      description: 'Steps to validate data accuracy and completeness',
-      content:
-        'Data Quality Framework:\n\n1. **Completeness**: Check for NULL rates on key columns. Flag if >5% missing.\n2. **Accuracy**: Cross-reference with source systems. Sample 100 records for manual validation.\n3. **Consistency**: Same metric should match across dashboards. Check join keys for orphan records.\n4. **Timeliness**: Data should be fresh within SLA (real-time: <5min, daily: by 8am UTC).\n5. **Uniqueness**: Check for duplicate records. Validate primary keys are unique.\n6. **Schema Changes**: Monitor for unexpected column additions/removals. Alert on type changes.',
-    },
-    {
-      name: 'Reporting Best Practices',
-      description: 'Guidelines for clear and actionable data reporting',
-      content:
-        'Reporting Guidelines:\n\n**Structure**: Lead with insight, not data. Start with "so what?" then show supporting numbers.\n\n**Visualization**: Use bar charts for comparisons, line charts for trends, tables for exact values. Never use pie charts for >5 categories.\n\n**Context**: Always include time period, comparison (vs last period/target), and sample size.\n\n**Actionability**: Every report should answer: What happened? Why? What should we do?\n\n**Distribution**: Daily metrics in Slack. Weekly deep-dives via email. Monthly reviews in deck format.',
-    },
-  ],
-  support: [
-    {
-      name: 'Ticket Triage Guide',
-      description: 'How to classify and route support tickets',
-      content:
-        'Ticket Triage:\n\n**Priority Levels**: P0 (service down, all users affected) → respond in 15min. P1 (major feature broken) → 1 hour. P2 (minor issue, workaround exists) → 4 hours. P3 (feature request, question) → 24 hours.\n\n**Routing**: Billing → Finance team. Bug reports → Engineering. How-to questions → Knowledge base first, then support. Account access → Security team.\n\n**First Response**: Acknowledge within SLA. Summarize the issue back. Set expectations for resolution time. Never say "works for me" — reproduce first.',
-    },
-    {
-      name: 'Customer Communication Templates',
-      description: 'Response templates for common support scenarios',
-      content:
-        'Communication Templates:\n\n**Acknowledgment**: "Thanks for reaching out. I can see [restate issue]. I\'m looking into this now and will update you within [timeframe]."\n\n**Escalation**: "This needs specialized attention. I\'ve escalated to [team] with all the details. You\'ll hear from them within [timeframe]."\n\n**Resolution**: "Good news — [issue] is resolved. [Brief explanation of what happened and fix]. Let me know if you see any other issues."\n\n**Known Issue**: "This is a known issue our team is working on. Current ETA: [date]. I\'ll update you when it\'s fixed."',
-    },
-  ],
-}
-
-/** Generate starter skills by matching keywords in name/description to domain templates */
-function generateStarterSkills(
-  name: string,
-  description?: string
-): { name: string; description: string; content: string }[] {
-  const text = `${name} ${description ?? ''}`.toLowerCase()
-
-  const domainMatches: Array<{ domain: string; score: number }> = []
-  const keywords: Record<string, string[]> = {
-    marketing: ['marketing', 'brand', 'social media', 'content', 'campaign', 'storytelling', 'seo'],
-    security: ['security', 'cyber', 'threat', 'alert', 'incident', 'vulnerability', 'guardian'],
-    devops: [
-      'devops',
-      'infrastructure',
-      'deploy',
-      'server',
-      'monitor',
-      'ci/cd',
-      'kubernetes',
-      'docker',
-    ],
-    analytics: ['analytics', 'data', 'report', 'metric', 'dashboard', 'insight', 'crunch'],
-    support: ['support', 'customer', 'help desk', 'ticket', 'service', 'care'],
-  }
-
-  for (const [domain, words] of Object.entries(keywords)) {
-    const score = words.filter((w) => text.includes(w)).length
-    if (score > 0) domainMatches.push({ domain, score })
-  }
-
-  // Sort by score descending, pick best match
-  domainMatches.sort((a, b) => b.score - a.score)
-  const bestDomain = domainMatches[0]?.domain
-  if (bestDomain && DOMAIN_SKILLS[bestDomain]) {
-    return DOMAIN_SKILLS[bestDomain]
-  }
-
-  // Fallback: generic starter skills
-  return [
-    {
-      name: 'Getting Started',
-      description: `Quick reference for ${name}`,
-      content: `Quick Reference for ${name}:\n\n1. This agent is designed for: ${description ?? 'general assistance'}.\n2. Add workflows to give this agent real automation capabilities.\n3. Connect apps in Settings > Integrations to enable app-specific actions.\n4. Create procedure skills to teach this agent step-by-step processes.\n5. Create knowledge skills to give this agent domain expertise.`,
-    },
-  ]
-}
 
 /**
  * Platform-level tools for the Snew Telegram assistant.
@@ -151,193 +30,87 @@ export function buildPlatformTools(
   const ownerUserId = userId
   const getClient = async () => supabaseClient ?? (await createServerClient())
   return {
-    SNEW_LIST_AGENTS: {
+    SNEW_LIST_SKILLS: {
       description:
-        'List all AI agents in the workspace. Returns each agent with its id, name, description, model, and status.',
+        'List all skills available to the team with their status (available, active, deprecated).',
       inputSchema: jsonSchema({ type: 'object', properties: {} }),
       execute: async () => {
         const supabase = await getClient()
-        const { data, error } = await supabase
-          .from('agents')
-          .select('id, name, description, palette, model, system_prompt, created_at')
-          .eq('team_id', teamId)
-          .order('name')
-        if (error) return { error: error.message }
+        const skills = await fetchTeamSkills(supabase, teamId)
         return {
-          agents: (data ?? []).map((a) => ({
-            id: a.id,
-            name: a.name,
-            description: a.description,
-            palette: a.palette,
-            model: a.model,
-            has_system_prompt: !!a.system_prompt,
-            created_at: a.created_at,
+          skills: skills.map((s) => ({
+            slug: s.slug,
+            name: s.name,
+            description: s.description,
+            category: s.category,
+            status: s.status,
+            requires_connections: s.requires_connections,
+            dependencies: s.dependencies,
           })),
-          count: data?.length ?? 0,
+          count: skills.length,
         }
       },
     },
 
-    SNEW_GET_AGENT: {
+    SNEW_GET_SKILL: {
       description:
-        'Get detailed information about a specific agent, including its system prompt and configuration.',
+        'Get detailed information about a specific skill, including its configuration and recent executions.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          agent_id: { type: 'string', description: 'The agent ID' },
+          skill_slug: {
+            type: 'string',
+            description: 'The skill slug (e.g. "copywriter", "seasonal-calendar")',
+          },
         },
-        required: ['agent_id'],
+        required: ['skill_slug'],
       }),
-      execute: async (params: { agent_id: string }) => {
+      execute: async (params: { skill_slug: string }) => {
         const supabase = await getClient()
-        const [{ data: agent }, { data: skills }, { data: workflows }] = await Promise.all([
-          supabase
-            .from('agents')
-            .select(
-              'id, name, description, palette, model, system_prompt, temperature, max_tokens, created_at'
-            )
-            .eq('id', params.agent_id)
-            .eq('team_id', teamId)
-            .single(),
-          supabase
-            .from('agent_skills')
-            .select('id, name, type, description, is_enabled')
-            .eq('agent_id', params.agent_id),
-          supabase
-            .from('agent_workflows')
-            .select('id, name, description, is_enabled')
-            .eq('agent_id', params.agent_id),
-        ])
-        if (!agent) return { error: 'Agent not found' }
+        const skill = await fetchSkillBySlug(supabase, teamId, params.skill_slug)
+        if (!skill) return { error: `Skill '${params.skill_slug}' not found` }
+        const executions = await fetchSkillExecutions(supabase, skill.id, 5)
         return {
-          agent,
-          skills: skills ?? [],
-          workflows: workflows ?? [],
+          slug: skill.slug,
+          name: skill.name,
+          description: skill.description,
+          category: skill.category,
+          status: skill.status,
+          dependencies: skill.dependencies,
+          requires_connections: skill.requires_connections,
+          is_native: skill.is_native,
+          last_executions: executions.map((e) => ({
+            id: e.id,
+            status: e.status,
+            duration_ms: e.duration_ms,
+            created_at: e.created_at,
+          })),
         }
       },
     },
 
-    SNEW_CREATE_AGENT: {
+    SNEW_RUN_SKILL: {
       description:
-        'Create a new AI agent in the workspace. An agent is just an identity (name + personality). It does NOT have connected apps — those come from workflows. Keep the system_prompt short (1-2 sentences about role/tone). Never mention specific apps in the system_prompt.',
+        'Execute a skill with optional input data. The skill must be active. Returns the skill execution result.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Agent name' },
-          description: { type: 'string', description: 'What this agent does' },
-          system_prompt: {
-            type: 'string',
-            description: 'System prompt / personality for the agent',
-          },
-          palette: {
-            type: 'string',
-            enum: [
-              'blue',
-              'orange',
-              'green',
-              'purple',
-              'red',
-              'teal',
-              'pink',
-              'amber',
-              'slate',
-              'cyan',
-              'lime',
-              'rose',
-              'indigo',
-            ],
-            description:
-              "Color palette for the agent avatar and card background. Choose based on the agent's personality: blue (professional/corporate), orange (creative/energetic), green (growth/finance/nature), purple (luxury/AI/creative), red (urgent/alerts/security), teal (calm/health/support), pink (social/marketing/fun), amber (warm/knowledge/education), slate (neutral/technical/dev-ops), cyan (data/analytics/science), lime (fresh/eco/startup), rose (elegant/gentle/care), indigo (deep-tech/research/space). Default: blue.",
-          },
-          model: { type: 'string', description: 'LLM model (default: gpt-4o)' },
+          skill_slug: { type: 'string', description: 'The skill slug to execute' },
+          input: { type: 'object', description: 'Optional input data for the skill' },
         },
-        required: ['name'],
+        required: ['skill_slug'],
       }),
-      execute: async (params: {
-        name: string
-        description?: string
-        system_prompt?: string
-        palette?: string
-        model?: string
-      }) => {
+      execute: async (params: { skill_slug: string; input?: Record<string, unknown> }) => {
         const supabase = await getClient()
-
-        // Always ensure distinct palette — even if the AI picked one
-        const allPalettes = [
-          'blue',
-          'orange',
-          'green',
-          'purple',
-          'red',
-          'teal',
-          'pink',
-          'amber',
-          'slate',
-          'cyan',
-          'lime',
-          'rose',
-          'indigo',
-        ]
-        const { data: existing } = await supabase
-          .from('agents')
-          .select('palette')
-          .eq('team_id', teamId)
-        const usedPalettes = new Set((existing ?? []).map((a) => a.palette))
-        const available = allPalettes.filter((p) => !usedPalettes.has(p))
-
-        let palette = params.palette
-        if (!palette || usedPalettes.has(palette)) {
-          // AI's choice is already taken or not specified — pick the first unused
-          palette = available.length > 0 ? available[0] : (params.palette ?? 'blue')
+        const result = await executeSkill(supabase, teamId, params.skill_slug, params.input)
+        if (result.status === 'failed') {
+          return { error: result.error ?? 'Skill execution failed' }
         }
-
-        const { data, error } = await supabase
-          .from('agents')
-          .insert({
-            team_id: teamId,
-            created_by: ownerUserId,
-            name: params.name,
-            description: params.description ?? null,
-            system_prompt: params.system_prompt ?? null,
-            palette,
-            model: params.model ?? 'gpt-4o',
-          })
-          .select('id, name, palette')
-          .single()
-        if (error) return { error: error.message }
-
-        // Auto-create 2-3 starter knowledge skills based on the agent's domain
-        const starterSkills = generateStarterSkills(params.name, params.description)
-        const createdSkills: string[] = []
-        const failedSkills: string[] = []
-        for (const skill of starterSkills) {
-          const { data: skillData, error: skillError } = await supabase
-            .from('agent_skills')
-            .insert({
-              agent_id: data.id,
-              name: skill.name,
-              description: skill.description,
-              content: skill.content,
-              type: 'knowledge',
-              version: 1,
-              metadata: {},
-              source: 'chat',
-            })
-            .select('name')
-            .single()
-          if (skillData) createdSkills.push(skillData.name)
-          else if (skillError) failedSkills.push(skill.name)
-        }
-
         return {
-          success: true,
-          agent_id: data.id,
-          name: data.name,
-          palette: data.palette,
-          starter_skills: createdSkills,
-          ...(failedSkills.length > 0 && {
-            starter_skills_warning: `Failed to create: ${failedSkills.join(', ')}`,
-          }),
+          execution_id: result.executionId,
+          status: result.status,
+          output: result.output,
+          duration_ms: result.durationMs,
         }
       },
     },
@@ -567,26 +340,6 @@ export function buildPlatformTools(
       },
     },
 
-    SNEW_LIST_SKILLS: {
-      description: 'List skills for a specific agent.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          agent_id: { type: 'string', description: 'The agent ID' },
-        },
-        required: ['agent_id'],
-      }),
-      execute: async (params: { agent_id: string }) => {
-        const supabase = await getClient()
-        const { data } = await supabase
-          .from('agent_skills')
-          .select('id, name, description, type, is_enabled, version')
-          .eq('agent_id', params.agent_id)
-          .order('created_at', { ascending: true })
-        return { skills: data ?? [] }
-      },
-    },
-
     SNEW_RUN_WORKFLOW: {
       description: 'Trigger a manual workflow run.',
       inputSchema: jsonSchema({
@@ -672,145 +425,6 @@ export function buildPlatformTools(
         return { runs: data ?? [], count: data?.length ?? 0 }
       },
     },
-    SNEW_ASK_AGENT: {
-      description:
-        'Ask a specialist agent a question. The agent processes the question using its own tools, knowledge skills, and connected apps, then returns a response. Use this to delegate domain-specific questions to the right specialist.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          agent_id: {
-            type: 'string',
-            description: 'The ID of the specialist agent to ask',
-          },
-          message: {
-            type: 'string',
-            description:
-              'The question or request to send to the agent. Include all relevant context — the agent has no conversation history.',
-          },
-        },
-        required: ['agent_id', 'message'],
-      }),
-      execute: async (params: { agent_id: string; message: string }) => {
-        const supabase = await getClient()
-
-        // Verify agent belongs to same team
-        const { data: targetAgent } = await supabase
-          .from('agents')
-          .select('id, name, team_id')
-          .eq('id', params.agent_id)
-          .eq('team_id', teamId)
-          .single()
-
-        if (!targetAgent) {
-          return { error: 'Agent not found or does not belong to this workspace' }
-        }
-
-        // Load the sub-agent's full context (tools, skills, connections, prompt)
-        const ctx = await loadAgentContext(supabase, params.agent_id, ownerUserId, teamId)
-        if (!ctx) {
-          return { error: `Failed to load context for agent "${targetAgent.name}"` }
-        }
-
-        // Create a REAL conversation in the agent's tables so the user can see it
-        // when they visit the agent's chat page.
-        let conversationId: string | null = null
-        try {
-          // Find existing active conversation or create new one
-          const { data: existingConv } = await supabase
-            .from('agent_conversations')
-            .select('id')
-            .eq('agent_id', params.agent_id)
-            .eq('user_id', ownerUserId)
-            .eq('is_active', true)
-            .limit(1)
-            .single()
-
-          if (existingConv) {
-            conversationId = existingConv.id
-          } else {
-            const { data: newConv } = await supabase
-              .from('agent_conversations')
-              .insert({
-                agent_id: params.agent_id,
-                user_id: ownerUserId,
-                created_by: ownerUserId,
-                is_active: true,
-                title: params.message.slice(0, 100),
-              })
-              .select('id')
-              .single()
-            conversationId = newConv?.id ?? null
-          }
-
-          // Persist the user message (from orchestrator) in the agent's conversation
-          if (conversationId) {
-            await supabase.from('agent_messages').insert({
-              conversation_id: conversationId,
-              role: 'user',
-              content: params.message,
-              sender_id: ownerUserId,
-              metadata: { source: 'orchestrator', channel: 'delegation' },
-            })
-          }
-        } catch {
-          // Non-fatal — conversation persistence should not block delegation
-        }
-
-        try {
-          // Load conversation history for context (last 20 messages)
-          let messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-            { role: 'user', content: params.message },
-          ]
-          if (conversationId) {
-            const { data: historyRows } = await supabase
-              .from('agent_messages')
-              .select('role, content')
-              .eq('conversation_id', conversationId)
-              .order('created_at', { ascending: true })
-              .limit(20)
-            if (historyRows && historyRows.length > 0) {
-              messages = historyRows
-                .filter((m) => m.role === 'user' || m.role === 'assistant')
-                .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-            }
-          }
-
-          const result = await runAgentChatSync({
-            userId: ctx.composioEntityId,
-            agent: ctx.agentConfig,
-            messages,
-            systemPrompt: ctx.systemPrompt,
-            relayTools: ctx.relayTools,
-            connectedAppIds: ctx.connectedAppIds.length > 0 ? ctx.connectedAppIds : undefined,
-            connectedAccountMap: ctx.connectedAccountMap,
-          })
-
-          // Persist the agent's response in the conversation
-          if (conversationId && result.text) {
-            await supabase.from('agent_messages').insert({
-              conversation_id: conversationId,
-              role: 'assistant',
-              content: result.text,
-              metadata: { source: 'orchestrator', channel: 'delegation' },
-            })
-          }
-
-          return {
-            agent_name: targetAgent.name,
-            agent_id: targetAgent.id,
-            response: result.text,
-            tokens_used: result.usage.totalTokens,
-            conversation_id: conversationId,
-          }
-        } catch (error) {
-          return {
-            agent_name: targetAgent.name,
-            error: error instanceof Error ? error.message : 'Agent chat failed',
-          }
-        }
-      },
-    },
-
     // ── Module tools (available when agent has agent_type) ──────────────
 
     AGENT_QUERY_MODULE_DATA: {
@@ -978,274 +592,127 @@ export function buildPlatformTools(
       },
     },
 
-    SNEW_INSTALL_AGENT: {
+    SNEW_ACTIVATE_SKILL: {
       description:
-        'Install a co-worker agent from the catalog into the current team workspace. Use when the user asks to install or activate a specific agent type.',
+        'Activate a skill from the catalog for the current team. Use when the user asks to activate, enable, or install a specific skill.',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
-          catalog_id: {
+          skill_slug: {
             type: 'string',
             description:
-              "The catalog agent ID to install (e.g. 'abandoned-cart', 'upsell-retention', 'competitor-watch')",
+              "The skill slug to activate (e.g. 'copywriter', 'seasonal-calendar', 'churn-prediction')",
           },
         },
-        required: ['catalog_id'],
+        required: ['skill_slug'],
       }),
-      execute: async (params: { catalog_id: string }) => {
-        const entry = catalog.find((a) => a.id === params.catalog_id)
+      execute: async (params: { skill_slug: string }) => {
+        const entry = skillCatalog.find((s) => s.slug === params.skill_slug)
         if (!entry) {
           return {
-            error: `Agent "${params.catalog_id}" not found in catalog. Available IDs: ${catalog.map((a) => a.id).join(', ')}`,
+            error: `Skill "${params.skill_slug}" not found in catalog. Available slugs: ${skillCatalog.map((s) => s.slug).join(', ')}`,
           }
         }
 
         const supabase = await getClient()
+        const skill = await fetchSkillBySlug(supabase, teamId, params.skill_slug)
 
-        // Check if an agent with this agent_type is already installed
-        if (entry.agentType) {
-          const { data: existing } = await supabase
-            .from('agents')
-            .select('id, name')
-            .eq('team_id', teamId)
-            .eq('agent_type' as never, entry.agentType)
-            .maybeSingle()
+        if (!skill) {
+          return {
+            error: `Skill "${params.skill_slug}" not found for this team. Run skill seeding first.`,
+          }
+        }
 
-          if (existing) {
-            return {
-              already_installed: true,
-              message: `"${entry.name}" is already installed in this workspace.`,
-              agent_id: (existing as { id: string }).id,
+        if (skill.status === 'active') {
+          return {
+            already_active: true,
+            message: `"${entry.name}" is already active.`,
+            slug: skill.slug,
+          }
+        }
+
+        // Check dependencies
+        if (entry.dependencies.length > 0) {
+          for (const dep of entry.dependencies) {
+            const depSkill = await fetchSkillBySlug(supabase, teamId, dep)
+            if (!depSkill || depSkill.status !== 'active') {
+              return {
+                error: `Skill "${entry.name}" requires "${dep}" to be active first. Activate "${dep}" and try again.`,
+              }
             }
           }
         }
 
-        // Create the agent
-        const { data: agent, error: agentError } = await supabase
-          .from('agents')
-          .insert({
-            team_id: teamId,
-            created_by: ownerUserId,
-            name: entry.name,
-            description: entry.description,
-            model: 'gpt-4o',
-            is_orchestrator: false,
-          })
-          .select('id, name')
-          .single()
-
-        if (agentError || !agent) {
-          return { error: agentError?.message ?? 'Failed to create agent' }
-        }
-
-        // Set agent_type if available (bypass PostgREST schema cache)
-        if (entry.agentType) {
-          const { error: typeError } = await supabase.rpc(
-            'execute_sql' as never,
-            {
-              query: `UPDATE agents SET agent_type = '${entry.agentType}' WHERE id = '${agent.id}'`,
-            } as never
-          )
-
-          if (typeError) {
-            await supabase
-              .from('agents')
-              .update({ agent_type: entry.agentType } as never)
-              .eq('id', agent.id)
+        // Activate the skill
+        await (
+          supabase as unknown as {
+            from: (t: string) => {
+              update: (d: unknown) => {
+                eq: (
+                  k: string,
+                  v: string
+                ) => {
+                  eq: (k: string, v: string) => Promise<{ error: unknown }>
+                }
+              }
+            }
           }
-        }
+        )
+          .from('skills')
+          .update({ status: 'active', updated_at: new Date().toISOString() })
+          .eq('team_id', teamId)
+          .eq('slug', params.skill_slug)
 
         return {
           success: true,
-          agent_id: agent.id,
-          name: agent.name,
-          message: `"${agent.name}" has been installed successfully.`,
+          slug: skill.slug,
+          name: entry.name,
+          message: `"${entry.name}" has been activated successfully.`,
         }
       },
     },
 
-    SNEW_GET_AGENT_ACTIVITY: {
+    SNEW_GET_SKILLS_ACTIVITY: {
       description:
-        'Get recent activity from a specific co-worker agent. Returns recent workflow outputs, KPIs, and action summaries for that agent.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          agent_name: {
-            type: 'string',
-            description: 'Name of the co-worker agent to query',
-          },
-        },
-        required: ['agent_name'],
-      }),
-      execute: async (params: { agent_name: string }) => {
-        const supabase = await getClient()
-
-        // Find agent by name in this team
-        const { data: agent } = await supabase
-          .from('agents')
-          .select('id, name, description')
-          .eq('team_id', teamId)
-          .ilike('name', params.agent_name)
-          .maybeSingle()
-
-        if (!agent) {
-          return { error: `Agent "${params.agent_name}" not found in this workspace.` }
-        }
-
-        // Get modules for this agent
-        const { data: modules } = await supabase
-          .from('agent_modules' as never)
-          .select('id, name, module_type')
-          .eq('agent_id' as never, agent.id)
-
-        if (!modules || (modules as unknown[]).length === 0) {
-          return {
-            agent_name: agent.name,
-            message: 'This agent has no modules with recorded activity.',
-            outputs: [],
-          }
-        }
-
-        const moduleIds = (modules as { id: string }[]).map((m) => m.id)
-
-        // Query recent workflow_run_outputs for these modules
-        const { data: outputs } = await supabase
-          .from('workflow_run_outputs' as never)
-          .select('output_type, output_data, summary_text, created_at')
-          .in('module_id' as never, moduleIds)
-          .order('created_at' as never, { ascending: false })
-          .limit(10)
-
-        if (!outputs || (outputs as unknown[]).length === 0) {
-          return {
-            agent_name: agent.name,
-            message: 'No recent activity recorded.',
-            outputs: [],
-          }
-        }
-
-        type OutputRow = {
-          output_type: string
-          output_data: Record<string, unknown>
-          summary_text: string | null
-          created_at: string
-        }
-        const rows = outputs as OutputRow[]
-
-        const kpiRows = rows.filter((r) => r.output_type === 'kpi-summary')
-        const actionRows = rows.filter((r) => r.output_type !== 'kpi-summary')
-
-        const kpiAgg = new Map<string, string>()
-        for (const row of kpiRows) {
-          const kpis = (row.output_data?.kpis ?? []) as { label: string; value: string }[]
-          for (const kpi of kpis) {
-            kpiAgg.set(kpi.label, kpi.value)
-          }
-        }
-
-        return {
-          agent_name: agent.name,
-          total_outputs: rows.length,
-          kpis: Array.from(kpiAgg.entries()).map(([label, value]) => ({ label, value })),
-          recent_actions: actionRows.slice(0, 5).map((r) => ({
-            type: r.output_type,
-            summary: r.summary_text ?? r.output_type,
-            at: r.created_at,
-          })),
-          latest_summary: kpiRows[0]?.output_data?.summary as string | undefined,
-        }
-      },
-    },
-
-    SNEW_GET_ALL_AGENTS_ACTIVITY: {
-      description:
-        'Get a summary of recent activity across all active co-worker agents in the workspace. Use for cross-agent overviews like "what are all my agents doing?".',
+        'Get a summary of recent skill executions across all active skills. Use for overviews like "what skills have been running?".',
       inputSchema: jsonSchema({ type: 'object', properties: {} }),
       execute: async () => {
         const supabase = await getClient()
+        const activeSkills = await fetchTeamSkills(supabase, teamId)
+        const active = activeSkills.filter((s) => s.status === 'active')
 
-        // Get all non-orchestrator agents for this team
-        const { data: agents } = await supabase
-          .from('agents')
-          .select('id, name, description')
-          .eq('team_id', teamId)
-          .eq('is_orchestrator', false)
-          .order('name')
-
-        if (!agents || agents.length === 0) {
-          return { message: 'No co-worker agents installed.', agents: [] }
+        if (active.length === 0) {
+          return { message: 'No active skills.', skills: [] }
         }
 
         const summaries: Array<{
-          agent_name: string
-          total_outputs: number
-          latest_summary: string | null
-          kpis: { label: string; value: string }[]
+          skill_name: string
+          slug: string
+          category: string
+          total_executions: number
+          last_execution: { status: string; duration_ms: number | null; created_at: string } | null
         }> = []
 
-        for (const agent of agents) {
-          const { data: modules } = await supabase
-            .from('agent_modules' as never)
-            .select('id')
-            .eq('agent_id' as never, agent.id)
-
-          if (!modules || (modules as unknown[]).length === 0) {
-            summaries.push({
-              agent_name: agent.name,
-              total_outputs: 0,
-              latest_summary: null,
-              kpis: [],
-            })
-            continue
-          }
-
-          const moduleIds = (modules as { id: string }[]).map((m) => m.id)
-
-          const { data: outputs } = await supabase
-            .from('workflow_run_outputs' as never)
-            .select('output_type, output_data, summary_text, created_at')
-            .in('module_id' as never, moduleIds)
-            .order('created_at' as never, { ascending: false })
-            .limit(10)
-
-          if (!outputs || (outputs as unknown[]).length === 0) {
-            summaries.push({
-              agent_name: agent.name,
-              total_outputs: 0,
-              latest_summary: null,
-              kpis: [],
-            })
-            continue
-          }
-
-          type OutputRow = {
-            output_type: string
-            output_data: Record<string, unknown>
-            summary_text: string | null
-            created_at: string
-          }
-          const rows = outputs as OutputRow[]
-          const kpiRows = rows.filter((r) => r.output_type === 'kpi-summary')
-
-          const kpiAgg = new Map<string, string>()
-          for (const row of kpiRows) {
-            const kpis = (row.output_data?.kpis ?? []) as { label: string; value: string }[]
-            for (const kpi of kpis) {
-              kpiAgg.set(kpi.label, kpi.value)
-            }
-          }
-
+        for (const skill of active) {
+          const executions = await fetchSkillExecutions(supabase, skill.id, 5)
           summaries.push({
-            agent_name: agent.name,
-            total_outputs: rows.length,
-            latest_summary: (kpiRows[0]?.output_data?.summary as string) ?? null,
-            kpis: Array.from(kpiAgg.entries()).map(([label, value]) => ({ label, value })),
+            skill_name: skill.name,
+            slug: skill.slug,
+            category: skill.category,
+            total_executions: executions.length,
+            last_execution: executions[0]
+              ? {
+                  status: executions[0].status,
+                  duration_ms: executions[0].duration_ms,
+                  created_at: executions[0].created_at,
+                }
+              : null,
           })
         }
 
         return {
-          total_agents: agents.length,
-          agents: summaries,
+          total_active_skills: active.length,
+          skills: summaries,
         }
       },
     },
@@ -1507,13 +974,17 @@ export function buildPlatformSystemPrompt(
 
 /**
  * System prompt for the orchestrator agent (web + Telegram).
- * The orchestrator is the central chat entry point — it delegates domain-specific
- * questions to specialist agents via SNEW_ASK_AGENT and handles meta/platform
- * questions directly using SNEW_ and STORE_ tools.
+ * Snew is the single agent — capabilities are delivered via skills, not sub-agents.
  */
 export function buildOrchestratorSystemPrompt(
   teamName: string,
-  agents: Array<{ id: string; name: string; description: string | null }>,
+  skills: Array<{
+    slug: string
+    name: string
+    description: string | null
+    category: string
+    status: string
+  }>,
   retailContext?: {
     storeName: string
     segment: string
@@ -1521,22 +992,47 @@ export function buildOrchestratorSystemPrompt(
     hasProducts: boolean
   }
 ): string {
+  // Group active skills by category
+  const activeSkills = skills.filter((s) => s.status === 'active')
+  const skillsByCategory = activeSkills.reduce<Record<string, typeof activeSkills>>((acc, s) => {
+    const cat = s.category || 'general'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(s)
+    return acc
+  }, {})
+
+  const skillLines: string[] = []
+  for (const [category, categorySkills] of Object.entries(skillsByCategory)) {
+    skillLines.push(`**${category}**`)
+    for (const s of categorySkills) {
+      skillLines.push(`- \`${s.slug}\` — ${s.name}${s.description ? `: ${s.description}` : ''}`)
+    }
+    skillLines.push('')
+  }
+
+  if (activeSkills.length === 0) {
+    skillLines.push(
+      'No skills are currently active. Use SNEW_LIST_SKILLS to see all available skills.'
+    )
+    skillLines.push('')
+  }
+
   return [
     // ── Identity ──────────────────────────────────────────────────────────
     '## Identity',
     'Name: Snew',
     `Role: Central assistant for the "${teamName}" workspace`,
-    'You are the single entry point for all user requests. You delegate domain-specific questions to specialist agents and handle meta/platform questions directly.',
+    'You are the single AI assistant for this workspace. You answer questions, manage workflows, and execute skills directly — there are no sub-agents to delegate to.',
     '',
 
     // ── Soul ──────────────────────────────────────────────────────────────
     '## Soul',
     '',
     '**Core Truths**',
-    '- I am the central assistant. Users talk to me and I route to the right specialist when needed.',
-    '- I delegate using SNEW_ASK_AGENT when a specialist can answer better than me.',
+    '- I am the single assistant. I handle everything directly — using skills when I need extended capabilities.',
+    '- I use SNEW_RUN_SKILL when a skill can do the job better or has access to specialized data.',
     '- For simple questions, greetings, or platform management — I answer directly.',
-    '- I never guess IDs, names, or parameters. I look them up first — always.',
+    '- I never guess IDs, slugs, or parameters. I look them up first — always.',
     '- I ask before I delete, disable, or run something irreversible.',
     "- I match your energy: short when you're brief, detailed when you want depth.",
     '',
@@ -1548,50 +1044,40 @@ export function buildOrchestratorSystemPrompt(
     "- Honest about limitations. If I can't do something, I say so immediately with an alternative.",
     '',
 
-    // ── Specialist Agents ─────────────────────────────────────────────────
-    '## Specialist Agents',
+    // ── Available Skills ──────────────────────────────────────────────────
+    '## Available Skills',
     '',
-    'These are your team specialists. Use SNEW_ASK_AGENT to delegate questions to them:',
+    'These skills extend my capabilities. Use SNEW_RUN_SKILL to execute them:',
     '',
-    ...agents
-      .filter((a) => a.description)
-      .map((a) => `- **${a.name}** (id: \`${a.id}\`): ${a.description}`),
-    '',
+    ...skillLines,
 
-    // ── Routing Rules ─────────────────────────────────────────────────────
-    '## Routing Rules',
+    // ── Skill Activation Rules ────────────────────────────────────────────
+    '## Skill Activation Rules',
     '',
-    '**DELEGATE to a specialist via SNEW_ASK_AGENT when:**',
-    '- The question is about stock, inventory, low-stock alerts → Stock Manager',
-    '- The question is about competitor prices, price monitoring, price comparison → Price Monitor',
-    '- The question is about sales, revenue, daily summaries, orders → Sales Analyst',
-    '- The question is about customer service, FAQs, customer communication → Customer Service',
-    "- The question matches any specialist's domain based on their description above",
+    '**Use SNEW_RUN_SKILL when:**',
+    '- The request involves domain-specific analysis, content generation, or data processing a skill is built for',
+    '- The skill has access to specialized data or external integrations needed to answer the question',
+    "- The task is clearly within a skill's described purpose",
     '',
-    '**HANDLE DIRECTLY (no delegation) when:**',
+    '**Answer directly (no skill needed) when:**',
     '- Greetings, casual chat, "what can you do?"',
-    '- Platform management: list/create/delete agents, manage workflows, check connections',
-    '- Meta questions: "how many agents do I have?", "show my workflows"',
-    '- Cross-domain questions that span multiple specialists (summarize by asking each)',
-    '- The user explicitly asks YOU to do something (not a specialist)',
+    '- Platform management: list/run workflows, check connections, inspect app capabilities',
+    '- Meta questions: "what skills do I have?", "show my workflows"',
+    '- Simple factual questions you can answer from context',
+    '- The user explicitly asks YOU to answer (not a skill)',
     '',
-    '**When delegating:**',
-    '- Include all relevant context in the message — the specialist has no conversation history',
-    '- After getting the response, present it naturally as your own answer',
-    '- Attribute the source briefly: "According to your Stock Manager, ..."',
-    '- If the specialist returns an error, try to help directly or explain what went wrong',
-    '',
-    '**For cross-domain questions** (e.g. "give me a full business overview"):',
-    '- Delegate to multiple specialists in sequence',
-    '- Combine their responses into a unified summary',
+    '**Before running a skill:**',
+    '- If uncertain which skill fits, call SNEW_LIST_SKILLS first to see slugs and descriptions',
+    '- Pass relevant context as `input` — skills do not have conversation history',
+    '- If the skill returns an error, try to answer directly or explain what went wrong',
     '',
 
-    // ── Direct Capabilities ──────────────────────────────────────────────
-    '## Direct Capabilities (no delegation needed)',
+    // ── Direct Capabilities ───────────────────────────────────────────────
+    '## Direct Capabilities',
     '',
-    '- **SNEW_LIST_AGENTS** — list all agents in the workspace',
-    '- **SNEW_GET_AGENT** — get details about a specific agent',
-    '- **SNEW_CREATE_AGENT** — create a new agent',
+    '- **SNEW_LIST_SKILLS** — list all available skills with status and category',
+    '- **SNEW_GET_SKILL** — get details and recent executions for a specific skill',
+    '- **SNEW_RUN_SKILL** — execute a skill with optional input data',
     '- **SNEW_LIST_WORKFLOWS** — list workflows',
     '- **SNEW_RUN_WORKFLOW** — trigger a workflow',
     '- **SNEW_LIST_RUNS** — list recent workflow runs',
@@ -1599,10 +1085,9 @@ export function buildOrchestratorSystemPrompt(
     '- **SNEW_LIST_AVAILABLE_APPS** — list all available integrations',
     '- **SNEW_LIST_APP_CAPABILITIES** — inspect actions/triggers for an app',
     '- **SNEW_CREATE_SKILL** — create agent context entries',
-    '- **SNEW_LIST_SKILLS** — list skills on an agent',
     '',
 
-    // ── Response Format ──────────────────────────────────────────────────
+    // ── Response Format ───────────────────────────────────────────────────
     '## Response Format',
     '',
     '**Always natural language.** After executing ANY tool, write a clear summary. NEVER return raw JSON.',
@@ -1618,16 +1103,10 @@ export function buildOrchestratorSystemPrompt(
     '',
     'Embed these HTML comment markers in your responses. They are invisible to users but power the UI.',
     '',
-    '**Co-worker attribution (when you used SNEW_ASK_AGENT):**',
-    'After delegating to a specialist agent, include this marker once in your response:',
+    '**Skill suggestion (when a relevant skill is NOT active):**',
+    'If the user asks about a domain that would benefit from a skill not yet active, include:',
     '```',
-    '<!-- snew:coworker {"id":"<agent-uuid>","name":"<Agent Name>","catalogId":"<agent-uuid>","type":"used","reason":"<brief reason why this agent was consulted>"} -->',
-    '```',
-    '',
-    '**Co-worker suggestion (when a relevant agent is NOT installed):**',
-    'If the user asks about a domain that would benefit from a specialist not yet in the workspace, include:',
-    '```',
-    '<!-- snew:coworker {"id":"<catalog-slug>","name":"<Agent Name>","catalogId":"<catalog-slug>","type":"suggested","reason":"<why this agent would help>"} -->',
+    '<!-- snew:skill {"slug":"<skill-slug>","name":"<Skill Name>","type":"suggested","reason":"<why this skill would help>"} -->',
     '```',
     '',
     '**Follow-up suggestions (REQUIRED at end of EVERY response):**',
@@ -1650,7 +1129,7 @@ export function buildOrchestratorSystemPrompt(
     'Rules: always provide `id` (short unique slug) and `title`. Place the marker at the END of your response. Do NOT emit artifacts for simple answers.',
     '',
 
-    // ── Retail Context (when store exists) ────────────────────────────
+    // ── Retail Context (when store exists) ────────────────────────────────
     ...(retailContext
       ? [
           '## Retail Context',
@@ -1660,14 +1139,18 @@ export function buildOrchestratorSystemPrompt(
             ? `The store is connected to **${retailContext.platform}** for product and order sync.`
             : 'The store has no online platform connected yet.',
           '',
-          '**Retail tools (use directly, no delegation):**',
+          '**Retail tools (use directly):**',
           '- STORE_QUERY_STOCK — check product stock levels',
           '- STORE_QUERY_SALES — get sales summaries',
           '- STORE_LIST_ORDERS — list recent orders',
           '- STORE_UPDATE_ALERT — configure stock alert thresholds',
           '- STORE_TRIGGER_SYNC — sync products from platform',
           '',
-          '**However**, for deeper analysis or when the user asks follow-up questions about stock/sales/prices, delegate to the appropriate specialist — they have domain expertise.',
+          retailContext.hasProducts
+            ? 'The store has synced products. Use STORE_ tools to answer stock and sales questions with real data.'
+            : 'The store has no synced products yet. If the user asks about stock or sales, suggest connecting their platform or triggering a sync.',
+          '',
+          '**IMPORTANT**: For retail queries, ALWAYS use the STORE_ tools. Do NOT use SNEW_ tools for stock, sales, or order questions.',
           '',
         ]
       : []),

@@ -1,3 +1,9 @@
+/**
+ * @deprecated These queries read from `agent_conversations` and `agent_messages` (legacy tables).
+ * These tables are deprecated in favor of `conversations` and `conversation_messages`.
+ * Used only by the legacy agent detail chat pages. Will be removed in a future release.
+ */
+
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 

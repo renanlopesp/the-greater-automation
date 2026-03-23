@@ -1,3 +1,8 @@
+/**
+ * @deprecated This endpoint is deprecated. All chat should go through POST /api/chat.
+ * Kept temporarily for backward compatibility with agent detail pages.
+ * Will be removed in a future release.
+ */
 export const maxDuration = 120
 
 import { NextRequest, NextResponse, after } from 'next/server'
@@ -82,14 +87,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // When the agent is an orchestrator, use platform tools + SNEW_ASK_AGENT
   // instead of agent-scoped tools, and use the orchestrator system prompt.
   if (agent.is_orchestrator) {
-    // Load team's specialist agents for the orchestrator prompt catalog
-    const [{ data: teamAgents }, { data: store }] = await Promise.all([
+    // Load team skills for the orchestrator prompt
+    const [{ data: teamSkills }, { data: store }] = await Promise.all([
       supabase
-        .from('agents')
-        .select('id, name, description')
-        .eq('team_id', agent.team_id)
-        .eq('is_orchestrator', false)
-        .order('name'),
+        .from('skills' as never)
+        .select('slug, name, description, category, status')
+        .eq('team_id' as never, agent.team_id)
+        .order('name' as never),
       supabase
         .from('stores')
         .select('id, name, segment, platform, platform_access_token')
@@ -112,10 +116,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ])
     const hasProducts = store ? (hasProductsResult.count ?? 0) > 0 : false
 
-    // Build orchestrator system prompt with agent catalog
+    // Build orchestrator system prompt with skills catalog
     const orchestratorPrompt = buildOrchestratorSystemPrompt(
       team?.name ?? 'Your workspace',
-      teamAgents ?? [],
+      (teamSkills as Array<{
+        slug: string
+        name: string
+        description: string | null
+        category: string
+        status: string
+      }> | null) ?? [],
       store
         ? {
             storeName: store.name,
