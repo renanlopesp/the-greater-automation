@@ -15,25 +15,29 @@ export function useActiveSkillsForSidebar() {
   const query = useQuery<SkillEntry[]>({
     queryKey: ['active-skills-sidebar'],
     queryFn: async () => {
-      const { data } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (s: string) => {
-              eq: (
-                k: string,
-                v: string
-              ) => {
-                order: (k: string) => Promise<{ data: SkillEntry[] | null }>
+      try {
+        const { data } = await (
+          supabase as unknown as {
+            from: (t: string) => {
+              select: (s: string) => {
+                eq: (
+                  k: string,
+                  v: string
+                ) => {
+                  order: (k: string) => Promise<{ data: SkillEntry[] | null }>
+                }
               }
             }
           }
-        }
-      )
-        .from('skills')
-        .select('slug, name, emoji')
-        .eq('status', 'active')
-        .order('name')
-      return data ?? []
+        )
+          .from('skills')
+          .select('slug, name, emoji')
+          .eq('status', 'active')
+          .order('name')
+        return data ?? []
+      } catch {
+        return []
+      }
     },
   })
 

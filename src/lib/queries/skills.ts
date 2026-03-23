@@ -44,30 +44,34 @@ export type SkillExecutionRow = {
 
 /** Fetch all skills for a team */
 export async function fetchTeamSkills(supabase: Client, teamId: string): Promise<SkillRow[]> {
-  const { data, error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (
-            k: string,
-            v: string
-          ) => {
-            order: (
+  try {
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
               k: string,
-              o: { ascending: boolean }
-            ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+              v: string
+            ) => {
+              order: (
+                k: string,
+                o: { ascending: boolean }
+              ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+            }
           }
         }
       }
-    }
-  )
-    .from('skills')
-    .select('*')
-    .eq('team_id', teamId)
-    .order('name', { ascending: true })
+    )
+      .from('skills')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('name', { ascending: true })
 
-  if (error) throw error
-  return data ?? []
+    if (error) return []
+    return data ?? []
+  } catch {
+    return []
+  }
 }
 
 /** Fetch a single skill by slug */
@@ -142,34 +146,38 @@ export async function fetchSkillExecutions(
 
 /** Fetch active skills for a team (for orchestrator system prompt) */
 export async function fetchActiveSkills(supabase: Client, teamId: string): Promise<SkillRow[]> {
-  const { data, error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (
-            k: string,
-            v: string
-          ) => {
+  try {
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
             eq: (
               k: string,
               v: string
             ) => {
-              order: (
+              eq: (
                 k: string,
-                o: { ascending: boolean }
-              ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+                v: string
+              ) => {
+                order: (
+                  k: string,
+                  o: { ascending: boolean }
+                ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+              }
             }
           }
         }
       }
-    }
-  )
-    .from('skills')
-    .select('*')
-    .eq('team_id', teamId)
-    .eq('status', 'active')
-    .order('name', { ascending: true })
+    )
+      .from('skills')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('status', 'active')
+      .order('name', { ascending: true })
 
-  if (error) throw error
-  return data ?? []
+    if (error) return []
+    return data ?? []
+  } catch {
+    return []
+  }
 }
