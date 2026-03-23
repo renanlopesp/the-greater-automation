@@ -11,6 +11,7 @@
 export interface SkillDefinition {
   slug: string
   name: string
+  emoji: string
   description: string
   detailedDescription: string
   category: SkillCategory
@@ -35,6 +36,8 @@ export type SkillCategory =
   | 'ads'
   | 'operations'
   | 'scale'
+  | 'cart'
+  | 'social'
 
 export const skillCategories: SkillCategory[] = [
   'foundation',
@@ -45,17 +48,21 @@ export const skillCategories: SkillCategory[] = [
   'ads',
   'operations',
   'scale',
+  'cart',
+  'social',
 ]
 
 export const skillCategoryLabels: Record<SkillCategory, string> = {
   foundation: 'Foundation',
-  campaign: 'Campaign',
-  content: 'Content',
-  retention: 'Retention',
-  analytics: 'Analytics',
-  ads: 'Ads',
-  operations: 'Operations',
-  scale: 'Scale',
+  campaign: 'Marketing & Campanhas',
+  content: 'Produto & Catálogo',
+  retention: 'Retenção & Churn',
+  analytics: 'Analytics & Inteligência',
+  ads: 'Ads & Performance',
+  operations: 'Visibilidade & IA',
+  scale: 'Atendimento & Experiência',
+  cart: 'Carrinho & Conversão',
+  social: 'Redes Sociais',
 }
 
 export const skills: SkillDefinition[] = [
@@ -63,6 +70,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'customer-service',
     name: 'Customer Service',
+    emoji: '💬',
     description:
       'Turn support into retention. Detects at-risk customers and automates personalized outreach via WhatsApp and Email.',
     detailedDescription:
@@ -78,11 +86,12 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'upsell-retention',
     name: 'Upsell & Retention',
+    emoji: '💎',
     description:
       'Identifies cross-sell and upsell opportunities based on purchase history and browsing behavior.',
     detailedDescription:
       'Analyzes customer purchase patterns and engagement signals to surface high-probability upsell and cross-sell opportunities.\n\nWhat it analyzes:\n• Purchase history and product affinity\n• Browsing behavior and wishlist activity\n• Cart abandonment patterns\n• Customer lifetime value tiers\n\nWhat actions it generates:\n• Personalized product recommendations (Email/WhatsApp)\n• Bundle and upgrade offers for repeat buyers\n• Post-purchase upsell sequences\n• Loyalty milestone reward triggers',
-    category: 'retention',
+    category: 'cart',
     phase: 3,
     icon: 'trending-up',
     color: '#5BA87B',
@@ -94,6 +103,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'review-reputation',
     name: 'Review & Reputation',
+    emoji: '⭐',
     description:
       'Automates review collection, monitors sentiment, and manages reputation across channels.',
     detailedDescription:
@@ -109,6 +119,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'churn-prediction',
     name: 'Churn Prediction',
+    emoji: '🛡️',
     description:
       'Predicts which customers are likely to churn and triggers preventive actions before they leave.',
     detailedDescription:
@@ -124,6 +135,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'vip-relationship',
     name: 'VIP Relationship',
+    emoji: '👑',
     description:
       'Manages high-value customer relationships with personalized touchpoints and exclusive experiences.',
     detailedDescription:
@@ -139,6 +151,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'sentiment-intelligence',
     name: 'Sentiment Intelligence',
+    emoji: '😊',
     description:
       'Analyzes customer sentiment across all touchpoints to surface hidden risks and opportunities.',
     detailedDescription:
@@ -156,6 +169,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'conversion-optimizer',
     name: 'Conversion Optimizer',
+    emoji: '🎯',
     description:
       'Identifies friction in product pages, checkout and messaging to improve conversion rate.',
     detailedDescription:
@@ -171,6 +185,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'retention-booster',
     name: 'Retention Booster',
+    emoji: '🛡️',
     description: 'Identifies churn risks and suggests retention flows.',
     detailedDescription:
       'Analyzes customer behavior patterns to identify at-risk customers and generate automated retention strategies.\n\nWhat it analyzes:\n• Purchase frequency and recency patterns\n• Customer engagement signals\n• Email open and click rates\n• Product return and complaint data\n\nWhat actions it generates:\n• Win-back email sequences\n• Loyalty program recommendations\n• Personalized offer strategies\n• Customer segment-specific retention flows',
@@ -185,6 +200,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'ad-waste-detector',
     name: 'Ad Waste Detector',
+    emoji: '⚡',
     description: 'Detects inefficient ad spend and performance leaks.',
     detailedDescription:
       'Monitors your advertising campaigns across platforms to identify wasted spend and optimization opportunities.\n\nWhat it analyzes:\n• Campaign ROAS and cost per acquisition\n• Audience targeting efficiency\n• Creative fatigue and ad frequency\n• Attribution gaps and tracking issues\n\nWhat actions it generates:\n• Budget reallocation recommendations\n• Underperforming campaign pause suggestions\n• Audience refinement strategies\n• Creative refresh priorities',
@@ -199,11 +215,12 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'content-engine',
     name: 'Content Engine',
+    emoji: '📲',
     description:
       'Generates and schedules content ideas based on trending topics, product launches, and audience signals.',
     detailedDescription:
       'Monitors trends, competitor content, and audience engagement to generate high-impact content strategies.\n\nWhat it analyzes:\n• Trending topics in your niche\n• Competitor content performance\n• Audience engagement patterns\n• Product launch calendars\n\nWhat actions it generates:\n• Content calendar with topic suggestions\n• Email newsletter drafts\n• Social media post ideas with copy\n• Blog post outlines optimized for SEO',
-    category: 'content',
+    category: 'social',
     phase: 2,
     icon: 'pen-tool',
     color: '#648EE9',
@@ -214,6 +231,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'email-performance',
     name: 'Email Performance',
+    emoji: '📩',
     description:
       'Optimizes email campaigns by analyzing open rates, click-throughs, and subscriber behavior.',
     detailedDescription:
@@ -231,6 +249,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'competitor-watch',
     name: 'Competitor Watch',
+    emoji: '👁️',
     description: 'Monitors competitor pricing, messaging shifts and campaign activity.',
     detailedDescription:
       "Keeps a constant eye on your competitors' digital presence, tracking changes in pricing, messaging, and advertising strategies.\n\nWhat it analyzes:\n• Competitor product pricing and promotions\n• Landing page and messaging changes\n• Ad creative and spend patterns\n• New product launches and positioning\n\nWhat actions it generates:\n• Price adjustment recommendations\n• Counter-messaging strategies\n• Opportunity alerts when competitors pull back\n• Market positioning reports",
@@ -245,6 +264,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'pricing-intelligence',
     name: 'Pricing Intelligence',
+    emoji: '💰',
     description:
       'Tracks competitor pricing in real time and recommends dynamic pricing adjustments.',
     detailedDescription:
@@ -260,6 +280,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'market-gap-finder',
     name: 'Market Gap Finder',
+    emoji: '🧭',
     description:
       'Identifies underserved niches and product gaps by analyzing competitor catalogs and demand signals.',
     detailedDescription:
@@ -275,6 +296,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'share-of-voice',
     name: 'Share of Voice Tracker',
+    emoji: '📊',
     description:
       'Measures your brand visibility vs competitors across search, social, and paid channels.',
     detailedDescription:
@@ -290,6 +312,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'revenue-intelligence',
     name: 'Revenue Intelligence',
+    emoji: '📈',
     description: 'Analyzes revenue signals and prioritizes growth opportunities.',
     detailedDescription:
       'Aggregates data from multiple sources to surface actionable revenue insights and growth opportunities.\n\nWhat it analyzes:\n• Revenue trends by product, channel, and segment\n• Customer acquisition cost and payback periods\n• Seasonal patterns and demand forecasting\n• Cross-sell and upsell opportunities\n\nWhat actions it generates:\n• Revenue growth playbooks\n• Budget reallocation recommendations\n• Product bundling strategies\n• Channel optimization priorities',
@@ -304,6 +327,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'cohort-analyzer',
     name: 'Cohort Analyzer',
+    emoji: '👥',
     description:
       'Breaks down customer behavior by acquisition cohort to reveal retention and spending patterns.',
     detailedDescription:
@@ -319,6 +343,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'funnel-diagnostics',
     name: 'Funnel Diagnostics',
+    emoji: '🔍',
     description: 'Pinpoints exactly where customers drop off in your conversion funnel and why.',
     detailedDescription:
       'Maps your entire customer journey from first visit to purchase and identifies the biggest leaks.\n\nWhat it analyzes:\n• Step-by-step funnel conversion rates\n• Drop-off patterns by device, segment, and source\n• Page-level engagement metrics\n• Checkout friction indicators\n\nWhat actions it generates:\n• Prioritized leak-fix recommendations\n• A/B test hypotheses for high-drop steps\n• Device-specific optimization tasks\n• Funnel benchmark comparisons',
@@ -333,6 +358,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'attribution-mapper',
     name: 'Attribution Mapper',
+    emoji: '🗺️',
     description:
       'Maps the real impact of each marketing channel on revenue using multi-touch attribution models.',
     detailedDescription:
@@ -350,6 +376,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'store-audit-scanner',
     name: 'Store Audit Scanner',
+    emoji: '🔎',
     description: 'Scans your store for UX issues, performance bottlenecks and SEO gaps.',
     detailedDescription:
       'Performs comprehensive audits of your e-commerce store, identifying technical and UX issues that impact performance.\n\nWhat it analyzes:\n• Page load speed and Core Web Vitals\n• SEO meta tags, structured data, and indexing\n• Mobile responsiveness and usability\n• Broken links and 404 errors\n\nWhat actions it generates:\n• Prioritized fix list by impact severity\n• SEO optimization recommendations\n• Performance improvement tasks\n• Accessibility compliance checklist',
@@ -364,6 +391,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'checkout-auditor',
     name: 'Checkout Auditor',
+    emoji: '✅',
     description: 'Audits the checkout flow for friction, trust gaps, and abandonment triggers.',
     detailedDescription:
       'Focuses specifically on the purchase completion experience to maximize checkout conversion.\n\nWhat it analyzes:\n• Payment method availability and failure rates\n• Shipping cost and time presentation\n• Trust signal placement (security badges, policies)\n• Form field friction and error rates\n\nWhat actions it generates:\n• Checkout simplification recommendations\n• Payment method optimization suggestions\n• Trust signal placement improvements\n• Shipping transparency enhancements',
@@ -378,6 +406,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'data-quality-guard',
     name: 'Data Quality Guard',
+    emoji: '🔒',
     description:
       'Validates tracking, tagging, and data integrity across your analytics and ad platforms.',
     detailedDescription:
@@ -393,6 +422,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'compliance-scanner',
     name: 'Compliance Scanner',
+    emoji: '✅',
     description: 'Checks your store for legal, privacy, and accessibility compliance issues.',
     detailedDescription:
       'Reviews your store against privacy regulations, accessibility standards, and legal requirements.\n\nWhat it analyzes:\n• GDPR and LGPD consent mechanisms\n• Cookie policy and tracking disclosure\n• Accessibility (WCAG) compliance\n• Terms, privacy policy, and refund policy completeness\n\nWhat actions it generates:\n• Compliance gap reports\n• Cookie consent implementation tasks\n• Accessibility fix priorities\n• Policy template recommendations',
@@ -407,6 +437,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'task-prioritizer',
     name: 'Task Prioritizer',
+    emoji: '📋',
     description:
       'Ranks your backlog by estimated revenue impact so you always work on what matters most.',
     detailedDescription:
@@ -422,6 +453,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'weekly-briefing',
     name: 'Weekly Briefing',
+    emoji: '📰',
     description:
       'Generates a concise weekly summary of key changes, risks, and opportunities across your store.',
     detailedDescription:
@@ -437,6 +469,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'workflow-automator',
     name: 'Workflow Automator',
+    emoji: '⚙️',
     description: 'Connects your tools and automates repetitive operational tasks across platforms.',
     detailedDescription:
       'Identifies repetitive manual tasks and creates automated workflows to save time.\n\nWhat it analyzes:\n• Repetitive manual processes\n• Cross-platform data transfer needs\n• Notification and alert patterns\n• Reporting cadence requirements\n\nWhat actions it generates:\n• Automated workflow suggestions\n• Cross-platform sync configurations\n• Alert and notification rules\n• Scheduled report setups',
@@ -451,6 +484,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'inventory-alerts',
     name: 'Inventory Alerts',
+    emoji: '📦',
     description:
       'Monitors stock levels and velocity to prevent stockouts and overstock situations.',
     detailedDescription:
@@ -470,6 +504,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'brand-dna',
     name: 'Brand DNA',
+    emoji: '✨',
     description:
       'Analyzes your store URL, catalog, and social media to extract brand identity, tone of voice, and positioning. Feeds all other skills.',
     detailedDescription:
@@ -486,6 +521,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'copywriter',
     name: 'Copywriter',
+    emoji: '✍️',
     description:
       'Generates on-brand copy for any channel (email, WhatsApp, SMS, ads, social, push) using Brand DNA as quality filter.',
     detailedDescription:
@@ -501,6 +537,7 @@ export const skills: SkillDefinition[] = [
   {
     slug: 'seasonal-calendar',
     name: 'Seasonal Calendar',
+    emoji: '📅',
     description:
       'Maps 30+ seasonal dates relevant to your niche, generates briefings at D-60, and triggers the Copywriter for each campaign.',
     detailedDescription:
@@ -512,5 +549,125 @@ export const skills: SkillDefinition[] = [
     dependencies: ['brand-dna', 'copywriter'],
     requiredConnections: ['nuvemshop'],
     tags: ['Campaign', 'Calendar', 'Seasonal'],
+  },
+
+  // ── New skills: Campaign ──────────────────────────────────────
+  {
+    slug: 'email-sequencer',
+    name: 'Email Sequencer',
+    emoji: '📩',
+    description:
+      'Builds multi-step email sequences triggered by customer behavior for automated nurturing and conversion.',
+    detailedDescription:
+      'Creates intelligent email sequences that adapt to customer actions and guide them through the purchase journey.\n\nWhat it analyzes:\n• Customer lifecycle stage and behavior\n• Email engagement history\n• Purchase intent signals\n• Segment-level conversion patterns\n\nWhat actions it generates:\n• Onboarding email sequences for new subscribers\n• Abandoned cart follow-up chains\n• Post-purchase nurture flows\n• Re-engagement sequences for inactive contacts',
+    category: 'campaign',
+    phase: 2,
+    icon: 'mail',
+    color: '#D7733E',
+    dependencies: ['brand-dna'],
+    requiredConnections: ['mailchimp'],
+    tags: ['Campaign', 'Email', 'Automation'],
+  },
+  {
+    slug: 'sms-scheduler',
+    name: 'SMS Scheduler',
+    emoji: '💬',
+    description:
+      'Plans and sends targeted SMS campaigns at the optimal time for each customer segment.',
+    detailedDescription:
+      'Maximizes SMS engagement by sending the right message to the right customer at the right moment.\n\nWhat it analyzes:\n• Customer time zone and engagement windows\n• SMS open and conversion history\n• Segment purchase readiness signals\n• Opt-in and compliance status\n\nWhat actions it generates:\n• Promotional SMS blasts with optimal send times\n• Transactional SMS for order and shipping updates\n• Restock and flash sale alerts\n• Birthday and loyalty milestone messages',
+    category: 'campaign',
+    phase: 2,
+    icon: 'message-square',
+    color: '#D7733E',
+    dependencies: ['brand-dna'],
+    requiredConnections: [],
+    tags: ['Campaign', 'SMS', 'Automation'],
+  },
+
+  // ── New skills: Social ────────────────────────────────────────
+  {
+    slug: 'hashtag-generator',
+    name: 'Hashtag Generator',
+    emoji: '#️⃣',
+    description:
+      'Generates optimized hashtag sets for each post to maximize organic reach on Instagram and TikTok.',
+    detailedDescription:
+      'Analyzes your niche, content, and platform trends to recommend hashtags that drive discovery.\n\nWhat it analyzes:\n• Content topic and visual theme\n• Platform-specific hashtag performance\n• Niche vs broad hashtag mix\n• Competitor hashtag strategies\n\nWhat actions it generates:\n• Curated hashtag sets by post type\n• Trending hashtag alerts for your niche\n• Hashtag performance reports\n• Rotation strategies to avoid shadowbanning',
+    category: 'social',
+    phase: 2,
+    icon: 'hash',
+    color: '#648EE9',
+    dependencies: ['brand-dna'],
+    requiredConnections: [],
+    tags: ['Social', 'Hashtags', 'Reach'],
+  },
+  {
+    slug: 'influencer-finder',
+    name: 'Influencer Finder',
+    emoji: '🤝',
+    description:
+      'Identifies micro and macro influencers in your niche with authentic engagement metrics.',
+    detailedDescription:
+      'Surfaces influencer partnerships that align with your brand values and audience demographics.\n\nWhat it analyzes:\n• Influencer audience overlap with your customers\n• Engagement rate and authenticity signals\n• Content style alignment with brand DNA\n• Past partnership performance benchmarks\n\nWhat actions it generates:\n• Ranked influencer shortlists by fit score\n• Outreach message templates\n• Partnership brief suggestions\n• ROI estimation per influencer tier',
+    category: 'social',
+    phase: 3,
+    icon: 'users',
+    color: '#648EE9',
+    dependencies: ['brand-dna'],
+    requiredConnections: [],
+    tags: ['Social', 'Influencer', 'Partnerships'],
+  },
+
+  // ── New skills: Cart ──────────────────────────────────────────
+  {
+    slug: 'upsell-recommender',
+    name: 'Upsell Recommender',
+    emoji: '💎',
+    description:
+      'Suggests personalized upsell and cross-sell products at the right moment in the purchase journey.',
+    detailedDescription:
+      'Uses purchase history and real-time cart data to surface the most relevant upgrade and add-on recommendations.\n\nWhat it analyzes:\n• Current cart contents and customer history\n• Product affinity and co-purchase patterns\n• Price sensitivity by customer tier\n• Inventory availability and margin optimization\n\nWhat actions it generates:\n• Real-time product recommendation widgets\n• Post-purchase upsell email sequences\n• Bundle offer suggestions\n• Threshold-based free shipping incentives',
+    category: 'cart',
+    phase: 2,
+    icon: 'trending-up',
+    color: '#5BA87B',
+    dependencies: [],
+    requiredConnections: ['nuvemshop'],
+    tags: ['Cart', 'Upsell', 'Revenue'],
+  },
+  {
+    slug: 'checkout-optimizer',
+    name: 'Checkout Optimizer',
+    emoji: '🛒',
+    description:
+      'Reduces checkout abandonment by identifying and fixing friction points in real time.',
+    detailedDescription:
+      'Continuously monitors checkout flow metrics to surface and resolve conversion-killing friction.\n\nWhat it analyzes:\n• Step-by-step checkout drop-off rates\n• Payment failure patterns\n• Form field completion issues\n• Device and browser-specific failures\n\nWhat actions it generates:\n• Friction point fix recommendations\n• Payment method expansion suggestions\n• Guest checkout optimization tasks\n• Mobile checkout improvement priorities',
+    category: 'cart',
+    phase: 2,
+    icon: 'shopping-cart',
+    color: '#5BA87B',
+    dependencies: [],
+    requiredConnections: ['nuvemshop'],
+    tags: ['Cart', 'Checkout', 'Conversion'],
+  },
+
+  // ── New skills: Analytics ─────────────────────────────────────
+  {
+    slug: 'segment-builder',
+    name: 'Segment Builder',
+    emoji: '📊',
+    description:
+      'Creates dynamic customer segments based on behavior, purchase history, and engagement signals.',
+    detailedDescription:
+      'Builds precise audience segments that power personalized campaigns and retention flows.\n\nWhat it analyzes:\n• RFM (Recency, Frequency, Monetary) scores\n• Behavioral tags from site and email interactions\n• Product category affinity\n• Lifecycle stage and risk indicators\n\nWhat actions it generates:\n• Named segment definitions with criteria\n• Segment size and revenue potential estimates\n• Campaign targeting recommendations per segment\n• Automated segment refresh schedules',
+    category: 'analytics',
+    phase: 2,
+    icon: 'pie-chart',
+    color: '#9B6BC4',
+    dependencies: [],
+    requiredConnections: ['nuvemshop'],
+    tags: ['Analytics', 'Segments', 'Personalization'],
   },
 ]

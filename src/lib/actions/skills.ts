@@ -55,6 +55,34 @@ export async function deactivateSkill(teamId: string, slug: string): Promise<voi
   if (error) throw error
 }
 
+/** Update skill configuration for a team */
+export async function updateSkillConfig(
+  teamId: string,
+  slug: string,
+  config: Record<string, unknown>
+): Promise<void> {
+  const supabase = createServiceRoleClient()
+
+  await (
+    supabase as unknown as {
+      from: (t: string) => {
+        update: (d: unknown) => {
+          eq: (
+            k: string,
+            v: string
+          ) => {
+            eq: (k: string, v: string) => Promise<{ error: unknown }>
+          }
+        }
+      }
+    }
+  )
+    .from('skills')
+    .update({ config_schema: config, updated_at: new Date().toISOString() })
+    .eq('team_id', teamId)
+    .eq('slug', slug)
+}
+
 /** Seed skills from code registry for a team (called on team creation or migration) */
 export async function seedTeamSkills(teamId: string): Promise<void> {
   const supabase = createServiceRoleClient()
