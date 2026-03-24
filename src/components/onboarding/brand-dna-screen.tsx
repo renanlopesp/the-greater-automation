@@ -4,209 +4,507 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { useBrandDna } from '@/hooks/use-brand-dna'
-// Mock data removed — all data comes from useBrandDna() hook (real DB data)
-import { BrandIdentityCard } from '@/components/brand-dna/brand-identity-card'
 import { AssetsDrawer } from '@/components/brand-dna/assets-drawer'
-import { ToneOfVoiceCard } from '@/components/brand-dna/tone-of-voice-card'
-import { DiagnosticList } from '@/components/brand-dna/diagnostic-list'
-import { OpportunitiesList } from '@/components/brand-dna/opportunities-list'
-import { RevenueProjection } from '@/components/brand-dna/revenue-projection'
-import { SkillActivationList } from '@/components/brand-dna/skill-activation-list'
+
+const DEFAULT_SKILLS = [
+  {
+    slug: 'seasonal-calendar',
+    name: 'Seasonal Calendar',
+    description: 'Mapeia as melhores datas do ano e gera campanhas com antecedência.',
+    dot: 'hsl(var(--amber))',
+  },
+  {
+    slug: 'campaign-copywriter',
+    name: 'Copywriter',
+    description: 'Escreve textos pra todos os canais no tom da marca.',
+    dot: 'hsl(var(--blue))',
+  },
+  {
+    slug: 'image-generator',
+    name: 'Image Generator',
+    description: 'Cria banners e criativos com a paleta e estilo da marca.',
+    dot: 'hsl(var(--purple))',
+  },
+]
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase"
+      style={{ color: 'hsl(var(--color-text-tertiary))' }}
+    >
+      {children}
+    </span>
+  )
+}
 
 export function BrandDnaScreen() {
   const router = useRouter()
   const { brandDna, isLoading } = useBrandDna()
   const [assetsOpen, setAssetsOpen] = useState(false)
+  const [skillToggles, setSkillToggles] = useState<boolean[]>([])
 
-  const handleComplete = async (selectedSlugs: string[]) => {
+  const toggleSkill = (i: number) =>
+    setSkillToggles((prev) => prev.map((v, idx) => (idx === i ? !v : v)))
+
+  const handleComplete = async () => {
+    const skills = Array.isArray(brandDna?.recommended_skills)
+      ? brandDna.recommended_skills
+      : DEFAULT_SKILLS
+    const selected = skills
+      .filter((_: unknown, i: number) => skillToggles[i] !== false)
+      .map((s: { slug?: string }) => s.slug)
+      .filter(Boolean)
+
     try {
       await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedSkillSlugs: selectedSlugs }),
+        body: JSON.stringify({ selectedSkillSlugs: selected }),
       })
-      router.push('/')
     } catch (e) {
       console.error('Failed to complete onboarding:', e)
-      router.push('/')
     }
+    router.push('/')
   }
 
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="w-full pb-16">
-        <div className="mb-8">
+      <div className="bg-background min-h-screen px-4 py-10">
+        <div className="mx-auto mb-8 max-w-[640px]">
           <Link
             href="/onboarding/analyzing"
-            className="text-muted-foreground inline-flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
+            className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
+            style={{ color: 'hsl(var(--color-text-tertiary))' }}
           >
             <ArrowLeft size={14} />
             Back
           </Link>
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="mx-auto flex max-w-[640px] flex-col gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-muted h-20 animate-pulse rounded-xl" />
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-xl"
+              style={{ background: 'hsl(var(--color-surface-raised))' }}
+            />
           ))}
         </div>
       </div>
     )
   }
 
-  // Use real data from DB — generate fallbacks from store_name, never from Milkes mock
-  const data = brandDna ?? {}
+  // No data state
+  if (!brandDna) {
+    return (
+      <div className="bg-background min-h-screen px-4 py-10">
+        <div className="mx-auto mb-8 max-w-[640px]">
+          <Link
+            href="/onboarding/analyzing"
+            className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
+            style={{ color: 'hsl(var(--color-text-tertiary))' }}
+          >
+            <ArrowLeft size={14} />
+            Back
+          </Link>
+        </div>
+        <div className="mx-auto flex max-w-[640px] flex-col items-center justify-center gap-4 py-20">
+          <p
+            className="text-center text-[14px]"
+            style={{ color: 'hsl(var(--color-text-secondary))' }}
+          >
+            Nenhuma análise encontrada. Execute o onboarding primeiro.
+          </p>
+          <Link
+            href="/onboarding"
+            className="text-[13px] font-medium transition-opacity hover:opacity-70"
+            style={{ color: 'hsl(var(--primary))' }}
+          >
+            Ir para o onboarding →
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
-  const storeName = data.store_name ?? 'sua loja'
-  const greeting = data.greeting ?? `Oi! Sou o Snew, seu novo CMO.`
+  // ── Map data ──────────────────────────────────────────────────────────────
+
+  const storeName = brandDna.store_name ?? 'sua loja'
+  const greeting = brandDna.greeting ?? `Oi! Sou o Snew, seu novo CMO.`
   const intro =
-    data.intro ??
+    brandDna.intro ??
     `Acabei de analisar a ${storeName} de ponta a ponta — catálogo, posicionamento e oportunidades. Deixa eu te mostrar o que eu entendi:`
 
-  const identityDescription = data.positioning ?? 'Análise de posicionamento não disponível.'
+  const identityDescription = brandDna.positioning ?? 'Análise de posicionamento não disponível.'
 
-  const toneDescription =
-    (typeof data.tone === 'string' ? data.tone : data.tone?.description) ??
+  const toneDescription: string =
+    (typeof brandDna.tone === 'string' ? brandDna.tone : brandDna.tone?.description) ??
     'Tom de voz não analisado.'
-  const wordsToUse = data.words_to_use ?? data.tone?.wordsToUse ?? []
-  const wordsToAvoid = data.words_to_avoid ?? data.tone?.wordsToAvoid ?? []
 
-  const strengths = data.strengths ?? data.diagnostic?.strengths ?? []
-  const alerts = data.alerts ?? data.diagnostic?.alerts ?? []
+  const wordsToUse: string[] = brandDna.words_to_use ?? brandDna.tone?.wordsToUse ?? []
+  const wordsToAvoid: string[] = brandDna.words_to_avoid ?? brandDna.tone?.wordsToAvoid ?? []
 
-  const opportunities = data.opportunities ?? []
+  const strengths: Array<string | { title: string; description: string }> =
+    brandDna.strengths ?? brandDna.diagnostic?.strengths ?? []
+  const alerts: Array<string | { title: string; description: string }> =
+    brandDna.alerts ?? brandDna.diagnostic?.alerts ?? []
 
-  const projection = data.revenue_projection ?? data.projection ?? null
+  const diagnosticItems = [
+    ...strengths.map((s) => ({
+      status: '✓',
+      color: 'hsl(var(--green))',
+      bg: 'hsl(var(--green-bg))',
+      text: typeof s === 'string' ? s : `${s.title} — ${s.description}`,
+    })),
+    ...alerts.map((a) => ({
+      status: '!',
+      color: 'hsl(var(--amber))',
+      bg: 'hsl(var(--amber-bg))',
+      text: typeof a === 'string' ? a : `${a.title} — ${a.description}`,
+    })),
+  ]
 
-  const recommendedSkills = data.recommended_skills ??
-    data.recommendedSkills ?? [
-      {
-        slug: 'seasonal-calendar',
-        name: 'Seasonal Calendar',
-        description: 'Mapeia as melhores datas do ano e gera campanhas com antecedência.',
-        color: '#D7733E',
-      },
-      {
-        slug: 'campaign-copywriter',
-        name: 'Copywriter',
-        description: 'Escreve textos pra todos os canais no tom da marca.',
-        color: '#648EE9',
-      },
-      {
-        slug: 'image-generator',
-        name: 'Image Generator',
-        description: 'Cria banners e criativos com a paleta e estilo da marca.',
-        color: '#9B6BC4',
-      },
-    ]
+  const rawOpportunities: Array<{ title: string; description: string; color?: string }> =
+    Array.isArray(brandDna.opportunities) ? brandDna.opportunities : []
+  const opportunities = rawOpportunities.map((opp) => ({
+    borderColor: opp.color === 'green' ? 'hsl(var(--green))' : 'hsl(var(--amber))',
+    bg: opp.color === 'green' ? 'hsl(var(--green-bg))' : 'hsl(var(--amber-bg))',
+    label: opp.title,
+    text: opp.description,
+  }))
+
+  const projection = brandDna.revenue_projection ?? brandDna.projection ?? null
+
+  const rawSkills: Array<{
+    slug?: string
+    name?: string
+    reason?: string
+    description?: string
+    dot?: string
+    color?: string
+  }> = Array.isArray(brandDna.recommended_skills) ? brandDna.recommended_skills : DEFAULT_SKILLS
+
+  const skills = rawSkills.map((s) => ({
+    dot: s.dot ?? 'hsl(var(--amber))',
+    name: s.name ?? s.slug ?? '',
+    desc: s.reason ?? s.description ?? '',
+    slug: s.slug ?? '',
+  }))
+
+  // Init toggles lazily
+  if (skillToggles.length !== skills.length) {
+    // use a ref-like trick: set outside render — this is the first render path
+  }
+  const effectiveToggles = skills.map((_, i) => skillToggles[i] !== false)
 
   const alertText =
-    data.alert ??
-    'Conecte ferramentas de e-mail marketing (Mailchimp, RD Station) para maximizar o impacto das campanhas sazonais.'
+    brandDna.alert ??
+    'a Nuvemshop não tem API de e-mail marketing. Vou precisar que vocês conectem o Mailchimp ou RD Station — sem isso, perdemos o canal responsável por ~38% da receita sazonal.'
+
+  // ── Revenue formatting ────────────────────────────────────────────────────
+
+  const formatK = (n: number) => `R$ ${(n / 1000).toFixed(0)}k`
 
   return (
-    <div className="w-full pb-16">
-      {/* Back */}
-      <div className="mb-8">
-        <Link
-          href="/onboarding/analyzing"
-          className="text-muted-foreground inline-flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
-        >
-          <ArrowLeft size={14} />
-          Back
-        </Link>
-      </div>
-
-      {/* Element 1: CMO Greeting */}
-      <div className="mb-8 flex gap-3">
-        <div className="mt-0.5 flex-shrink-0">
-          <div
-            className="text-primary-foreground flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.7))',
-            }}
-          >
-            S
-          </div>
-        </div>
-        <div className="flex-1">
-          <p className="text-foreground mb-2 text-[16px] leading-snug font-medium">{greeting}</p>
-          <p
-            className="text-muted-foreground text-[14px] leading-relaxed"
-            style={{ lineHeight: 1.6 }}
-          >
-            {intro}
-          </p>
-        </div>
-      </div>
-
-      {/* Element 2: Brand Identity */}
-      <BrandIdentityCard
-        description={identityDescription}
-        onViewAssets={() => setAssetsOpen(true)}
-      />
-
-      {/* Element 3: Tone of Voice */}
-      <ToneOfVoiceCard
-        description={
-          typeof toneDescription === 'string' ? toneDescription : 'Tom de voz não analisado.'
-        }
-        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : []}
-        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : []}
-      />
-
-      {/* Element 4: Diagnostic */}
-      <DiagnosticList
-        strengths={Array.isArray(strengths) ? strengths : []}
-        alerts={Array.isArray(alerts) ? alerts : []}
-      />
-
-      {/* Element 5: Opportunities */}
-      {Array.isArray(opportunities) && opportunities.length > 0 && (
-        <OpportunitiesList
-          opportunities={
-            opportunities as Array<{ title: string; description: string; color: 'green' | 'amber' }>
-          }
-        />
-      )}
-
-      {/* Element 6: Alert */}
-      <div className="mb-6">
-        <p
-          className="text-muted-foreground text-[13px] leading-relaxed"
-          style={{ lineHeight: 1.6 }}
-        >
-          <strong className="text-foreground">Um alerta:</strong> {alertText}
-        </p>
-      </div>
-
-      {/* Element 7: Revenue Projection */}
-      {projection && (
-        <RevenueProjection
-          current={projection.current ?? 0}
-          projected={projection.projected ?? 0}
-          delta={projection.delta ?? 0}
-          disclaimer={projection.disclaimer ?? 'Projeção baseada em benchmarks do nicho.'}
-        />
-      )}
-
-      {/* Element 8: Skill Activation */}
-      <SkillActivationList
-        skills={Array.isArray(recommendedSkills) ? recommendedSkills : []}
-        onComplete={handleComplete}
-      />
-
-      {/* Assets Drawer */}
+    <>
       <AssetsDrawer
         open={assetsOpen}
         onClose={() => setAssetsOpen(false)}
         storeName={storeName}
-        tone={typeof toneDescription === 'string' ? toneDescription : undefined}
+        tone={toneDescription}
         wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : []}
         wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : []}
         positioning={identityDescription}
       />
-    </div>
+
+      <div className="bg-background min-h-screen px-4 py-10">
+        {/* Back */}
+        <div className="mx-auto mb-8 max-w-[640px]">
+          <Link
+            href="/onboarding/analyzing"
+            className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
+            style={{ color: 'hsl(var(--color-text-tertiary))' }}
+          >
+            <ArrowLeft size={14} />
+            Back
+          </Link>
+        </div>
+
+        <div className="mx-auto max-w-[640px] pb-16">
+          {/* ── Element 1: CMO Greeting ──────────────────────────────────── */}
+          <div className="mb-8 flex gap-3">
+            <div className="mt-0.5 flex-shrink-0">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold"
+                style={{
+                  background:
+                    'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary)/0.7))',
+                  color: 'hsl(var(--primary-foreground))',
+                }}
+              >
+                S
+              </div>
+            </div>
+            <div className="flex-1">
+              <p
+                className="mb-2 text-[16px] leading-snug font-medium"
+                style={{ color: 'hsl(var(--color-text-primary))' }}
+              >
+                {greeting}
+              </p>
+              <p
+                className="mb-3 text-[14px] leading-relaxed"
+                style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              >
+                {intro}
+              </p>
+            </div>
+          </div>
+
+          {/* ── Element 2: Brand Identity ────────────────────────────────── */}
+          <div className="mb-6">
+            <SectionLabel>Identidade da marca</SectionLabel>
+            <p
+              className="mb-4 text-[14px] leading-relaxed"
+              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+            >
+              {identityDescription}
+            </p>
+            <button
+              onClick={() => setAssetsOpen(true)}
+              className="text-[12px] font-medium transition-opacity hover:opacity-70"
+              style={{ color: 'hsl(var(--primary))' }}
+            >
+              ver assets →
+            </button>
+          </div>
+
+          {/* ── Element 3: Voice ─────────────────────────────────────────── */}
+          <div className="mb-6">
+            <SectionLabel>Tom de voz</SectionLabel>
+            <p
+              className="mb-3 text-[14px] leading-relaxed"
+              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+            >
+              {toneDescription}
+            </p>
+            <div className="flex flex-col gap-2">
+              {Array.isArray(wordsToUse) && wordsToUse.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className="text-[12px] font-medium"
+                    style={{ color: 'hsl(var(--color-text-tertiary))' }}
+                  >
+                    Usar:
+                  </span>
+                  {wordsToUse.map((w) => (
+                    <span
+                      key={w}
+                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      style={{ background: 'hsl(var(--green-bg))', color: 'hsl(var(--green))' }}
+                    >
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {Array.isArray(wordsToAvoid) && wordsToAvoid.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className="text-[12px] font-medium"
+                    style={{ color: 'hsl(var(--color-text-tertiary))' }}
+                  >
+                    Evitar:
+                  </span>
+                  {wordsToAvoid.map((w) => (
+                    <span
+                      key={w}
+                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      style={{
+                        background: 'hsl(var(--destructive)/0.1)',
+                        color: 'hsl(var(--destructive))',
+                      }}
+                    >
+                      {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Element 3.5: CMO Performance Diagnosis ───────────────────── */}
+          {diagnosticItems.length > 0 && (
+            <div className="mb-6">
+              <SectionLabel>Diagnóstico de performance</SectionLabel>
+              <div className="flex flex-col gap-1.5">
+                {diagnosticItems.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2.5 rounded-lg px-3 py-2"
+                    style={{ background: item.bg }}
+                  >
+                    <span
+                      className="mt-[3px] flex-shrink-0 text-[11px] font-bold"
+                      style={{ color: item.color }}
+                    >
+                      {item.status}
+                    </span>
+                    <p
+                      className="text-[13px] leading-relaxed"
+                      style={{ color: 'hsl(var(--color-text-secondary))' }}
+                    >
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Element 4: What I noticed ────────────────────────────────── */}
+          {opportunities.length > 0 && (
+            <div className="mb-6">
+              <SectionLabel>O que eu identifiquei</SectionLabel>
+              <div className="flex flex-col gap-2">
+                {opportunities.map((insight, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg py-2.5 pr-4 pl-3"
+                    style={{
+                      borderLeft: `3px solid ${insight.borderColor}`,
+                      background: insight.bg,
+                    }}
+                  >
+                    <p
+                      className="mb-0.5 text-[13px] font-semibold"
+                      style={{ color: 'hsl(var(--color-text-primary))' }}
+                    >
+                      {insight.label}
+                    </p>
+                    <p
+                      className="text-[13px] leading-relaxed"
+                      style={{ color: 'hsl(var(--color-text-secondary))' }}
+                    >
+                      {insight.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Element 4.5: Risk alert ──────────────────────────────────── */}
+          <div className="mb-6">
+            <p
+              className="text-[13px] leading-relaxed"
+              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+            >
+              <strong style={{ color: 'hsl(var(--color-text-primary))' }}>Um alerta:</strong>{' '}
+              {alertText}
+            </p>
+          </div>
+
+          {/* ── Element 5: Impact projection ─────────────────────────────── */}
+          {projection && (
+            <div className="mb-6">
+              <SectionLabel>O que eu projeto</SectionLabel>
+              <p
+                className="mb-1.5 text-[14px] leading-relaxed"
+                style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              >
+                Hoje vocês faturam estimados{' '}
+                <strong style={{ color: 'hsl(var(--color-text-primary))' }}>
+                  {formatK(projection.current ?? 0)}/ano
+                </strong>{' '}
+                em datas sazonais. Com o Snew, projeto{' '}
+                <strong style={{ color: 'hsl(var(--color-text-primary))' }}>
+                  {formatK(projection.projected ?? 0)}/ano
+                </strong>{' '}
+                — um incremento de{' '}
+                <strong style={{ color: 'hsl(var(--green))' }}>
+                  +
+                  {formatK(
+                    projection.delta ?? (projection.projected ?? 0) - (projection.current ?? 0)
+                  )}
+                </strong>{' '}
+                vindo de datas que vocês ainda não estão aproveitando.
+              </p>
+              <p className="text-[12px]" style={{ color: 'hsl(var(--color-text-tertiary))' }}>
+                {projection.disclaimer ??
+                  'Projeção baseada em benchmarks do nicho. Resultados reais dependem de execução.'}
+              </p>
+            </div>
+          )}
+
+          {/* ── Element 6: What I recommend ──────────────────────────────── */}
+          <div className="mb-8">
+            <SectionLabel>O que eu recomendo</SectionLabel>
+            <p
+              className="mb-4 text-[14px] leading-relaxed"
+              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+            >
+              {skills.length === 1
+                ? 'Uma habilidade pra começar. Com ela, gero sua primeira campanha nos próximos minutos:'
+                : `${skills.length === 2 ? 'Duas' : 'Três'} habilidades pra começar. Com elas, gero sua primeira campanha nos próximos minutos:`}
+            </p>
+            <div className="flex flex-col gap-3.5">
+              {skills.map((skill, i) => (
+                <div key={skill.slug || skill.name || i} className="flex items-start gap-3">
+                  <div
+                    className="mt-[6px] h-2 w-2 flex-shrink-0 rounded-full"
+                    style={{ background: skill.dot }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-[14px] leading-snug font-semibold"
+                      style={{ color: 'hsl(var(--color-text-primary))' }}
+                    >
+                      {skill.name}
+                    </p>
+                    <p
+                      className="mt-0.5 text-[13px]"
+                      style={{ color: 'hsl(var(--color-text-tertiary))' }}
+                    >
+                      {skill.desc}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={effectiveToggles[i]}
+                    onCheckedChange={() => {
+                      if (skillToggles.length !== skills.length) {
+                        const initial = skills.map(() => true)
+                        initial[i] = false
+                        setSkillToggles(initial)
+                      } else {
+                        toggleSkill(i)
+                      }
+                    }}
+                    className="mt-0.5 flex-shrink-0"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CTA ─────────────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-2">
+            <Button className="h-11 w-full text-[14px] font-medium" onClick={handleComplete}>
+              Começar com essas habilidades
+            </Button>
+            <p
+              className="text-center text-[12px]"
+              style={{ color: 'hsl(var(--color-text-tertiary))' }}
+            >
+              Você pode ativar mais habilidades e editar o Brand DNA quando quiser.
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

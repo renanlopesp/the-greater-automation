@@ -7,7 +7,10 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    console.error('[brand-dna API] No user session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: memberRows } = await supabase
     .from('team_members')
@@ -32,6 +35,10 @@ export async function GET() {
     .eq('team_id', teamId)
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (error || !data) {
+    console.error('[brand-dna API] Not found for team:', teamId, 'error:', error)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  console.log('[brand-dna API] Found brand_dna for team:', teamId)
   return NextResponse.json(data)
 }
