@@ -51,9 +51,10 @@ export function BrandDnaScreen() {
     setSkillToggles((prev) => prev.map((v, idx) => (idx === i ? !v : v)))
 
   const handleComplete = async () => {
-    const skills = Array.isArray(brandDna?.recommended_skills)
-      ? brandDna.recommended_skills
-      : DEFAULT_SKILLS
+    const skills =
+      Array.isArray(brandDna?.recommended_skills) && brandDna.recommended_skills.length > 0
+        ? brandDna.recommended_skills
+        : DEFAULT_SKILLS
     const selected = skills
       .filter((_: unknown, i: number) => skillToggles[i] !== false)
       .map((s: { slug?: string }) => s.slug)
@@ -178,7 +179,10 @@ export function BrandDnaScreen() {
     description?: string
     dot?: string
     color?: string
-  }> = Array.isArray(brandDna.recommended_skills) ? brandDna.recommended_skills : DEFAULT_SKILLS
+  }> =
+    Array.isArray(brandDna.recommended_skills) && brandDna.recommended_skills.length > 0
+      ? brandDna.recommended_skills
+      : DEFAULT_SKILLS
 
   const skills = rawSkills.map((s) => ({
     dot: s.dot ?? 'var(--amber)',
