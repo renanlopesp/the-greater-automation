@@ -61,15 +61,19 @@ export function BrandDnaScreen() {
       .filter(Boolean)
 
     try {
-      await fetch('/api/onboarding/complete', {
+      const res = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selectedSkillSlugs: selected }),
       })
+      if (!res.ok) {
+        console.error('Failed to complete onboarding:', res.status)
+        return
+      }
+      router.push('/')
     } catch (e) {
       console.error('Failed to complete onboarding:', e)
     }
-    router.push('/')
   }
 
   // Loading skeleton

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
-import { activateSkill } from '@/lib/actions/skills'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -20,20 +19,28 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const { selectedSkillSlugs } = body as { selectedSkillSlugs: string[] }
 
-  // Activate each selected skill
+  const serviceClient = createServiceRoleClient()
+
+  // Activate each selected skill via RPC (bypasses schema cache)
   for (const slug of selectedSkillSlugs) {
     try {
-      await activateSkill(membership.team_id, slug)
+      await (
+        serviceClient as unknown as {
+          rpc: (fn: string, params: Record<string, unknown>) => Promise<{ error: unknown }>
+        }
+      ).rpc('activate_skill', {
+        p_team_id: membership.team_id,
+        p_slug: slug,
+      })
     } catch (e) {
       console.error(`Failed to activate skill ${slug}:`, e)
     }
   }
 
   // Mark onboarding as complete
-  const serviceClient = createServiceRoleClient()
   await serviceClient
     .from('stores')
-    .update({ onboarding_completed: true })
+    .update({ onboarding_completed: true } as never)
     .eq('team_id', membership.team_id)
 
   return NextResponse.json({ success: true, activatedSkills: selectedSkillSlugs.length })
