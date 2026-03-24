@@ -34,7 +34,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase"
-      style={{ color: 'hsl(var(--color-text-tertiary))' }}
+      style={{ color: '#7a8494' }}
     >
       {children}
     </span>
@@ -79,7 +79,7 @@ export function BrandDnaScreen() {
           <Link
             href="/onboarding/analyzing"
             className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
-            style={{ color: 'hsl(var(--color-text-tertiary))' }}
+            style={{ color: '#7a8494' }}
           >
             <ArrowLeft size={14} />
             Back
@@ -87,11 +87,7 @@ export function BrandDnaScreen() {
         </div>
         <div className="mx-auto flex max-w-[640px] flex-col gap-4">
           {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-xl"
-              style={{ background: 'hsl(var(--color-surface-raised))' }}
-            />
+            <div key={i} className="bg-muted h-20 animate-pulse rounded-xl" />
           ))}
         </div>
       </div>
@@ -106,23 +102,19 @@ export function BrandDnaScreen() {
           <Link
             href="/onboarding/analyzing"
             className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
-            style={{ color: 'hsl(var(--color-text-tertiary))' }}
+            style={{ color: '#7a8494' }}
           >
             <ArrowLeft size={14} />
             Back
           </Link>
         </div>
         <div className="mx-auto flex max-w-[640px] flex-col items-center justify-center gap-4 py-20">
-          <p
-            className="text-center text-[14px]"
-            style={{ color: 'hsl(var(--color-text-secondary))' }}
-          >
+          <p className="text-muted-foreground text-center text-[14px]">
             Nenhuma análise encontrada. Execute o onboarding primeiro.
           </p>
           <Link
             href="/onboarding"
-            className="text-[13px] font-medium transition-opacity hover:opacity-70"
-            style={{ color: 'hsl(var(--primary))' }}
+            className="text-primary text-[13px] font-medium transition-opacity hover:opacity-70"
           >
             Ir para o onboarding →
           </Link>
@@ -227,7 +219,7 @@ export function BrandDnaScreen() {
           <Link
             href="/onboarding/analyzing"
             className="flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
-            style={{ color: 'hsl(var(--color-text-tertiary))' }}
+            style={{ color: '#7a8494' }}
           >
             <ArrowLeft size={14} />
             Back
@@ -250,15 +242,12 @@ export function BrandDnaScreen() {
               </div>
             </div>
             <div className="flex-1">
-              <p
-                className="mb-2 text-[16px] leading-snug font-medium"
-                style={{ color: 'hsl(var(--color-text-primary))' }}
-              >
+              <p className="text-foreground mb-2 text-[16px] leading-snug font-medium">
                 {greeting}
               </p>
               <p
-                className="mb-3 text-[14px] leading-relaxed"
-                style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+                className="text-muted-foreground mb-3 text-[14px] leading-relaxed"
+                style={{ lineHeight: 1.6 }}
               >
                 {intro}
               </p>
@@ -269,15 +258,14 @@ export function BrandDnaScreen() {
           <div className="mb-6">
             <SectionLabel>Identidade da marca</SectionLabel>
             <p
-              className="mb-4 text-[14px] leading-relaxed"
-              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              className="text-muted-foreground mb-4 text-[14px] leading-relaxed"
+              style={{ lineHeight: 1.6 }}
             >
               {identityDescription}
             </p>
             <button
               onClick={() => setAssetsOpen(true)}
-              className="text-[12px] font-medium transition-opacity hover:opacity-70"
-              style={{ color: 'hsl(var(--primary))' }}
+              className="text-primary text-[12px] font-medium transition-opacity hover:opacity-70"
             >
               ver assets →
             </button>
@@ -287,18 +275,15 @@ export function BrandDnaScreen() {
           <div className="mb-6">
             <SectionLabel>Tom de voz</SectionLabel>
             <p
-              className="mb-3 text-[14px] leading-relaxed"
-              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              className="text-muted-foreground mb-3 text-[14px] leading-relaxed"
+              style={{ lineHeight: 1.6 }}
             >
               {toneDescription}
             </p>
             <div className="flex flex-col gap-2">
               {Array.isArray(wordsToUse) && wordsToUse.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className="text-[12px] font-medium"
-                    style={{ color: 'hsl(var(--color-text-tertiary))' }}
-                  >
+                  <span className="text-[12px] font-medium" style={{ color: '#7a8494' }}>
                     Usar:
                   </span>
                   {wordsToUse.map((w) => (
@@ -314,10 +299,7 @@ export function BrandDnaScreen() {
               )}
               {Array.isArray(wordsToAvoid) && wordsToAvoid.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className="text-[12px] font-medium"
-                    style={{ color: 'hsl(var(--color-text-tertiary))' }}
-                  >
+                  <span className="text-[12px] font-medium" style={{ color: '#7a8494' }}>
                     Evitar:
                   </span>
                   {wordsToAvoid.map((w) => (
@@ -354,12 +336,7 @@ export function BrandDnaScreen() {
                     >
                       {item.status}
                     </span>
-                    <p
-                      className="text-[13px] leading-relaxed"
-                      style={{ color: 'hsl(var(--color-text-secondary))' }}
-                    >
-                      {item.text}
-                    </p>
+                    <p className="text-muted-foreground text-[13px] leading-relaxed">{item.text}</p>
                   </div>
                 ))}
               </div>
@@ -380,16 +357,10 @@ export function BrandDnaScreen() {
                       background: insight.bg,
                     }}
                   >
-                    <p
-                      className="mb-0.5 text-[13px] font-semibold"
-                      style={{ color: 'hsl(var(--color-text-primary))' }}
-                    >
+                    <p className="text-foreground mb-0.5 text-[13px] font-semibold">
                       {insight.label}
                     </p>
-                    <p
-                      className="text-[13px] leading-relaxed"
-                      style={{ color: 'hsl(var(--color-text-secondary))' }}
-                    >
+                    <p className="text-muted-foreground text-[13px] leading-relaxed">
                       {insight.text}
                     </p>
                   </div>
@@ -401,11 +372,10 @@ export function BrandDnaScreen() {
           {/* ── Element 4.5: Risk alert ──────────────────────────────────── */}
           <div className="mb-6">
             <p
-              className="text-[13px] leading-relaxed"
-              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              className="text-muted-foreground text-[13px] leading-relaxed"
+              style={{ lineHeight: 1.6 }}
             >
-              <strong style={{ color: 'hsl(var(--color-text-primary))' }}>Um alerta:</strong>{' '}
-              {alertText}
+              <strong className="text-foreground">Um alerta:</strong> {alertText}
             </p>
           </div>
 
@@ -414,15 +384,13 @@ export function BrandDnaScreen() {
             <div className="mb-6">
               <SectionLabel>O que eu projeto</SectionLabel>
               <p
-                className="mb-1.5 text-[14px] leading-relaxed"
-                style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+                className="text-muted-foreground mb-1.5 text-[14px] leading-relaxed"
+                style={{ lineHeight: 1.6 }}
               >
                 Hoje vocês faturam estimados{' '}
-                <strong style={{ color: 'hsl(var(--color-text-primary))' }}>
-                  {formatK(projection.current ?? 0)}/ano
-                </strong>{' '}
+                <strong className="text-foreground">{formatK(projection.current ?? 0)}/ano</strong>{' '}
                 em datas sazonais. Com o Snew, projeto{' '}
-                <strong style={{ color: 'hsl(var(--color-text-primary))' }}>
+                <strong className="text-foreground">
                   {formatK(projection.projected ?? 0)}/ano
                 </strong>{' '}
                 — um incremento de{' '}
@@ -434,7 +402,7 @@ export function BrandDnaScreen() {
                 </strong>{' '}
                 vindo de datas que vocês ainda não estão aproveitando.
               </p>
-              <p className="text-[12px]" style={{ color: 'hsl(var(--color-text-tertiary))' }}>
+              <p className="text-[12px]" style={{ color: '#7a8494' }}>
                 {projection.disclaimer ??
                   'Projeção baseada em benchmarks do nicho. Resultados reais dependem de execução.'}
               </p>
@@ -445,8 +413,8 @@ export function BrandDnaScreen() {
           <div className="mb-8">
             <SectionLabel>O que eu recomendo</SectionLabel>
             <p
-              className="mb-4 text-[14px] leading-relaxed"
-              style={{ color: 'hsl(var(--color-text-secondary))', lineHeight: 1.6 }}
+              className="text-muted-foreground mb-4 text-[14px] leading-relaxed"
+              style={{ lineHeight: 1.6 }}
             >
               {skills.length === 1
                 ? 'Uma habilidade pra começar. Com ela, gero sua primeira campanha nos próximos minutos:'
@@ -460,16 +428,10 @@ export function BrandDnaScreen() {
                     style={{ background: skill.dot }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p
-                      className="text-[14px] leading-snug font-semibold"
-                      style={{ color: 'hsl(var(--color-text-primary))' }}
-                    >
+                    <p className="text-foreground text-[14px] leading-snug font-semibold">
                       {skill.name}
                     </p>
-                    <p
-                      className="mt-0.5 text-[13px]"
-                      style={{ color: 'hsl(var(--color-text-tertiary))' }}
-                    >
+                    <p className="mt-0.5 text-[13px]" style={{ color: '#7a8494' }}>
                       {skill.desc}
                     </p>
                   </div>
@@ -496,10 +458,7 @@ export function BrandDnaScreen() {
             <Button className="h-11 w-full text-[14px] font-medium" onClick={handleComplete}>
               Começar com essas habilidades
             </Button>
-            <p
-              className="text-center text-[12px]"
-              style={{ color: 'hsl(var(--color-text-tertiary))' }}
-            >
+            <p className="text-center text-[12px]" style={{ color: '#7a8494' }}>
               Você pode ativar mais habilidades e editar o Brand DNA quando quiser.
             </p>
           </div>
