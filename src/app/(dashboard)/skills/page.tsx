@@ -3,7 +3,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { type SkillRow } from '@/lib/queries/skills'
 import { skills as skillRegistry } from '@/data/skills'
-import SkillLibrary from '@/components/skills/skill-library'
+import SkillLibraryNew from '@/components/skills/skill-library-new'
 
 export default async function SkillsPage() {
   const supabase = await createServerClient()
@@ -68,12 +68,12 @@ export default async function SkillsPage() {
         input_schema: null,
         output_schema: null,
         dependencies: s.dependencies,
-        status: 'available',
+        status: s.active ? 'active' : 'available',
         is_native: s.isNative ?? false,
         requires_connections: s.requiredConnections,
         icon: s.icon,
         color: s.color,
-        emoji: null,
+        emoji: s.emoji,
         stats: [],
         what_it_does: [],
         expected_results: [],
@@ -86,5 +86,5 @@ export default async function SkillsPage() {
     )
   }
 
-  return <SkillLibrary teamId={teamId} initialSkills={skills} />
+  return <SkillLibraryNew teamId={teamId} initialSkills={skills} />
 }
