@@ -33,30 +33,19 @@ export default async function SkillsPage() {
   try {
     const { data, error } = await (
       serviceClient as unknown as {
-        from: (t: string) => {
-          select: (s: string) => {
-            eq: (
-              k: string,
-              v: string
-            ) => {
-              order: (
-                k: string,
-                o: { ascending: boolean }
-              ) => Promise<{ data: SkillRow[] | null; error: unknown }>
-            }
-          }
-        }
+        rpc: (
+          fn: string,
+          params: Record<string, unknown>
+        ) => Promise<{ data: unknown; error: unknown }>
       }
-    )
-      .from('skills')
-      .select('*')
-      .eq('team_id', teamId)
-      .order('name', { ascending: true })
+    ).rpc('get_team_skills', {
+      p_team_id: teamId,
+    })
 
     if (error) {
-      console.error('Skills query error:', error)
+      console.error('Skills RPC error:', error)
     }
-    skills = (data ?? []) as SkillRow[]
+    skills = ((data as unknown) ?? []) as SkillRow[]
   } catch (e) {
     console.error('Skills query catch:', e)
   }
