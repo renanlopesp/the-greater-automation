@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Folder, Bell, Settings, LogOut, Sun, Moon } from 'lucide-react'
+import { Folder, Bell, Settings, LogOut, Sun, Moon, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import {
@@ -18,16 +18,22 @@ interface TopBarProps {
   userInitials?: string
   userName?: string
   userEmail?: string
+  userTeams?: Array<{ id: string; name: string; role: string }>
+  activeTeamId?: string
   className?: string
   onOpenSettings?: () => void
+  onSwitchWorkspace?: (teamId: string) => void
 }
 
 export function TopBar({
   userInitials = '?',
   userName,
   userEmail,
+  userTeams,
+  activeTeamId,
   className,
   onOpenSettings,
+  onSwitchWorkspace,
 }: TopBarProps) {
   const [, setNotifOpen] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -93,6 +99,19 @@ export function TopBar({
               )}
               {!userName && !userEmail && <span className="font-semibold">Minha conta</span>}
             </DropdownMenuLabel>
+            {userTeams && userTeams.length > 1 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                {userTeams.map((t) => (
+                  <DropdownMenuItem key={t.id} onClick={() => onSwitchWorkspace?.(t.id)}>
+                    <span className="flex-1">{t.name}</span>
+                    <span className="text-muted-foreground text-xs capitalize">{t.role}</span>
+                    {activeTeamId === t.id && <Check className="ml-2 size-4" />}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onOpenSettings?.()}>
               <Settings className="mr-2 size-4" />
