@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,10 +28,13 @@ function NuvemshopIcon() {
 }
 
 export function ConnectScreen() {
-  const router = useRouter()
+  const handleNuvemshop = () => {
+    window.location.href = `/api/nuvemshop/connect?redirect_uri=${encodeURIComponent('/onboarding/analyzing')}`
+  }
 
-  const handleConnect = () => {
-    router.push('/onboarding/analyzing')
+  const handleShopify = () => {
+    // Shopify integration via Composio — mock navigation for now
+    window.location.href = `/api/nuvemshop/connect?redirect_uri=${encodeURIComponent('/onboarding/analyzing')}`
   }
 
   return (
@@ -63,7 +65,7 @@ export function ConnectScreen() {
         {/* Shopify */}
         <div
           className="bg-card flex cursor-pointer flex-col items-center gap-4 rounded-2xl border p-6 transition-shadow hover:shadow-md"
-          onClick={handleConnect}
+          onClick={handleShopify}
         >
           <ShopifyIcon />
           <span className="text-foreground text-[14px] font-semibold">Shopify</span>
@@ -72,7 +74,7 @@ export function ConnectScreen() {
             className="w-full text-[13px]"
             onClick={(e) => {
               e.stopPropagation()
-              handleConnect()
+              handleShopify()
             }}
           >
             Connect via Shopify
@@ -82,7 +84,7 @@ export function ConnectScreen() {
         {/* Nuvemshop */}
         <div
           className="bg-card flex cursor-pointer flex-col items-center gap-4 rounded-2xl border p-6 transition-shadow hover:shadow-md"
-          onClick={handleConnect}
+          onClick={handleNuvemshop}
         >
           <NuvemshopIcon />
           <span className="text-foreground text-[14px] font-semibold">Nuvemshop</span>
@@ -91,7 +93,7 @@ export function ConnectScreen() {
             className="w-full text-[13px]"
             onClick={(e) => {
               e.stopPropagation()
-              handleConnect()
+              handleNuvemshop()
             }}
           >
             Connect via Nuvemshop

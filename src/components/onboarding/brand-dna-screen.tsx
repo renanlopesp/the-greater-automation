@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { useBrandDna } from '@/hooks/use-brand-dna'
 import { mockBrandDna } from '@/data/mock-brand-dna'
 import { BrandIdentityCard } from '@/components/brand-dna/brand-identity-card'
 import { ToneOfVoiceCard } from '@/components/brand-dna/tone-of-voice-card'
@@ -13,10 +14,71 @@ import { SkillActivationList } from '@/components/brand-dna/skill-activation-lis
 
 export function BrandDnaScreen() {
   const router = useRouter()
+  const { brandDna, isLoading } = useBrandDna()
 
-  const handleComplete = () => {
-    router.push('/')
+  const handleComplete = async (selectedSlugs: string[]) => {
+    try {
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedSkillSlugs: selectedSlugs }),
+      })
+      router.push('/')
+    } catch (e) {
+      console.error('Failed to complete onboarding:', e)
+      router.push('/')
+    }
   }
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="w-full pb-16">
+        <div className="mb-8">
+          <Link
+            href="/onboarding/analyzing"
+            className="text-muted-foreground inline-flex items-center gap-1.5 text-[13px] transition-opacity hover:opacity-70"
+          >
+            <ArrowLeft size={14} />
+            Back
+          </Link>
+        </div>
+        <div className="flex flex-col gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-muted h-20 animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Error state — fall back to mock data so the screen remains usable
+  const data = brandDna ?? mockBrandDna
+
+  // Map DB fields to component props
+  const greeting = data.greeting ?? mockBrandDna.greeting
+  const intro = data.intro ?? mockBrandDna.intro
+
+  const identityDescription =
+    data.positioning ?? data.identity?.description ?? mockBrandDna.identity.description
+
+  const toneDescription = data.tone?.description ?? data.tone ?? mockBrandDna.tone.description
+  const wordsToUse = data.words_to_use ?? data.tone?.wordsToUse ?? mockBrandDna.tone.wordsToUse
+  const wordsToAvoid =
+    data.words_to_avoid ?? data.tone?.wordsToAvoid ?? mockBrandDna.tone.wordsToAvoid
+
+  const strengths =
+    data.strengths ?? data.diagnostic?.strengths ?? mockBrandDna.diagnostic.strengths
+  const alerts = data.alerts ?? data.diagnostic?.alerts ?? mockBrandDna.diagnostic.alerts
+
+  const opportunities = data.opportunities ?? mockBrandDna.opportunities
+
+  const projection = data.revenue_projection ?? data.projection ?? mockBrandDna.projection
+
+  const recommendedSkills =
+    data.recommended_skills ?? data.recommendedSkills ?? mockBrandDna.recommendedSkills
+
+  const alertText = data.alert ?? mockBrandDna.alert
 
   return (
     <div className="w-full pb-16">
@@ -44,38 +106,38 @@ export function BrandDnaScreen() {
           </div>
         </div>
         <div className="flex-1">
-          <p className="text-foreground mb-2 text-[16px] leading-snug font-medium">
-            {mockBrandDna.greeting}
-          </p>
+          <p className="text-foreground mb-2 text-[16px] leading-snug font-medium">{greeting}</p>
           <p
             className="text-muted-foreground text-[14px] leading-relaxed"
             style={{ lineHeight: 1.6 }}
           >
-            {mockBrandDna.intro}
+            {intro}
           </p>
         </div>
       </div>
 
       {/* Element 2: Brand Identity */}
-      <BrandIdentityCard description={mockBrandDna.identity.description} />
+      <BrandIdentityCard description={identityDescription} />
 
       {/* Element 3: Tone of Voice */}
       <ToneOfVoiceCard
-        description={mockBrandDna.tone.description}
-        wordsToUse={mockBrandDna.tone.wordsToUse}
-        wordsToAvoid={mockBrandDna.tone.wordsToAvoid}
+        description={
+          typeof toneDescription === 'string' ? toneDescription : mockBrandDna.tone.description
+        }
+        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : mockBrandDna.tone.wordsToUse}
+        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : mockBrandDna.tone.wordsToAvoid}
       />
 
       {/* Element 4: Diagnostic */}
       <DiagnosticList
-        strengths={mockBrandDna.diagnostic.strengths}
-        alerts={mockBrandDna.diagnostic.alerts}
+        strengths={Array.isArray(strengths) ? strengths : mockBrandDna.diagnostic.strengths}
+        alerts={Array.isArray(alerts) ? alerts : mockBrandDna.diagnostic.alerts}
       />
 
       {/* Element 5: Opportunities */}
       <OpportunitiesList
         opportunities={
-          mockBrandDna.opportunities as Array<{
+          (Array.isArray(opportunities) ? opportunities : mockBrandDna.opportunities) as Array<{
             title: string
             description: string
             color: 'green' | 'amber'
@@ -89,20 +151,25 @@ export function BrandDnaScreen() {
           className="text-muted-foreground text-[13px] leading-relaxed"
           style={{ lineHeight: 1.6 }}
         >
-          <strong className="text-foreground">Um alerta:</strong> {mockBrandDna.alert}
+          <strong className="text-foreground">Um alerta:</strong> {alertText}
         </p>
       </div>
 
       {/* Element 7: Revenue Projection */}
       <RevenueProjection
-        current={mockBrandDna.projection.current}
-        projected={mockBrandDna.projection.projected}
-        delta={mockBrandDna.projection.delta}
-        disclaimer={mockBrandDna.projection.disclaimer}
+        current={projection.current ?? mockBrandDna.projection.current}
+        projected={projection.projected ?? mockBrandDna.projection.projected}
+        delta={projection.delta ?? mockBrandDna.projection.delta}
+        disclaimer={projection.disclaimer ?? mockBrandDna.projection.disclaimer}
       />
 
       {/* Element 8: Skill Activation */}
-      <SkillActivationList skills={mockBrandDna.recommendedSkills} onComplete={handleComplete} />
+      <SkillActivationList
+        skills={
+          Array.isArray(recommendedSkills) ? recommendedSkills : mockBrandDna.recommendedSkills
+        }
+        onComplete={handleComplete}
+      />
     </div>
   )
 }

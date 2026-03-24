@@ -1,36 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-const STEPS = [
-  { pending: 'Scanning 1,247 products...', done: '1,247 products scanned' },
-  { pending: 'Extracting brand identity...', done: 'Brand DNA generated' },
-  { pending: 'Mapping seasonal opportunities...', done: '32 dates mapped' },
-]
+import { useOnboardingAnalysis } from '@/hooks/use-onboarding-analysis'
 
 export function AnalyzingScreen() {
   const router = useRouter()
-  const [completed, setCompleted] = useState<number[]>([])
-  const [current, setCurrent] = useState(0)
-  const [showContinue, setShowContinue] = useState(false)
+  const { steps, isComplete, error, start, retry } = useOnboardingAnalysis()
 
   useEffect(() => {
-    const timings = [1200, 2400, 3600]
-    const timers = timings.map((delay, i) =>
-      setTimeout(() => {
-        setCompleted((prev) => [...prev, i])
-        setCurrent(i + 1)
-        if (i === STEPS.length - 1) {
-          setTimeout(() => setShowContinue(true), 400)
-        }
-      }, delay)
-    )
-    return () => timers.forEach(clearTimeout)
-  }, [])
+    start()
+  }, [start])
 
   return (
     <div className="flex w-full flex-col gap-8">
@@ -54,15 +37,15 @@ export function AnalyzingScreen() {
 
       {/* Progress steps */}
       <div className="flex flex-col gap-4">
-        {STEPS.map((step, i) => {
-          const isDone = completed.includes(i)
-          const isActive = current === i && !isDone
+        {steps.map((step, i) => {
+          const isDone = step.status === 'completed'
+          const isActive = step.status === 'running'
 
           return (
             <div
               key={i}
               className="flex items-center gap-3 transition-all duration-300"
-              style={{ opacity: i > current && !isDone ? 0.35 : 1 }}
+              style={{ opacity: step.status === 'pending' ? 0.35 : 1 }}
             >
               {/* Icon */}
               <div
@@ -87,29 +70,35 @@ export function AnalyzingScreen() {
               <span
                 className="text-[14px] transition-all duration-300"
                 style={{
-                  color: isDone
-                    ? 'hsl(var(--foreground))'
-                    : isActive
-                      ? 'hsl(var(--muted-foreground))'
-                      : 'hsl(var(--muted-foreground))',
+                  color: isDone ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
                   fontWeight: isDone ? 500 : 400,
                   opacity: isActive ? 1 : isDone ? 1 : 0.6,
                 }}
               >
-                {isDone ? step.done : step.pending}
+                {step.message}
               </span>
             </div>
           )
         })}
       </div>
 
+      {/* Error state */}
+      {error && (
+        <div className="flex flex-col gap-3">
+          <p className="text-destructive text-[14px]">{error}</p>
+          <Button variant="outline" className="h-10 text-[14px]" onClick={retry}>
+            Try again
+          </Button>
+        </div>
+      )}
+
       {/* Continue button */}
       <div
         className="transition-all duration-500"
         style={{
-          opacity: showContinue ? 1 : 0,
-          transform: showContinue ? 'translateY(0)' : 'translateY(8px)',
-          pointerEvents: showContinue ? 'auto' : 'none',
+          opacity: isComplete ? 1 : 0,
+          transform: isComplete ? 'translateY(0)' : 'translateY(8px)',
+          pointerEvents: isComplete ? 'auto' : 'none',
         }}
       >
         <Button

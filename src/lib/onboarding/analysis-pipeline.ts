@@ -1,0 +1,216 @@
+import { createServiceRoleClient } from '@/lib/supabase/server'
+import { syncProducts } from '@/lib/nuvemshop/sync'
+import { summarizeCatalog } from '@/lib/retail/catalog-summarizer'
+import { analyzeBrandDna, type BrandDnaResult } from '@/lib/ai/brand-dna-analyzer'
+
+export type PipelineStep = {
+  step: number
+  status: 'running' | 'completed' | 'error'
+  message: string
+  count?: number
+}
+
+export type ProgressCallback = (update: PipelineStep) => void
+
+// brand_dna is not yet in generated types — use a typed helper
+type BrandDnaRow = { id: string }
+type BrandDnaDb = {
+  from: (table: 'brand_dna') => {
+    select: (cols: string) => {
+      eq: (
+        col: string,
+        val: string
+      ) => {
+        single: () => Promise<{ data: BrandDnaRow | null; error: { message: string } | null }>
+      }
+    }
+    update: (data: Record<string, unknown>) => {
+      eq: (
+        col: string,
+        val: string
+      ) => {
+        select: (cols: string) => {
+          single: () => Promise<{ data: BrandDnaRow | null; error: { message: string } | null }>
+        }
+      }
+    }
+    insert: (data: Record<string, unknown>) => {
+      select: (cols: string) => {
+        single: () => Promise<{ data: BrandDnaRow | null; error: { message: string } | null }>
+      }
+    }
+  }
+}
+
+export async function runAnalysisPipeline(
+  storeId: string,
+  teamId: string,
+  onProgress: ProgressCallback
+): Promise<{ brandDnaId: string }> {
+  const supabase = createServiceRoleClient()
+
+  // Step 1: Sync products
+  onProgress({ step: 1, status: 'running', message: 'Sincronizando produtos...' })
+
+  try {
+    const { data: store } = await supabase
+      .from('stores')
+      .select('platform, platform_access_token, platform_store_id')
+      .eq('id', storeId)
+      .single()
+
+    if (!store) throw new Error('Store not found')
+
+    if (store.platform === 'nuvemshop' && store.platform_access_token) {
+      await syncProducts(storeId)
+    }
+    // Shopify and other platforms: skip sync (handled separately)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao sincronizar produtos'
+    onProgress({ step: 1, status: 'error', message })
+    throw err
+  }
+
+  const { count: productCount } = await supabase
+    .from('store_products')
+    .select('id', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+
+  onProgress({
+    step: 1,
+    status: 'completed',
+    message: `${productCount ?? 0} produtos sincronizados`,
+    count: productCount ?? 0,
+  })
+
+  // Step 2: Analyze catalog
+  onProgress({ step: 2, status: 'running', message: 'Gerando Brand DNA...' })
+
+  let brandDnaResult: BrandDnaResult
+  let storeName = ''
+  let storePlatform = ''
+
+  try {
+    // Only select columns that exist in store_products (no description/category in schema)
+    const { data: products } = await supabase
+      .from('store_products')
+      .select('name, price')
+      .eq('store_id', storeId)
+
+    const { data: storeInfo } = await supabase
+      .from('stores')
+      .select('name, segment, platform')
+      .eq('id', storeId)
+      .single()
+
+    storeName = storeInfo?.name ?? ''
+    storePlatform = storeInfo?.platform ?? ''
+
+    const summary = summarizeCatalog(
+      (products ?? []).map((p) => ({
+        name: p.name,
+        description: null,
+        price: p.price,
+        category: null,
+      }))
+    )
+
+    brandDnaResult = await analyzeBrandDna(summary, {
+      name: storeName,
+      segment: storeInfo?.segment ?? '',
+      platform: storePlatform,
+      ownerName: '',
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao gerar Brand DNA'
+    onProgress({ step: 2, status: 'error', message })
+    throw err
+  }
+
+  onProgress({ step: 2, status: 'completed', message: 'Brand DNA gerado' })
+
+  // Step 3: Save Brand DNA
+  onProgress({ step: 3, status: 'running', message: 'Mapeando oportunidades sazonais...' })
+
+  let brandDnaId: string
+
+  try {
+    // brand_dna table is not in generated types yet — cast through unknown
+    const db = supabase as unknown as BrandDnaDb
+
+    const { data: existing } = await db
+      .from('brand_dna')
+      .select('id')
+      .eq('team_id', teamId)
+      .single()
+
+    if (existing) {
+      const { data: updated, error } = await db
+        .from('brand_dna')
+        .update({
+          store_name: storeName,
+          niche: brandDnaResult.niche,
+          average_ticket: brandDnaResult.average_ticket,
+          tone: brandDnaResult.tone,
+          audience: brandDnaResult.audience,
+          words_to_use: brandDnaResult.words_to_use,
+          words_to_avoid: brandDnaResult.words_to_avoid,
+          positioning: brandDnaResult.positioning,
+          strengths: brandDnaResult.strengths,
+          alerts: brandDnaResult.alerts,
+          opportunities: brandDnaResult.opportunities,
+          revenue_projection: brandDnaResult.revenue_projection,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('team_id', teamId)
+        .select('id')
+        .single()
+
+      if (error) throw new Error(error.message)
+      if (!updated) throw new Error('Failed to update brand_dna')
+      brandDnaId = updated.id
+    } else {
+      const { data: inserted, error } = await db
+        .from('brand_dna')
+        .insert({
+          team_id: teamId,
+          store_name: storeName,
+          niche: brandDnaResult.niche,
+          average_ticket: brandDnaResult.average_ticket,
+          platform: storePlatform,
+          tone: brandDnaResult.tone,
+          audience: brandDnaResult.audience,
+          words_to_use: brandDnaResult.words_to_use,
+          words_to_avoid: brandDnaResult.words_to_avoid,
+          positioning: brandDnaResult.positioning,
+          strengths: brandDnaResult.strengths,
+          alerts: brandDnaResult.alerts,
+          opportunities: brandDnaResult.opportunities,
+          revenue_projection: brandDnaResult.revenue_projection,
+        })
+        .select('id')
+        .single()
+
+      if (error) throw new Error(error.message)
+      if (!inserted) throw new Error('Failed to insert brand_dna')
+      brandDnaId = inserted.id
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao salvar Brand DNA'
+    onProgress({ step: 3, status: 'error', message })
+    throw err
+  }
+
+  const opportunityCount = Array.isArray(brandDnaResult.opportunities)
+    ? brandDnaResult.opportunities.length
+    : 0
+
+  onProgress({
+    step: 3,
+    status: 'completed',
+    message: `${opportunityCount} oportunidades mapeadas`,
+    count: opportunityCount,
+  })
+
+  return { brandDnaId }
+}

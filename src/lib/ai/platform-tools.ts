@@ -990,7 +990,16 @@ export function buildOrchestratorSystemPrompt(
     segment: string
     platform: string | null
     hasProducts: boolean
-  }
+  },
+  brandDna?: {
+    niche: string | null
+    tone: string | null
+    audience: string | null
+    positioning: string | null
+    words_to_use: string[] | null
+    words_to_avoid: string[] | null
+    store_name: string | null
+  } | null
 ): string {
   // Group active skills by category
   const activeSkills = skills.filter((s) => s.status === 'active')
@@ -1128,6 +1137,28 @@ export function buildOrchestratorSystemPrompt(
     '- `campaign-table` — marketing table. Use `rows` with: `{"segment":"...","product":"...","channel":"...","potentialValue":"...","status":"...","priority":"High|Medium|Low"}`',
     'Rules: always provide `id` (short unique slug) and `title`. Place the marker at the END of your response. Do NOT emit artifacts for simple answers.',
     '',
+
+    // ── Brand DNA (when configured) ───────────────────────────────────────
+    ...(brandDna && brandDna.niche
+      ? [
+          '## Brand DNA',
+          '',
+          `**Nicho**: ${brandDna.niche}`,
+          `**Tom de voz**: ${brandDna.tone ?? 'Não definido'}`,
+          `**Audiência**: ${brandDna.audience ?? 'Não definida'}`,
+          `**Posicionamento**: ${brandDna.positioning ?? 'Não definido'}`,
+          '',
+          ...(brandDna.words_to_use?.length
+            ? [`**Palavras a usar**: ${brandDna.words_to_use.join(', ')}`]
+            : []),
+          ...(brandDna.words_to_avoid?.length
+            ? [`**Palavras a evitar**: ${brandDna.words_to_avoid.join(', ')}`]
+            : []),
+          '',
+          'SEMPRE respeite o tom de voz e vocabulário do Brand DNA em todas as respostas. Use as palavras recomendadas e evite as palavras listadas.',
+          '',
+        ]
+      : []),
 
     // ── Retail Context (when store exists) ────────────────────────────────
     ...(retailContext
