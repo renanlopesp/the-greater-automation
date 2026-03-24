@@ -1,22 +1,27 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
-import AppSidebarNew from '@/components/app-sidebar-new'
-import TopBar from '@/components/top-bar'
+import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
+import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
-import type {
-  UserData,
-  TeamData,
-  UsageData,
-  PlanData,
-  TeamMember,
-  TeamInvitation,
-} from '@/types/navigation'
+import type { UserData, UsageData, PlanData, TeamMember, TeamInvitation } from '@/types/navigation'
 
 const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed'
+
+function getInitials(fullName: string | null, email: string): string {
+  if (fullName) {
+    return fullName
+      .split(' ')
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+  return email[0]?.toUpperCase() ?? '?'
+}
 
 interface DashboardShellNewProps {
   children: ReactNode
@@ -96,15 +101,7 @@ export default function DashboardShellNew({
 
         {/* Sidebar — desktop */}
         <div className="relative hidden shrink-0 md:block">
-          <AppSidebarNew
-            collapsed={collapsed}
-            onToggleCollapse={handleToggleCollapse}
-            usage={usage}
-            planData={planData}
-            orchestratorId={orchestratorId}
-            installedAgents={installedAgents}
-            teamName={team?.name}
-          />
+          <AppSidebarNew collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
         </div>
 
         {/* Sidebar — mobile overlay */}
@@ -116,24 +113,16 @@ export default function DashboardShellNew({
           <AppSidebarNew
             collapsed={false}
             onToggleCollapse={() => setMobileOpen(false)}
-            usage={usage}
-            planData={planData}
-            orchestratorId={orchestratorId}
-            installedAgents={installedAgents}
-            teamName={team?.name}
+            onClose={() => setMobileOpen(false)}
           />
         </div>
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <TopBar
-            onToggleSidebar={handleToggleCollapse}
-            onToggleMobileSidebar={handleToggleMobile}
-            sidebarCollapsed={collapsed}
-            user={user}
-            team={team}
-            userTeams={userTeams}
-            planData={planData}
+            userInitials={getInitials(user.fullName, user.email)}
+            userName={user.fullName ?? undefined}
+            userEmail={user.email}
             onOpenSettings={() => {
               setSettingsEverOpened(true)
               setSettingsOpen(true)

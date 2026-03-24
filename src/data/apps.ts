@@ -1,3 +1,91 @@
+export interface AppDefinition {
+  slug: string
+  name: string
+  emoji: string
+  description: string
+}
+
+export const appCatalog: AppDefinition[] = [
+  {
+    slug: 'shopify',
+    name: 'Shopify',
+    emoji: '🛍',
+    description: 'Sincronize pedidos, produtos, clientes e dados de conversão em tempo real.',
+  },
+  {
+    slug: 'gmail',
+    name: 'Gmail',
+    emoji: '✉️',
+    description: 'Envie e monitore campanhas de e-mail diretamente pela sua caixa de saída.',
+  },
+  {
+    slug: 'google-analytics',
+    name: 'Google Analytics',
+    emoji: '📊',
+    description: 'Acesse dados de tráfego, funis de conversão e comportamento de usuários.',
+  },
+  {
+    slug: 'meta-ads',
+    name: 'Meta Ads',
+    emoji: '📢',
+    description: 'Monitore campanhas, ROAS e audiências do Facebook e Instagram Ads.',
+  },
+  {
+    slug: 'google-ads',
+    name: 'Google Ads',
+    emoji: '🔍',
+    description: 'Gerencie campanhas de busca e display, palavras-chave e investimento.',
+  },
+  {
+    slug: 'klaviyo',
+    name: 'Klaviyo',
+    emoji: '📧',
+    description: 'Fluxos de e-mail marketing, segmentos e métricas de campanhas.',
+  },
+  {
+    slug: 'slack',
+    name: 'Slack',
+    emoji: '💬',
+    description: 'Envie notificações e alertas para os canais da sua equipe.',
+  },
+  {
+    slug: 'notion',
+    name: 'Notion',
+    emoji: '📝',
+    description: 'Leia e escreva páginas, bancos de dados e documentos.',
+  },
+  {
+    slug: 'airtable',
+    name: 'Airtable',
+    emoji: '🗂',
+    description: 'Consulte e atualize bases, tabelas e registros.',
+  },
+  {
+    slug: 'stripe',
+    name: 'Stripe',
+    emoji: '💳',
+    description: 'Pagamentos, assinaturas, receita e dados de clientes.',
+  },
+  {
+    slug: 'hubspot',
+    name: 'HubSpot',
+    emoji: '🤝',
+    description: 'CRM com contatos, negócios, pipelines e atividades.',
+  },
+  {
+    slug: 'whatsapp-business',
+    name: 'WhatsApp Business',
+    emoji: '📱',
+    description: 'Envie mensagens para clientes via API do WhatsApp.',
+  },
+  {
+    slug: 'telegram',
+    name: 'Telegram',
+    emoji: '✈️',
+    description: 'Envie notificações e mensagens automáticas via bots no Telegram.',
+  },
+]
+
 export interface AppIntegration {
   id: string
   name: string
