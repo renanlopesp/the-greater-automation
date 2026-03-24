@@ -45,7 +45,8 @@ type BrandDnaDb = {
 export async function runAnalysisPipeline(
   storeId: string,
   teamId: string,
-  onProgress: ProgressCallback
+  onProgress: ProgressCallback,
+  userId?: string
 ): Promise<{ brandDnaId: string }> {
   const supabase = createServiceRoleClient()
 
@@ -89,6 +90,7 @@ export async function runAnalysisPipeline(
   let brandDnaResult: BrandDnaResult
   let storeName = ''
   let storePlatform = ''
+  let ownerName = ''
 
   try {
     // Only select columns that exist in store_products (no description/category in schema)
@@ -106,6 +108,16 @@ export async function runAnalysisPipeline(
     storeName = storeInfo?.name ?? ''
     storePlatform = storeInfo?.platform ?? ''
 
+    // Get owner name from profiles if userId provided
+    if (userId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single()
+      ownerName = profile?.full_name ?? ''
+    }
+
     const summary = summarizeCatalog(
       (products ?? []).map((p) => ({
         name: p.name,
@@ -119,7 +131,7 @@ export async function runAnalysisPipeline(
       name: storeName,
       segment: storeInfo?.segment ?? '',
       platform: storePlatform,
-      ownerName: '',
+      ownerName,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao gerar Brand DNA'
@@ -160,6 +172,9 @@ export async function runAnalysisPipeline(
           alerts: brandDnaResult.alerts,
           opportunities: brandDnaResult.opportunities,
           revenue_projection: brandDnaResult.revenue_projection,
+          owner_name: ownerName,
+          greeting: brandDnaResult.greeting,
+          intro: brandDnaResult.intro,
           updated_at: new Date().toISOString(),
         })
         .eq('team_id', teamId)
@@ -187,6 +202,9 @@ export async function runAnalysisPipeline(
           alerts: brandDnaResult.alerts,
           opportunities: brandDnaResult.opportunities,
           revenue_projection: brandDnaResult.revenue_projection,
+          owner_name: ownerName,
+          greeting: brandDnaResult.greeting,
+          intro: brandDnaResult.intro,
         })
         .select('id')
         .single()

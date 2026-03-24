@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const finalStoreId = storeId
+  const userId = user.id
 
   // 4. Create SSE stream
   const encoder = new TextEncoder()
@@ -56,9 +57,14 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const result = await runAnalysisPipeline(finalStoreId, teamId, (update) => {
-          sendEvent('step', update)
-        })
+        const result = await runAnalysisPipeline(
+          finalStoreId,
+          teamId,
+          (update) => {
+            sendEvent('step', update)
+          },
+          userId
+        )
         sendEvent('done', { brandDnaId: result.brandDnaId, redirect: '/onboarding/brand-dna' })
       } catch (err) {
         sendEvent('error', {
