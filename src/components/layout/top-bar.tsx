@@ -1,16 +1,42 @@
 'use client'
 
 import { useState } from 'react'
-import { Folder, Bell } from 'lucide-react'
+import { Folder, Bell, Settings, LogOut, Sun, Moon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 interface TopBarProps {
   userInitials?: string
+  userName?: string
+  userEmail?: string
   className?: string
+  onOpenSettings?: () => void
 }
 
-export function TopBar({ userInitials = '?', className }: TopBarProps) {
+export function TopBar({
+  userInitials = '?',
+  userName,
+  userEmail,
+  className,
+  onOpenSettings,
+}: TopBarProps) {
   const [, setNotifOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
+
+  const handleSignOut = async () => {
+    const supabase = createBrowserClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   return (
     <header
@@ -46,14 +72,47 @@ export function TopBar({ userInitials = '?', className }: TopBarProps) {
         <span className="bg-foreground absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full" />
       </button>
 
-      {/* User avatar */}
+      {/* User avatar with dropdown */}
       <div className="relative ml-1">
-        <button
-          className="bg-muted text-foreground hover:ring-border flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all hover:ring-2"
-          aria-label="User menu"
-        >
-          {userInitials}
-        </button>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="bg-muted text-foreground hover:ring-border flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all hover:ring-2"
+              aria-label="User menu"
+            >
+              {userInitials}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-56 rounded-lg" side="bottom" align="end">
+            <DropdownMenuLabel className="flex flex-col gap-0.5">
+              {userName && <span className="truncate font-semibold">{userName}</span>}
+              {userEmail && (
+                <span className="text-muted-foreground truncate text-xs font-normal">
+                  {userEmail}
+                </span>
+              )}
+              {!userName && !userEmail && <span className="font-semibold">Minha conta</span>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onOpenSettings?.()}>
+              <Settings className="mr-2 size-4" />
+              Configurações da conta
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+              {theme === 'dark' ? (
+                <Sun className="mr-2 size-4" />
+              ) : (
+                <Moon className="mr-2 size-4" />
+              )}
+              {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut className="mr-2 size-4" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

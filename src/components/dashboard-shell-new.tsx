@@ -119,7 +119,15 @@ export default function DashboardShellNew({
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <TopBar userInitials={getInitials(user.fullName, user.email)} />
+          <TopBar
+            userInitials={getInitials(user.fullName, user.email)}
+            userName={user.fullName ?? undefined}
+            userEmail={user.email}
+            onOpenSettings={() => {
+              setSettingsEverOpened(true)
+              setSettingsOpen(true)
+            }}
+          />
           <main className="flex-1 overflow-auto">{children}</main>
         </div>
         {settingsEverOpened && (
