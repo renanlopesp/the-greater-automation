@@ -407,7 +407,7 @@ function isReasoningModel(modelId: string): boolean {
  * Uses OPEN_AI_API_KEY for function calling support.
  * Kiro is kept for other features but doesn't support tool use.
  */
-function getOpenAIProvider() {
+export function getOpenAIProvider() {
   const apiKey = process.env.OPEN_AI_API_KEY
   if (!apiKey) {
     throw new Error('OPEN_AI_API_KEY environment variable is required for agent chat')

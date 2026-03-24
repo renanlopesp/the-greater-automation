@@ -1,7 +1,7 @@
 import { generateObject } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { type CatalogSummary, formatCatalogForLLM } from '@/lib/retail/catalog-summarizer'
+import { getOpenAIProvider } from '@/lib/ai/agent-chat'
 
 export interface StoreInfo {
   name: string
@@ -127,7 +127,7 @@ export async function analyzeBrandDna(
   summary: CatalogSummary,
   storeInfo: StoreInfo
 ): Promise<BrandDnaResult> {
-  const openai = createOpenAI({ apiKey: process.env.OPEN_AI_API_KEY })
+  const openai = getOpenAIProvider()
   const formattedCatalog = formatCatalogForLLM(summary)
 
   const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua missão é analisar o catálogo de uma loja e gerar uma análise estratégica completa da marca, como um CMO sênior com 15 anos de experiência no varejo digital brasileiro.
@@ -192,7 +192,7 @@ IMPORTANTE:
 - As estimativas de receita devem ser realistas para o mercado de e-commerce brasileiro`
 
   const { object } = await generateObject({
-    model: openai('gpt-5.2'),
+    model: openai.responses('gpt-5.2'),
     schema: BrandDnaSchema,
     system: systemPrompt,
     messages: [

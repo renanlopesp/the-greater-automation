@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { useBrandDna } from '@/hooks/use-brand-dna'
 // Mock data removed — all data comes from useBrandDna() hook (real DB data)
 import { BrandIdentityCard } from '@/components/brand-dna/brand-identity-card'
+import { AssetsDrawer } from '@/components/brand-dna/assets-drawer'
 import { ToneOfVoiceCard } from '@/components/brand-dna/tone-of-voice-card'
 import { DiagnosticList } from '@/components/brand-dna/diagnostic-list'
 import { OpportunitiesList } from '@/components/brand-dna/opportunities-list'
@@ -15,6 +17,7 @@ import { SkillActivationList } from '@/components/brand-dna/skill-activation-lis
 export function BrandDnaScreen() {
   const router = useRouter()
   const { brandDna, isLoading } = useBrandDna()
+  const [assetsOpen, setAssetsOpen] = useState(false)
 
   const handleComplete = async (selectedSlugs: string[]) => {
     try {
@@ -139,7 +142,10 @@ export function BrandDnaScreen() {
       </div>
 
       {/* Element 2: Brand Identity */}
-      <BrandIdentityCard description={identityDescription} />
+      <BrandIdentityCard
+        description={identityDescription}
+        onViewAssets={() => setAssetsOpen(true)}
+      />
 
       {/* Element 3: Tone of Voice */}
       <ToneOfVoiceCard
@@ -189,6 +195,17 @@ export function BrandDnaScreen() {
       <SkillActivationList
         skills={Array.isArray(recommendedSkills) ? recommendedSkills : []}
         onComplete={handleComplete}
+      />
+
+      {/* Assets Drawer */}
+      <AssetsDrawer
+        open={assetsOpen}
+        onClose={() => setAssetsOpen(false)}
+        storeName={storeName}
+        tone={typeof toneDescription === 'string' ? toneDescription : undefined}
+        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : []}
+        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : []}
+        positioning={identityDescription}
       />
     </div>
   )
