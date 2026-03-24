@@ -127,7 +127,7 @@ export async function analyzeBrandDna(
   summary: CatalogSummary,
   storeInfo: StoreInfo
 ): Promise<BrandDnaResult> {
-  const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const openai = createOpenAI({ apiKey: process.env.OPEN_AI_API_KEY })
   const formattedCatalog = formatCatalogForLLM(summary)
 
   const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua missão é analisar o catálogo de uma loja e gerar uma análise estratégica completa da marca, como um CMO sênior com 15 anos de experiência no varejo digital brasileiro.

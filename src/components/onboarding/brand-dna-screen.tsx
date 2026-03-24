@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { useBrandDna } from '@/hooks/use-brand-dna'
-import { mockBrandDna } from '@/data/mock-brand-dna'
+// Mock data removed — all data comes from useBrandDna() hook (real DB data)
 import { BrandIdentityCard } from '@/components/brand-dna/brand-identity-card'
 import { ToneOfVoiceCard } from '@/components/brand-dna/tone-of-voice-card'
 import { DiagnosticList } from '@/components/brand-dna/diagnostic-list'
@@ -52,33 +52,55 @@ export function BrandDnaScreen() {
     )
   }
 
-  // Error state — fall back to mock data so the screen remains usable
-  const data = brandDna ?? mockBrandDna
+  // Use real data from DB — generate fallbacks from store_name, never from Milkes mock
+  const data = brandDna ?? {}
 
-  // Map DB fields to component props
-  const greeting = data.greeting ?? mockBrandDna.greeting
-  const intro = data.intro ?? mockBrandDna.intro
+  const storeName = data.store_name ?? 'sua loja'
+  const greeting = data.greeting ?? `Oi! Sou o Snew, seu novo CMO.`
+  const intro =
+    data.intro ??
+    `Acabei de analisar a ${storeName} de ponta a ponta — catálogo, posicionamento e oportunidades. Deixa eu te mostrar o que eu entendi:`
 
-  const identityDescription =
-    data.positioning ?? data.identity?.description ?? mockBrandDna.identity.description
+  const identityDescription = data.positioning ?? 'Análise de posicionamento não disponível.'
 
-  const toneDescription = data.tone?.description ?? data.tone ?? mockBrandDna.tone.description
-  const wordsToUse = data.words_to_use ?? data.tone?.wordsToUse ?? mockBrandDna.tone.wordsToUse
-  const wordsToAvoid =
-    data.words_to_avoid ?? data.tone?.wordsToAvoid ?? mockBrandDna.tone.wordsToAvoid
+  const toneDescription =
+    (typeof data.tone === 'string' ? data.tone : data.tone?.description) ??
+    'Tom de voz não analisado.'
+  const wordsToUse = data.words_to_use ?? data.tone?.wordsToUse ?? []
+  const wordsToAvoid = data.words_to_avoid ?? data.tone?.wordsToAvoid ?? []
 
-  const strengths =
-    data.strengths ?? data.diagnostic?.strengths ?? mockBrandDna.diagnostic.strengths
-  const alerts = data.alerts ?? data.diagnostic?.alerts ?? mockBrandDna.diagnostic.alerts
+  const strengths = data.strengths ?? data.diagnostic?.strengths ?? []
+  const alerts = data.alerts ?? data.diagnostic?.alerts ?? []
 
-  const opportunities = data.opportunities ?? mockBrandDna.opportunities
+  const opportunities = data.opportunities ?? []
 
-  const projection = data.revenue_projection ?? data.projection ?? mockBrandDna.projection
+  const projection = data.revenue_projection ?? data.projection ?? null
 
-  const recommendedSkills =
-    data.recommended_skills ?? data.recommendedSkills ?? mockBrandDna.recommendedSkills
+  const recommendedSkills = data.recommended_skills ??
+    data.recommendedSkills ?? [
+      {
+        slug: 'seasonal-calendar',
+        name: 'Seasonal Calendar',
+        description: 'Mapeia as melhores datas do ano e gera campanhas com antecedência.',
+        color: '#D7733E',
+      },
+      {
+        slug: 'campaign-copywriter',
+        name: 'Copywriter',
+        description: 'Escreve textos pra todos os canais no tom da marca.',
+        color: '#648EE9',
+      },
+      {
+        slug: 'image-generator',
+        name: 'Image Generator',
+        description: 'Cria banners e criativos com a paleta e estilo da marca.',
+        color: '#9B6BC4',
+      },
+    ]
 
-  const alertText = data.alert ?? mockBrandDna.alert
+  const alertText =
+    data.alert ??
+    'Conecte ferramentas de e-mail marketing (Mailchimp, RD Station) para maximizar o impacto das campanhas sazonais.'
 
   return (
     <div className="w-full pb-16">
@@ -122,28 +144,26 @@ export function BrandDnaScreen() {
       {/* Element 3: Tone of Voice */}
       <ToneOfVoiceCard
         description={
-          typeof toneDescription === 'string' ? toneDescription : mockBrandDna.tone.description
+          typeof toneDescription === 'string' ? toneDescription : 'Tom de voz não analisado.'
         }
-        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : mockBrandDna.tone.wordsToUse}
-        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : mockBrandDna.tone.wordsToAvoid}
+        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : []}
+        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : []}
       />
 
       {/* Element 4: Diagnostic */}
       <DiagnosticList
-        strengths={Array.isArray(strengths) ? strengths : mockBrandDna.diagnostic.strengths}
-        alerts={Array.isArray(alerts) ? alerts : mockBrandDna.diagnostic.alerts}
+        strengths={Array.isArray(strengths) ? strengths : []}
+        alerts={Array.isArray(alerts) ? alerts : []}
       />
 
       {/* Element 5: Opportunities */}
-      <OpportunitiesList
-        opportunities={
-          (Array.isArray(opportunities) ? opportunities : mockBrandDna.opportunities) as Array<{
-            title: string
-            description: string
-            color: 'green' | 'amber'
-          }>
-        }
-      />
+      {Array.isArray(opportunities) && opportunities.length > 0 && (
+        <OpportunitiesList
+          opportunities={
+            opportunities as Array<{ title: string; description: string; color: 'green' | 'amber' }>
+          }
+        />
+      )}
 
       {/* Element 6: Alert */}
       <div className="mb-6">
@@ -156,18 +176,18 @@ export function BrandDnaScreen() {
       </div>
 
       {/* Element 7: Revenue Projection */}
-      <RevenueProjection
-        current={projection.current ?? mockBrandDna.projection.current}
-        projected={projection.projected ?? mockBrandDna.projection.projected}
-        delta={projection.delta ?? mockBrandDna.projection.delta}
-        disclaimer={projection.disclaimer ?? mockBrandDna.projection.disclaimer}
-      />
+      {projection && (
+        <RevenueProjection
+          current={projection.current ?? 0}
+          projected={projection.projected ?? 0}
+          delta={projection.delta ?? 0}
+          disclaimer={projection.disclaimer ?? 'Projeção baseada em benchmarks do nicho.'}
+        />
+      )}
 
       {/* Element 8: Skill Activation */}
       <SkillActivationList
-        skills={
-          Array.isArray(recommendedSkills) ? recommendedSkills : mockBrandDna.recommendedSkills
-        }
+        skills={Array.isArray(recommendedSkills) ? recommendedSkills : []}
         onComplete={handleComplete}
       />
     </div>

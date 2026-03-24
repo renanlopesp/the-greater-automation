@@ -1,6 +1,13 @@
+type DiagnosticItem = string | { title: string; description: string }
+
 interface DiagnosticListProps {
-  strengths: string[]
-  alerts: string[]
+  strengths: DiagnosticItem[]
+  alerts: DiagnosticItem[]
+}
+
+function getItemText(item: DiagnosticItem): string {
+  if (typeof item === 'string') return item
+  return item.title + (item.description ? ` — ${item.description}` : '')
 }
 
 export function DiagnosticList({ strengths, alerts }: DiagnosticListProps) {
@@ -10,7 +17,7 @@ export function DiagnosticList({ strengths, alerts }: DiagnosticListProps) {
         Diagnóstico de performance
       </span>
       <div className="flex flex-col gap-1.5">
-        {strengths.map((text, i) => (
+        {strengths.map((item, i) => (
           <div
             key={`strength-${i}`}
             className="flex items-start gap-2.5 rounded-lg px-3 py-2"
@@ -22,10 +29,10 @@ export function DiagnosticList({ strengths, alerts }: DiagnosticListProps) {
             >
               ✓
             </span>
-            <p className="text-muted-foreground text-[13px] leading-relaxed">{text}</p>
+            <p className="text-muted-foreground text-[13px] leading-relaxed">{getItemText(item)}</p>
           </div>
         ))}
-        {alerts.map((text, i) => (
+        {alerts.map((item, i) => (
           <div
             key={`alert-${i}`}
             className="flex items-start gap-2.5 rounded-lg px-3 py-2"
@@ -37,7 +44,7 @@ export function DiagnosticList({ strengths, alerts }: DiagnosticListProps) {
             >
               !
             </span>
-            <p className="text-muted-foreground text-[13px] leading-relaxed">{text}</p>
+            <p className="text-muted-foreground text-[13px] leading-relaxed">{getItemText(item)}</p>
           </div>
         ))}
       </div>
