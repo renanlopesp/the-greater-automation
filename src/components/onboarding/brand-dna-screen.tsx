@@ -14,19 +14,19 @@ const DEFAULT_SKILLS = [
     slug: 'seasonal-calendar',
     name: 'Seasonal Calendar',
     description: 'Mapeia as melhores datas do ano e gera campanhas com antecedência.',
-    dot: 'hsl(var(--amber))',
+    dot: 'var(--amber)',
   },
   {
     slug: 'campaign-copywriter',
     name: 'Copywriter',
     description: 'Escreve textos pra todos os canais no tom da marca.',
-    dot: 'hsl(var(--blue))',
+    dot: 'var(--blue)',
   },
   {
     slug: 'image-generator',
     name: 'Image Generator',
     description: 'Cria banners e criativos com a paleta e estilo da marca.',
-    dot: 'hsl(var(--purple))',
+    dot: 'var(--purple)',
   },
 ]
 
@@ -148,14 +148,14 @@ export function BrandDnaScreen() {
   const diagnosticItems = [
     ...strengths.map((s) => ({
       status: '✓',
-      color: 'hsl(var(--green))',
-      bg: 'hsl(var(--green-bg))',
+      color: 'var(--green)',
+      bg: 'var(--green-bg)',
       text: typeof s === 'string' ? s : `${s.title} — ${s.description}`,
     })),
     ...alerts.map((a) => ({
       status: '!',
-      color: 'hsl(var(--amber))',
-      bg: 'hsl(var(--amber-bg))',
+      color: 'var(--amber)',
+      bg: 'var(--amber-bg)',
       text: typeof a === 'string' ? a : `${a.title} — ${a.description}`,
     })),
   ]
@@ -163,8 +163,8 @@ export function BrandDnaScreen() {
   const rawOpportunities: Array<{ title: string; description: string; color?: string }> =
     Array.isArray(brandDna.opportunities) ? brandDna.opportunities : []
   const opportunities = rawOpportunities.map((opp) => ({
-    borderColor: opp.color === 'green' ? 'hsl(var(--green))' : 'hsl(var(--amber))',
-    bg: opp.color === 'green' ? 'hsl(var(--green-bg))' : 'hsl(var(--amber-bg))',
+    borderColor: opp.color === 'green' ? 'var(--green)' : 'var(--amber)',
+    bg: opp.color === 'green' ? 'var(--green-bg)' : 'var(--amber-bg)',
     label: opp.title,
     text: opp.description,
   }))
@@ -181,7 +181,7 @@ export function BrandDnaScreen() {
   }> = Array.isArray(brandDna.recommended_skills) ? brandDna.recommended_skills : DEFAULT_SKILLS
 
   const skills = rawSkills.map((s) => ({
-    dot: s.dot ?? 'hsl(var(--amber))',
+    dot: s.dot ?? 'var(--amber)',
     name: s.name ?? s.slug ?? '',
     desc: s.reason ?? s.description ?? '',
     slug: s.slug ?? '',
@@ -234,8 +234,8 @@ export function BrandDnaScreen() {
                 className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold"
                 style={{
                   background:
-                    'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary)/0.7))',
-                  color: 'hsl(var(--primary-foreground))',
+                    'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, transparent))',
+                  color: 'var(--primary-foreground)',
                 }}
               >
                 S
@@ -290,7 +290,7 @@ export function BrandDnaScreen() {
                     <span
                       key={w}
                       className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      style={{ background: 'hsl(var(--green-bg))', color: 'hsl(var(--green))' }}
+                      style={{ background: 'var(--green-bg)', color: 'var(--green)' }}
                     >
                       {w}
                     </span>
@@ -307,8 +307,8 @@ export function BrandDnaScreen() {
                       key={w}
                       className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                       style={{
-                        background: 'hsl(var(--destructive)/0.1)',
-                        color: 'hsl(var(--destructive))',
+                        background: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
+                        color: 'var(--destructive)',
                       }}
                     >
                       {w}
@@ -394,7 +394,7 @@ export function BrandDnaScreen() {
                   {formatK(projection.projected ?? 0)}/ano
                 </strong>{' '}
                 — um incremento de{' '}
-                <strong style={{ color: 'hsl(var(--green))' }}>
+                <strong style={{ color: 'var(--green)' }}>
                   +
                   {formatK(
                     projection.delta ?? (projection.projected ?? 0) - (projection.current ?? 0)
