@@ -22,6 +22,13 @@ export type SkillRow = {
   requires_connections: string[]
   icon: string | null
   color: string | null
+  emoji: string | null
+  stats: unknown
+  what_it_does: unknown
+  expected_results: string[]
+  config_schema: unknown
+  connected_skills: unknown
+  outputs: unknown
   created_at: string
   updated_at: string
 }
@@ -67,9 +74,13 @@ export async function fetchTeamSkills(supabase: Client, teamId: string): Promise
       .eq('team_id', teamId)
       .order('name', { ascending: true })
 
-    if (error) return []
+    if (error) {
+      console.error('[fetchTeamSkills] error:', JSON.stringify(error))
+      return []
+    }
     return data ?? []
-  } catch {
+  } catch (e) {
+    console.error('[fetchTeamSkills] catch:', e)
     return []
   }
 }

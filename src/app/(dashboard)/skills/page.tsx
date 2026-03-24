@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
-import { fetchTeamSkills, type SkillRow } from '@/lib/queries/skills'
+import { type SkillRow } from '@/lib/queries/skills'
 import { skills as skillRegistry } from '@/data/skills'
 import SkillLibrary from '@/components/skills/skill-library'
 
@@ -28,7 +28,38 @@ export default async function SkillsPage() {
     )
   }
 
-  let skills = await fetchTeamSkills(supabase, teamId)
+  const serviceClient = createServiceRoleClient()
+  let skills: SkillRow[] = []
+  try {
+    const { data, error } = await (
+      serviceClient as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (
+              k: string,
+              v: string
+            ) => {
+              order: (
+                k: string,
+                o: { ascending: boolean }
+              ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+            }
+          }
+        }
+      }
+    )
+      .from('skills')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Skills query error:', error)
+    }
+    skills = (data ?? []) as SkillRow[]
+  } catch (e) {
+    console.error('Skills query catch:', e)
+  }
 
   // If DB returned nothing (table may not exist yet), fall back to static registry
   if (skills.length === 0) {
@@ -53,6 +84,13 @@ export default async function SkillsPage() {
         requires_connections: s.requiredConnections,
         icon: s.icon,
         color: s.color,
+        emoji: null,
+        stats: [],
+        what_it_does: [],
+        expected_results: [],
+        config_schema: null,
+        connected_skills: [],
+        outputs: [],
         created_at: now,
         updated_at: now,
       })
