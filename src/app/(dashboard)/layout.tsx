@@ -45,6 +45,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     activeTeamId = selectedTeamId
   }
 
+  // Check if onboarding is completed — redirect to /onboarding if not
+  const { data: storeCheck } = await supabase
+    .from('stores')
+    .select('onboarding_completed')
+    .eq('team_id', activeTeamId)
+    .single()
+
+  if (!storeCheck || storeCheck.onboarding_completed === false) {
+    redirect('/onboarding')
+  }
+
   // Fetch team details for switcher + active team data + usage + subscription in one round
   let userTeams: { id: string; name: string; role: string }[] = []
   let team = null
@@ -199,9 +210,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   op: string,
                   v: null
                 ) => {
-                  order: (
-                    k: string
-                  ) => Promise<{
+                  order: (k: string) => Promise<{
                     data: Array<{
                       id: string
                       name: string
