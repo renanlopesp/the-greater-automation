@@ -99,12 +99,15 @@ export function TopBar({
               )}
               {!userName && !userEmail && <span className="font-semibold">Minha conta</span>}
             </DropdownMenuLabel>
-            {userTeams && userTeams.length > 1 && (
+            {userTeams && userTeams.length > 0 && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuLabel>Workspace</DropdownMenuLabel>
                 {userTeams.map((t) => (
-                  <DropdownMenuItem key={t.id} onClick={() => onSwitchWorkspace?.(t.id)}>
+                  <DropdownMenuItem
+                    key={t.id}
+                    onClick={() => userTeams.length > 1 && onSwitchWorkspace?.(t.id)}
+                  >
                     <span className="flex-1">{t.name}</span>
                     <span className="text-muted-foreground text-xs capitalize">{t.role}</span>
                     {activeTeamId === t.id && <Check className="ml-2 size-4" />}
