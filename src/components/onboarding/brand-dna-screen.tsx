@@ -72,7 +72,7 @@ function Card1({ ownerName, greeting, intro }: Card1Props) {
         className="mb-2 text-center text-[18px] font-medium"
         style={{ color: 'var(--color-text-primary)' }}
       >
-        {greeting || `Oi, ${ownerName}.`}
+        {`Oi, ${ownerName}.`}
       </p>
       <p
         className="mb-6 text-center text-[16px] font-medium"
