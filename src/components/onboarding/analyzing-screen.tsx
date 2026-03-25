@@ -51,14 +51,12 @@ export function AnalyzingScreen() {
               <div
                 className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300"
                 style={{
-                  background: isDone ? 'hsl(var(--green-bg))' : 'hsl(var(--muted))',
-                  border: isDone
-                    ? '1.5px solid hsl(var(--green))'
-                    : '1.5px solid hsl(var(--border))',
+                  background: isDone ? 'var(--green-bg)' : 'var(--muted)',
+                  border: isDone ? '1.5px solid var(--green)' : '1.5px solid var(--border)',
                 }}
               >
                 {isDone ? (
-                  <Check size={12} strokeWidth={2.5} style={{ color: 'hsl(var(--green))' }} />
+                  <Check size={12} strokeWidth={2.5} style={{ color: 'var(--green)' }} />
                 ) : isActive ? (
                   <Loader2 size={12} className="text-muted-foreground animate-spin" />
                 ) : (
@@ -70,7 +68,7 @@ export function AnalyzingScreen() {
               <span
                 className="text-[14px] transition-all duration-300"
                 style={{
-                  color: isDone ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+                  color: isDone ? 'var(--foreground)' : 'var(--muted-foreground)',
                   fontWeight: isDone ? 500 : 400,
                   opacity: isActive ? 1 : isDone ? 1 : 0.6,
                 }}
