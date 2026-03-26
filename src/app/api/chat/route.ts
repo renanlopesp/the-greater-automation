@@ -1,6 +1,6 @@
 export const maxDuration = 120
 
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
@@ -60,20 +60,27 @@ export async function POST(request: NextRequest) {
   }
 
   // 4. Load team context in parallel
-  const [{ data: teamSkills }, { data: store }, { data: team }] = await Promise.all([
-    serviceClient
-      .from('skills' as never)
-      .select('slug, name, description, category, status')
-      .eq('team_id' as never, teamId)
-      .order('name' as never),
-    serviceClient
-      .from('stores')
-      .select('id, name, segment, platform, platform_access_token')
-      .eq('team_id', teamId)
-      .limit(1)
-      .single(),
-    serviceClient.from('teams').select('name').eq('id', teamId).single(),
-  ])
+  const [{ data: teamSkills }, { data: store }, { data: team }, { data: brandDna }] =
+    await Promise.all([
+      serviceClient
+        .from('skills' as never)
+        .select('slug, name, description, category, status')
+        .eq('team_id' as never, teamId)
+        .order('name' as never),
+      serviceClient
+        .from('stores')
+        .select('id, name, segment, platform, platform_access_token')
+        .eq('team_id', teamId)
+        .limit(1)
+        .single(),
+      serviceClient.from('teams').select('name').eq('id', teamId).single(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (serviceClient as any)
+        .from('brand_dna')
+        .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
+        .eq('team_id', teamId)
+        .single(),
+    ])
 
   const storeId = store?.id ?? null
 
@@ -199,7 +206,19 @@ export async function POST(request: NextRequest) {
           platform: store.platform,
           hasProducts,
         }
-      : undefined
+      : undefined,
+    brandDna as
+      | {
+          niche: string | null
+          tone: string | null
+          audience: string | null
+          positioning: string | null
+          words_to_use: string[] | null
+          words_to_avoid: string[] | null
+          store_name: string | null
+        }
+      | null
+      | undefined
   )
 
   // 9. Platform tools (SNEW_ASK_AGENT, retail tools, etc.)

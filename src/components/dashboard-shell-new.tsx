@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
 import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
+import { switchWorkspaceAction } from '@/lib/actions/workspace'
 import type { UserData, UsageData, PlanData, TeamMember, TeamInvitation } from '@/types/navigation'
 
 const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
@@ -67,6 +69,8 @@ export default function DashboardShellNew({
   currentUserRole = 'member',
   storeData = null,
 }: DashboardShellNewProps) {
+  const router = useRouter()
+
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
     const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
@@ -123,9 +127,14 @@ export default function DashboardShellNew({
             userInitials={getInitials(user.fullName, user.email)}
             userName={user.fullName ?? undefined}
             userEmail={user.email}
+            userTeams={userTeams}
+            activeTeamId={team?.id}
             onOpenSettings={() => {
               setSettingsEverOpened(true)
               setSettingsOpen(true)
+            }}
+            onSwitchWorkspace={(teamId) => {
+              switchWorkspaceAction(teamId).then(() => router.refresh())
             }}
           />
           <main className="flex-1 overflow-auto">{children}</main>

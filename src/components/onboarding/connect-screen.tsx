@@ -1,9 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+// Button removed — using native <a> tags for OAuth redirect
 
 function ShopifyIcon() {
   return (
@@ -29,11 +28,8 @@ function NuvemshopIcon() {
 }
 
 export function ConnectScreen() {
-  const router = useRouter()
-
-  const handleConnect = () => {
-    router.push('/onboarding/analyzing')
-  }
+  const nuvemshopUrl = `/api/nuvemshop/connect?redirect_uri=${encodeURIComponent('/onboarding/analyzing')}`
+  const shopifyUrl = nuvemshopUrl // TODO: Replace with Composio Shopify flow
 
   return (
     <div className="flex w-full flex-col gap-8">
@@ -61,42 +57,28 @@ export function ConnectScreen() {
       {/* Platform cards */}
       <div className="grid grid-cols-2 gap-4">
         {/* Shopify */}
-        <div
+        <a
+          href={shopifyUrl}
           className="bg-card flex cursor-pointer flex-col items-center gap-4 rounded-2xl border p-6 transition-shadow hover:shadow-md"
-          onClick={handleConnect}
         >
           <ShopifyIcon />
           <span className="text-foreground text-[14px] font-semibold">Shopify</span>
-          <Button
-            size="sm"
-            className="w-full text-[13px]"
-            onClick={(e) => {
-              e.stopPropagation()
-              handleConnect()
-            }}
-          >
+          <span className="bg-primary text-primary-foreground inline-flex h-8 w-full items-center justify-center rounded-md text-[13px] font-medium">
             Connect via Shopify
-          </Button>
-        </div>
+          </span>
+        </a>
 
         {/* Nuvemshop */}
-        <div
+        <a
+          href={nuvemshopUrl}
           className="bg-card flex cursor-pointer flex-col items-center gap-4 rounded-2xl border p-6 transition-shadow hover:shadow-md"
-          onClick={handleConnect}
         >
           <NuvemshopIcon />
           <span className="text-foreground text-[14px] font-semibold">Nuvemshop</span>
-          <Button
-            size="sm"
-            className="w-full text-[13px]"
-            onClick={(e) => {
-              e.stopPropagation()
-              handleConnect()
-            }}
-          >
+          <span className="bg-primary text-primary-foreground inline-flex h-8 w-full items-center justify-center rounded-md text-[13px] font-medium">
             Connect via Nuvemshop
-          </Button>
-        </div>
+          </span>
+        </a>
       </div>
 
       <p className="text-muted-foreground text-center text-[12px]">

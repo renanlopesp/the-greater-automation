@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       registerWebhooks(client, store.id, origin, serviceSupabase).catch(console.error)
     }
 
-    const redirectPath = state.redirect_uri || '/workspace'
+    const redirectPath = state.redirect_uri || '/onboarding/analyzing'
     return NextResponse.redirect(new URL(redirectPath, origin))
   } catch (error) {
     console.error('[nuvemshop/callback] OAuth error:', error)
