@@ -92,6 +92,8 @@ export async function runAnalysisPipeline(
     palette_description: string
     visual_style: string
     logo_description: string | null
+    fonts: Array<{ name: string; usage: string; category: string }>
+    brand_texts: Array<{ type: string; label: string; content: string }>
   }
   let visualAnalysis: VisualAnalysis | null = null
 
@@ -223,6 +225,8 @@ export async function runAnalysisPipeline(
           intro: brandDnaResult.intro,
           color_palette: brandDnaResult.color_palette,
           palette_description: brandDnaResult.palette_description,
+          fonts: brandDnaResult.fonts,
+          brand_texts: brandDnaResult.brand_texts,
           updated_at: new Date().toISOString(),
         })
         .eq('team_id', teamId)
@@ -255,6 +259,8 @@ export async function runAnalysisPipeline(
           intro: brandDnaResult.intro,
           color_palette: brandDnaResult.color_palette,
           palette_description: brandDnaResult.palette_description,
+          fonts: brandDnaResult.fonts,
+          brand_texts: brandDnaResult.brand_texts,
         })
         .select('id')
         .single()

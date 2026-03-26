@@ -1,39 +1,57 @@
 'use client'
 
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { Image as ImageIcon, Type, FileText, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useProductImages } from '@/hooks/use-product-images'
+
+interface BrandFont {
+  name: string
+  usage: string
+  category: string
+}
+
+interface BrandText {
+  type: string
+  label: string
+  content: string
+}
+
+interface ColorSwatch {
+  hex: string
+  label: string
+}
 
 interface AssetsDrawerProps {
   open: boolean
   onClose: () => void
   storeName: string
-  tone?: string
-  wordsToUse?: string[]
-  wordsToAvoid?: string[]
-  positioning?: string
+  colorPalette?: ColorSwatch[]
+  fonts?: BrandFont[]
+  brandTexts?: BrandText[]
 }
 
-type TabId = 'paleta' | 'tom' | 'textos'
+const FALLBACK_FONTS: BrandFont[] = [
+  { name: 'System Default', usage: 'Titulos e headings', category: 'sans-serif' },
+  { name: 'System Default', usage: 'Corpo e UI', category: 'sans-serif' },
+]
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'paleta', label: 'Paleta' },
-  { id: 'tom', label: 'Tom de voz' },
-  { id: 'textos', label: 'Textos' },
+const FALLBACK_SWATCHES: ColorSwatch[] = [
+  { hex: '#F4E8D0', label: 'Vanilla' },
+  { hex: '#E8D5C0', label: 'Nude' },
+  { hex: '#D4B896', label: 'Caramelo' },
+  { hex: '#F5F0EB', label: 'Off-white' },
+  { hex: '#C9A87C', label: 'Dourado suave' },
 ]
 
 export function AssetsDrawer({
   open,
   onClose,
   storeName,
-  tone,
-  wordsToUse = [],
-  wordsToAvoid = [],
-  positioning,
+  colorPalette = [],
+  fonts = [],
+  brandTexts = [],
 }: AssetsDrawerProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('paleta')
-
   return (
     <Sheet
       open={open}
@@ -43,8 +61,13 @@ export function AssetsDrawer({
     >
       <SheetContent side="right" showCloseButton={false} className="w-[360px] p-0 sm:max-w-[360px]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <span className="text-foreground text-[14px] font-semibold">Assets da {storeName}</span>
+        <div className="flex items-center justify-between px-5 pt-5 pb-2">
+          <div>
+            <span className="text-foreground block text-[14px] font-semibold">
+              Assets da {storeName}
+            </span>
+            <span className="text-muted-foreground text-[12px]">Extraidos do site e Instagram</span>
+          </div>
           <SheetClose asChild>
             <button
               onClick={onClose}
@@ -57,142 +80,155 @@ export function AssetsDrawer({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b px-5 pt-3">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'pb-2.5 text-[13px] font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'text-foreground border-b-2 border-current'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+        <Tabs defaultValue="imagens" className="flex h-[calc(100%-72px)] flex-col">
+          <TabsList className="mx-5 mb-0 h-auto justify-start gap-4 rounded-none border-b bg-transparent p-0">
+            <TabsTrigger
+              value="imagens"
+              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              <ImageIcon size={14} />
+              Imagens
+            </TabsTrigger>
+            <TabsTrigger
+              value="fontes"
+              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
+            >
+              <Type size={14} />
+              Fontes
+            </TabsTrigger>
+            <TabsTrigger
+              value="textos"
+              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
+            >
+              <FileText size={14} />
+              Textos
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Tab content */}
-        <div className="overflow-y-auto p-5" style={{ height: 'calc(100% - 105px)' }}>
-          {activeTab === 'paleta' && <PaletaTab tone={tone} positioning={positioning} />}
-          {activeTab === 'tom' && (
-            <TomTab wordsToUse={wordsToUse} wordsToAvoid={wordsToAvoid} tone={tone} />
-          )}
-          {activeTab === 'textos' && <TextosTab positioning={positioning} tone={tone} />}
-        </div>
+          <div className="flex-1 overflow-y-auto">
+            <TabsContent value="imagens" className="mt-0 p-5">
+              <ImagensTab />
+            </TabsContent>
+            <TabsContent value="fontes" className="mt-0 p-5">
+              <FontesTab fonts={fonts} colorPalette={colorPalette} />
+            </TabsContent>
+            <TabsContent value="textos" className="mt-0 p-5">
+              <TextosTab brandTexts={brandTexts} />
+            </TabsContent>
+          </div>
+        </Tabs>
       </SheetContent>
     </Sheet>
   )
 }
 
-function PaletaTab({ tone, positioning }: { tone?: string; positioning?: string }) {
-  const description = [tone, positioning].filter(Boolean).join(' — ')
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-muted-foreground text-[13px] leading-relaxed">
-        Imagens dos produtos serão exibidas aqui após a análise completa.
-      </p>
-      {description && (
-        <div className="rounded-xl border p-4">
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Tema visual da marca
-          </span>
-          <p className="text-foreground text-[13px] leading-relaxed">{description}</p>
-        </div>
-      )}
-    </div>
-  )
-}
+// ─── Imagens Tab ──────────────────────────────────────────────────────────────
 
-function TomTab({
-  wordsToUse,
-  wordsToAvoid,
-  tone,
-}: {
-  wordsToUse: string[]
-  wordsToAvoid: string[]
-  tone?: string
-}) {
-  return (
-    <div className="flex flex-col gap-5">
-      {tone && (
-        <div>
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Tom de comunicação
-          </span>
-          <p className="text-foreground text-[13px] leading-relaxed">{tone}</p>
-        </div>
-      )}
+function ImagensTab() {
+  const { images, isLoading } = useProductImages()
 
-      {wordsToUse.length > 0 && (
-        <div>
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Usar
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {wordsToUse.map((word) => (
-              <span
-                key={word}
-                className="rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700"
-              >
-                {word}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {wordsToAvoid.length > 0 && (
-        <div>
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Evitar
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {wordsToAvoid.map((word) => (
-              <span
-                key={word}
-                className="rounded-full bg-red-50 px-3 py-1 text-[12px] font-medium text-red-700"
-              >
-                {word}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {wordsToUse.length === 0 && wordsToAvoid.length === 0 && !tone && (
-        <p className="text-muted-foreground text-[13px]">Análise de tom de voz não disponível.</p>
-      )}
-    </div>
-  )
-}
-
-function TextosTab({ positioning, tone }: { positioning?: string; tone?: string }) {
-  if (!positioning && !tone) {
+  if (isLoading) {
     return (
-      <p className="text-muted-foreground text-[13px]">Análise de posicionamento não disponível.</p>
+      <div className="grid grid-cols-3 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-1.5">
+            <div className="bg-muted aspect-square animate-pulse rounded-lg" />
+            <div className="bg-muted h-3 w-3/4 animate-pulse rounded" />
+            <div className="bg-muted h-2.5 w-1/2 animate-pulse rounded" />
+          </div>
+        ))}
+      </div>
     )
   }
+
+  if (images.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12">
+        <ImageIcon size={32} className="text-muted-foreground opacity-40" />
+        <p className="text-muted-foreground text-[13px]">Nenhuma imagem de produto encontrada.</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-5">
-      {positioning && (
-        <div>
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Posicionamento
-          </span>
-          <p className="text-foreground text-[13px] leading-relaxed">{positioning}</p>
+    <div className="grid grid-cols-3 gap-3">
+      {images.map((img) => (
+        <div key={img.name} className="flex flex-col gap-1.5">
+          <div className="bg-muted relative aspect-square overflow-hidden rounded-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.url}
+              alt={img.productName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+          <span className="text-muted-foreground truncate text-[11px]">{img.name}</span>
+          <span className="text-muted-foreground text-[10px] opacity-60">{img.label}</span>
         </div>
-      )}
-      {tone && (
-        <div>
-          <span className="text-muted-foreground mb-2 block text-[11px] font-semibold tracking-[0.05em] uppercase">
-            Tom de voz
-          </span>
-          <p className="text-foreground text-[13px] leading-relaxed">{tone}</p>
+      ))}
+    </div>
+  )
+}
+
+// ─── Fontes Tab ───────────────────────────────────────────────────────────────
+
+function FontesTab({ fonts, colorPalette }: { fonts: BrandFont[]; colorPalette: ColorSwatch[] }) {
+  const displayFonts = fonts.length > 0 ? fonts : FALLBACK_FONTS
+  const displayPalette = colorPalette.length > 0 ? colorPalette : FALLBACK_SWATCHES
+
+  return (
+    <div className="flex flex-col gap-4">
+      {displayFonts.map((font) => (
+        <div key={`${font.name}-${font.usage}`} className="rounded-xl border p-4">
+          <p className="text-foreground mb-1 text-[18px] font-medium">Aa Bb Cc</p>
+          <p className="text-foreground text-[13px] font-semibold">{font.name}</p>
+          <p className="text-muted-foreground text-[12px]">{font.usage}</p>
         </div>
-      )}
+      ))}
+
+      <div className="rounded-xl border p-4">
+        <p className="text-foreground mb-3 text-[13px] font-semibold">Paleta de cores</p>
+        <div className="flex gap-2">
+          {displayPalette.map((s) => (
+            <div
+              key={s.hex}
+              title={`${s.label} · ${s.hex}`}
+              className="h-8 w-8 flex-shrink-0 rounded-lg"
+              style={{
+                background: s.hex,
+                border: '1px solid var(--border)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Textos Tab ───────────────────────────────────────────────────────────────
+
+function TextosTab({ brandTexts }: { brandTexts: BrandText[] }) {
+  if (brandTexts.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12">
+        <FileText size={32} className="text-muted-foreground opacity-40" />
+        <p className="text-muted-foreground text-[13px]">Textos de marca ainda nao disponíveis.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {brandTexts.map((text) => (
+        <div key={text.type} className="rounded-xl border p-4">
+          <p className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-[0.08em] uppercase">
+            {text.label}
+          </p>
+          <p className="text-foreground text-[13px] leading-relaxed">{text.content}</p>
+        </div>
+      ))}
     </div>
   )
 }
