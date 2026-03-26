@@ -127,6 +127,54 @@ export async function updateSkillConfig(
     .eq('slug', slug)
 }
 
+/** Seed the Seasonal Calendar as the first real skill for a team */
+export async function seedSeasonalCalendar(teamId: string): Promise<void> {
+  const supabase = createServiceRoleClient()
+
+  const now = new Date().toISOString()
+  const { error } = await (
+    supabase as unknown as {
+      from: (t: string) => {
+        upsert: (d: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>
+      }
+    }
+  )
+    .from('skills')
+    .upsert(
+      {
+        team_id: teamId,
+        slug: 'seasonal-calendar',
+        name: 'Seasonal Calendar',
+        description: 'Mapeia 30+ datas priorizadas por potencial de receita histórico',
+        category: 'marketing-campanhas',
+        phase: 1,
+        icon: '📅',
+        color: 'hsl(38 92% 40%)',
+        emoji: '📅',
+        dependencies: [],
+        status: 'active',
+        is_native: true,
+        requires_connections: [],
+        system_prompt: null,
+        tools: [],
+        knowledge: [],
+        input_schema: null,
+        output_schema: null,
+        config_schema: null,
+        connected_skills: [],
+        outputs: [],
+        stats: [],
+        what_it_does: [],
+        expected_results: [],
+        created_at: now,
+        updated_at: now,
+      },
+      { onConflict: 'team_id,slug' }
+    )
+
+  if (error) throw error
+}
+
 /** Seed skills from code registry for a team (called on team creation or migration) */
 export async function seedTeamSkills(teamId: string): Promise<void> {
   const supabase = createServiceRoleClient()

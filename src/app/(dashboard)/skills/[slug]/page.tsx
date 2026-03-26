@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { fetchSkillBySlug } from '@/lib/queries/skills'
 import SkillDetailNew from '@/components/skills/skill-detail-new'
+import { SeasonalCalendarWorkspace } from '@/components/skills/seasonal-calendar/seasonal-calendar-workspace'
 import { skills as skillRegistry } from '@/data/skills'
 
 interface SkillDetailPageProps {
@@ -140,8 +141,11 @@ export default async function SkillDetailPage({ params }: SkillDetailPageProps) 
   const colorBg = registrySkill?.color ? `${registrySkill.color}20` : '#64748b20'
   const isActive = dbSkill?.status === 'active'
 
-  const mock =
-    slug === 'seasonal-calendar' ? SEASONAL_CALENDAR_MOCK : getGenericMock(name, description)
+  if (slug === 'seasonal-calendar') {
+    return <SeasonalCalendarWorkspace />
+  }
+
+  const mock = getGenericMock(name, description)
 
   return (
     <SkillDetailNew
@@ -156,7 +160,7 @@ export default async function SkillDetailPage({ params }: SkillDetailPageProps) 
       stats={mock.stats}
       actions={mock.actions}
       expectedResults={mock.expectedResults}
-      showConfig={slug === 'seasonal-calendar' && isActive}
+      showConfig={false}
       defaultAutonomy="approval"
       defaultBriefingAdvance="D-60"
       connections={mock.connections}
