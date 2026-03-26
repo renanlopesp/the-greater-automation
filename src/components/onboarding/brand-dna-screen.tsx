@@ -18,7 +18,7 @@ const DEFAULT_SKILLS = [
   { slug: 'image-generator', name: 'Image Generator', dot: 'var(--purple)' },
 ]
 
-const COLOR_SWATCHES = [
+const FALLBACK_SWATCHES = [
   { hex: '#F4E8D0', label: 'Vanilla' },
   { hex: '#E8D5C0', label: 'Nude' },
   { hex: '#D4B896', label: 'Caramelo' },
@@ -56,18 +56,8 @@ interface Card1Props {
 function Card1({ ownerName, greeting, intro }: Card1Props) {
   return (
     <div className="flex flex-col items-center">
-      <div
-        className="mb-4 flex h-10 w-10 items-center justify-center rounded-full text-[13px] font-bold"
-        style={{
-          background:
-            'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, transparent))',
-          color: 'var(--primary-foreground)',
-          boxShadow:
-            '0 0 0 2px var(--background), 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent)',
-        }}
-      >
-        S
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/snew.svg" alt="Snew" className="mb-4 h-10 w-10" />
       <p
         className="mb-2 text-center text-[18px] font-medium"
         style={{ color: 'var(--color-text-primary)' }}
@@ -94,10 +84,12 @@ function Card1({ ownerName, greeting, intro }: Card1Props) {
 
 interface Card2Props {
   positioning: string
+  colorSwatches: Array<{ hex: string; label: string }>
+  paletteDescription: string
   onOpenAssets: () => void
 }
 
-function Card2({ positioning, onOpenAssets }: Card2Props) {
+function Card2({ positioning, colorSwatches, paletteDescription, onOpenAssets }: Card2Props) {
   return (
     <div className="flex flex-col items-center">
       <CardLabel>Identidade da marca</CardLabel>
@@ -108,7 +100,7 @@ function Card2({ positioning, onOpenAssets }: Card2Props) {
         {positioning}
       </p>
       <div className="mb-3 flex justify-center gap-2">
-        {COLOR_SWATCHES.map((s) => (
+        {colorSwatches.map((s) => (
           <div
             key={s.hex}
             title={`${s.label} · ${s.hex}`}
@@ -121,7 +113,7 @@ function Card2({ positioning, onOpenAssets }: Card2Props) {
         ))}
       </div>
       <p className="mb-5 text-center text-[12px]" style={{ color: 'var(--color-text-tertiary)' }}>
-        Paleta terrosa e acolhedora. Premium emocional.
+        {paletteDescription}
       </p>
       <button
         onClick={onOpenAssets}
@@ -598,6 +590,12 @@ export function BrandDnaScreen() {
     <Card2
       key="card2"
       positioning={identityDescription}
+      colorSwatches={
+        Array.isArray(brandDna.color_palette) && brandDna.color_palette.length > 0
+          ? brandDna.color_palette
+          : FALLBACK_SWATCHES
+      }
+      paletteDescription={brandDna.palette_description ?? 'Paleta da marca.'}
       onOpenAssets={() => setAssetsOpen(true)}
     />,
     <Card3

@@ -349,9 +349,9 @@ export const NuvemshopStoreSchema = z.object({
   }),
   description: z
     .object({
-      pt: z.string().optional(),
-      en: z.string().optional(),
-      es: z.string().optional(),
+      pt: z.string().nullable().optional(),
+      en: z.string().nullable().optional(),
+      es: z.string().nullable().optional(),
     })
     .nullable()
     .optional(),

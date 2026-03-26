@@ -11,8 +11,9 @@ type StepStatus = {
 
 const INITIAL_STEPS: StepStatus[] = [
   { step: 1, status: 'pending', message: 'Sincronizando produtos...' },
-  { step: 2, status: 'pending', message: 'Gerando Brand DNA...' },
-  { step: 3, status: 'pending', message: 'Mapeando oportunidades sazonais...' },
+  { step: 2, status: 'pending', message: 'Analisando identidade visual...' },
+  { step: 3, status: 'pending', message: 'Gerando Brand DNA...' },
+  { step: 4, status: 'pending', message: 'Mapeando oportunidades sazonais...' },
 ]
 
 export function useOnboardingAnalysis() {
