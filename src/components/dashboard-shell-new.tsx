@@ -7,7 +7,7 @@ import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
 import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
-import type { UserData, UsageData, PlanData, TeamMember, TeamInvitation } from '@/types/navigation'
+import type { UserData } from '@/types/navigation'
 
 const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 
@@ -30,28 +30,7 @@ interface DashboardShellNewProps {
   user: UserData
   team: { id: string; name: string; slug: string } | null
   userTeams: { id: string; name: string; role: string }[]
-  usage: UsageData | null
-  planData?: PlanData | null
-  orchestratorId?: string | null
-  installedAgents?: Array<{
-    id: string
-    name: string
-    agentType: string | null
-    status: string | null
-  }>
   initialLanguage?: string
-  members?: TeamMember[]
-  invitations?: TeamInvitation[]
-  currentUserRole?: 'owner' | 'admin' | 'member'
-  storeData?: {
-    id: string
-    name: string
-    segment: string
-    platform: string | null
-    platform_store_id: string | null
-    last_sync_at: string | null
-    settings: Record<string, unknown> | null
-  } | null
 }
 
 export default function DashboardShellNew({
@@ -59,15 +38,7 @@ export default function DashboardShellNew({
   user,
   team,
   userTeams,
-  usage,
-  planData,
-  orchestratorId,
-  installedAgents = [],
   initialLanguage,
-  members = [],
-  invitations = [],
-  currentUserRole = 'member',
-  storeData = null,
 }: DashboardShellNewProps) {
   const router = useRouter()
 
@@ -86,10 +57,6 @@ export default function DashboardShellNew({
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next))
       return next
     })
-  }
-
-  const handleToggleMobile = () => {
-    setMobileOpen((o) => !o)
   }
 
   return (
@@ -150,13 +117,7 @@ export default function DashboardShellNew({
             }}
             team={team ? { name: team.name, slug: team.slug } : null}
             teamId={team?.id}
-            usage={usage}
-            members={members}
-            invitations={invitations}
-            currentUserRole={currentUserRole}
             currentUserId={user.id}
-            planData={planData ?? null}
-            storeData={storeData}
           />
         )}
       </div>

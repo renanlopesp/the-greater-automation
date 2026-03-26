@@ -1,7 +1,51 @@
 'use server'
 
-import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { skills as skillRegistry } from '@/data/skills'
+import type { SkillRow } from '@/lib/queries/skills'
+
+/** Fetch all skills for the current user's team, with static fallback */
+export async function fetchSkillsAction(): Promise<SkillRow[]> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return []
+
+  const serviceClient = createServiceRoleClient()
+
+  const { data, error } = await (
+    serviceClient as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          eq: (
+            k: string,
+            v: string
+          ) => {
+            order: (
+              k: string,
+              o: { ascending: boolean }
+            ) => Promise<{ data: SkillRow[] | null; error: unknown }>
+          }
+        }
+      }
+    }
+  )
+    .from('skills')
+    .select('*')
+    .eq('team_id', teamId)
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('[fetchSkillsAction] error:', JSON.stringify(error))
+  }
+
+  return (data ?? []) as SkillRow[]
+}
 
 /** Activate a skill for a team (available → active) */
 export async function activateSkill(teamId: string, slug: string): Promise<void> {

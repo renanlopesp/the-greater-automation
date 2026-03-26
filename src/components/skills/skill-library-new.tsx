@@ -1,17 +1,15 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { createBrowserClient } from '@/lib/supabase/client'
-import { fetchTeamSkills, type SkillRow } from '@/lib/queries/skills'
-import { SKILL_CATEGORIES, LEGACY_CATEGORY_MAP, skillCategoryLabels } from '@/data/skills'
+import { fetchSkillsAction } from '@/lib/actions/skills'
+import type { SkillRow } from '@/lib/queries/skills'
 import SkillCardNew from './skill-card-new'
-import SkillFilterSidebar from './skill-filter-sidebar'
 
 // Derive colorBg from skill data — exact HSL values from prototype
 function getColorBg(skill: SkillRow): string {
-  // The static registry now stores colorBg per skill; fall back to category-based palette
   const categoryMap: Record<string, string> = {
     'carrinho-conversao': 'hsl(217 91% 95%)',
     'retencao-churn': 'hsl(270 70% 96%)',
@@ -22,7 +20,6 @@ function getColorBg(skill: SkillRow): string {
     'produto-catalogo': 'hsl(142 76% 96%)',
     'redes-sociais': 'hsl(38 100% 95%)',
     'visibilidade-ia': 'hsl(270 70% 96%)',
-    // Legacy keys
     campaign: 'hsl(217 91% 95%)',
     content: 'hsl(270 70% 96%)',
     retention: 'hsl(270 70% 96%)',
@@ -66,141 +63,101 @@ function getEmoji(skill: SkillRow): string {
   return defaultEmoji[skill.category] ?? '⚙️'
 }
 
-// Resolve a DB category (could be legacy or new) to the display category key
-function resolveCategory(category: string): string {
-  return LEGACY_CATEGORY_MAP[category] ?? category
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="mb-3"
+      style={{
+        fontSize: 11,
+        fontWeight: 500,
+        color: 'var(--color-text-tertiary)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+      }}
+    >
+      {children}
+    </p>
+  )
 }
 
 interface SkillLibraryNewProps {
   teamId: string
-  initialSkills: SkillRow[]
 }
 
-export default function SkillLibraryNew({ teamId, initialSkills }: SkillLibraryNewProps) {
+export default function SkillLibraryNew({ teamId }: SkillLibraryNewProps) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recommended'>('all')
-  const [categoryFilter, setCategoryFilter] = useState('')
 
-  const { data: skills = initialSkills } = useQuery({
+  const { data: skills = [], isLoading } = useQuery({
     queryKey: ['skills', teamId],
-    queryFn: async () => {
-      const supabase = createBrowserClient()
-      return fetchTeamSkills(supabase, teamId)
-    },
-    initialData: initialSkills,
+    queryFn: () => fetchSkillsAction(),
     staleTime: 30_000,
   })
 
-  const activeCount = useMemo(() => skills.filter((s) => s.status === 'active').length, [skills])
+  const totalActive = useMemo(() => skills.filter((s) => s.status === 'active').length, [skills])
 
-  const filtered = useMemo(() => {
+  const activeSkills = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return skills.filter((skill) => {
-      if (statusFilter === 'active' && skill.status !== 'active') return false
-      if (categoryFilter) {
-        const resolved = resolveCategory(skill.category)
-        if (resolved !== categoryFilter) return false
-      }
-      if (!q) return true
-      return (
-        skill.name.toLowerCase().includes(q) || (skill.description ?? '').toLowerCase().includes(q)
-      )
-    })
-  }, [skills, statusFilter, categoryFilter, search])
+    return skills.filter(
+      (s) =>
+        s.status === 'active' &&
+        (!q || s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q))
+    )
+  }, [skills, search])
 
-  const statusItems = [
-    { key: 'all' as const, label: 'All', count: 38 },
-    { key: 'active' as const, label: 'Active', count: activeCount },
-    { key: 'recommended' as const, label: 'Recommended', count: 6 },
-  ]
-
-  const activeCategoryLabel = categoryFilter
-    ? (skillCategoryLabels[categoryFilter] ?? categoryFilter)
-    : null
+  const availableSkills = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return skills.filter(
+      (s) =>
+        s.status !== 'active' &&
+        (!q || s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q))
+    )
+  }, [skills, search])
 
   return (
-    <div className="bg-background flex min-h-full">
-      {/* ── Filter sidebar ─────────────────────────────────────────── */}
-      <SkillFilterSidebar
-        statusFilter={statusFilter}
-        categoryFilter={categoryFilter}
-        activeCount={activeCount}
-        onStatusChange={(s) => {
-          setStatusFilter(s)
-          setCategoryFilter('')
-        }}
-        onCategoryChange={(c) => {
-          setCategoryFilter(c)
-          setStatusFilter('all')
-        }}
-      />
-
-      {/* ── Main content ───────────────────────────────────────────── */}
-      <div className="min-w-0 flex-1 px-6 py-8">
-        <div className="mx-auto max-w-4xl">
-          {/* Header */}
-          <div className="mb-7 flex items-center justify-between gap-6">
-            <div>
-              <h1 className="text-foreground text-2xl font-medium">Skills</h1>
-              <p className="mt-1 text-[14px]" style={{ color: 'var(--muted-foreground)' }}>
-                38 capabilities you can connect to your orchestrator.{' '}
-                <span className="text-foreground font-medium">{activeCount} active</span>.
-              </p>
-            </div>
-            {/* Search */}
-            <div className="bg-muted flex w-56 shrink-0 items-center gap-2 rounded-full px-4 py-2.5">
-              <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-              <input
-                type="text"
-                placeholder="Search skills..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="placeholder:text-muted-foreground flex-1 bg-transparent text-sm outline-none"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+    <div className="bg-background min-h-full">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between gap-6">
+          <div>
+            <h1 className="text-foreground text-2xl font-medium">Skills</h1>
+            <p className="mt-1" style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
+              {skills.length} habilidades disponíveis.{' '}
+              <span className="text-foreground font-medium">{totalActive} ativas.</span>
+            </p>
           </div>
-
-          {/* Mobile status chips */}
-          <div className="mb-5 flex items-center gap-1.5 overflow-x-auto pb-1 md:hidden">
-            {statusItems.map((item) => {
-              const isActive = statusFilter === item.key && !categoryFilter
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => {
-                    setStatusFilter(item.key)
-                    setCategoryFilter('')
-                  }}
-                  className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
-                  style={{
-                    borderColor: isActive ? 'var(--foreground)' : 'var(--border)',
-                    background: isActive ? 'var(--muted)' : 'transparent',
-                    color: isActive ? 'var(--foreground)' : 'var(--muted-foreground)',
-                  }}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
+          <div className="bg-muted flex w-52 shrink-0 items-center gap-2 rounded-full px-4 py-2.5">
+            <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+            <input
+              type="text"
+              placeholder="Buscar skills..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="placeholder:text-muted-foreground flex-1 bg-transparent text-sm outline-none"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Active category label */}
-          {activeCategoryLabel && (
-            <p className="text-muted-foreground mb-5 text-[13px]">{activeCategoryLabel}</p>
-          )}
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <p className="text-muted-foreground text-sm">Carregando skills...</p>
+          </div>
+        )}
 
-          {/* Grid */}
-          {filtered.length > 0 ? (
+        {/* Active section */}
+        {!isLoading && activeSkills.length > 0 && (
+          <div className="mb-8">
+            <SectionHeading>Ativas</SectionHeading>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((skill) => (
+              {activeSkills.map((skill) => (
                 <SkillCardNew
                   key={skill.slug}
                   slug={skill.slug}
@@ -212,23 +169,93 @@ export default function SkillLibraryNew({ teamId, initialSkills }: SkillLibraryN
                 />
               ))}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-muted-foreground text-sm">
-                {search ? `No skills found for "${search}"` : 'No skills found.'}
-              </p>
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="mt-2 text-sm font-medium"
-                  style={{ color: 'var(--green)' }}
-                >
-                  Clear search
-                </button>
-              )}
+          </div>
+        )}
+
+        {/* Available section */}
+        {!isLoading && availableSkills.length > 0 && (
+          <div className="mb-10">
+            <SectionHeading>Disponíveis</SectionHeading>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {availableSkills.map((skill) => (
+                <SkillCardNew
+                  key={skill.slug}
+                  slug={skill.slug}
+                  name={skill.name}
+                  description={skill.description ?? ''}
+                  emoji={getEmoji(skill)}
+                  status={skill.status}
+                  colorBg={getColorBg(skill)}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Empty search state */}
+        {!isLoading && activeSkills.length === 0 && availableSkills.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-muted-foreground text-sm">
+              Nenhuma skill encontrada para &ldquo;{search}&rdquo;
+            </p>
+            <button
+              onClick={() => setSearch('')}
+              className="mt-2 text-sm font-medium"
+              style={{ color: 'var(--green)' }}
+            >
+              Limpar busca
+            </button>
+          </div>
+        )}
+
+        {/* Brand DNA configuration section */}
+        {!search && (
+          <div>
+            <SectionHeading>Configuração</SectionHeading>
+            <Link
+              href="/skills/brand-dna"
+              className="border-border bg-background hover:border-foreground/25 flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all"
+            >
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl"
+                style={{ background: 'hsl(270 70% 96%)' }}
+              >
+                ✨
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-foreground font-medium" style={{ fontSize: 14 }}>
+                    Brand DNA
+                  </p>
+                  <span
+                    className="flex items-center gap-1 rounded-full px-2 py-0.5"
+                    style={{
+                      background: 'var(--green-bg)',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: 'var(--green)',
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: 'var(--green)' }}
+                    />
+                    Ativo
+                  </span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                  Identidade, tom de voz e posicionamento da marca
+                </p>
+              </div>
+              <span
+                style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}
+                className="flex shrink-0 items-center gap-1"
+              >
+                Editar <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
