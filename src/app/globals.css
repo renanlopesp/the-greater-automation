@@ -222,6 +222,24 @@ summary {
 }
 
 @layer base {
+  :root {
+    --color-text-primary: hsl(210 15% 10%);
+    --color-text-secondary: hsl(210 10% 38%);
+    --color-text-tertiary: hsl(210 10% 55%);
+    --color-border-tertiary: hsl(210 14% 91%);
+    --color-border-secondary: hsl(210 14% 85%);
+    --color-surface-raised: hsl(0 0% 100%);
+    --color-surface-elevated: hsl(210 20% 98%);
+  }
+  .dark {
+    --color-text-primary: hsl(220 10% 95%);
+    --color-text-secondary: hsl(220 8% 60%);
+    --color-text-tertiary: hsl(220 8% 45%);
+    --color-border-tertiary: hsl(220 10% 22%);
+    --color-border-secondary: hsl(220 10% 28%);
+    --color-surface-raised: hsl(0 0% 12%);
+    --color-surface-elevated: hsl(220 10% 14%);
+  }
   * {
     @apply border-border outline-ring/50;
   }
