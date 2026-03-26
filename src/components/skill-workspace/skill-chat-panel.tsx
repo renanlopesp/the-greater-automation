@@ -102,7 +102,7 @@ export function SkillChatPanel({
             <button
               key={action.label}
               onClick={() => onSendMessage?.(action.message)}
-              className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-full border px-3 py-1.5 text-sm transition-colors"
+              className="border-border text-foreground hover:bg-muted rounded-full border px-4 py-2 text-sm transition-colors"
             >
               {action.label}
             </button>
@@ -112,7 +112,7 @@ export function SkillChatPanel({
 
       {/* Input area */}
       <div className="border-border border-t px-4 py-3">
-        <div className="border-border bg-muted/50 flex items-end gap-2 rounded-xl border px-3 py-2">
+        <div className="border-border bg-background flex items-end gap-2 rounded-xl border px-3 py-2">
           <textarea
             ref={textareaRef}
             value={input}
@@ -127,7 +127,7 @@ export function SkillChatPanel({
             onClick={handleSend}
             disabled={!input.trim()}
             className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
               input.trim()
                 ? 'bg-foreground text-background hover:opacity-80'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'

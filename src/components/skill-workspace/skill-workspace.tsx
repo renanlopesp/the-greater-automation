@@ -95,19 +95,21 @@ function SkillWorkspaceInner({
         <div className="flex items-center gap-2">
           <span className="text-lg">{skill.emoji}</span>
           <span className="text-sm font-medium">{skill.name}</span>
-          {skill.status === 'active' && <span className="h-2 w-2 rounded-full bg-green-500" />}
+          {skill.status === 'active' && (
+            <span className="h-2 w-2 rounded-full" style={{ background: 'var(--green)' }} />
+          )}
         </div>
         <button
           onClick={toggleArtifact}
+          title="Open files (⌘\)"
           className={cn(
-            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+            'flex items-center rounded-md p-1.5 transition-colors',
             showArtifact
               ? 'bg-muted text-foreground'
               : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           )}
         >
           <PanelRight className="h-4 w-4" />
-          <span>Arquivos</span>
         </button>
       </div>
 
