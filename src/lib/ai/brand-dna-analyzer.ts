@@ -13,6 +13,8 @@ export interface StoreInfo {
     palette_description: string
     visual_style: string
     logo_description: string | null
+    fonts: Array<{ name: string; usage: string; category: string }>
+    brand_texts: Array<{ type: string; label: string; content: string }>
   } | null
 }
 
@@ -41,6 +43,8 @@ export interface BrandDnaResult {
   recommended_skills: Array<{ slug: string; reason: string }>
   color_palette: Array<{ hex: string; label: string }>
   palette_description: string
+  fonts: Array<{ name: string; usage: string; category: string }>
+  brand_texts: Array<{ type: string; label: string; content: string }>
   greeting: string
   intro: string
 }
@@ -136,6 +140,31 @@ const BrandDnaSchema = z.object({
   palette_description: z
     .string()
     .describe('Descrição curta da paleta em PT-BR (ex: Paleta vibrante e jovem. Energia urbana.)'),
+  fonts: z
+    .array(
+      z.object({
+        name: z.string().describe('Nome da fonte (ex: Cormorant Garamond, Inter)'),
+        usage: z.string().describe('Uso em PT-BR (ex: Titulos e headings, Corpo e UI)'),
+        category: z
+          .string()
+          .describe('Categoria: serif, sans-serif, monospace, display, handwriting'),
+      })
+    )
+    .min(1)
+    .max(3)
+    .describe('Fontes da marca, extraídas da análise visual ou inferidas do posicionamento'),
+  brand_texts: z
+    .array(
+      z.object({
+        type: z.string().describe('Tipo: slogan, bio, signature, tagline, description'),
+        label: z.string().describe('Label uppercase em PT-BR (ex: SLOGAN, BIO INSTAGRAM)'),
+        content: z.string().describe('Texto da marca'),
+      })
+    )
+    .max(5)
+    .describe(
+      'Textos de marca: slogan, tagline, bio, assinatura. Gere baseado no posicionamento se não disponível via análise visual'
+    ),
   greeting: z.string().describe('Saudação personalizada do Snew para o dono(a) da loja'),
   intro: z
     .string()
@@ -162,7 +191,12 @@ ANÁLISE VISUAL DA LOJA (extraída via screenshot real do site):
 - Descrição da paleta: ${storeInfo.visualAnalysis.palette_description}
 ${storeInfo.visualAnalysis.logo_description ? `- Logo: ${storeInfo.visualAnalysis.logo_description}` : ''}
 
-IMPORTANTE: Use EXATAMENTE estas cores na color_palette do output. Elas foram extraídas visualmente do site real da loja.`
+IMPORTANTE: Use EXATAMENTE estas cores na color_palette do output. Elas foram extraídas visualmente do site real da loja.
+
+Fontes detectadas: ${storeInfo.visualAnalysis.fonts.map((f) => `${f.name} (${f.usage})`).join(', ')}
+Use EXATAMENTE estas fontes no campo fonts do output.
+
+${storeInfo.visualAnalysis.brand_texts.length > 0 ? `Textos de marca detectados:\n${storeInfo.visualAnalysis.brand_texts.map((t) => `- ${t.label}: ${t.content}`).join('\n')}\nUse estes textos no campo brand_texts do output.` : ''}`
     : ''
 
   const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua missão é analisar o catálogo de uma loja e gerar uma análise estratégica completa da marca, como um CMO sênior com 15 anos de experiência no varejo digital brasileiro.
@@ -219,9 +253,13 @@ INSTRUÇÕES PARA A ANÁLISE:
 
 12. PALETA DE CORES (color_palette + palette_description): Se houver análise visual disponível, use EXATAMENTE as cores fornecidas. Caso contrário, analise os nomes dos produtos, categorias, faixa de preço e posicionamento para inferir as cores predominantes da marca. Gere 3-6 swatches com hex e nome descritivo em PT-BR. A palette_description deve ser uma frase curta e impactante descrevendo a personalidade da paleta.
 
-13. SAUDAÇÃO (greeting): DEVE ser exatamente: "Oi, ${storeInfo.ownerName}. Sou o Snew, seu novo CMO." — sem variações.
+13. FONTES (fonts): Se houver análise visual com fontes detectadas, use EXATAMENTE essas fontes. Caso contrário, infira 2 fontes adequadas para o posicionamento (uma para headings, uma para corpo). Inclua name, usage em PT-BR, e category (serif/sans-serif/etc).
 
-14. INTRO (intro): Escreva 2-3 frases em PT-BR resumindo o que foi analisado e os 2-3 insights mais importantes. Mencione a loja pelo nome (${storeInfo.name}) e faça referência a produtos ou categorias reais do catálogo. Seja direto e impactante — como um CMO apresentando uma análise executiva.
+14. TEXTOS DE MARCA (brand_texts): Se houver análise visual com textos detectados, use-os. Caso contrário, CRIE textos de marca adequados ao posicionamento: um slogan curto, uma bio para Instagram, e uma assinatura de e-mail. Cada item com type, label (uppercase PT-BR), e content.
+
+15. SAUDAÇÃO (greeting): DEVE ser exatamente: "Oi, ${storeInfo.ownerName}. Sou o Snew, seu novo CMO." — sem variações.
+
+16. INTRO (intro): Escreva 2-3 frases em PT-BR resumindo o que foi analisado e os 2-3 insights mais importantes. Mencione a loja pelo nome (${storeInfo.name}) e faça referência a produtos ou categorias reais do catálogo. Seja direto e impactante — como um CMO apresentando uma análise executiva.
 
 IMPORTANTE:
 - Toda a saída de texto deve estar em Português do Brasil (PT-BR)

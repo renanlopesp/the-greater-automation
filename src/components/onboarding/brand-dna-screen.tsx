@@ -643,10 +643,13 @@ export function BrandDnaScreen() {
         open={assetsOpen}
         onClose={() => setAssetsOpen(false)}
         storeName={storeName}
-        tone={toneDescription}
-        wordsToUse={Array.isArray(wordsToUse) ? wordsToUse : []}
-        wordsToAvoid={Array.isArray(wordsToAvoid) ? wordsToAvoid : []}
-        positioning={identityDescription}
+        colorPalette={
+          Array.isArray(brandDna.color_palette) && brandDna.color_palette.length > 0
+            ? brandDna.color_palette
+            : []
+        }
+        fonts={Array.isArray(brandDna.fonts) ? brandDna.fonts : []}
+        brandTexts={Array.isArray(brandDna.brand_texts) ? brandDna.brand_texts : []}
       />
 
       <div

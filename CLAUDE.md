@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui (Sheet), Tailwind CSS v4, TanStack React Query, Vercel AI SDK (generateObject), Firecrawl JS SDK, Zod (041-assets-drawer-redesign)
+- Supabase PostgreSQL (brand_dna table — new jsonb columns for fonts + texts; store_products for image URLs) (041-assets-drawer-redesign)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Vercel AI SDK (generateObject, streamText), Zod, TanStack React Query, Composio SDK (040-real-onboarding-brand-dna)
 - Supabase PostgreSQL (stores, store_products, brand_dna, skills tables — all exist) (040-real-onboarding-brand-dna)
 
