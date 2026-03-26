@@ -3,16 +3,11 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import DashboardShellNew from '@/components/dashboard-shell-new'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import {
-  fetchTeamMembers,
-  fetchTeamInvitations,
-  fetchPendingInvitationsForUser,
-} from '@/lib/queries/members'
-import type { PlanData } from '@/types/navigation'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerClient()
 
+  // Round 1: auth check
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -21,270 +16,50 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login')
   }
 
-  // Fetch profile and all team memberships in parallel
-  const [{ data: profile }, { data: memberRows }] = await Promise.all([
+  // Round 2: profile + team memberships + cookies (parallel)
+  const [{ data: profile }, { data: memberRows }, cookieStore] = await Promise.all([
     supabase.from('profiles').select('id, email, full_name, avatar_url').eq('id', user.id).single(),
     supabase
       .from('team_members')
       .select('team_id, role')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    cookies(),
   ])
 
-  // Determine active team from cookie or fallback to first membership
-  const cookieStore = await cookies()
-  const selectedTeamId = cookieStore.get('selected_team_id')?.value
-
-  // No team memberships → user needs onboarding
   if (!memberRows || memberRows.length === 0) {
     redirect('/onboarding')
   }
 
+  // Determine active team from cookie or fallback to first membership
+  const selectedTeamId = cookieStore.get('selected_team_id')?.value
   let activeTeamId = memberRows[0]?.team_id
   if (selectedTeamId && memberRows.some((m) => m.team_id === selectedTeamId)) {
     activeTeamId = selectedTeamId
   }
 
-  // Check if onboarding is completed — redirect to /onboarding if not
-  const { data: storeCheck } = await supabase
-    .from('stores')
-    .select('onboarding_completed')
-    .eq('team_id', activeTeamId)
-    .single()
+  // Round 3: onboarding check + team names (parallel)
+  const teamIds = memberRows.map((m) => m.team_id)
+  const [{ data: storeCheck }, { data: teamsData }] = await Promise.all([
+    supabase.from('stores').select('onboarding_completed').eq('team_id', activeTeamId).single(),
+    supabase.from('teams').select('id, name, slug').in('id', teamIds),
+  ])
 
   if (!storeCheck || storeCheck.onboarding_completed === false) {
     redirect('/onboarding')
   }
 
-  // Fetch team details for switcher + active team data + usage + subscription in one round
-  let userTeams: { id: string; name: string; role: string }[] = []
-  let team = null
-  let usage = null
-  let planData: PlanData | null = null
-  if (memberRows && memberRows.length > 0) {
-    const teamIds = memberRows.map((m) => m.team_id)
-    const now = new Date().toISOString()
+  // Build minimal data for the shell
+  const userTeams = (teamsData ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    role: memberRows.find((m) => m.team_id === t.id)?.role ?? 'member',
+  }))
 
-    // All four queries depend only on memberRows (now resolved) — run in parallel
-    const [
-      { data: teamsData },
-      { data: teamData },
-      { data: usageRows },
-      { data: subscriptionRow },
-    ] = await Promise.all([
-      supabase.from('teams').select('id, name').in('id', teamIds),
-      activeTeamId
-        ? supabase
-            .from('teams')
-            .select(
-              'id, name, slug, plan_id, has_store, plans(id, name, features, max_team_members)'
-            )
-            .eq('id', activeTeamId)
-            .single()
-        : Promise.resolve({ data: null }),
-      activeTeamId
-        ? supabase
-            .from('usage')
-            .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-            .eq('team_id', activeTeamId)
-            .lte('period_start', now)
-            .gte('period_end', now)
-            .order('period_start', { ascending: false })
-            .limit(1)
-        : Promise.resolve({ data: null }),
-      activeTeamId
-        ? supabase
-            .from('subscriptions')
-            .select('stripe_subscription_id, cancel_at_period_end, status')
-            .eq('team_id', activeTeamId)
-            .single()
-        : Promise.resolve({ data: null }),
-    ])
-
-    if (teamsData) {
-      userTeams = teamsData.map((t) => ({
-        id: t.id,
-        name: t.name,
-        role: memberRows.find((m) => m.team_id === t.id)?.role ?? 'member',
-      }))
-    }
-
-    if (activeTeamId && teamData) {
-      // Redirect to onboarding if team doesn't have a store yet
-      if (!teamData.has_store) {
-        redirect('/onboarding')
-      }
-
-      team = { id: teamData.id, name: teamData.name, slug: teamData.slug }
-
-      const teamWithPlan = teamData as typeof teamData & {
-        plans: {
-          id: string
-          name: string
-          features: Record<string, boolean>
-          max_team_members: number
-        } | null
-      }
-      const planInfo = teamWithPlan.plans
-      planData = {
-        planId: (planInfo?.id ?? teamWithPlan.plan_id ?? 'free') as PlanData['planId'],
-        planName: planInfo?.name ?? 'Free',
-        features: (planInfo?.features ?? {}) as Record<string, boolean>,
-        maxTeamMembers: planInfo?.max_team_members ?? 1,
-        hasStripeSubscription: !!subscriptionRow?.stripe_subscription_id,
-        cancelAtPeriodEnd: subscriptionRow?.cancel_at_period_end ?? false,
-      }
-    }
-
-    const usageData = usageRows?.[0]
-    if (usageData) {
-      usage = {
-        stepsUsed: usageData.steps_used,
-        stepsLimit: usageData.steps_limit,
-        aiCreditsUsed: usageData.ai_credits_used,
-        aiCreditsLimit: usageData.ai_credits_limit,
-      }
-    }
-  }
-
-  // Fetch store, members, invitations, pending invitations, and orchestrator in parallel
-  // (all depend only on activeTeamId / userEmail — available since the previous step)
-  const userEmail = profile?.email ?? user.email ?? ''
-  let storeData: {
-    id: string
-    name: string
-    segment: string
-    platform: string | null
-    platform_store_id: string | null
-    last_sync_at: string | null
-    settings: Record<string, unknown> | null
-  } | null = null
-  let members: Awaited<ReturnType<typeof fetchTeamMembers>> = []
-  let invitations: Awaited<ReturnType<typeof fetchTeamInvitations>> = []
-  let currentUserRole: 'owner' | 'admin' | 'member' = 'member'
-  let pendingUserInvitations: Awaited<ReturnType<typeof fetchPendingInvitationsForUser>> = []
-  let orchestratorId: string | null = null
-  let installedAgents: Array<{
-    id: string
-    name: string
-    agentType: string | null
-    status: string | null
-  }> = []
-
-  if (team) {
-    const [
-      storeResult,
-      fetchedMembers,
-      fetchedInvitations,
-      fetchedPending,
-      orchResult,
-      installedResult,
-    ] = await Promise.all([
-      supabase
-        .from('stores')
-        .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
-        .eq('team_id', activeTeamId!)
-        .single(),
-      fetchTeamMembers(supabase, team.id),
-      fetchTeamInvitations(supabase, team.id),
-      userEmail
-        ? fetchPendingInvitationsForUser(supabase, userEmail)
-        : (Promise.resolve([]) as ReturnType<typeof fetchPendingInvitationsForUser>),
-      supabase
-        .from('agents')
-        .select('id')
-        .eq('team_id', activeTeamId!)
-        .eq('is_orchestrator', true)
-        .limit(1)
-        .single(),
-      (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (s: string) => {
-              eq: (
-                k: string,
-                v: string
-              ) => {
-                not: (
-                  k: string,
-                  op: string,
-                  v: null
-                ) => {
-                  order: (k: string) => Promise<{
-                    data: Array<{
-                      id: string
-                      name: string
-                      agent_type: string
-                      status: string | null
-                    }> | null
-                  }>
-                }
-              }
-            }
-          }
-        }
-      )
-        .from('agents')
-        .select('id, name, agent_type, status')
-        .eq('team_id', activeTeamId!)
-        .not('agent_type', 'is', null)
-        .order('name'),
-    ])
-
-    members = fetchedMembers
-    invitations = fetchedInvitations
-    pendingUserInvitations = fetchedPending
-    orchestratorId = orchResult.data?.id ?? null
-    installedAgents = (installedResult.data ?? []).map((a) => ({
-      id: a.id,
-      name: a.name,
-      agentType: a.agent_type,
-      status: a.status,
-    }))
-
-    const currentMember = fetchedMembers.find((m) => m.id === user.id)
-    if (currentMember) {
-      currentUserRole = currentMember.role
-    }
-
-    // Process store data (conditional app_connections fallback runs after)
-    const storeRow = storeResult.data
-    if (storeRow) {
-      let platformStoreId = storeRow.platform_store_id ?? null
-
-      // If platform_store_id is missing but there's an active Composio connection for the platform,
-      // use the composio_connection_id as fallback (e.g. Shopify connected via Composio OAuth)
-      if (!platformStoreId && storeRow.platform) {
-        const { data: appConn } = await supabase
-          .from('app_connections')
-          .select('composio_connection_id')
-          .eq('team_id', activeTeamId!)
-          .eq('app_id', storeRow.platform)
-          .limit(1)
-          .single()
-        if (appConn?.composio_connection_id) {
-          platformStoreId = appConn.composio_connection_id
-          // Backfill the store record so future loads are instant
-          await supabase
-            .from('stores')
-            .update({ platform_store_id: platformStoreId })
-            .eq('id', storeRow.id)
-        }
-      }
-
-      storeData = {
-        id: storeRow.id,
-        name: storeRow.name,
-        segment: storeRow.segment,
-        platform: storeRow.platform ?? null,
-        platform_store_id: platformStoreId,
-        last_sync_at: storeRow.last_sync_at ?? null,
-        settings: (storeRow.settings ?? null) as Record<string, unknown> | null,
-      }
-    }
-  } else if (userEmail) {
-    pendingUserInvitations = await fetchPendingInvitationsForUser(supabase, userEmail)
-  }
+  const activeTeam = teamsData?.find((t) => t.id === activeTeamId)
+  const team = activeTeam
+    ? { id: activeTeam.id, name: activeTeam.name, slug: activeTeam.slug }
+    : null
 
   const userData = profile
     ? {
@@ -306,15 +81,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         user={userData}
         team={team}
         userTeams={userTeams}
-        usage={usage}
-        planData={planData}
-        orchestratorId={orchestratorId}
-        installedAgents={installedAgents}
         initialLanguage={cookieStore.get('lang')?.value}
-        members={members}
-        invitations={invitations}
-        currentUserRole={currentUserRole}
-        storeData={storeData}
       >
         {children}
       </DashboardShellNew>

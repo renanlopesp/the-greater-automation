@@ -147,22 +147,7 @@ export default function DashboardShell({
             }}
             team={team ? { name: team.name, slug: team.slug } : null}
             teamId={team?.id}
-            usage={
-              usage
-                ? {
-                    stepsUsed: usage.stepsUsed,
-                    stepsLimit: usage.stepsLimit,
-                    aiCreditsUsed: usage.aiCreditsUsed,
-                    aiCreditsLimit: usage.aiCreditsLimit,
-                  }
-                : null
-            }
-            members={members}
-            invitations={invitations}
-            currentUserRole={currentUserRole}
             currentUserId={user.id}
-            planData={planData}
-            storeData={storeData}
           />
         )}
       </SidebarProvider>

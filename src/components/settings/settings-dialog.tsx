@@ -11,7 +11,7 @@ import MembersSection from '@/components/settings/members-section'
 import BillingSection from '@/components/settings/billing-section'
 import StoreSection from '@/components/settings/store-section'
 import MessagingSection from '@/components/settings/messaging-section'
-import type { TeamMember, TeamInvitation, PlanData } from '@/types/navigation'
+import { useSettingsData } from '@/hooks/use-settings-data'
 
 interface SettingsDialogProps {
   open: boolean
@@ -20,26 +20,7 @@ interface SettingsDialogProps {
   profile: { fullName: string; email: string; avatarUrl: string | null }
   team: { name: string; slug: string } | null
   teamId?: string
-  usage: {
-    stepsUsed: number
-    stepsLimit: number
-    aiCreditsUsed: number
-    aiCreditsLimit: number
-  } | null
-  members: TeamMember[]
-  invitations: TeamInvitation[]
-  currentUserRole: 'owner' | 'admin' | 'member'
   currentUserId: string
-  planData: PlanData | null
-  storeData: {
-    id: string
-    name: string
-    segment: string
-    platform: string | null
-    platform_store_id: string | null
-    last_sync_at: string | null
-    settings: Record<string, unknown> | null
-  } | null
 }
 
 export default function SettingsDialog({
@@ -49,13 +30,7 @@ export default function SettingsDialog({
   profile,
   team,
   teamId,
-  usage,
-  members,
-  invitations,
-  currentUserRole,
   currentUserId,
-  planData,
-  storeData,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(defaultSection)
   const [prevDefault, setPrevDefault] = useState(defaultSection)
@@ -63,6 +38,15 @@ export default function SettingsDialog({
     setPrevDefault(defaultSection)
     setActiveSection(defaultSection)
   }
+
+  const { data: settings } = useSettingsData(open)
+
+  const usage = settings?.usage ?? null
+  const planData = settings?.planData ?? null
+  const members = settings?.members ?? []
+  const invitations = settings?.invitations ?? []
+  const currentUserRole = settings?.currentUserRole ?? 'member'
+  const storeData = settings?.storeData ?? null
 
   function renderSection() {
     switch (activeSection) {
