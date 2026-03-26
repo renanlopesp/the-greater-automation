@@ -71,14 +71,50 @@ const VisualAnalysisSchema = z.object({
  *
  * Returns null if screenshot capture or analysis fails (non-blocking).
  */
+/**
+ * Extract font names from raw HTML by looking at Google Fonts links,
+ * @font-face declarations, and font-family CSS properties.
+ */
+function extractFontsFromHtml(html: string): string[] {
+  const fonts = new Set<string>()
+
+  // Google Fonts links: fonts.googleapis.com/css?family=Font+Name or css2?family=Font+Name
+  const googleFontsRe = /fonts\.googleapis\.com\/css2?\?[^"']*family=([^&"']+)/g
+  let match
+  while ((match = googleFontsRe.exec(html)) !== null) {
+    const families = decodeURIComponent(match[1]).split('|')
+    for (const f of families) {
+      const name = f.split(':')[0].replace(/\+/g, ' ').trim()
+      if (name) fonts.add(name)
+    }
+  }
+
+  // @font-face { font-family: "Font Name" }
+  const fontFaceRe = /font-family:\s*['"]([^'"]+)['"]/g
+  while ((match = fontFaceRe.exec(html)) !== null) {
+    const name = match[1].trim()
+    if (
+      name &&
+      !['inherit', 'initial', 'unset', 'sans-serif', 'serif', 'monospace'].includes(
+        name.toLowerCase()
+      )
+    ) {
+      fonts.add(name)
+    }
+  }
+
+  return Array.from(fonts).slice(0, 5)
+}
+
 export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnalysis | null> {
-  // Step 1: Capture screenshot via Firecrawl (dynamic import to avoid module-level issues)
+  // Step 1: Capture screenshot + HTML via Firecrawl
   let screenshotUrl: string
+  let extractedFonts: string[] = []
   try {
     const { createFirecrawlClient } = await import('@/lib/workflow-editor/web-scraping-executor')
     const firecrawl = createFirecrawlClient()
     const result = await firecrawl.scrapeUrl(storeUrl, {
-      formats: ['screenshot'],
+      formats: ['screenshot', 'rawHtml'],
       waitFor: 3000,
     })
 
@@ -88,6 +124,12 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
     }
 
     screenshotUrl = result.screenshot
+
+    // Extract fonts from HTML
+    if (result.rawHtml) {
+      extractedFonts = extractFontsFromHtml(result.rawHtml)
+      console.log('[store-visual-analyzer] Fonts from HTML:', extractedFonts)
+    }
   } catch (err) {
     console.warn('[store-visual-analyzer] Firecrawl error:', err)
     return null
@@ -113,7 +155,7 @@ Extraia:
 2. Uma descricao curta e impactante da paleta (personalidade visual).
 3. O estilo visual geral da loja.
 4. Descricao do logo se visivel.
-5. FONTES: Identifique as fontes usadas no site (heading, corpo, UI). Se nao conseguir identificar o nome exato, de o melhor palpite baseado no estilo visual (serif, sans-serif, etc.).
+5. FONTES: ${extractedFonts.length > 0 ? `As seguintes fontes foram detectadas no HTML/CSS do site: ${extractedFonts.join(', ')}. Use EXATAMENTE esses nomes. Determine qual e usada para headings e qual para corpo/UI baseado no screenshot.` : 'Identifique as fontes usadas no site (heading, corpo, UI). Se nao conseguir identificar o nome exato, de o melhor palpite baseado no estilo visual.'}
 6. TEXTOS DE MARCA: Extraia APENAS textos de destaque da marca — slogan, tagline, frase de impacto, proposta de valor. NAO inclua itens de menu (Inicio, Produtos, Contato), nomes de categorias, precos ou textos genéricos de navegacao. Foque em frases que expressam a identidade e posicionamento da marca. Se nao houver textos de marca claros, retorne array vazio.
 
 IMPORTANTE: Extraia as cores REAIS e fontes REAIS que voce ve no screenshot. Nao use valores genericos ou padrao.`,
