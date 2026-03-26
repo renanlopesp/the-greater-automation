@@ -9,12 +9,33 @@ export default async function OnboardingPage() {
   } = await supabase.auth.getUser()
 
   if (user) {
-    const { data: membership } = await supabase
+    let { data: membership } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', user.id)
       .limit(1)
       .single()
+
+    // If user has no team (trigger may have failed), create one
+    if (!membership) {
+      const serviceClient = createServiceRoleClient()
+      const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+      const slug = userName.toLowerCase().replace(/\s+/g, '-') + '-' + user.id.substring(0, 8)
+
+      const { data: newTeam } = await serviceClient
+        .from('teams')
+        .insert({ name: `${userName}'s Team`, slug })
+        .select('id')
+        .single()
+
+      if (newTeam) {
+        await serviceClient
+          .from('team_members')
+          .insert({ team_id: newTeam.id, user_id: user.id, role: 'owner' })
+
+        membership = { team_id: newTeam.id }
+      }
+    }
 
     if (membership) {
       const serviceClient = createServiceRoleClient()
