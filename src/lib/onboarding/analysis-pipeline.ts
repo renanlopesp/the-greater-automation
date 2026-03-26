@@ -84,8 +84,55 @@ export async function runAnalysisPipeline(
     count: productCount ?? 0,
   })
 
-  // Step 2: Analyze catalog
-  onProgress({ step: 2, status: 'running', message: 'Gerando Brand DNA...' })
+  // Step 2: Visual analysis (screenshot + GPT vision)
+  onProgress({ step: 2, status: 'running', message: 'Analisando identidade visual...' })
+
+  type VisualAnalysis = {
+    color_palette: Array<{ hex: string; label: string }>
+    palette_description: string
+    visual_style: string
+    logo_description: string | null
+  }
+  let visualAnalysis: VisualAnalysis | null = null
+
+  try {
+    const { data: storeForVisual } = await supabase
+      .from('stores')
+      .select('platform, platform_store_id, platform_access_token')
+      .eq('id', storeId)
+      .single()
+
+    if (
+      storeForVisual?.platform === 'nuvemshop' &&
+      storeForVisual.platform_access_token &&
+      storeForVisual.platform_store_id
+    ) {
+      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+      const nuvemshop = new NuvemshopClient(
+        storeForVisual.platform_store_id,
+        storeForVisual.platform_access_token
+      )
+      const nsStore = await nuvemshop.getStoreInfo()
+      const storeUrl =
+        nsStore.domains?.length > 0
+          ? `https://${nsStore.domains[0]}`
+          : `https://${nsStore.original_domain}`
+
+      const { analyzeStoreVisuals } = await import('@/lib/ai/store-visual-analyzer')
+      visualAnalysis = await analyzeStoreVisuals(storeUrl)
+    }
+  } catch (err) {
+    console.warn('[analysis-pipeline] Visual analysis failed (non-blocking):', err)
+  }
+
+  onProgress({
+    step: 2,
+    status: 'completed',
+    message: visualAnalysis ? 'Identidade visual capturada' : 'Identidade visual indisponível',
+  })
+
+  // Step 3: Analyze catalog + generate Brand DNA
+  onProgress({ step: 3, status: 'running', message: 'Gerando Brand DNA...' })
 
   let brandDnaResult: BrandDnaResult
   let storeName = ''
@@ -93,7 +140,6 @@ export async function runAnalysisPipeline(
   let ownerName = ''
 
   try {
-    // Only select columns that exist in store_products (no description/category in schema)
     const { data: products } = await supabase
       .from('store_products')
       .select('name, price')
@@ -108,7 +154,6 @@ export async function runAnalysisPipeline(
     storeName = storeInfo?.name ?? ''
     storePlatform = storeInfo?.platform ?? ''
 
-    // Get owner name from profiles if userId provided
     if (userId) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -132,17 +177,18 @@ export async function runAnalysisPipeline(
       segment: storeInfo?.segment ?? '',
       platform: storePlatform,
       ownerName,
+      visualAnalysis,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao gerar Brand DNA'
-    onProgress({ step: 2, status: 'error', message })
+    onProgress({ step: 3, status: 'error', message })
     throw err
   }
 
-  onProgress({ step: 2, status: 'completed', message: 'Brand DNA gerado' })
+  onProgress({ step: 3, status: 'completed', message: 'Brand DNA gerado' })
 
-  // Step 3: Save Brand DNA
-  onProgress({ step: 3, status: 'running', message: 'Mapeando oportunidades sazonais...' })
+  // Step 4: Save Brand DNA
+  onProgress({ step: 4, status: 'running', message: 'Mapeando oportunidades sazonais...' })
 
   let brandDnaId: string
 
@@ -175,6 +221,8 @@ export async function runAnalysisPipeline(
           owner_name: ownerName,
           greeting: brandDnaResult.greeting,
           intro: brandDnaResult.intro,
+          color_palette: brandDnaResult.color_palette,
+          palette_description: brandDnaResult.palette_description,
           updated_at: new Date().toISOString(),
         })
         .eq('team_id', teamId)
@@ -205,6 +253,8 @@ export async function runAnalysisPipeline(
           owner_name: ownerName,
           greeting: brandDnaResult.greeting,
           intro: brandDnaResult.intro,
+          color_palette: brandDnaResult.color_palette,
+          palette_description: brandDnaResult.palette_description,
         })
         .select('id')
         .single()
@@ -215,7 +265,7 @@ export async function runAnalysisPipeline(
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao salvar Brand DNA'
-    onProgress({ step: 3, status: 'error', message })
+    onProgress({ step: 4, status: 'error', message })
     throw err
   }
 
@@ -224,7 +274,7 @@ export async function runAnalysisPipeline(
     : 0
 
   onProgress({
-    step: 3,
+    step: 4,
     status: 'completed',
     message: `${opportunityCount} oportunidades mapeadas`,
     count: opportunityCount,

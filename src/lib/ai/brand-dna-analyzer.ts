@@ -8,6 +8,12 @@ export interface StoreInfo {
   segment: string
   platform: string
   ownerName: string
+  visualAnalysis?: {
+    color_palette: Array<{ hex: string; label: string }>
+    palette_description: string
+    visual_style: string
+    logo_description: string | null
+  } | null
 }
 
 export interface BrandDnaResult {
@@ -33,6 +39,8 @@ export interface BrandDnaResult {
     disclaimer: string
   }
   recommended_skills: Array<{ slug: string; reason: string }>
+  color_palette: Array<{ hex: string; label: string }>
+  palette_description: string
   greeting: string
   intro: string
 }
@@ -113,6 +121,21 @@ const BrandDnaSchema = z.object({
     .min(3)
     .max(3)
     .describe('Exatamente 3 skills recomendadas'),
+  color_palette: z
+    .array(
+      z.object({
+        hex: z.string().describe('Código hex da cor (ex: #F4E8D0)'),
+        label: z.string().describe('Nome descritivo curto da cor em PT-BR (ex: Azul marinho)'),
+      })
+    )
+    .min(3)
+    .max(6)
+    .describe(
+      'Paleta de cores da marca, extraída da análise visual do site ou inferida do posicionamento'
+    ),
+  palette_description: z
+    .string()
+    .describe('Descrição curta da paleta em PT-BR (ex: Paleta vibrante e jovem. Energia urbana.)'),
   greeting: z.string().describe('Saudação personalizada do Snew para o dono(a) da loja'),
   intro: z
     .string()
@@ -130,12 +153,25 @@ export async function analyzeBrandDna(
   const openai = getOpenAIProvider()
   const formattedCatalog = formatCatalogForLLM(summary)
 
+  const visualContext = storeInfo.visualAnalysis
+    ? `
+
+ANÁLISE VISUAL DA LOJA (extraída via screenshot real do site):
+- Estilo visual: ${storeInfo.visualAnalysis.visual_style}
+- Paleta detectada: ${storeInfo.visualAnalysis.color_palette.map((c) => `${c.hex} (${c.label})`).join(', ')}
+- Descrição da paleta: ${storeInfo.visualAnalysis.palette_description}
+${storeInfo.visualAnalysis.logo_description ? `- Logo: ${storeInfo.visualAnalysis.logo_description}` : ''}
+
+IMPORTANTE: Use EXATAMENTE estas cores na color_palette do output. Elas foram extraídas visualmente do site real da loja.`
+    : ''
+
   const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua missão é analisar o catálogo de uma loja e gerar uma análise estratégica completa da marca, como um CMO sênior com 15 anos de experiência no varejo digital brasileiro.
 
 Loja: ${storeInfo.name}
 Plataforma: ${storeInfo.platform}
 Segmento declarado: ${storeInfo.segment}
 Dono(a): ${storeInfo.ownerName}
+${visualContext}
 
 ${formattedCatalog}
 
@@ -181,9 +217,11 @@ INSTRUÇÕES PARA A ANÁLISE:
     - conversion-optimizer: Otimização de taxa de conversão
     - brand-dna-agent: Agente especialista em identidade de marca
 
-12. SAUDAÇÃO (greeting): DEVE ser exatamente: "Oi, ${storeInfo.ownerName}. Sou o Snew, seu novo CMO." — sem variações.
+12. PALETA DE CORES (color_palette + palette_description): Se houver análise visual disponível, use EXATAMENTE as cores fornecidas. Caso contrário, analise os nomes dos produtos, categorias, faixa de preço e posicionamento para inferir as cores predominantes da marca. Gere 3-6 swatches com hex e nome descritivo em PT-BR. A palette_description deve ser uma frase curta e impactante descrevendo a personalidade da paleta.
 
-13. INTRO (intro): Escreva 2-3 frases em PT-BR resumindo o que foi analisado e os 2-3 insights mais importantes. Mencione a loja pelo nome (${storeInfo.name}) e faça referência a produtos ou categorias reais do catálogo. Seja direto e impactante — como um CMO apresentando uma análise executiva.
+13. SAUDAÇÃO (greeting): DEVE ser exatamente: "Oi, ${storeInfo.ownerName}. Sou o Snew, seu novo CMO." — sem variações.
+
+14. INTRO (intro): Escreva 2-3 frases em PT-BR resumindo o que foi analisado e os 2-3 insights mais importantes. Mencione a loja pelo nome (${storeInfo.name}) e faça referência a produtos ou categorias reais do catálogo. Seja direto e impactante — como um CMO apresentando uma análise executiva.
 
 IMPORTANTE:
 - Toda a saída de texto deve estar em Português do Brasil (PT-BR)
