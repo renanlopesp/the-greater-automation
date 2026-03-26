@@ -81,25 +81,16 @@ export function AssetsDrawer({
 
         {/* Tabs */}
         <Tabs defaultValue="imagens" className="flex h-[calc(100%-72px)] flex-col">
-          <TabsList className="mx-5 mb-0 h-auto justify-start gap-4 rounded-none border-b bg-transparent p-0">
-            <TabsTrigger
-              value="imagens"
-              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
-            >
+          <TabsList variant="line" className="w-full justify-start gap-4 border-b px-5">
+            <TabsTrigger value="imagens" className="px-0 text-[13px]">
               <ImageIcon size={14} />
               Imagens
             </TabsTrigger>
-            <TabsTrigger
-              value="fontes"
-              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
-            >
+            <TabsTrigger value="fontes" className="px-0 text-[13px]">
               <Type size={14} />
               Fontes
             </TabsTrigger>
-            <TabsTrigger
-              value="textos"
-              className="data-[state=active]:text-foreground text-muted-foreground gap-1.5 rounded-none border-b-2 border-transparent px-0 pb-2.5 text-[13px] font-medium data-[state=active]:border-current data-[state=active]:shadow-none"
-            >
+            <TabsTrigger value="textos" className="px-0 text-[13px]">
               <FileText size={14} />
               Textos
             </TabsTrigger>
