@@ -212,8 +212,8 @@ function TextosTab({ brandTexts }: { brandTexts: BrandText[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {brandTexts.map((text) => (
-        <div key={text.type} className="rounded-xl border p-4">
+      {brandTexts.map((text, i) => (
+        <div key={`${text.type}-${i}`} className="rounded-xl border p-4">
           <p className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-[0.08em] uppercase">
             {text.label}
           </p>

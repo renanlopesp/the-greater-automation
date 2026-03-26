@@ -114,7 +114,7 @@ Extraia:
 3. O estilo visual geral da loja.
 4. Descricao do logo se visivel.
 5. FONTES: Identifique as fontes usadas no site (heading, corpo, UI). Se nao conseguir identificar o nome exato, de o melhor palpite baseado no estilo visual (serif, sans-serif, etc.).
-6. TEXTOS DE MARCA: Extraia textos de destaque visiveis no screenshot — slogan, tagline, frase de impacto, descricao da loja. Se houver bio de Instagram ou assinatura de email visivel, inclua tambem.
+6. TEXTOS DE MARCA: Extraia APENAS textos de destaque da marca — slogan, tagline, frase de impacto, proposta de valor. NAO inclua itens de menu (Inicio, Produtos, Contato), nomes de categorias, precos ou textos genéricos de navegacao. Foque em frases que expressam a identidade e posicionamento da marca. Se nao houver textos de marca claros, retorne array vazio.
 
 IMPORTANTE: Extraia as cores REAIS e fontes REAIS que voce ve no screenshot. Nao use valores genericos ou padrao.`,
             },
