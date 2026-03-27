@@ -80,15 +80,11 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-interface SkillLibraryNewProps {
-  teamId: string
-}
-
-export default function SkillLibraryNew({ teamId }: SkillLibraryNewProps) {
+export default function SkillLibraryNew() {
   const [search, setSearch] = useState('')
 
   const { data: skills = [], isLoading } = useQuery({
-    queryKey: ['skills', teamId],
+    queryKey: ['skills'],
     queryFn: () => fetchSkillsAction(),
     staleTime: 30_000,
   })

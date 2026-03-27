@@ -7,7 +7,7 @@ import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
 import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
-import type { UserData } from '@/types/navigation'
+import { useShellData } from '@/hooks/use-shell-data'
 
 const SettingsDialog = dynamic(() => import('@/components/settings/settings-dialog'))
 
@@ -27,20 +27,11 @@ function getInitials(fullName: string | null, email: string): string {
 
 interface DashboardShellNewProps {
   children: ReactNode
-  user: UserData
-  team: { id: string; name: string; slug: string } | null
-  userTeams: { id: string; name: string; role: string }[]
-  initialLanguage?: string
 }
 
-export default function DashboardShellNew({
-  children,
-  user,
-  team,
-  userTeams,
-  initialLanguage,
-}: DashboardShellNewProps) {
+export default function DashboardShellNew({ children }: DashboardShellNewProps) {
   const router = useRouter()
+  const { data: shellData } = useShellData()
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -59,8 +50,18 @@ export default function DashboardShellNew({
     })
   }
 
+  // Handle redirect (e.g., no team → onboarding)
+  if (shellData?.redirect) {
+    router.push(shellData.redirect)
+    return null
+  }
+
+  const user = shellData?.user ?? { id: '', email: '', fullName: null, avatarUrl: null }
+  const team = shellData?.team ?? null
+  const userTeams = shellData?.userTeams ?? []
+
   return (
-    <LanguageProvider initialLanguage={initialLanguage}>
+    <LanguageProvider initialLanguage={shellData?.language ?? undefined}>
       <div className="flex h-screen w-full overflow-hidden">
         {/* Mobile sidebar overlay */}
         {mobileOpen && (

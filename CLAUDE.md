@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui (new-york), Tailwind CSS v4, TanStack React Query, Zustand (for artifact navigation state) (043-seasonal-calendar-skill)
+- Supabase PostgreSQL (`skills` table exists, campaign data stored as static TypeScript files) (043-seasonal-calendar-skill)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, shadcn/ui (Sheet), Tailwind CSS v4, TanStack React Query, Vercel AI SDK (generateObject), Firecrawl JS SDK, Zod (041-assets-drawer-redesign)
 - Supabase PostgreSQL (brand_dna table — new jsonb columns for fonts + texts; store_products for image URLs) (041-assets-drawer-redesign)
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { seedSeasonalCalendar } from '@/lib/actions/skills'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -42,6 +43,13 @@ export async function POST(request: NextRequest) {
     .from('stores')
     .update({ onboarding_completed: true } as never)
     .eq('team_id', membership.team_id)
+
+  // Seed the Seasonal Calendar as the first real skill
+  try {
+    await seedSeasonalCalendar(membership.team_id)
+  } catch (e) {
+    console.error('Failed to seed Seasonal Calendar:', e)
+  }
 
   return NextResponse.json({ success: true, activatedSkills: selectedSkillSlugs.length })
 }
