@@ -8,7 +8,7 @@ import { SidebarSkillPills } from '@/components/layout/sidebar-skill-pills'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'Home', icon: Home, path: '/' },
+  { label: 'Home', icon: Home, path: '/dashboard' },
   { label: 'New Chat', icon: Plus, path: '/chat' },
   { label: 'Skills', icon: Cpu, path: '/skills' },
   { label: 'Apps', icon: LayoutGrid, path: '/apps' },
@@ -22,7 +22,7 @@ interface AppSidebarNewProps {
 }
 
 function isActive(pathname: string, path: string): boolean {
-  if (path === '/') return pathname === '/' || pathname === '/dashboard'
+  if (path === '/dashboard') return pathname === '/' || pathname === '/dashboard'
   if (path === '/chat') return pathname === '/chat'
   if (path === '/skills') return pathname === '/skills' || pathname.startsWith('/skills/')
   if (path === '/history') return pathname === '/history' || pathname.startsWith('/chat/')
