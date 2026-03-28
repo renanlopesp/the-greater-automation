@@ -17,7 +17,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: conversations, count } = await supabase
     .from('agent_conversations')
-    .select('*', { count: 'exact' })
+    .select('id, agent_id, title, created_by, is_active, created_at, updated_at', {
+      count: 'exact',
+    })
     .eq('agent_id', agentId)
     .order('updated_at', { ascending: false })
     .range(offset, offset + limit - 1)

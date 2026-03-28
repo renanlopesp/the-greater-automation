@@ -41,8 +41,19 @@ export async function loadAgentContext(
     { data: knowledgeSkillRows },
     { data: rpcConnections },
   ] = await Promise.all([
-    supabase.from('agents').select('*').eq('id', agentId).single(),
-    supabase.from('agent_workflows').select('*').eq('agent_id', agentId),
+    supabase
+      .from('agents')
+      .select(
+        'id, name, team_id, system_prompt, model, temperature, max_tokens, is_orchestrator, palette, description, status, is_active, created_by, notification_settings, avatar_url, avatar_type, conversation_starters, snewclaw_instance_id, created_at, updated_at'
+      )
+      .eq('id', agentId)
+      .single(),
+    supabase
+      .from('agent_workflows')
+      .select(
+        'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+      )
+      .eq('agent_id', agentId),
     supabase
       .from('agent_skills')
       .select('id, name, type, description, is_enabled')

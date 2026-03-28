@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
   // 4. Fetch brand_dna
   const { data: brandDnaRow } = await serviceClient
     .from('brand_dna')
-    .select('*')
+    .select(
+      'id, team_id, niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket'
+    )
     .eq('team_id', teamId)
     .limit(1)
     .single()

@@ -70,7 +70,9 @@ export async function fetchTeamSkills(supabase: Client, teamId: string): Promise
       }
     )
       .from('skills')
-      .select('*')
+      .select(
+        'id, team_id, slug, name, description, category, phase, system_prompt, tools, knowledge, input_schema, output_schema, dependencies, status, is_native, requires_connections, icon, color, emoji, stats, what_it_does, expected_results, config_schema, connected_skills, outputs, created_at, updated_at'
+      )
       .eq('team_id', teamId)
       .order('name', { ascending: true })
 
@@ -111,7 +113,9 @@ export async function fetchSkillBySlug(
     }
   )
     .from('skills')
-    .select('*')
+    .select(
+      'id, team_id, slug, name, description, category, phase, system_prompt, tools, knowledge, input_schema, output_schema, dependencies, status, is_native, requires_connections, icon, color, emoji, stats, what_it_does, expected_results, config_schema, connected_skills, outputs, created_at, updated_at'
+    )
     .eq('team_id', teamId)
     .eq('slug', slug)
     .single()
@@ -146,7 +150,9 @@ export async function fetchSkillExecutions(
     }
   )
     .from('skill_executions')
-    .select('*')
+    .select(
+      'id, skill_id, team_id, conversation_id, input, output, status, error_message, duration_ms, triggered_by, parent_execution_id, created_at, completed_at'
+    )
     .eq('skill_id', skillId)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -181,7 +187,9 @@ export async function fetchActiveSkills(supabase: Client, teamId: string): Promi
       }
     )
       .from('skills')
-      .select('*')
+      .select(
+        'id, team_id, slug, name, description, category, phase, system_prompt, tools, knowledge, input_schema, output_schema, dependencies, status, is_native, requires_connections, icon, color, emoji, stats, what_it_does, expected_results, config_schema, connected_skills, outputs, created_at, updated_at'
+      )
       .eq('team_id', teamId)
       .eq('status', 'active')
       .order('name', { ascending: true })

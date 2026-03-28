@@ -58,7 +58,12 @@ export async function GET(request: NextRequest) {
   const supplierId = searchParams.get('supplier_id')
   const productId = searchParams.get('product_id')
 
-  let query = serviceClient.from('store_product_suppliers').select('*').eq('store_id', store.id)
+  let query = serviceClient
+    .from('store_product_suppliers')
+    .select(
+      'id, product_id, supplier_id, cost_price, is_preferred, store_id, last_order_at, last_order_qty, created_at, updated_at'
+    )
+    .eq('store_id', store.id)
 
   if (supplierId) query = query.eq('supplier_id', supplierId)
   if (productId) query = query.eq('product_id', productId)

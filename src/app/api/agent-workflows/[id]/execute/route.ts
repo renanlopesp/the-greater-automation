@@ -15,7 +15,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Load workflow (automation)
   const { data: workflow } = await supabase
     .from('agent_workflows')
-    .select('*')
+    .select(
+      'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+    )
     .eq('id', workflowId)
     .single()
   if (!workflow) return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })

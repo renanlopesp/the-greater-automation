@@ -48,7 +48,7 @@ export async function getNotifications(limit = 50): Promise<{
 
   const { data, error } = await supabase
     .from('notifications')
-    .select('*')
+    .select('id, user_id, team_id, workflow_id, type, title, message, read, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -70,7 +70,7 @@ export async function getUnreadCount(): Promise<{ count: number; error?: string 
 
   const { count, error } = await supabase
     .from('notifications')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
     .eq('read', false)
 
@@ -181,7 +181,7 @@ export async function getNotificationPreferences(): Promise<{
 
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('*')
+    .select('id, user_id, email_enabled, failures_enabled, digest_enabled, created_at, updated_at')
     .eq('user_id', user.id)
     .single()
 

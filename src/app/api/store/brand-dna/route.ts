@@ -31,7 +31,9 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (serviceClient as any)
     .from('brand_dna')
-    .select('*')
+    .select(
+      'id, team_id, niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket, brand_name, visual_identity, content_pillars, competitors, strengths, weaknesses, opportunities, fonts, texts, created_at, updated_at'
+    )
     .eq('team_id', teamId)
     .single()
 

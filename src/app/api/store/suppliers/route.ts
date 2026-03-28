@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get('sort') || 'name'
   const order = searchParams.get('order') || 'asc'
 
-  let query = serviceClient.from('store_suppliers').select('*').eq('store_id', store.id)
+  let query = serviceClient
+    .from('store_suppliers')
+    .select(
+      'id, name, contact_email, contact_phone, lead_time_days, min_order_value, payment_terms, notes, is_active, store_id, created_at, updated_at'
+    )
+    .eq('store_id', store.id)
 
   if (status === 'active') query = query.eq('is_active', true)
   else if (status === 'inactive') query = query.eq('is_active', false)

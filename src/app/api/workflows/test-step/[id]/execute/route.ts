@@ -39,7 +39,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Load the test result record
     const { data: testResult, error: fetchError } = await supabase
       .from('step_test_results')
-      .select('*')
+      .select(
+        'id, workflow_id, step_type, step_config, step_name, step_position, step_id, status, output, error, duration_ms, tested_by, created_at, expires_at'
+      )
       .eq('id', testResultId)
       .single()
 

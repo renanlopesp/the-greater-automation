@@ -11,7 +11,9 @@ export async function findMatchingWorkflows(
   const supabase = await createServerClient()
   const { data } = await supabase
     .from('agent_workflows')
-    .select('*')
+    .select(
+      'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+    )
     .eq('agent_id', agentId)
     .eq('is_enabled', true)
     .eq('source', 'rule')
@@ -32,7 +34,9 @@ export async function findWorkflowByWebhookToken(token: string): Promise<AgentWo
   const supabase = await createServerClient()
   const { data } = await supabase
     .from('agent_workflows')
-    .select('*')
+    .select(
+      'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+    )
     .eq('is_enabled', true)
     .not('trigger_config', 'is', null)
 

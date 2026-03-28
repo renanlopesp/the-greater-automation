@@ -29,13 +29,17 @@ export async function GET(
       supabase.from('workflows').select('id, team_id, name').eq('id', workflowId).single(),
       supabase
         .from('workflow_runs')
-        .select('*')
+        .select(
+          'id, workflow_id, status, trigger_type, trigger_data, steps_used, ai_credits_used, error, started_at, completed_at, created_at'
+        )
         .eq('id', runId)
         .eq('workflow_id', workflowId)
         .single(),
       supabase
         .from('workflow_run_steps')
-        .select('*')
+        .select(
+          'id, run_id, step_id, step_position, step_type, status, input, output, error, started_at, completed_at, duration_ms'
+        )
         .eq('run_id', runId)
         .order('step_position', { ascending: true }),
     ])

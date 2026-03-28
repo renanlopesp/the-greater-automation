@@ -37,7 +37,14 @@ export async function POST(request: NextRequest) {
 
   // 3. Fetch brand_dna, store, and skill_id in parallel
   const [brandDnaResult, storeResult, skillId] = await Promise.all([
-    serviceClient.from('brand_dna').select('*').eq('team_id', teamId).limit(1).single(),
+    serviceClient
+      .from('brand_dna')
+      .select(
+        'id, team_id, niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket'
+      )
+      .eq('team_id', teamId)
+      .limit(1)
+      .single(),
     serviceClient.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
     getSkillId(teamId),
   ])

@@ -261,7 +261,9 @@ export async function duplicateWorkflow(
   // Fetch the source workflow
   const { data: source, error: sourceError } = await supabase
     .from('workflows')
-    .select('*')
+    .select(
+      'id, team_id, name, emoji, description, folder_id, status, is_starred, created_by, published_at, created_at, updated_at'
+    )
     .eq('id', workflowId)
     .single()
 
@@ -273,10 +275,15 @@ export async function duplicateWorkflow(
   const [stepsResult, triggerResult] = await Promise.all([
     supabase
       .from('workflow_steps')
-      .select('*')
+      .select('id, workflow_id, position, type, name, config, created_at, updated_at')
       .eq('workflow_id', workflowId)
       .order('position', { ascending: true }),
-    supabase.from('workflow_triggers').select('*').eq('workflow_id', workflowId).limit(1).single(),
+    supabase
+      .from('workflow_triggers')
+      .select('id, workflow_id, type, config, created_at, updated_at')
+      .eq('workflow_id', workflowId)
+      .limit(1)
+      .single(),
   ])
 
   // Insert the new workflow as a draft

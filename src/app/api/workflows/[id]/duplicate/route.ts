@@ -19,7 +19,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Fetch full workflow
     const { data: workflow, error: workflowError } = await supabase
       .from('workflows')
-      .select('*')
+      .select(
+        'id, team_id, name, emoji, description, folder_id, status, is_starred, created_by, published_at, created_at, updated_at'
+      )
       .eq('id', workflowId)
       .single()
 

@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
     .update({ status: 'processing', attempts: undefined })
     .eq('id', body.message_id)
     .in('status', ['pending', 'failed'])
-    .select('*')
+    .select(
+      'id, chat_id, message_text, username, link_id, status, attempts, error, created_at, processed_at'
+    )
     .single()
 
   if (claimError || !msg) {

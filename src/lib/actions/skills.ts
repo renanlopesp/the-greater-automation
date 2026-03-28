@@ -36,7 +36,9 @@ export async function fetchSkillsAction(): Promise<SkillRow[]> {
     }
   )
     .from('skills')
-    .select('*')
+    .select(
+      'id, team_id, slug, name, description, category, phase, system_prompt, tools, knowledge, input_schema, output_schema, dependencies, status, is_native, requires_connections, icon, color, emoji, stats, what_it_does, expected_results, config_schema, connected_skills, outputs, created_at, updated_at'
+    )
     .eq('team_id', teamId)
     .order('name', { ascending: true })
 
