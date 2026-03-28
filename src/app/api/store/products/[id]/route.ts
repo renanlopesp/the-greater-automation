@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -55,7 +56,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .eq('id', id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: safeDbError('store/products/[id]', error, 'Failed to update product') },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ success: true })

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
+import { safeDbError } from '@/lib/safe-error'
 
 type ActionResult = { error?: string }
 
@@ -33,7 +34,7 @@ export async function createSkill(
   if (error) {
     if (error.code === '23505')
       return { error: 'A skill with this name already exists for this agent' }
-    return { error: error.message }
+    return { error: safeDbError('agent-skills/create', error, 'Failed to create skill') }
   }
 
   revalidatePath(`/agents/${agentId}`)
@@ -72,7 +73,7 @@ export async function updateSkill(
     .eq('id', skillId)
     .eq('agent_id', agentId)
 
-  if (error) return { error: error.message }
+  if (error) return { error: safeDbError('agent-skills/update', error, 'Failed to update skill') }
 
   revalidatePath(`/agents/${agentId}`)
   return {}
@@ -91,7 +92,7 @@ export async function deleteSkill(skillId: string, agentId: string): Promise<Act
     .eq('id', skillId)
     .eq('agent_id', agentId)
 
-  if (error) return { error: error.message }
+  if (error) return { error: safeDbError('agent-skills/delete', error, 'Failed to delete skill') }
 
   revalidatePath(`/agents/${agentId}`)
   return {}

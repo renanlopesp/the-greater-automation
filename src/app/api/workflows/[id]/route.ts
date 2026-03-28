@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
+import { safeError } from '@/lib/safe-error'
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params
@@ -73,9 +74,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting workflow:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: safeError('workflows/[id] DELETE', error, 'Failed to delete workflow') },
       { status: 500 }
     )
   }

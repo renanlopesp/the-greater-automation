@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { ScheduledTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
 import { executeWorkflowSteps } from '@/lib/workflow-editor/webhook-executor'
+import { safeError } from '@/lib/safe-error'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -135,9 +136,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ success: true, runId: run.id })
   } catch (error) {
-    console.error('Error executing scheduled workflow:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      {
+        error: safeError(
+          'workflows/execute-scheduled',
+          error,
+          'Failed to execute scheduled workflow'
+        ),
+      },
       { status: 500 }
     )
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { syncProducts, syncOrders } from '@/lib/nuvemshop/sync'
+import { safeError } from '@/lib/safe-error'
 
 export async function POST(request: NextRequest) {
   const supabase = createServiceRoleClient()
@@ -103,9 +104,8 @@ export async function POST(request: NextRequest) {
       errors: productResult.errors + orderResult.errors,
     })
   } catch (error) {
-    console.error('[nuvemshop/sync] Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Sync failed' },
+      { error: safeError('nuvemshop/sync', error, 'Sync failed') },
       { status: 500 }
     )
   }

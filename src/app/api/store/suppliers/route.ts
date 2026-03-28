@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 
 const createSchema = z.object({
   name: z.string().min(2).max(200),
@@ -65,7 +66,11 @@ export async function GET(request: NextRequest) {
   query = query.order(sortCol, { ascending: order === 'asc' })
 
   const { data: suppliers, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      { error: safeDbError('store/suppliers GET', error, 'Failed to load suppliers') },
+      { status: 500 }
+    )
 
   // Get product counts per supplier
   const supplierIds = (suppliers ?? []).map((s) => s.id)
@@ -132,7 +137,11 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      { error: safeDbError('store/suppliers POST', error, 'Failed to create supplier') },
+      { status: 500 }
+    )
 
   return NextResponse.json(supplier, { status: 201 })
 }

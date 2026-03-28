@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 import { submitApprovalResponse } from '@/lib/workflow-editor/human-in-loop-executor'
 import type { Json } from '@/lib/supabase/database.types'
 
@@ -35,7 +36,10 @@ export async function GET(
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: safeDbError('workflows/approve', error, 'Failed to load approval') },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ approval: approval || null })

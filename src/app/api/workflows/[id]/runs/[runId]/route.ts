@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/safe-error'
 
 export async function GET(
   request: NextRequest,
@@ -116,9 +117,8 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error loading workflow run:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { error: safeError('workflows/runs/[runId] GET', error, 'Failed to load workflow run') },
       { status: 500 }
     )
   }

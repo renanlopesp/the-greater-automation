@@ -8,6 +8,7 @@ export const maxDuration = 120
 import { NextRequest, NextResponse, after } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/safe-error'
 import {
   buildAgentSystemPrompt,
   runAgentChat,
@@ -299,9 +300,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return new Response(response.body, { status: response.status, headers })
     } catch (error) {
       await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-      const errorMessage = error instanceof Error ? error.message : 'Chat failed'
-      console.error('[agent-chat] Orchestrator error:', errorMessage)
-      return NextResponse.json({ error: errorMessage }, { status: 500 })
+      return NextResponse.json(
+        { error: safeError('agent-chat/orchestrator', error, 'Chat failed') },
+        { status: 500 }
+      )
     }
   }
   // ── End orchestrator branch ──────────────────────────────────────────
@@ -688,8 +690,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
   } catch (error) {
     await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-    const errorMessage = error instanceof Error ? error.message : 'Chat failed'
-    console.error('[agent-chat] Error:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { error: safeError('agent-chat', error, 'Chat failed') },
+      { status: 500 }
+    )
   }
 }

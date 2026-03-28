@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import { executeWorkflow } from '@/lib/workflows/workflow-executor'
 import type { AgentWorkflowRow } from '@/lib/workflows/types'
+import { safeError } from '@/lib/safe-error'
 
 /**
  * Verify HMAC-SHA256 webhook signature.
@@ -86,7 +87,7 @@ export async function POST(
     return NextResponse.json({ success: true, run_id: run.id, status: run.status })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Execution failed' },
+      { error: safeError('agent-workflows/webhook', error, 'Execution failed') },
       { status: 500 }
     )
   }

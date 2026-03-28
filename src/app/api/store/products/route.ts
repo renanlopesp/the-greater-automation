@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient()
@@ -40,7 +41,11 @@ export async function GET(request: NextRequest) {
   }
 
   const { data: products, error } = await query.order('name').limit(limit)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      { error: safeDbError('store/products', error, 'Failed to load products') },
+      { status: 500 }
+    )
 
   return NextResponse.json({ products: products ?? [] })
 }

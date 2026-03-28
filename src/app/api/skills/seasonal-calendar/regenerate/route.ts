@@ -3,6 +3,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { generateCampaign, regenerateSection } from '@/lib/ai/seasonal-campaign-generator'
 import type { FullCampaign } from '@/data/campaign-data'
+import { safeError } from '@/lib/safe-error'
 
 export async function POST(request: NextRequest) {
   // 1. Auth
@@ -110,8 +111,9 @@ export async function POST(request: NextRequest) {
     // 7. Return updated campaign
     return NextResponse.json({ executionId, campaign: updatedCampaign })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Regeneration failed'
-    console.error('[regenerate-section] Error:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { error: safeError('regenerate-section', error, 'Regeneration failed') },
+      { status: 500 }
+    )
   }
 }

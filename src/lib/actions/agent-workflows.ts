@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
+import { safeDbError } from '@/lib/safe-error'
 
 type ActionResult = { error?: string }
 
@@ -82,7 +83,7 @@ export async function addWorkflow(agentId: string, workflowId: string): Promise<
 
   if (error) {
     if (error.code === '23505') return { error: 'Workflow already linked' }
-    return { error: error.message }
+    return { error: safeDbError('agent-workflows/add', error, 'Failed to link workflow') }
   }
 
   revalidatePath(`/agents/${agentId}`)
@@ -99,7 +100,8 @@ export async function removeWorkflow(workflowId: string, agentId: string): Promi
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 
-  if (error) return { error: error.message }
+  if (error)
+    return { error: safeDbError('agent-workflows/remove', error, 'Failed to remove workflow') }
 
   revalidatePath(`/agents/${agentId}`)
   return {}
@@ -196,7 +198,7 @@ export async function saveWorkflowFromExecution(input: SaveWorkflowInput): Promi
 
   if (error) {
     if (error.code === '23505') return { error: 'Workflow name already exists' }
-    return { error: error.message }
+    return { error: safeDbError('agent-workflows/save', error, 'Failed to save workflow') }
   }
 
   revalidatePath(`/agents/${input.agentId}`)
@@ -213,7 +215,8 @@ export async function deleteWorkflow(workflowId: string, agentId: string): Promi
 
   const { error } = await supabase.from('agent_workflows').delete().eq('id', workflowId)
 
-  if (error) return { error: error.message }
+  if (error)
+    return { error: safeDbError('agent-workflows/delete', error, 'Failed to delete workflow') }
 
   revalidatePath(`/agents/${agentId}`)
   return {}
