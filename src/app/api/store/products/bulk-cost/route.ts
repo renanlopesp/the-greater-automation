@@ -74,17 +74,24 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Apply updates
+  // Apply updates in parallel batches (avoid N+1 sequential writes)
   let updated = 0
   let errors = 0
-  for (const update of body.updates) {
-    const { error } = await supabase
-      .from('store_products')
-      .update({ cost_price: update.cost_price })
-      .eq('id', update.id)
-
-    if (error) errors++
-    else updated++
+  const BATCH_SIZE = 50
+  for (let i = 0; i < body.updates.length; i += BATCH_SIZE) {
+    const batch = body.updates.slice(i, i + BATCH_SIZE)
+    const results = await Promise.all(
+      batch.map((update) =>
+        supabase
+          .from('store_products')
+          .update({ cost_price: update.cost_price })
+          .eq('id', update.id)
+      )
+    )
+    for (const { error } of results) {
+      if (error) errors++
+      else updated++
+    }
   }
 
   return NextResponse.json({ success: true, updated, errors })

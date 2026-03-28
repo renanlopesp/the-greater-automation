@@ -149,6 +149,9 @@ export async function createNotification(params: {
     .single()
   if (!membership) return { error: 'Not a member of this team' }
 
+  // Notifications can only target the calling user (prevent impersonation)
+  if (params.userId !== user.id) return { error: 'Cannot create notifications for other users' }
+
   const { data, error } = await supabase
     .from('notifications')
     .insert({

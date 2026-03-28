@@ -64,10 +64,21 @@ export async function POST(
   }
 
   // Add metadata to trigger data
+  // Only store safe headers — exclude auth tokens, cookies, secrets
+  const safeHeaderKeys = [
+    'content-type',
+    'user-agent',
+    'x-request-id',
+    'accept',
+    'origin',
+    'referer',
+  ]
   triggerData._webhook = {
     token,
     method: request.method,
-    headers: Object.fromEntries(request.headers.entries()),
+    headers: Object.fromEntries(
+      [...request.headers.entries()].filter(([k]) => safeHeaderKeys.includes(k.toLowerCase()))
+    ),
     timestamp: new Date().toISOString(),
   }
 

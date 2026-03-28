@@ -15,6 +15,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '20', 10), 50)
   const offset = (page - 1) * limit
 
+  // Verify agent exists and is accessible by the user (RLS on agents table)
+  const { data: agent } = await supabase.from('agents').select('id').eq('id', agentId).single()
+  if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+
   const { data: conversations, count } = await supabase
     .from('agent_conversations')
     .select('id, agent_id, title, created_by, is_active, created_at, updated_at', {
