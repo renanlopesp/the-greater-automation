@@ -11,7 +11,6 @@ interface NewChatClientProps {
 export default function NewChatClient({ agents }: NewChatClientProps) {
   const handleSend = (message: string) => {
     // TODO: integrate with real chat backend
-    console.log('Send:', message)
   }
 
   return (

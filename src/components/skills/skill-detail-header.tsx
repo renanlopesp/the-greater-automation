@@ -33,7 +33,7 @@ export default function SkillDetailHeader({
 
   function handleActivate() {
     startTransition(async () => {
-      await activateSkill(teamId, slug)
+      await activateSkill(slug)
       setIsActive(true)
       router.refresh()
     })
@@ -45,7 +45,7 @@ export default function SkillDetailHeader({
 
   function handleDeactivateConfirm() {
     startTransition(async () => {
-      await deactivateSkill(teamId, slug)
+      await deactivateSkill(slug)
       setIsActive(false)
       setShowDeactivateConfirm(false)
       router.refresh()

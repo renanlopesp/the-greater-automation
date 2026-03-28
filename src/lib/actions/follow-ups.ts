@@ -3,12 +3,20 @@
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
+import { createServerClient } from '@/lib/supabase/server'
 
 /**
  * Generates contextual follow-up suggestions based on the last assistant message.
  * Uses gpt-4o-mini for fast, cheap generation (~200 tokens).
  */
 export async function generateFollowUps(lastMessage: string, agentName: string): Promise<string[]> {
+  // Auth check — prevent unauthenticated API credit consumption
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
   const apiKey = process.env.OPEN_AI_API_KEY
   if (!apiKey) return []
 

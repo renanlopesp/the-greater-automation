@@ -59,9 +59,9 @@ export default function SkillDetail({ teamId, skill, executions }: SkillDetailPr
   function handleToggle() {
     startTransition(async () => {
       if (isActive) {
-        await deactivateSkill(teamId, skill.slug)
+        await deactivateSkill(skill.slug)
       } else {
-        await activateSkill(teamId, skill.slug)
+        await activateSkill(skill.slug)
       }
       router.refresh()
     })

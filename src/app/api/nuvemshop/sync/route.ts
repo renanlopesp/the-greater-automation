@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
     } catch {
       // ignore parse errors
     }
-  } else if (internalTeamId) {
-    // Internal call from callback (x-team-id header, no auth check needed — localhost only)
+  } else if (internalTeamId && serviceKey && serviceKey === process.env.INTERNAL_SERVICE_KEY) {
+    // Internal call from callback — requires both x-service-key AND x-team-id
     const { data: store } = await supabase
       .from('stores')
       .select('id, platform_access_token')

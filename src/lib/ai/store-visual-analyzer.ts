@@ -128,7 +128,6 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
     // Extract fonts from HTML
     if (result.rawHtml) {
       extractedFonts = extractFontsFromHtml(result.rawHtml)
-      console.log('[store-visual-analyzer] Fonts from HTML:', extractedFonts)
     }
   } catch (err) {
     console.warn('[store-visual-analyzer] Firecrawl error:', err)

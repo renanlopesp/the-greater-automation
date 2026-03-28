@@ -112,7 +112,11 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.COMPOSIO_TRIGGER_KEY
     const rawBody = await request.text()
 
-    if (webhookSecret) {
+    if (!webhookSecret) {
+      console.error('COMPOSIO_TRIGGER_KEY is not configured')
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+    }
+    {
       const composio = getComposio()
       const webhookId = request.headers.get('webhook-id')
       const webhookTimestamp = request.headers.get('webhook-timestamp')

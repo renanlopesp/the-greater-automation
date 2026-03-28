@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   // Seed the Seasonal Calendar as the first real skill
   try {
-    await seedSeasonalCalendar(membership.team_id)
+    await seedSeasonalCalendar()
   } catch (e) {
     console.error('Failed to seed Seasonal Calendar:', e)
   }

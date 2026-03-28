@@ -9,7 +9,14 @@ let _cachedKey: Buffer | null = null
 
 function getEncryptionKey(): Buffer {
   if (_cachedKey) return _cachedKey
-  const source = process.env.WEBHOOK_SECRET_ENCRYPTION_KEY || 'relay-dev-fallback-key'
+  const source = process.env.WEBHOOK_SECRET_ENCRYPTION_KEY
+  if (!source) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('WEBHOOK_SECRET_ENCRYPTION_KEY is required in production')
+    }
+    // Dev-only fallback — never used in production
+    return scryptSync('relay-dev-fallback-key', SALT, 32) as unknown as Buffer
+  }
   _cachedKey = scryptSync(source, SALT, 32)
   return _cachedKey
 }

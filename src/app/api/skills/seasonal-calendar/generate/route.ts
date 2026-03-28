@@ -34,22 +34,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'dateId and dateName are required' }, { status: 400 })
   }
 
-  // 3. Fetch brand_dna
-  const { data: brandDnaRow } = await serviceClient
-    .from('brand_dna')
-    .select('*')
-    .eq('team_id', teamId)
-    .limit(1)
-    .single()
+  // 3. Fetch brand_dna, store, and skill_id in parallel
+  const [brandDnaResult, storeResult, skillId] = await Promise.all([
+    serviceClient.from('brand_dna').select('*').eq('team_id', teamId).limit(1).single(),
+    serviceClient.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
+    getSkillId(teamId),
+  ])
 
-  if (!brandDnaRow) {
+  if (!brandDnaResult.data) {
     return NextResponse.json(
       { error: 'Brand DNA not found. Complete brand analysis first.' },
       { status: 400 }
     )
   }
 
-  const brandDna = brandDnaRow as {
+  const brandDna = brandDnaResult.data as {
     niche: string
     tone: string
     audience: string
@@ -59,14 +58,7 @@ export async function POST(request: NextRequest) {
     average_ticket: number
   }
 
-  // 4. Fetch store + products
-  const { data: storeRow } = await serviceClient
-    .from('stores')
-    .select('id')
-    .eq('team_id', teamId)
-    .limit(1)
-    .single()
-
+  // 4. Fetch store products (depends on store query)
   let products: Array<{
     name: string
     price: number
@@ -75,18 +67,15 @@ export async function POST(request: NextRequest) {
     cost_price?: number
     stock_quantity?: number
   }> = []
-  if (storeRow) {
+  if (storeResult.data) {
     const { data: storeProducts } = await serviceClient
       .from('store_products')
       .select('name, price, images, category, cost_price, stock_quantity')
-      .eq('store_id', (storeRow as { id: string }).id)
+      .eq('store_id', (storeResult.data as { id: string }).id)
       .eq('is_published', true)
       .limit(50)
     products = (storeProducts ?? []) as typeof products
   }
-
-  // 5. Get skill_id
-  const skillId = await getSkillId(teamId)
 
   // 6. Insert skill_executions record with status='running'
   const startedAt = Date.now()
