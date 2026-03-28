@@ -10,6 +10,12 @@ type ActionResult = { success: boolean; error?: string }
 export async function toggleModule(moduleId: string, enabled: boolean): Promise<ActionResult> {
   const supabase = await createServerClient()
 
+  // Auth check — verify user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
   const { error: moduleError } = await supabase
     .from('agent_modules' as never)
     .update({ enabled, updated_at: new Date().toISOString() } as never)
@@ -39,6 +45,12 @@ export async function toggleModule(moduleId: string, enabled: boolean): Promise<
  */
 export async function approveMessage(runOutputId: string): Promise<ActionResult> {
   const supabase = await createServerClient()
+
+  // Auth check — verify user is authenticated
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
 
   // Fetch current output_data
   const { data: row, error: fetchError } = await supabase

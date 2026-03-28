@@ -1,5 +1,6 @@
 import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createServerClient } from '@/lib/supabase/server'
 import {
   buildWorkflowAssistantPrompt,
   suggestWorkflowTool,
@@ -16,6 +17,18 @@ function getOpenAIProvider() {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params
+
+  // Auth check — prevent unauthenticated OpenAI credit consumption
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   try {
     const body = await request.json()

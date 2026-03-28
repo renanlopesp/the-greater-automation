@@ -86,15 +86,23 @@ export function NotificationItem({ notification, onMarkRead, className }: Notifi
             {notification.body}
           </p>
         )}
-        {notification.cta_url && (
-          <a
-            href={notification.cta_url}
-            onClick={(e) => e.stopPropagation()}
-            className="text-foreground/70 hover:text-foreground mt-1 w-fit text-[11px] underline underline-offset-2 transition-colors"
-          >
-            Ver detalhes
-          </a>
-        )}
+        {notification.cta_url &&
+          (() => {
+            try {
+              const parsed = new URL(notification.cta_url, window.location.origin)
+              return ['http:', 'https:'].includes(parsed.protocol)
+            } catch {
+              return false
+            }
+          })() && (
+            <a
+              href={notification.cta_url}
+              onClick={(e) => e.stopPropagation()}
+              className="text-foreground/70 hover:text-foreground mt-1 w-fit text-[11px] underline underline-offset-2 transition-colors"
+            >
+              Ver detalhes
+            </a>
+          )}
       </div>
       <span className="text-muted-foreground mt-3 mr-3 shrink-0 text-[10px]">
         {timeAgo(notification.created_at)}
