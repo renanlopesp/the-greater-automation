@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+
+const BulkCostSchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        cost_price: z.number().nonnegative(),
+      })
+    )
+    .min(1)
+    .max(500),
+})
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createServerClient()
@@ -11,27 +24,17 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json()) as {
-    updates?: Array<{ id: string; cost_price: number }>
-  }
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
 
-  if (!body.updates || !Array.isArray(body.updates) || body.updates.length === 0) {
-    return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
+  const parsed = BulkCostSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
   }
-
-  if (body.updates.length > 500) {
-    return NextResponse.json({ error: 'Max 500 updates per request' }, { status: 400 })
-  }
-
-  // Validate all entries
-  for (const update of body.updates) {
-    if (!update.id || typeof update.cost_price !== 'number' || update.cost_price < 0) {
-      return NextResponse.json(
-        { error: `Invalid entry: ${JSON.stringify(update)}` },
-        { status: 400 }
-      )
-    }
-  }
+  const body = parsed.data
 
   // Verify user has access to these products via team membership
   const productIds = body.updates.map((u) => u.id)

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { safeDbError } from '@/lib/safe-error'
+
+const ProductPatchSchema = z.object({
+  cost_price: z.number().nonnegative(),
+})
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -13,10 +18,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json()) as { cost_price?: number }
-  if (body.cost_price == null || typeof body.cost_price !== 'number' || body.cost_price < 0) {
-    return NextResponse.json({ error: 'Invalid cost_price' }, { status: 400 })
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const parsed = ProductPatchSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
   }
+  const body = parsed.data
 
   // Verify user has access to the product's store via team membership
   const { data: product } = await supabase
