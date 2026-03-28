@@ -1,17 +1,9 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp?: string
-  snippetCard?: React.ReactNode
-  followUps?: React.ReactNode
-}
+import type { ChatMessage } from './types'
 
 interface SkillChatPanelProps {
   messages: ChatMessage[]

@@ -1,12 +1,12 @@
 'use client'
 
-import React from 'react'
+import type { ReactNode } from 'react'
 import { X, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useArtifactNav } from './artifact-nav-context'
 
 interface SkillArtifactPanelProps {
-  children: React.ReactNode
+  children: ReactNode
   onClose: () => void
 }
 
@@ -35,7 +35,7 @@ export function SkillArtifactPanel({ children, onClose }: SkillArtifactPanelProp
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
-          <span>← {backLabel}</span>
+          <span>{backLabel}</span>
         </button>
         <button
           onClick={handleClose}

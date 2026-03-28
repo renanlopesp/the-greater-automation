@@ -1,16 +1,14 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface DraggableDividerProps {
   onResize: (leftPercent: number) => void
-  initialPercent?: number
 }
 
-export function DraggableDivider({ onResize, initialPercent = 50 }: DraggableDividerProps) {
+export function DraggableDivider({ onResize }: DraggableDividerProps) {
   const [isDragging, setIsDragging] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -40,7 +38,6 @@ export function DraggableDivider({ onResize, initialPercent = 50 }: DraggableDiv
 
   return (
     <div
-      ref={containerRef}
       className={cn(
         'relative flex w-2 shrink-0 cursor-col-resize items-center justify-center',
         isDragging && 'select-none'

@@ -1,0 +1,153 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
+import { generateCampaign } from '@/lib/ai/seasonal-campaign-generator'
+import { getSkillId } from '@/lib/actions/seasonal-calendar'
+
+export async function POST(request: NextRequest) {
+  // 1. Auth
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) {
+    return NextResponse.json({ error: 'No team found' }, { status: 401 })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const serviceClient = createServiceRoleClient() as any
+
+  // 2. Parse body
+  const body = await request.json().catch(() => ({}))
+  const { dateId, dateName, dateEmoji, dateDisplayDate } = body as {
+    dateId?: string
+    dateName?: string
+    dateEmoji?: string
+    dateDisplayDate?: string
+  }
+  if (!dateId || !dateName) {
+    return NextResponse.json({ error: 'dateId and dateName are required' }, { status: 400 })
+  }
+
+  // 3. Fetch brand_dna
+  const { data: brandDnaRow } = await serviceClient
+    .from('brand_dna')
+    .select('*')
+    .eq('team_id', teamId)
+    .limit(1)
+    .single()
+
+  if (!brandDnaRow) {
+    return NextResponse.json(
+      { error: 'Brand DNA not found. Complete brand analysis first.' },
+      { status: 400 }
+    )
+  }
+
+  const brandDna = brandDnaRow as {
+    niche: string
+    tone: string
+    audience: string
+    positioning: string
+    words_to_use: string[]
+    words_to_avoid: string[]
+    average_ticket: number
+  }
+
+  // 4. Fetch store + products
+  const { data: storeRow } = await serviceClient
+    .from('stores')
+    .select('id')
+    .eq('team_id', teamId)
+    .limit(1)
+    .single()
+
+  let products: Array<{
+    name: string
+    price: number
+    image_url?: string
+    category?: string
+    cost_price?: number
+    stock_quantity?: number
+  }> = []
+  if (storeRow) {
+    const { data: storeProducts } = await serviceClient
+      .from('store_products')
+      .select('name, price, images, category, cost_price, stock_quantity')
+      .eq('store_id', (storeRow as { id: string }).id)
+      .eq('is_published', true)
+      .limit(50)
+    products = (storeProducts ?? []) as typeof products
+  }
+
+  // 5. Get skill_id
+  const skillId = await getSkillId(teamId)
+
+  // 6. Insert skill_executions record with status='running'
+  const startedAt = Date.now()
+  const { data: execRow } = await serviceClient
+    .from('skill_executions')
+    .insert({
+      skill_id: skillId,
+      team_id: teamId,
+      status: 'running',
+      input: { type: 'campaign', dateId, dateName },
+    })
+    .select('id')
+    .single()
+
+  const executionId = (execRow as { id: string } | null)?.id
+
+  try {
+    // 7. Generate campaign
+    const campaign = await generateCampaign({
+      date: {
+        id: dateId,
+        name: dateName,
+        emoji: dateEmoji ?? '📅',
+        displayDate: dateDisplayDate ?? dateName,
+      },
+      brandDna,
+      products,
+    })
+
+    const durationMs = Date.now() - startedAt
+
+    // 8. Update execution record
+    if (executionId) {
+      await serviceClient
+        .from('skill_executions')
+        .update({
+          status: 'completed',
+          output: campaign,
+          duration_ms: durationMs,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', executionId)
+    }
+
+    // 9. Return result
+    return NextResponse.json({ executionId, campaign, durationMs })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Generation failed'
+    console.error('[generate-campaign] Error:', errorMessage)
+
+    if (executionId) {
+      await serviceClient
+        .from('skill_executions')
+        .update({
+          status: 'failed',
+          error_message: errorMessage,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', executionId)
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
+  }
+}
