@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Send error to user
     await sendMessage(
       msg.chat_id as string,
-      `Sorry, something went wrong: ${errMsg.slice(0, 200)}`
+      'Sorry, something went wrong. Please try again later.'
     ).catch(() => {})
 
     return NextResponse.json({ error: errMsg }, { status: 500 })

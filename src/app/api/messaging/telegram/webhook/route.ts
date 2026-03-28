@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage, sendChatAction, type TelegramUpdate } from '@/lib/messaging/telegram'
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   const secretHeader = request.headers.get('x-telegram-bot-api-secret-token')
-  if (secretHeader !== WEBHOOK_SECRET) {
+  if (!secretHeader || !timingSafeEqual(Buffer.from(secretHeader), Buffer.from(WEBHOOK_SECRET))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

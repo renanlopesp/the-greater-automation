@@ -26,6 +26,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing priceId' }, { status: 400 })
     }
 
+    // Validate price ID against allowed plans
+    const { getAllPriceIds } = await import('@/lib/stripe/plans')
+    const validPriceIds = getAllPriceIds()
+    if (validPriceIds.length > 0 && !validPriceIds.includes(priceId)) {
+      return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 })
+    }
+
     const stripe = getStripe()
     const supabase = createServiceRoleClient()
 

@@ -24,14 +24,8 @@ export async function POST(request: NextRequest) {
 
   const teamId = membership.team_id
 
-  // 3. Get storeId — prefer from body, fall back to team's store
+  // 3. Get storeId — always resolve from team ownership (ignore body.store_id to prevent IDOR)
   let storeId: string | null = null
-  try {
-    const body = await request.json()
-    if (body.store_id) storeId = body.store_id as string
-  } catch {
-    // no body or not JSON
-  }
 
   if (!storeId) {
     const serviceClient = createServiceRoleClient()
