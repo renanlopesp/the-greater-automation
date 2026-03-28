@@ -2,6 +2,9 @@ import { syncSingleProduct } from './sync'
 import { NuvemshopClient } from './client'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendOrderNotification } from '@/lib/retail/order-notifications'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('nuvemshop/webhooks')
 
 interface StoreContext {
   id: string
@@ -92,6 +95,6 @@ async function handleOrderEvent(
       }
     }
   } catch (err) {
-    console.error(`[nuvemshop/webhooks] Error handling ${event} for order ${orderId}:`, err)
+    log.error({ err, event, orderId }, 'Error handling webhook event')
   }
 }

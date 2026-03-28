@@ -1,6 +1,9 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { getOpenAIProvider } from '@/lib/ai/agent-chat'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ai/store-visual-analyzer')
 
 export interface VisualAnalysis {
   color_palette: Array<{ hex: string; label: string }>
@@ -119,7 +122,7 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
     })
 
     if (!result.success || !result.screenshot) {
-      console.warn('[store-visual-analyzer] Screenshot capture failed for', storeUrl)
+      log.warn({ storeUrl }, 'Screenshot capture failed')
       return null
     }
 
@@ -130,7 +133,7 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
       extractedFonts = extractFontsFromHtml(result.rawHtml)
     }
   } catch (err) {
-    console.warn('[store-visual-analyzer] Firecrawl error:', err)
+    log.warn({ err }, 'Firecrawl error')
     return null
   }
 
@@ -170,7 +173,7 @@ IMPORTANTE: Extraia as cores REAIS e fontes REAIS que voce ve no screenshot. Nao
 
     return object
   } catch (err) {
-    console.warn('[store-visual-analyzer] Vision analysis error:', err)
+    log.warn({ err }, 'Vision analysis error')
     return null
   }
 }

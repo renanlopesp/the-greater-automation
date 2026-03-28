@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/approvals/execute')
 
 const ApprovalsExecuteSchema = z.object({
   approvalId: z.string().min(1),
@@ -31,12 +34,10 @@ export async function POST(request: NextRequest) {
   const { approvalId, recipientIds, action } = parsed.data
 
   // Log the action — actual campaign execution will be wired later
-  console.info('[approvals/execute]', {
-    userId: user.id,
-    approvalId,
-    action,
-    recipientCount: recipientIds.length,
-  })
+  log.info(
+    { userId: user.id, approvalId, action, recipientCount: recipientIds.length },
+    'Approval action executed'
+  )
 
   return NextResponse.json({
     success: true,

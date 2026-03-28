@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { NuvemshopClient } from '@/lib/nuvemshop/client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/nuvemshop/callback')
 
 export async function GET(request: NextRequest) {
   // Use public URL to avoid localhost redirects when behind ngrok/proxy
@@ -76,7 +79,9 @@ export async function GET(request: NextRequest) {
     // Register webhooks (fire-and-forget)
     if (store?.platform_access_token && store?.platform_store_id && store?.id) {
       const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
-      registerWebhooks(client, store.id, origin, serviceSupabase).catch(console.error)
+      registerWebhooks(client, store.id, origin, serviceSupabase).catch((err) =>
+        log.error({ err }, 'Background webhook registration failed')
+      )
     }
 
     const redirectPath = state.redirect_uri || '/onboarding/analyzing'
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
         : '/onboarding/analyzing'
     return NextResponse.redirect(new URL(safePath, origin))
   } catch (error) {
-    console.error('[nuvemshop/callback] OAuth error:', error)
+    log.error({ err: error }, 'OAuth error')
     return NextResponse.redirect(new URL('/workspace?error=oauth_failed', origin))
   }
 }
@@ -112,7 +117,7 @@ async function registerWebhooks(
           event,
         })
       } catch (error) {
-        console.error(`[nuvemshop/callback] Failed to register webhook ${event}:`, error)
+        log.error({ err: error, event }, 'Failed to register webhook')
       }
     })
   )

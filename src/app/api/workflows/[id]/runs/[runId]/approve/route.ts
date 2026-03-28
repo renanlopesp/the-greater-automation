@@ -3,6 +3,9 @@ import { createServerClient } from '@/lib/supabase/server'
 import { safeDbError } from '@/lib/safe-error'
 import { submitApprovalResponse } from '@/lib/workflow-editor/human-in-loop-executor'
 import type { Json } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/workflows/approve')
 
 /**
  * GET: Fetch the pending approval for this run (if any)
@@ -151,7 +154,7 @@ export async function POST(
         headers: { cookie: cookieHeader },
       })
     } catch (err) {
-      console.error('Failed to resume workflow after approval:', err)
+      log.error({ err }, 'Failed to resume workflow after approval')
     }
   })
 

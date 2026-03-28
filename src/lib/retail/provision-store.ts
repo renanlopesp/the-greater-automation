@@ -1,5 +1,8 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('retail/provision-store')
 import {
   AGENT_ROLES,
   SEGMENT_SKILLS,
@@ -139,10 +142,7 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
           .single()
 
         if (agentError) {
-          console.error(
-            `[provision-store] Failed to create agent ${role.name}:`,
-            agentError.message
-          )
+          log.error({ err: agentError.message, agentName: role.name }, 'Failed to create agent')
           return null
         }
 
@@ -162,10 +162,7 @@ export async function provisionStore(input: ProvisionStoreInput): Promise<Provis
 
           if (!skillError) skillsCreated++
           else
-            console.error(
-              `[provision-store] Failed to create skill for ${role.name}:`,
-              skillError.message
-            )
+            log.error({ err: skillError.message, agentName: role.name }, 'Failed to create skill')
         }
 
         return { role: role.role, agentId: agent.id }
@@ -413,10 +410,7 @@ async function provisionWorkflows(
         .single()
 
       if (wfError || !wf) {
-        console.error(
-          `[provision-store] Failed to create workflow "${def.name}":`,
-          wfError?.message
-        )
+        log.error({ err: wfError?.message, workflowName: def.name }, 'Failed to create workflow')
         return
       }
 
@@ -449,23 +443,39 @@ async function provisionWorkflows(
       ])
 
       if (triggerResult.status === 'rejected' || triggerResult.value.error) {
-        console.error(
-          `[provision-store] Failed to create trigger for "${def.name}":`,
-          triggerResult.status === 'rejected'
-            ? triggerResult.reason
-            : triggerResult.value.error?.message
+        log.error(
+          {
+            err:
+              triggerResult.status === 'rejected'
+                ? triggerResult.reason
+                : triggerResult.value.error?.message,
+            workflowName: def.name,
+          },
+          'Failed to create trigger'
         )
       }
       if (stepsResult.status === 'rejected' || stepsResult.value.error) {
-        console.error(
-          `[provision-store] Failed to create steps for "${def.name}":`,
-          stepsResult.status === 'rejected' ? stepsResult.reason : stepsResult.value.error?.message
+        log.error(
+          {
+            err:
+              stepsResult.status === 'rejected'
+                ? stepsResult.reason
+                : stepsResult.value.error?.message,
+            workflowName: def.name,
+          },
+          'Failed to create steps'
         )
       }
       if (linkResult.status === 'rejected' || linkResult.value.error) {
-        console.error(
-          `[provision-store] Failed to link workflow "${def.name}" to agent:`,
-          linkResult.status === 'rejected' ? linkResult.reason : linkResult.value.error?.message
+        log.error(
+          {
+            err:
+              linkResult.status === 'rejected'
+                ? linkResult.reason
+                : linkResult.value.error?.message,
+            workflowName: def.name,
+          },
+          'Failed to link workflow to agent'
         )
       }
     })

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 import { getStripe } from '@/lib/stripe/client'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/stripe/checkout')
 
 export const runtime = 'nodejs'
 
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url })
   } catch (error) {
-    console.error('Stripe checkout error:', error)
+    log.error({ err: error }, 'Stripe checkout error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

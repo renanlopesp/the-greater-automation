@@ -1,6 +1,9 @@
 'use server'
 
 import { getComposio } from '../client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/get-app-actions')
 
 export interface ActionParam {
   key: string
@@ -165,7 +168,7 @@ export async function getAppActions(appId: string): Promise<ComposioAppAction[]>
     const tools = await composio.tools.getRawComposioTools({ toolkits: [appId], limit: 500 })
 
     if (!tools || tools.length === 0) {
-      console.error(`No actions found for app: ${appId}`)
+      log.error({ appId }, 'No actions found for app')
       return []
     }
 
@@ -203,7 +206,7 @@ export async function getAppActions(appId: string): Promise<ComposioAppAction[]>
 
     return actions
   } catch (error) {
-    console.error(`Error fetching actions for app ${appId}:`, error)
+    log.error({ err: error, appId }, 'Error fetching actions for app')
     return []
   }
 }

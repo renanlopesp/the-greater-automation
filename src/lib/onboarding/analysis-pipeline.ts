@@ -2,6 +2,9 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import { syncProducts } from '@/lib/nuvemshop/sync'
 import { summarizeCatalog } from '@/lib/retail/catalog-summarizer'
 import { analyzeBrandDna, type BrandDnaResult } from '@/lib/ai/brand-dna-analyzer'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('onboarding/analysis-pipeline')
 
 export type PipelineStep = {
   step: number
@@ -124,7 +127,7 @@ export async function runAnalysisPipeline(
       visualAnalysis = await analyzeStoreVisuals(storeUrl)
     }
   } catch (err) {
-    console.warn('[analysis-pipeline] Visual analysis failed (non-blocking):', err)
+    log.warn({ err }, 'Visual analysis failed (non-blocking)')
   }
 
   onProgress({

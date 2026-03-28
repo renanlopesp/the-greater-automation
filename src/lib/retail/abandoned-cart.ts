@@ -1,5 +1,8 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/telegram'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('retail/abandoned-cart')
 
 /**
  * Check for abandoned checkouts and send Telegram notifications.
@@ -331,7 +334,7 @@ async function writeAbandonedCartOutputs(
       })
   } catch (err) {
     // Non-fatal: output writing should not break the cart check
-    console.warn('Failed to write cart-table workflow_run_outputs:', err)
+    log.warn({ err }, 'Failed to write cart-table workflow_run_outputs')
   }
 }
 
@@ -368,7 +371,7 @@ async function writeRecoveredCartOutputs(
         summary_text: `${conversions.length} carrinho${conversions.length !== 1 ? 's' : ''} recuperado${conversions.length !== 1 ? 's' : ''}`,
       })
   } catch (err) {
-    console.warn('Failed to write conversion-list workflow_run_outputs:', err)
+    log.warn({ err }, 'Failed to write conversion-list workflow_run_outputs')
   }
 }
 

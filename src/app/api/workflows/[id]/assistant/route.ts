@@ -1,6 +1,9 @@
 import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/workflows/assistant')
 import {
   buildWorkflowAssistantPrompt,
   suggestWorkflowTool,
@@ -74,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return result.toUIMessageStreamResponse()
   } catch (error) {
-    console.error('Workflow assistant error:', error)
+    log.error({ err: error }, 'Workflow assistant error')
     return new Response(JSON.stringify({ error: 'Failed to process assistant request' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

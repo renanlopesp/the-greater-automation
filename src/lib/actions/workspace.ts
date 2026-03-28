@@ -7,6 +7,9 @@ import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 import { safeError, safeDbError } from '@/lib/safe-error'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('actions/workspace')
 
 type WorkflowStatus = Database['public']['Enums']['workflow_status']
 type TriggerType = Database['public']['Enums']['trigger_type']
@@ -999,7 +1002,7 @@ export async function saveWorkflow(
             triggerConfig = { ...triggerConfig, composio_trigger_id: composioTriggerId }
           }
         } catch (error) {
-          console.error('Failed to create Composio trigger:', error)
+          log.error({ err: error }, 'Failed to create Composio trigger')
           // Don't fail the save — the trigger config is still saved for retry
         }
       }

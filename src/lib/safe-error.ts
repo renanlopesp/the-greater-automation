@@ -5,13 +5,15 @@
  * to clients. Logs the full error server-side for debugging.
  */
 
+import { logger } from '@/lib/logger'
+
 /**
  * Extract a safe, generic error message for the client.
  * Logs the real error server-side with the provided context tag.
  */
 export function safeError(tag: string, error: unknown, fallback = 'Internal server error'): string {
   const message = error instanceof Error ? error.message : String(error)
-  console.error(`[${tag}]`, message)
+  logger.error({ tag }, message)
   return fallback
 }
 
@@ -25,6 +27,6 @@ export function safeDbError(
   fallback = 'Database operation failed'
 ): string {
   if (!error) return fallback
-  console.error(`[${tag}] DB error:`, error.message, error.code ?? '')
+  logger.error({ tag, code: error.code ?? undefined }, `DB error: ${error.message}`)
   return fallback
 }

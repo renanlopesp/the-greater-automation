@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/store/brand-dna')
 
 export async function GET() {
   const supabase = await createServerClient()
@@ -8,7 +11,7 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    console.error('[brand-dna API] No user session')
+    log.error('No user session')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -38,7 +41,7 @@ export async function GET() {
     .single()
 
   if (error || !data) {
-    console.error('[brand-dna API] Not found for team:', teamId, 'error:', error)
+    log.error({ teamId, err: error }, 'Not found for team')
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
   return NextResponse.json(data)

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { handleWebhookEvent } from '@/lib/nuvemshop/webhooks'
 import crypto from 'crypto'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/nuvemshop/webhook')
 
 export async function POST(request: NextRequest) {
   const clientSecret = process.env.NUVEMSHOP_CLIENT_SECRET
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     await handleWebhookEvent(store, payload.event, String(payload.id))
   } catch (error) {
-    console.error(`[nuvemshop/webhook] Error handling ${payload.event}:`, error)
+    log.error({ err: error, event: payload.event }, 'Error handling webhook event')
   }
 
   return NextResponse.json({ ok: true })

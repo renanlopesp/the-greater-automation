@@ -4,6 +4,9 @@ import { cookies } from 'next/headers'
 import { getComposio } from '../client'
 import { getIntegrationId } from '../integrations'
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/initiate-connection')
 
 /**
  * Initiates an OAuth connection via Composio.
@@ -92,7 +95,7 @@ export async function initiateAppConnection(
 
     return { redirectUrl }
   } catch (error) {
-    console.error('App connect error:', error)
+    log.error({ err: error }, 'App connect error')
     return { error: error instanceof Error ? error.message : 'Failed to initiate connection' }
   }
 }

@@ -1,6 +1,9 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/fetch-resource')
 
 export interface ResourceItem {
   label: string
@@ -123,7 +126,7 @@ export async function fetchAppResource(
 
     return { items }
   } catch (error) {
-    console.error(`Error fetching resource for ${appId}/${fetchAction}:`, error)
+    log.error({ err: error, appId, fetchAction }, 'Error fetching resource')
     return {
       items: [],
       error: error instanceof Error ? error.message : 'Failed to fetch resources',

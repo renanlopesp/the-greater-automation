@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { processMessage } from '@/lib/messaging/telegram-processor'
 import { sendMessage } from '@/lib/messaging/telegram'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/messaging/telegram/process')
 
 // Allow up to 120s for AI + tool execution (Composio API calls can be slow).
 export const maxDuration = 120
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, message_id: msg.id, status: 'completed' })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    console.error(`[telegram/process] Error processing message ${msg.id}:`, errMsg)
+    log.error({ err: errMsg, messageId: msg.id }, 'Error processing message')
 
     // Mark as failed
     await supabase

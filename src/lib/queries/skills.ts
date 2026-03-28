@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('queries/skills')
 
 type Client = SupabaseClient<Database>
 
@@ -77,12 +80,12 @@ export async function fetchTeamSkills(supabase: Client, teamId: string): Promise
       .order('name', { ascending: true })
 
     if (error) {
-      console.error('[fetchTeamSkills] error:', JSON.stringify(error))
+      log.error({ err: JSON.stringify(error) }, 'fetchTeamSkills error')
       return []
     }
     return data ?? []
   } catch (e) {
-    console.error('[fetchTeamSkills] catch:', e)
+    log.error({ err: e }, 'fetchTeamSkills catch')
     return []
   }
 }

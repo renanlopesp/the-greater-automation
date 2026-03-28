@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('workflows/execute-visual-steps')
 import { executeAIStep } from '@/lib/ai/chat'
 import { tokensToCredits } from '@/lib/billing/credits'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
@@ -714,7 +717,7 @@ export async function executeVisualWorkflowSteps(
 
     return { success: true }
   } catch (error) {
-    console.error('Error executing visual workflow run:', error)
+    log.error({ err: error }, 'Error executing visual workflow run')
 
     const errorMessage = error instanceof Error ? error.message : 'Internal execution error'
 

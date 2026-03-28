@@ -1,6 +1,9 @@
 'use server'
 
 import { getComposio } from '../client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/get-available-apps')
 
 export interface AvailableApp {
   id: string
@@ -29,7 +32,7 @@ export async function getAvailableApps(): Promise<AvailableApp[]> {
       }
     })
   } catch (error) {
-    console.error('Failed to fetch Composio integrations:', error)
+    log.error({ err: error }, 'Failed to fetch Composio integrations')
     return []
   }
 }

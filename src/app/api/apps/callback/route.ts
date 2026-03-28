@@ -3,6 +3,9 @@ import { getComposio } from '@/lib/composio/client'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/apps/callback')
 
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (upsertError) {
-      console.error('Failed to save connection:', upsertError)
+      log.error({ err: upsertError }, 'Failed to save connection')
       return NextResponse.redirect(
         `${siteUrl}/dashboard?error=save_failed&provider=${pending.appId}`
       )
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(`${siteUrl}/workspace?connected=${pending.appId}`)
   } catch (error) {
-    console.error('App callback error:', error)
+    log.error({ err: error }, 'App callback error')
     return NextResponse.redirect(`${siteUrl}/dashboard?error=oauth_failed`)
   }
 }
