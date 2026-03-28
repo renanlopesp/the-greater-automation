@@ -237,7 +237,7 @@ describe('agent-skills server actions', () => {
         is_enabled: false,
       })
 
-      expect(result).toEqual({ error: 'Database error' })
+      expect(result).toEqual({ error: 'Failed to update skill' })
     })
   })
 
@@ -297,7 +297,7 @@ describe('agent-skills server actions', () => {
 
       const result = await deleteSkill('skill-789', 'agent-456')
 
-      expect(result).toEqual({ error: 'Delete failed' })
+      expect(result).toEqual({ error: 'Failed to delete skill' })
     })
   })
 

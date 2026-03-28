@@ -1,6 +1,9 @@
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('workflows/action-executor')
 import type {
   WorkflowActionConfig,
   ActionExecutionResult,
@@ -155,7 +158,7 @@ async function executeComposioAction(
     const resp = err?.response as Record<string, unknown> | undefined
     const detail = resp?.data ?? resp?.body ?? err?.cause ?? err?.errCode ?? null
     const resolvedParams = resolveParams(config.params, triggerData, previousOutputs)
-    console.error(`[action-executor] Composio error for ${config.action}:`, message, detail)
+    log.error({ err: message, detail, action: config.action }, 'Composio error')
     return {
       action_type: 'composio_action',
       action_config: config,
@@ -290,7 +293,7 @@ async function executeClaudeAgentStep(
           tools = filteredTools
         }
       } catch (toolError) {
-        console.warn('[action-executor] Failed to load Composio tools for claude_agent:', toolError)
+        log.warn({ err: toolError }, 'Failed to load Composio tools for claude_agent')
         // Continue without tools
       }
     }

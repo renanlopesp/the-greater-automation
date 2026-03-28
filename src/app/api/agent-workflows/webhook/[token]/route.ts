@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
 import { executeWorkflow } from '@/lib/workflows/workflow-executor'
 import type { AgentWorkflowRow } from '@/lib/workflows/types'
+import { safeError } from '@/lib/safe-error'
 
 /**
  * Verify HMAC-SHA256 webhook signature.
@@ -63,10 +64,21 @@ export async function POST(
   }
 
   // Add metadata to trigger data
+  // Only store safe headers — exclude auth tokens, cookies, secrets
+  const safeHeaderKeys = [
+    'content-type',
+    'user-agent',
+    'x-request-id',
+    'accept',
+    'origin',
+    'referer',
+  ]
   triggerData._webhook = {
     token,
     method: request.method,
-    headers: Object.fromEntries(request.headers.entries()),
+    headers: Object.fromEntries(
+      [...request.headers.entries()].filter(([k]) => safeHeaderKeys.includes(k.toLowerCase()))
+    ),
     timestamp: new Date().toISOString(),
   }
 
@@ -86,7 +98,7 @@ export async function POST(
     return NextResponse.json({ success: true, run_id: run.id, status: run.status })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Execution failed' },
+      { error: safeError('agent-workflows/webhook', error, 'Execution failed') },
       { status: 500 }
     )
   }

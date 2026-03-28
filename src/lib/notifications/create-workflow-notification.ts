@@ -1,4 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('notifications')
 
 type WorkflowNotificationType =
   | 'workflow_published'
@@ -67,6 +70,6 @@ export async function createWorkflowNotification(
       message: buildMessage(params),
     })
   } catch (error) {
-    console.error('[notifications] Failed to create notification:', error)
+    log.error({ err: error }, 'Failed to create notification')
   }
 }

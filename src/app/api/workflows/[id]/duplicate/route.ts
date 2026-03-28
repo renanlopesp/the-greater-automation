@@ -1,5 +1,8 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/workflows/duplicate')
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params
@@ -19,7 +22,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Fetch full workflow
     const { data: workflow, error: workflowError } = await supabase
       .from('workflows')
-      .select('*')
+      .select(
+        'id, team_id, name, emoji, description, folder_id, status, is_starred, created_by, published_at, created_at, updated_at'
+      )
       .eq('id', workflowId)
       .single()
 
@@ -88,7 +93,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       newWorkflowId: newWorkflow.id,
     })
   } catch (error) {
-    console.error('Error duplicating workflow:', error)
+    log.error({ err: error }, 'Error duplicating workflow')
     return NextResponse.json({ error: 'Failed to duplicate workflow' }, { status: 500 })
   }
 }

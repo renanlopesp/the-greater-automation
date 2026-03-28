@@ -40,7 +40,7 @@ export async function inviteMemberAction(formData: FormData): Promise<MembersAct
     getTeamPlan(info.teamId),
     supabase
       .from('team_members')
-      .select('*', { count: 'exact', head: true })
+      .select('user_id', { count: 'exact', head: true })
       .eq('team_id', info.teamId),
   ])
 
@@ -139,7 +139,7 @@ export async function acceptInvitationAction(invitationId: string): Promise<Memb
   // Get the invitation
   const { data: invitation } = await (supabase as any)
     .from('team_invitations')
-    .select('*')
+    .select('id, team_id, email, role, status, expires_at, invited_by, created_at')
     .eq('id', invitationId)
     .single()
 
@@ -185,7 +185,7 @@ export async function declineInvitationAction(invitationId: string): Promise<Mem
 
   const { data: invitation } = await (supabase as any)
     .from('team_invitations')
-    .select('*')
+    .select('id, team_id, email, role, status, expires_at, invited_by, created_at')
     .eq('id', invitationId)
     .single()
 

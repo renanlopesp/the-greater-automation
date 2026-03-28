@@ -1,5 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { handleWebhookRequest } from '@/lib/workflow-editor/webhook-executor'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/workflows/webhook')
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -20,7 +23,7 @@ async function handler(
 
     return Response.json(result.body, { status: result.status })
   } catch (error) {
-    console.error('Webhook handler error:', error)
+    log.error({ err: error }, 'Webhook handler error')
     return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

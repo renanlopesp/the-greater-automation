@@ -8,6 +8,30 @@ export interface HTTPExecutionResult {
   error?: string
 }
 
+/** Block requests to private/internal networks (SSRF prevention) */
+function isAllowedUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false
+    const hostname = parsed.hostname.toLowerCase()
+    const blocked = [
+      /^localhost$/,
+      /^127\./,
+      /^10\./,
+      /^172\.(1[6-9]|2\d|3[01])\./,
+      /^192\.168\./,
+      /^169\.254\./,
+      /^0\./,
+      /^\[::1\]$/,
+      /\.internal$/,
+      /\.local$/,
+    ]
+    return !blocked.some((pattern) => pattern.test(hostname))
+  } catch {
+    return false
+  }
+}
+
 /**
  * Execute an HTTP request step
  */
@@ -40,6 +64,17 @@ export async function executeHTTPStep(config: HTTPStepConfig): Promise<HTTPExecu
           case 'api_key':
             headers['X-API-Key'] = config.auth.value
             break
+        }
+      }
+
+      // SSRF check — block requests to private/internal networks
+      if (!isAllowedUrl(config.url)) {
+        return {
+          success: false,
+          status: 0,
+          body: '',
+          headers: {},
+          error: 'URL targets a restricted network address',
         }
       }
 

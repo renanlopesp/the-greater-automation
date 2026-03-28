@@ -4,9 +4,13 @@ import { executeWorkflow } from '@/lib/workflows/workflow-executor'
 import type { AgentWorkflowRow } from '@/lib/workflows/types'
 
 export async function POST(request: NextRequest) {
-  // Verify cron secret (optional)
+  // Verify cron secret (required — fail closed)
   const authHeader = request.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

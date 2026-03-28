@@ -2,6 +2,9 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/get-app-connections')
 
 export interface AppConnection {
   id: string
@@ -100,7 +103,7 @@ export async function getAppConnections(): Promise<AppConnection[]> {
       })
     )
   } catch (error) {
-    console.error('Failed to fetch app connections:', error)
+    log.error({ err: error }, 'Failed to fetch app connections')
     return []
   }
 }
@@ -140,7 +143,7 @@ export async function getWorkspaceConnections(teamId: string): Promise<Workspace
       }
     })
   } catch (error) {
-    console.error('Failed to fetch workspace connections:', error)
+    log.error({ err: error }, 'Failed to fetch workspace connections')
     return []
   }
 }

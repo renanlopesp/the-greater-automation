@@ -6057,7 +6057,9 @@ export function buildRetailTools(
           if (params.action === 'list') {
             let query = client
               .from('store_suppliers')
-              .select('*')
+              .select(
+                'id, name, contact_email, contact_phone, lead_time_days, min_order_value, payment_terms, notes, is_active, store_id, created_at, updated_at'
+              )
               .eq('store_id', storeId)
               .eq('is_active', true)
               .order('name')

@@ -1,8 +1,12 @@
+import { randomInt } from 'crypto'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/messaging/link')
 
 function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(randomInt(100000, 999999))
 }
 
 /** POST: Generate a verification code for linking Telegram to a Relay account. */
@@ -63,7 +67,7 @@ export async function POST() {
     .single()
 
   if (error) {
-    console.error('[messaging/link] upsert error:', error)
+    log.error({ err: error }, 'Upsert error')
     return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 })
   }
 

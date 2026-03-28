@@ -85,7 +85,7 @@ export async function fetchAgentActivity(
 export async function fetchArtifact(supabase: Client, runOutputId: string) {
   const { data, error } = await supabase
     .from('workflow_run_outputs' as never)
-    .select('*')
+    .select('id, workflow_run_id, module_id, output_type, output_data, summary_text, created_at')
     .eq('id', runOutputId)
     .single()
 
@@ -110,7 +110,9 @@ export async function fetchAgentModulesWithStatus(
 ): Promise<ModuleWithStatus[]> {
   const { data: moduleRows, error: moduleError } = await supabase
     .from('agent_modules' as never)
-    .select('*')
+    .select(
+      'id, agent_id, name, description, module_type, enabled, required_connections, config, workflow_id, created_at, updated_at'
+    )
     .eq('agent_id', agentId)
     .order('created_at', { ascending: true })
 

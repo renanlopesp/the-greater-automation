@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/safe-error'
 import { runAgentChat, type AgentConfig } from '@/lib/ai/agent-chat'
 import { tokensToCredits } from '@/lib/billing/credits'
 import { buildPlatformTools, buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
@@ -321,8 +322,9 @@ export async function POST(request: NextRequest) {
 
     return new Response(response.body, { status: response.status, headers })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Chat failed'
-    console.error('[orchestrator-chat] Error:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { error: safeError('orchestrator-chat', error, 'Chat failed') },
+      { status: 500 }
+    )
   }
 }

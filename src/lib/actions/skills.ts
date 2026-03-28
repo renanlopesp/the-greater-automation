@@ -4,6 +4,9 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { skills as skillRegistry } from '@/data/skills'
 import type { SkillRow } from '@/lib/queries/skills'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('actions/skills')
 
 /** Fetch all skills for the current user's team, with static fallback */
 export async function fetchSkillsAction(): Promise<SkillRow[]> {
@@ -36,12 +39,14 @@ export async function fetchSkillsAction(): Promise<SkillRow[]> {
     }
   )
     .from('skills')
-    .select('*')
+    .select(
+      'id, team_id, slug, name, description, category, phase, system_prompt, tools, knowledge, input_schema, output_schema, dependencies, status, is_native, requires_connections, icon, color, emoji, stats, what_it_does, expected_results, config_schema, connected_skills, outputs, created_at, updated_at'
+    )
     .eq('team_id', teamId)
     .order('name', { ascending: true })
 
   if (error) {
-    console.error('[fetchSkillsAction] error:', JSON.stringify(error))
+    log.error({ err: JSON.stringify(error) }, 'fetchSkillsAction error')
   }
 
   return (data ?? []) as SkillRow[]

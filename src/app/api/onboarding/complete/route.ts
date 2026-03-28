@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { seedSeasonalCalendar } from '@/lib/actions/skills'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/onboarding/complete')
+
+const OnboardingCompleteSchema = z.object({
+  selectedSkillSlugs: z.array(z.string().min(1)).min(0),
+})
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -17,8 +25,17 @@ export async function POST(request: NextRequest) {
     .single()
   if (!membership) return NextResponse.json({ error: 'No team' }, { status: 400 })
 
-  const body = await request.json()
-  const { selectedSkillSlugs } = body as { selectedSkillSlugs: string[] }
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const parsed = OnboardingCompleteSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
+  }
+  const { selectedSkillSlugs } = parsed.data
 
   const serviceClient = createServiceRoleClient()
 
@@ -34,7 +51,7 @@ export async function POST(request: NextRequest) {
         p_slug: slug,
       })
     } catch (e) {
-      console.error(`Failed to activate skill ${slug}:`, e)
+      log.error({ err: e, slug }, 'Failed to activate skill')
     }
   }
 
@@ -48,7 +65,7 @@ export async function POST(request: NextRequest) {
   try {
     await seedSeasonalCalendar()
   } catch (e) {
-    console.error('Failed to seed Seasonal Calendar:', e)
+    log.error({ err: e }, 'Failed to seed Seasonal Calendar')
   }
 
   return NextResponse.json({ success: true, activatedSkills: selectedSkillSlugs.length })

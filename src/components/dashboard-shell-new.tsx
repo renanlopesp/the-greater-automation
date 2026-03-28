@@ -35,8 +35,12 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return true
-    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
-    return stored === null || stored === 'true'
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+      return stored === null || stored === 'true'
+    } catch {
+      return true
+    }
   })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)

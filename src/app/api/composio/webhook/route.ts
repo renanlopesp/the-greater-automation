@@ -4,6 +4,9 @@ import { executeVisualWorkflowSteps } from '@/lib/workflows/execute-visual-steps
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { checkUsageLimits } from '@/lib/billing/usage-check'
 import type { Json } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/composio/webhook')
 
 /**
  * Recursively flatten an object into a key→value map.
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text()
 
     if (!webhookSecret) {
-      console.error('COMPOSIO_TRIGGER_KEY is not configured')
+      log.error('COMPOSIO_TRIGGER_KEY is not configured')
       return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
     }
     {
@@ -159,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ status: 'ok', runs_created: result.runsCreated }, { status: 200 })
   } catch (error) {
-    console.error('Composio webhook error:', error)
+    log.error({ err: error }, 'Composio webhook error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -257,9 +260,7 @@ async function processWorkflows(
         ])
 
         if (!usageResult.allowed) {
-          console.warn(
-            `[composio-webhook] Usage limit exceeded for team ${workflow.team_id}: ${usageResult.reason}`
-          )
+          log.warn({ teamId: workflow.team_id, reason: usageResult.reason }, 'Usage limit exceeded')
           continue
         }
 
@@ -292,7 +293,7 @@ async function processWorkflows(
           .single()
 
         if (runError || !run) {
-          console.error(`Failed to create workflow run for ${vt.workflow_id}:`, runError)
+          log.error({ err: runError, workflowId: vt.workflow_id }, 'Failed to create workflow run')
           continue
         }
 
@@ -310,7 +311,10 @@ async function processWorkflows(
         const { error: runStepsError } = await supabase.from('workflow_run_steps').insert(runSteps)
 
         if (runStepsError) {
-          console.error(`Failed to create run steps for ${vt.workflow_id}:`, runStepsError)
+          log.error(
+            { err: runStepsError, workflowId: vt.workflow_id },
+            'Failed to create run steps'
+          )
           continue
         }
 
@@ -330,7 +334,7 @@ async function processWorkflows(
         if (result.success) {
           runsCreated++
         } else {
-          console.error(`Workflow ${vt.workflow_id} execution failed:`, result.error)
+          log.error({ workflowId: vt.workflow_id, err: result.error }, 'Workflow execution failed')
         }
 
         // 10. Update stats for agent-owned workflows
@@ -362,11 +366,11 @@ async function processWorkflows(
           }
         }
       } catch (error) {
-        console.error(`Failed to process workflow trigger ${vt.id}:`, error)
+        log.error({ err: error, triggerId: vt.id }, 'Failed to process workflow trigger')
       }
     }
   } catch (error) {
-    console.error('Failed to process workflow triggers:', error)
+    log.error({ err: error }, 'Failed to process workflow triggers')
   }
 
   return { runsCreated, triggersFound }

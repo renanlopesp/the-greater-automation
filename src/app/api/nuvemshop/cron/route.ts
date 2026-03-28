@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { syncProducts, syncOrders } from '@/lib/nuvemshop/sync'
 import { checkAbandonedCarts, checkRecoveredCarts } from '@/lib/retail/abandoned-cart'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/nuvemshop/cron')
 
 // Vercel Cron or external cron hits this endpoint every 15 minutes
 export async function GET(request: NextRequest) {
@@ -159,7 +162,7 @@ async function createAbandonedCartAgentRun(
 
     return run?.id ?? null
   } catch (err) {
-    console.warn('Failed to create abandoned-cart agent workflow run:', err)
+    log.warn({ err }, 'Failed to create abandoned-cart agent workflow run')
     return null
   }
 }

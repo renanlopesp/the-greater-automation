@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/safe-error'
 import { executeAIStep } from '@/lib/ai/chat'
 import { executeHTTPStep } from '@/lib/ai/http-executor'
 import { executeFlowControlStep } from '@/lib/workflow-editor/flow-control-executor'
@@ -38,7 +39,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Load the test result record
     const { data: testResult, error: fetchError } = await supabase
       .from('step_test_results')
-      .select('*')
+      .select(
+        'id, workflow_id, step_type, step_config, step_name, step_position, step_id, status, output, error, duration_ms, tested_by, created_at, expires_at'
+      )
       .eq('id', testResultId)
       .single()
 
@@ -305,7 +308,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ success, output, error, duration_ms })
   } catch (error) {
     const duration_ms = Date.now() - startTime
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const safeMessage = safeError('test-step/execute', error, 'Step execution failed')
 
     // Mark test as failed
     try {
@@ -313,7 +316,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         .from('step_test_results')
         .update({
           status: 'failed' as const,
-          error: errorMessage,
+          error: safeMessage,
           duration_ms,
         })
         .eq('id', testResultId)
@@ -321,6 +324,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       // best-effort
     }
 
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
+    return NextResponse.json({ success: false, error: safeMessage }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { executeWorkflow } from '@/lib/workflows/workflow-executor'
 import type { AgentWorkflowRow } from '@/lib/workflows/types'
+import { safeError } from '@/lib/safe-error'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: workflowId } = await params
@@ -14,7 +15,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Load workflow (automation)
   const { data: workflow } = await supabase
     .from('agent_workflows')
-    .select('*')
+    .select(
+      'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+    )
     .eq('id', workflowId)
     .single()
   if (!workflow) return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ success: true, run })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Execution failed' },
+      { error: safeError('agent-workflows/execute', error, 'Execution failed') },
       { status: 500 }
     )
   }

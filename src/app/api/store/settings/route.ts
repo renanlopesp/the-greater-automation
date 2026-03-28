@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+
+const StoreSettingsPatchSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  segment: z.string().min(1).max(100).optional(),
+  platform: z.string().min(1).max(100).optional(),
+  default_threshold: z.number().int().min(0).max(100000).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+  agent_notifications: z
+    .object({
+      daily_summary_enabled: z.boolean(),
+      report_hour: z.number().int().min(0).max(23),
+    })
+    .optional(),
+})
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createServerClient()
@@ -26,14 +41,17 @@ export async function PATCH(request: NextRequest) {
     .single()
   if (!store) return NextResponse.json({ error: 'No store' }, { status: 404 })
 
-  const body = (await request.json()) as {
-    name?: string
-    segment?: string
-    platform?: string
-    default_threshold?: number
-    settings?: Record<string, unknown>
-    agent_notifications?: { daily_summary_enabled: boolean; report_hour: number }
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const parsed = StoreSettingsPatchSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
   }
+  const body = parsed.data
 
   // Run independent writes in parallel
   const writes: PromiseLike<unknown>[] = []

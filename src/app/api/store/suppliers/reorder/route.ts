@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
   // Fetch links with supplier info
   let linksQuery = serviceClient
     .from('store_product_suppliers')
-    .select('*')
+    .select(
+      'id, product_id, supplier_id, cost_price, is_preferred, store_id, last_order_at, last_order_qty'
+    )
     .eq('store_id', store.id)
 
   if (supplierIdFilter) linksQuery = linksQuery.eq('supplier_id', supplierIdFilter)

@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/approvals/execute')
+
+const ApprovalsExecuteSchema = z.object({
+  approvalId: z.string().min(1),
+  action: z.enum(['approve', 'reject']),
+  recipientIds: z.array(z.string()).optional().default([]),
+})
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -11,25 +21,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json()) as {
-    approvalId: string
-    recipientIds: string[]
-    action: 'approve' | 'reject'
-  }
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
 
-  const { approvalId, recipientIds, action } = body
-
-  if (!approvalId || !action || !['approve', 'reject'].includes(action)) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  const parsed = ApprovalsExecuteSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
   }
+  const { approvalId, recipientIds, action } = parsed.data
 
   // Log the action — actual campaign execution will be wired later
-  console.info('[approvals/execute]', {
-    userId: user.id,
-    approvalId,
-    action,
-    recipientCount: recipientIds.length,
-  })
+  log.info(
+    { userId: user.id, approvalId, action, recipientCount: recipientIds.length },
+    'Approval action executed'
+  )
 
   return NextResponse.json({
     success: true,

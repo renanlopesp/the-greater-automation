@@ -1,6 +1,9 @@
 import { streamText, generateText, stepCountIs, type ToolSet } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getComposioSession } from '@/lib/composio/composio-session'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('ai/agent-chat')
 
 // ---------------------------------------------------------------------------
 // Types
@@ -581,7 +584,7 @@ export async function runAgentChat(options: AgentChatOptions) {
       const rawTools = await session.tools()
       composioTools = wrapComposioTools(filterComposioMetaTools(rawTools))
     } catch (err) {
-      console.error(`[agent-chat] Composio tools loading failed:`, err)
+      log.error({ err }, 'Composio tools loading failed')
     }
   }
 
@@ -657,7 +660,7 @@ export async function runAgentChatSync(
       const rawTools = await session.tools()
       composioTools = wrapComposioTools(filterComposioMetaTools(rawTools))
     } catch (err) {
-      console.error(`[agent-chat-sync] Composio tools loading failed:`, err)
+      log.error({ err }, 'Composio tools loading failed (sync)')
     }
   }
 

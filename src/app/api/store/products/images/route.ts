@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { NuvemshopClient } from '@/lib/nuvemshop/client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/store/products/images')
 
 export async function GET() {
   const supabase = await createServerClient()
@@ -59,7 +62,7 @@ export async function GET() {
 
     return NextResponse.json({ images, storeName: store.name || 'Loja' })
   } catch (err) {
-    console.error('[api/store/products/images] Error:', err)
+    log.error({ err }, 'Error fetching product images')
     return NextResponse.json({ images: [], storeName: store.name || 'Loja' })
   }
 }

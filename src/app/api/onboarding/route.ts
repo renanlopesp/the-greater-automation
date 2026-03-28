@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { provisionStore } from '@/lib/retail/provision-store'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/onboarding')
 import {
   SEGMENTS,
   PLATFORMS,
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (message.includes('already exists')) {
       return NextResponse.json({ error: message }, { status: 409 })
     }
-    console.error('[api/onboarding] Error:', err)
+    log.error({ err }, 'Onboarding error')
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

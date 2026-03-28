@@ -8,6 +8,7 @@ export const maxDuration = 120
 import { NextRequest, NextResponse, after } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/safe-error'
 import {
   buildAgentSystemPrompt,
   runAgentChat,
@@ -70,8 +71,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     { data: knowledgeSkillRows },
     { data: rpcConnections },
   ] = await Promise.all([
-    supabase.from('agents').select('*').eq('id', agentId).single(),
-    supabase.from('agent_workflows').select('*').eq('agent_id', agentId),
+    supabase
+      .from('agents')
+      .select(
+        'id, name, team_id, system_prompt, model, temperature, max_tokens, is_orchestrator, palette, description, status, is_active, created_by, notification_settings, avatar_url, avatar_type, conversation_starters, snewclaw_instance_id, created_at, updated_at'
+      )
+      .eq('id', agentId)
+      .single(),
+    supabase
+      .from('agent_workflows')
+      .select(
+        'id, name, description, agent_id, source, actions, trigger_config, conditions, action_template, workflow_id, is_enabled, execution_mode, run_count, last_run_at, created_at, updated_at'
+      )
+      .eq('agent_id', agentId),
     supabase
       .from('agent_skills')
       .select('id, name, type, description, is_enabled')
@@ -299,9 +311,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return new Response(response.body, { status: response.status, headers })
     } catch (error) {
       await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-      const errorMessage = error instanceof Error ? error.message : 'Chat failed'
-      console.error('[agent-chat] Orchestrator error:', errorMessage)
-      return NextResponse.json({ error: errorMessage }, { status: 500 })
+      return NextResponse.json(
+        { error: safeError('agent-chat/orchestrator', error, 'Chat failed') },
+        { status: 500 }
+      )
     }
   }
   // ── End orchestrator branch ──────────────────────────────────────────
@@ -688,8 +701,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
   } catch (error) {
     await supabase.from('agents').update({ status: 'idle' }).eq('id', agentId)
-    const errorMessage = error instanceof Error ? error.message : 'Chat failed'
-    console.error('[agent-chat] Error:', errorMessage)
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json(
+      { error: safeError('agent-chat', error, 'Chat failed') },
+      { status: 500 }
+    )
   }
 }

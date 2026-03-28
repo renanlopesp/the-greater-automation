@@ -6,6 +6,10 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/supabase/database.types'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
+import { safeError, safeDbError } from '@/lib/safe-error'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('actions/workspace')
 
 type WorkflowStatus = Database['public']['Enums']['workflow_status']
 type TriggerType = Database['public']['Enums']['trigger_type']
@@ -163,7 +167,7 @@ export async function deleteWorkflow(workflowId: string): Promise<ActionResult> 
   const { error } = await supabase.from('workflows').delete().eq('id', workflowId)
 
   if (error) {
-    return { error: error.message ?? 'Failed to delete workflow' }
+    return { error: safeDbError('workspace/delete-workflow', error, 'Failed to delete workflow') }
   }
 
   revalidatePath('/workspace')
@@ -202,7 +206,7 @@ export async function deleteAgent(agentId: string): Promise<ActionResult> {
   const { error } = await supabase.from('agents').delete().eq('id', agentId)
 
   if (error) {
-    return { error: error.message ?? 'Failed to delete agent' }
+    return { error: safeDbError('workspace/delete-agent', error, 'Failed to delete agent') }
   }
 
   // Clean up orphaned workflows that were created by the agent's workflows
@@ -260,7 +264,9 @@ export async function duplicateWorkflow(
   // Fetch the source workflow
   const { data: source, error: sourceError } = await supabase
     .from('workflows')
-    .select('*')
+    .select(
+      'id, team_id, name, emoji, description, folder_id, status, is_starred, created_by, published_at, created_at, updated_at'
+    )
     .eq('id', workflowId)
     .single()
 
@@ -272,10 +278,15 @@ export async function duplicateWorkflow(
   const [stepsResult, triggerResult] = await Promise.all([
     supabase
       .from('workflow_steps')
-      .select('*')
+      .select('id, workflow_id, position, type, name, config, created_at, updated_at')
       .eq('workflow_id', workflowId)
       .order('position', { ascending: true }),
-    supabase.from('workflow_triggers').select('*').eq('workflow_id', workflowId).limit(1).single(),
+    supabase
+      .from('workflow_triggers')
+      .select('id, workflow_id, type, config, created_at, updated_at')
+      .eq('workflow_id', workflowId)
+      .limit(1)
+      .single(),
   ])
 
   // Insert the new workflow as a draft
@@ -373,7 +384,7 @@ export async function renameWorkflow(workflowId: string, name: string): Promise<
     .eq('id', workflowId)
 
   if (error) {
-    return { error: error.message ?? 'Failed to rename workflow' }
+    return { error: safeDbError('workspace/rename-workflow', error, 'Failed to rename workflow') }
   }
 
   revalidatePath('/workspace')
@@ -591,7 +602,13 @@ export async function bulkToggleStatus(
   const { error } = await supabase.from('workflows').update(updatePayload).in('id', workflowIds)
 
   if (error) {
-    return { error: error.message ?? 'Failed to update workflow status' }
+    return {
+      error: safeDbError(
+        'workspace/update-workflow-status',
+        error,
+        'Failed to update workflow status'
+      ),
+    }
   }
 
   revalidatePath('/workspace')
@@ -678,7 +695,7 @@ export async function renameFolder(folderId: string, name: string): Promise<Acti
   const { error } = await supabase.from('folders').update({ name: trimmedName }).eq('id', folderId)
 
   if (error) {
-    return { error: error.message ?? 'Failed to rename folder' }
+    return { error: safeDbError('workspace/rename-folder', error, 'Failed to rename folder') }
   }
 
   revalidatePath('/workspace')
@@ -792,7 +809,7 @@ export async function deleteFolder(
   const { error } = await supabase.from('folders').delete().eq('id', folderId)
 
   if (error) {
-    return { error: error.message ?? 'Failed to delete folder' }
+    return { error: safeDbError('workspace/delete-folder', error, 'Failed to delete folder') }
   }
 
   revalidatePath('/workspace')
@@ -832,7 +849,7 @@ export async function moveToFolder(
     .in('id', itemIds)
 
   if (error) {
-    return { error: error.message ?? 'Failed to move items' }
+    return { error: safeDbError('workspace/move-items', error, 'Failed to move items') }
   }
 
   revalidatePath('/workspace')
@@ -985,7 +1002,7 @@ export async function saveWorkflow(
             triggerConfig = { ...triggerConfig, composio_trigger_id: composioTriggerId }
           }
         } catch (error) {
-          console.error('Failed to create Composio trigger:', error)
+          log.error({ err: error }, 'Failed to create Composio trigger')
           // Don't fail the save — the trigger config is still saved for retry
         }
       }

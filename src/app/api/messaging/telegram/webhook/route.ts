@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage, sendChatAction, type TelegramUpdate } from '@/lib/messaging/telegram'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/messaging/telegram/webhook')
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 
@@ -12,12 +16,12 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 export async function POST(request: NextRequest) {
   // 1. Verify webhook secret — fail closed when not configured
   if (!WEBHOOK_SECRET) {
-    console.error('[telegram/webhook] TELEGRAM_WEBHOOK_SECRET is not set — rejecting all requests')
+    log.error('TELEGRAM_WEBHOOK_SECRET is not set — rejecting all requests')
     return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
   }
 
   const secretHeader = request.headers.get('x-telegram-bot-api-secret-token')
-  if (secretHeader !== WEBHOOK_SECRET) {
+  if (!secretHeader || !timingSafeEqual(Buffer.from(secretHeader), Buffer.from(WEBHOOK_SECRET))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -162,7 +166,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (insertError) {
-    console.error('[telegram/webhook] Failed to queue message:', insertError)
+    log.error({ err: insertError }, 'Failed to queue message')
     await sendMessage(chatId, 'Sorry, failed to process your message. Please try again.').catch(
       () => {}
     )

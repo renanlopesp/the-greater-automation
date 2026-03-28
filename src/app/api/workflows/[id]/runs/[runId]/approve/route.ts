@@ -1,7 +1,11 @@
 import { NextResponse, after } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 import { submitApprovalResponse } from '@/lib/workflow-editor/human-in-loop-executor'
 import type { Json } from '@/lib/supabase/database.types'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/workflows/approve')
 
 /**
  * GET: Fetch the pending approval for this run (if any)
@@ -35,7 +39,10 @@ export async function GET(
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: safeDbError('workflows/approve', error, 'Failed to load approval') },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ approval: approval || null })
@@ -147,7 +154,7 @@ export async function POST(
         headers: { cookie: cookieHeader },
       })
     } catch (err) {
-      console.error('Failed to resume workflow after approval:', err)
+      log.error({ err }, 'Failed to resume workflow after approval')
     }
   })
 

@@ -27,7 +27,7 @@ export async function getActiveConversation(
 ): Promise<{ conversationId: string; messages: AgentMessage[] } | null> {
   const { data: conversation } = await supabase
     .from('agent_conversations')
-    .select('*')
+    .select('id, agent_id, user_id, is_active, title, created_at, updated_at')
     .eq('agent_id', agentId)
     .eq('user_id', userId)
     .eq('is_active', true)
@@ -52,7 +52,7 @@ export async function getConversationMessages(
 ): Promise<AgentMessage[]> {
   const { data: messages } = await supabase
     .from('agent_messages')
-    .select('*')
+    .select('id, conversation_id, role, content, metadata, created_at, sender_id')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(limit)

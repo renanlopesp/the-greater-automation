@@ -3,6 +3,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { generateCalendar } from '@/lib/ai/seasonal-campaign-generator'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
+import { safeError } from '@/lib/safe-error'
 
 export async function POST(request: NextRequest) {
   // 1. Auth
@@ -28,7 +29,12 @@ export async function POST(request: NextRequest) {
 
   // 3. Fetch brand_dna, store, and skill_id in parallel
   const [brandDnaResult, storeResult, skillId] = await Promise.all([
-    serviceClient.from('brand_dna').select('*').eq('team_id', teamId).limit(1).single(),
+    serviceClient
+      .from('brand_dna')
+      .select('id, team_id, niche, tone, audience, positioning, average_ticket, opportunities')
+      .eq('team_id', teamId)
+      .limit(1)
+      .single(),
     serviceClient.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
     getSkillId(teamId),
   ])
@@ -103,20 +109,19 @@ export async function POST(request: NextRequest) {
     // 9. Return result
     return NextResponse.json({ executionId, calendar, durationMs })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Generation failed'
-    console.error('[generate-calendar] Error:', errorMessage)
+    const safeMessage = safeError('generate-calendar', error, 'Calendar generation failed')
 
     if (executionId) {
       await serviceClient
         .from('skill_executions')
         .update({
           status: 'failed',
-          error_message: errorMessage,
+          error_message: safeMessage,
           completed_at: new Date().toISOString(),
         })
         .eq('id', executionId)
     }
 
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    return NextResponse.json({ error: safeMessage }, { status: 500 })
   }
 }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendDailySummary } from '@/lib/retail/sales-summary'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/store/daily-summary')
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
@@ -46,9 +49,9 @@ export async function GET(request: NextRequest) {
     if (results[i].status === 'fulfilled') {
       sent++
     } else {
-      console.error(
-        `[daily-summary] Error for store ${eligibleStores[i].name}:`,
-        (results[i] as PromiseRejectedResult).reason
+      log.error(
+        { err: (results[i] as PromiseRejectedResult).reason, storeName: eligibleStores[i].name },
+        'Error sending daily summary for store'
       )
     }
   }

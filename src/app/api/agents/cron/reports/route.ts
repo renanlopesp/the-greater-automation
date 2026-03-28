@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/telegram'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/agents/cron/reports')
 import {
   generateStockReport,
   generatePriceReport,
@@ -103,7 +106,7 @@ export async function GET(request: NextRequest) {
       sent++
     } else if (result.status === 'rejected') {
       const msg = result.reason instanceof Error ? result.reason.message : String(result.reason)
-      console.error(`[agent-reports] Error for agent ${activeAgents[i].name}:`, msg)
+      log.error({ err: msg, agentName: activeAgents[i].name }, 'Error generating agent report')
       errors.push(`${activeAgents[i].name}: ${msg}`)
     }
   }

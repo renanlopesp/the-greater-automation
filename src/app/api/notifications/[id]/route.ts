@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
+
+const NotificationPatchSchema = z.object({
+  is_read: z.boolean(),
+})
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,8 +16,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json()
-  const { is_read } = body as { is_read: boolean }
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const parsed = NotificationPatchSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
+  }
+  const { is_read } = parsed.data
 
   // Get user's team_id to verify access
   const { data: membership } = await supabase
@@ -30,7 +45,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .select('id, read, created_at')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      { error: safeDbError('notifications', error, 'Failed to update notification') },
+      { status: 500 }
+    )
 
   return NextResponse.json(data)
 }

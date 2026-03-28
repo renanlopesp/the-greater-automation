@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
 import { setWebhook, deleteWebhook, getMe } from '@/lib/messaging/telegram'
+
+const TelegramSetupSchema = z.object({
+  url: z
+    .string()
+    .url()
+    .refine((val) => val.startsWith('https://'), { message: 'URL must use HTTPS' }),
+})
 
 /**
  * POST: Register the Telegram webhook.
@@ -17,11 +25,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const baseUrl = (body.url as string)?.replace(/\/+$/, '')
-  if (!baseUrl) {
-    return NextResponse.json({ error: 'url is required' }, { status: 400 })
+  const rawBody = await request.json().catch(() => null)
+  if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const parsed = TelegramSetupSchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', fields: Object.keys(parsed.error.flatten().fieldErrors) },
+      { status: 400 }
+    )
   }
+  const baseUrl = parsed.data.url.replace(/\/+$/, '')
 
   const webhookUrl = `${baseUrl}/api/messaging/telegram/webhook`
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET || ''

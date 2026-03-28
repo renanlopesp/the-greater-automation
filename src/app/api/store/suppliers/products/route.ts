@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 
 const createLinkSchema = z.object({
   supplier_id: z.string().uuid(),
@@ -57,13 +58,28 @@ export async function GET(request: NextRequest) {
   const supplierId = searchParams.get('supplier_id')
   const productId = searchParams.get('product_id')
 
-  let query = serviceClient.from('store_product_suppliers').select('*').eq('store_id', store.id)
+  let query = serviceClient
+    .from('store_product_suppliers')
+    .select(
+      'id, product_id, supplier_id, cost_price, is_preferred, store_id, last_order_at, last_order_qty, created_at, updated_at'
+    )
+    .eq('store_id', store.id)
 
   if (supplierId) query = query.eq('supplier_id', supplierId)
   if (productId) query = query.eq('product_id', productId)
 
   const { data: links, error } = await query.order('created_at', { ascending: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      {
+        error: safeDbError(
+          'store/suppliers/products GET',
+          error,
+          'Failed to load supplier products'
+        ),
+      },
+      { status: 500 }
+    )
 
   // Enrich with supplier and product names
   const supplierIds = [...new Set((links ?? []).map((l) => l.supplier_id))]
@@ -128,7 +144,17 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error)
+      return NextResponse.json(
+        {
+          error: safeDbError(
+            'store/suppliers/products POST update',
+            error,
+            'Failed to update supplier product link'
+          ),
+        },
+        { status: 500 }
+      )
 
     // If setting as preferred, unset others for the same product
     if (parsed.data.is_preferred) {
@@ -155,7 +181,17 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      {
+        error: safeDbError(
+          'store/suppliers/products POST insert',
+          error,
+          'Failed to create supplier product link'
+        ),
+      },
+      { status: 500 }
+    )
 
   // If setting as preferred, unset others for the same product
   if (parsed.data.is_preferred && link) {
@@ -226,7 +262,17 @@ export async function DELETE(request: NextRequest) {
     .eq('id', parsed.data.id)
     .eq('store_id', store.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error)
+    return NextResponse.json(
+      {
+        error: safeDbError(
+          'store/suppliers/products DELETE',
+          error,
+          'Failed to delete supplier product link'
+        ),
+      },
+      { status: 500 }
+    )
 
   return NextResponse.json({ success: true })
 }

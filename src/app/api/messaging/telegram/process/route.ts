@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { processMessage } from '@/lib/messaging/telegram-processor'
 import { sendMessage } from '@/lib/messaging/telegram'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/messaging/telegram/process')
 
 // Allow up to 120s for AI + tool execution (Composio API calls can be slow).
 export const maxDuration = 120
@@ -52,7 +55,9 @@ export async function POST(request: NextRequest) {
     .update({ status: 'processing', attempts: undefined })
     .eq('id', body.message_id)
     .in('status', ['pending', 'failed'])
-    .select('*')
+    .select(
+      'id, chat_id, message_text, username, link_id, status, attempts, error, created_at, processed_at'
+    )
     .single()
 
   if (claimError || !msg) {
@@ -107,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, message_id: msg.id, status: 'completed' })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    console.error(`[telegram/process] Error processing message ${msg.id}:`, errMsg)
+    log.error({ err: errMsg, messageId: msg.id }, 'Error processing message')
 
     // Mark as failed
     await supabase
@@ -118,7 +123,7 @@ export async function POST(request: NextRequest) {
     // Send error to user
     await sendMessage(
       msg.chat_id as string,
-      `Sorry, something went wrong: ${errMsg.slice(0, 200)}`
+      'Sorry, something went wrong. Please try again later.'
     ).catch(() => {})
 
     return NextResponse.json({ error: errMsg }, { status: 500 })

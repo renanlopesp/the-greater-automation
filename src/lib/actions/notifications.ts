@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { safeDbError } from '@/lib/safe-error'
 
 // Types
 export type NotificationType =
@@ -47,12 +48,16 @@ export async function getNotifications(limit = 50): Promise<{
 
   const { data, error } = await supabase
     .from('notifications')
-    .select('*')
+    .select('id, user_id, team_id, workflow_id, type, title, message, read, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) return { notifications: [], error: error.message }
+  if (error)
+    return {
+      notifications: [],
+      error: safeDbError('notifications/get', error, 'Failed to load notifications'),
+    }
   return { notifications: (data ?? []) as NotificationRow[] }
 }
 
@@ -65,11 +70,15 @@ export async function getUnreadCount(): Promise<{ count: number; error?: string 
 
   const { count, error } = await supabase
     .from('notifications')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
     .eq('read', false)
 
-  if (error) return { count: 0, error: error.message }
+  if (error)
+    return {
+      count: 0,
+      error: safeDbError('notifications/unread-count', error, 'Failed to load unread count'),
+    }
   return { count: count ?? 0 }
 }
 
@@ -86,7 +95,10 @@ export async function markAsRead(notificationId: string): Promise<{ error?: stri
     .eq('id', notificationId)
     .eq('user_id', user.id)
 
-  if (error) return { error: error.message }
+  if (error)
+    return {
+      error: safeDbError('notifications/mark-read', error, 'Failed to mark notification as read'),
+    }
   return {}
 }
 
@@ -103,7 +115,14 @@ export async function markAllAsRead(): Promise<{ error?: string }> {
     .eq('user_id', user.id)
     .eq('read', false)
 
-  if (error) return { error: error.message }
+  if (error)
+    return {
+      error: safeDbError(
+        'notifications/mark-all-read',
+        error,
+        'Failed to mark all notifications as read'
+      ),
+    }
   return {}
 }
 
@@ -130,6 +149,9 @@ export async function createNotification(params: {
     .single()
   if (!membership) return { error: 'Not a member of this team' }
 
+  // Notifications can only target the calling user (prevent impersonation)
+  if (params.userId !== user.id) return { error: 'Cannot create notifications for other users' }
+
   const { data, error } = await supabase
     .from('notifications')
     .insert({
@@ -143,7 +165,8 @@ export async function createNotification(params: {
     .select('id')
     .single()
 
-  if (error) return { error: error.message }
+  if (error)
+    return { error: safeDbError('notifications/create', error, 'Failed to create notification') }
   return { id: data?.id }
 }
 
@@ -161,13 +184,20 @@ export async function getNotificationPreferences(): Promise<{
 
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('*')
+    .select('id, user_id, email_enabled, failures_enabled, digest_enabled, created_at, updated_at')
     .eq('user_id', user.id)
     .single()
 
   if (error && error.code !== 'PGRST116') {
     // PGRST116 = no rows returned, which is fine (use defaults)
-    return { preferences: null, error: error.message }
+    return {
+      preferences: null,
+      error: safeDbError(
+        'notifications/get-preferences',
+        error,
+        'Failed to load notification preferences'
+      ),
+    }
   }
 
   return { preferences: (data as NotificationPreferencesRow) ?? null }
@@ -198,6 +228,13 @@ export async function updateNotificationPreferences(prefs: {
     { onConflict: 'user_id' }
   )
 
-  if (error) return { error: error.message }
+  if (error)
+    return {
+      error: safeDbError(
+        'notifications/update-preferences',
+        error,
+        'Failed to update notification preferences'
+      ),
+    }
   return {}
 }

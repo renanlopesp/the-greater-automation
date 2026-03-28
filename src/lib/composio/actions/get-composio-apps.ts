@@ -1,6 +1,9 @@
 'use server'
 
 import { getComposio } from '../client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/get-composio-apps')
 
 export interface ComposioApp {
   id: string
@@ -81,7 +84,7 @@ export async function getComposioApps(): Promise<ComposioApp[]> {
     _cache = { apps: allApps, ts: Date.now() }
     return allApps
   } catch (error) {
-    console.error('Failed to fetch Composio apps catalog:', error)
+    log.error({ err: error }, 'Failed to fetch Composio apps catalog')
     return _cache?.apps ?? NATIVE_APPS
   }
 }

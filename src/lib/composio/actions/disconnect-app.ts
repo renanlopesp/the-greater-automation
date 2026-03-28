@@ -2,6 +2,9 @@
 
 import { getComposio } from '../client'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('composio/disconnect-app')
 
 /**
  * Disconnects an app by removing the connection from Composio and Supabase.
@@ -29,7 +32,7 @@ export async function disconnectApp(appId: string): Promise<{ success: boolean; 
         const composio = getComposio()
         await composio.connectedAccounts.delete(connection.composio_connection_id)
       } catch (error) {
-        console.warn('Failed to delete Composio connection:', error)
+        log.warn({ err: error }, 'Failed to delete Composio connection')
       }
     }
 
@@ -63,7 +66,7 @@ export async function disconnectApp(appId: string): Promise<{ success: boolean; 
 
     return { success: true }
   } catch (error) {
-    console.error('Disconnect error:', error)
+    log.error({ err: error }, 'Disconnect error')
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to disconnect',

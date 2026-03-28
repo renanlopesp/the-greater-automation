@@ -1,6 +1,9 @@
 import { NuvemshopClient, NuvemshopApiError } from './client'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { checkStockAlerts, checkProductStockAlert } from '@/lib/retail/stock-alerts'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('nuvemshop/sync')
 
 export interface SyncResult {
   synced: number
@@ -119,7 +122,7 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
       }
 
       if (error) {
-        console.error(`[sync] Error upserting product ${product.id}:`, error.message)
+        log.error({ err: error.message, productId: product.id }, 'Error upserting product')
         errors++
       } else if ((existingCount ?? 0) > 0) {
         updated++
@@ -127,7 +130,7 @@ export async function syncProducts(storeId: string): Promise<SyncResult> {
         created++
       }
     } catch (err) {
-      console.error(`[sync] Error processing product ${product.id}:`, err)
+      log.error({ err, productId: product.id }, 'Error processing product')
       errors++
     }
   }
@@ -197,7 +200,7 @@ export async function syncOrders(storeId: string, since?: string): Promise<SyncR
           .upsert(orderData, { onConflict: 'store_id,external_id' })
 
         if (error) {
-          console.error(`[sync] Error upserting order ${order.id}:`, error.message)
+          log.error({ err: error.message, orderId: order.id }, 'Error upserting order')
           errors++
         } else if ((existingCount ?? 0) > 0) {
           updated++
@@ -205,7 +208,7 @@ export async function syncOrders(storeId: string, since?: string): Promise<SyncR
           created++
         }
       } catch (err) {
-        console.error(`[sync] Error processing order ${order.id}:`, err)
+        log.error({ err, orderId: order.id }, 'Error processing order')
         errors++
       }
     }
@@ -285,6 +288,6 @@ export async function syncSingleProduct(storeId: string, externalProductId: stri
       await checkProductStockAlert(storeId, dbProduct.id as string)
     }
   } catch (err) {
-    console.error(`[sync] Error syncing product ${externalProductId}:`, err)
+    log.error({ err, externalProductId }, 'Error syncing product')
   }
 }
