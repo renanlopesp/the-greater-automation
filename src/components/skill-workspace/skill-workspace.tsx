@@ -1,27 +1,28 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { PanelRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ArtifactNavProvider, useArtifactNav } from './artifact-nav-context'
 import { DraggableDivider } from './draggable-divider'
 import { SkillChatPanel } from './skill-chat-panel'
 import { SkillArtifactPanel } from './skill-artifact-panel'
+import type { ChatMessage } from './types'
 
 interface SkillWorkspaceProps {
   skill: { name: string; emoji: string; status: 'active' | 'available' }
-  heroCard?: React.ReactNode
+  heroCard?: ReactNode
   quickActions?: Array<{ label: string; message: string }>
-  artifactContent?: React.ReactNode
+  artifactContent?: ReactNode
   inputPlaceholder?: string
   onSendMessage?: (message: string) => void
-}
 
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp?: string
+  // Chat integration (optional - if provided, overrides internal state)
+  chatMessages?: import('ai').UIMessage[]
+  chatIsLoading?: boolean
+  chatIsStreaming?: boolean
+  onChatSendMessage?: (text: string) => void
+  onChatStop?: () => void
 }
 
 function SkillWorkspaceInner({
@@ -31,6 +32,8 @@ function SkillWorkspaceInner({
   artifactContent,
   inputPlaceholder,
   onSendMessage,
+  chatMessages,
+  onChatSendMessage,
 }: SkillWorkspaceProps) {
   const { depth, push, reset } = useArtifactNav()
   const [artifactOpen, setArtifactOpen] = useState(false)
@@ -53,12 +56,18 @@ function SkillWorkspaceInner({
     [onSendMessage]
   )
 
-  const handleQuickAction = useCallback(
-    (message: string) => {
-      handleSendMessage(message)
-    },
-    [handleSendMessage]
-  )
+  // Convert UIMessage[] (AI SDK) to ChatMessage[] for the chat panel
+  const convertedMessages: ChatMessage[] = (chatMessages ?? []).map((m) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant',
+    content: m.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => (p as { type: 'text'; text: string }).text)
+      .join(''),
+  }))
+
+  const effectiveMessages = chatMessages !== undefined ? convertedMessages : messages
+  const effectiveSendMessage = onChatSendMessage ?? handleSendMessage
 
   const toggleArtifact = useCallback(() => {
     if (showArtifact) {
@@ -121,10 +130,10 @@ function SkillWorkspaceInner({
           style={{ width: showArtifact ? `${leftPercent}%` : '100%' }}
         >
           <SkillChatPanel
-            messages={messages}
+            messages={effectiveMessages}
             quickActions={quickActions}
             inputPlaceholder={inputPlaceholder}
-            onSendMessage={handleSendMessage}
+            onSendMessage={effectiveSendMessage}
             heroCard={heroCard}
           />
         </div>
@@ -132,7 +141,7 @@ function SkillWorkspaceInner({
         {/* Divider + Artifact panel */}
         {showArtifact && (
           <>
-            <DraggableDivider onResize={setLeftPercent} initialPercent={leftPercent} />
+            <DraggableDivider onResize={setLeftPercent} />
             <div className="h-full flex-1 overflow-hidden">
               <SkillArtifactPanel onClose={handleArtifactClose}>
                 {artifactContent}

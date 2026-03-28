@@ -18,7 +18,7 @@ export default function ChatViewClient({ chatId }: ChatViewClientProps) {
   const conversation = conversations.find((c) => c.id === chatId) ?? conversations[0]
 
   const handleSend = (message: string) => {
-    console.log('Send:', message)
+    // TODO: integrate with real chat backend
   }
 
   return (

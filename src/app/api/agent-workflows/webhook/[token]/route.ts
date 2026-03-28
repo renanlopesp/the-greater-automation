@@ -97,6 +97,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  const { token } = await params
-  return NextResponse.json({ status: 'active', token })
+  await params
+  return NextResponse.json({ status: 'ok' })
 }

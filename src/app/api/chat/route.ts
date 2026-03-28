@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         .order('name' as never),
       serviceClient
         .from('stores')
-        .select('id, name, segment, platform, platform_access_token')
+        .select('id, name, segment, platform')
         .eq('team_id', teamId)
         .limit(1)
         .single(),

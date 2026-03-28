@@ -1,12 +1,15 @@
 'use client'
 
 import { RefreshCw } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { type FullCampaign, productTagConfig } from '@/data/campaign-data'
+import { type FullCampaign } from '@/data/campaign-data'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ProductThumb, ProductTagBadge } from './shared'
 
 interface CalendarLevel3Props {
   sectionType: string
   campaign: FullCampaign
+  onRegenerate?: () => void
+  isRegenerating?: boolean
 }
 
 function SectionHeader({ label }: { label: string }) {
@@ -20,7 +23,7 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-function ActionButtons() {
+function ActionButtons({ onRegenerate }: { onRegenerate?: () => void }) {
   return (
     <div className="mt-3 flex items-center gap-2">
       <button
@@ -30,6 +33,7 @@ function ActionButtons() {
         Editar
       </button>
       <button
+        onClick={onRegenerate}
         className="border-border text-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors"
         style={{ fontSize: 13 }}
       >
@@ -40,19 +44,14 @@ function ActionButtons() {
   )
 }
 
-function ProductThumb({ gradient }: { gradient?: string }) {
-  return (
-    <div
-      className="h-10 w-10 flex-shrink-0 rounded-lg"
-      style={{
-        background: gradient ?? 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
-      }}
-    />
-  )
-}
-
 // --- Copies section ---
-function CopiesSection({ campaign }: { campaign: FullCampaign }) {
+function CopiesSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
   const firstProduct = campaign.selectedProducts[0]
 
   return (
@@ -104,7 +103,7 @@ function CopiesSection({ campaign }: { campaign: FullCampaign }) {
               </div>
             )}
 
-            <ActionButtons />
+            <ActionButtons onRegenerate={onRegenerate} />
           </div>
         ))}
       </div>
@@ -118,40 +117,38 @@ function ProductsSection({ campaign }: { campaign: FullCampaign }) {
     <div className="flex flex-col">
       <SectionHeader label="Produtos" />
       <div className="flex flex-col gap-3 p-5">
-        {campaign.selectedProducts.map((product, i) => {
-          const tag = productTagConfig(product.tag)
-          return (
-            <div key={i} className="border-border flex items-center gap-3 rounded-xl border p-4">
-              <ProductThumb />
-              <div className="min-w-0 flex-1">
-                <p className="text-foreground truncate text-sm leading-snug font-medium">
-                  {product.name}
-                </p>
-                <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>R$ {product.price}</p>
-              </div>
-              <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                <span
-                  className="rounded-full px-2 py-0.5"
-                  style={{ fontSize: 11, fontWeight: 500, background: tag.bg, color: tag.color }}
-                >
-                  {tag.label}
-                </span>
-                {product.stock !== undefined && (
-                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                    {product.stock} em estoque
-                  </span>
-                )}
-              </div>
+        {campaign.selectedProducts.map((product, i) => (
+          <div key={i} className="border-border flex items-center gap-3 rounded-xl border p-4">
+            <ProductThumb />
+            <div className="min-w-0 flex-1">
+              <p className="text-foreground truncate text-sm leading-snug font-medium">
+                {product.name}
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>R$ {product.price}</p>
             </div>
-          )
-        })}
+            <div className="flex flex-shrink-0 flex-col items-end gap-1">
+              <ProductTagBadge tag={product.tag} />
+              {product.stock !== undefined && (
+                <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+                  {product.stock} em estoque
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
 // --- Email section ---
-function EmailSection({ campaign }: { campaign: FullCampaign }) {
+function EmailSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
   return (
     <div className="flex flex-col">
       <SectionHeader label="E-mail" />
@@ -177,7 +174,7 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
               {campaign.emailPreview}
             </p>
           </div>
-          <ActionButtons />
+          <ActionButtons onRegenerate={onRegenerate} />
         </div>
       </div>
     </div>
@@ -185,7 +182,13 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
 }
 
 // --- Assets section ---
-function AssetsSection({ campaign }: { campaign: FullCampaign }) {
+function AssetsSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
   return (
     <div className="flex flex-col">
       <SectionHeader label="Assets" />
@@ -197,7 +200,7 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
             <div className="flex flex-col gap-1 p-3">
               <p className="text-foreground text-sm font-medium">{asset.label}</p>
               <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{asset.ratio}</p>
-              <ActionButtons />
+              <ActionButtons onRegenerate={onRegenerate} />
             </div>
           </div>
         ))}
@@ -207,7 +210,13 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
 }
 
 // --- Video scripts section ---
-function VideoSection({ campaign }: { campaign: FullCampaign }) {
+function VideoSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
   return (
     <div className="flex flex-col">
       <SectionHeader label="Script de Vídeo" />
@@ -233,7 +242,7 @@ function VideoSection({ campaign }: { campaign: FullCampaign }) {
             >
               {script.content}
             </p>
-            <ActionButtons />
+            <ActionButtons onRegenerate={onRegenerate} />
           </div>
         ))}
       </div>
@@ -282,19 +291,40 @@ function TimelineSection({ campaign }: { campaign: FullCampaign }) {
   )
 }
 
+// --- Skeleton overlay ---
+function RegeneratingSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      <Skeleton className="h-4 w-24" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="h-16 w-full rounded-xl" />
+      ))}
+    </div>
+  )
+}
+
 // --- Main component ---
-export function CalendarLevel3({ sectionType, campaign }: CalendarLevel3Props) {
+export function CalendarLevel3({
+  sectionType,
+  campaign,
+  onRegenerate,
+  isRegenerating = false,
+}: CalendarLevel3Props) {
+  if (isRegenerating) {
+    return <RegeneratingSkeleton />
+  }
+
   switch (sectionType) {
     case 'copies':
-      return <CopiesSection campaign={campaign} />
+      return <CopiesSection campaign={campaign} onRegenerate={onRegenerate} />
     case 'products':
       return <ProductsSection campaign={campaign} />
     case 'email':
-      return <EmailSection campaign={campaign} />
+      return <EmailSection campaign={campaign} onRegenerate={onRegenerate} />
     case 'assets':
-      return <AssetsSection campaign={campaign} />
+      return <AssetsSection campaign={campaign} onRegenerate={onRegenerate} />
     case 'video':
-      return <VideoSection campaign={campaign} />
+      return <VideoSection campaign={campaign} onRegenerate={onRegenerate} />
     case 'timeline':
       return <TimelineSection campaign={campaign} />
     default:

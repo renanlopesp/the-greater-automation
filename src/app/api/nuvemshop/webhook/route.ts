@@ -18,7 +18,12 @@ export async function POST(request: NextRequest) {
   }
 
   const expectedHmac = crypto.createHmac('sha256', clientSecret).update(rawBody).digest('hex')
-  if (signature !== expectedHmac) {
+  try {
+    const valid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))
+    if (!valid) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+    }
+  } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
   }
 

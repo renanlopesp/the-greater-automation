@@ -286,7 +286,7 @@ describe('utility-executor', () => {
       }
 
       expect(() => executeUtilityStep(config, {})).toThrow(
-        'Filter condition contains unsafe characters'
+        'Filter condition must follow the pattern'
       )
     })
 
@@ -298,7 +298,7 @@ describe('utility-executor', () => {
       }
 
       expect(() => executeUtilityStep(config, {})).toThrow(
-        'Filter condition contains unsafe characters'
+        'Filter condition must follow the pattern'
       )
     })
 
@@ -310,7 +310,7 @@ describe('utility-executor', () => {
       }
 
       expect(() => executeUtilityStep(config, {})).toThrow(
-        'Filter condition contains unsafe characters'
+        'Filter condition must follow the pattern'
       )
     })
   })
@@ -411,9 +411,7 @@ describe('utility-executor', () => {
         math_expression: '1/0',
       }
 
-      expect(() => executeUtilityStep(config, {})).toThrow(
-        'Math expression did not produce a valid number'
-      )
+      expect(() => executeUtilityStep(config, {})).toThrow('Division by zero')
     })
 
     it('should throw when expression is empty', () => {

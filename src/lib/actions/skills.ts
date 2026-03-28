@@ -47,24 +47,27 @@ export async function fetchSkillsAction(): Promise<SkillRow[]> {
   return (data ?? []) as SkillRow[]
 }
 
-/** Activate a skill for a team (available → active) */
-export async function activateSkill(teamId: string, slug: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+/** Resolve teamId from session — used by all mutating server actions */
+async function getAuthenticatedTeamId(): Promise<string> {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
 
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (d: unknown) => {
-          eq: (
-            k: string,
-            v: string
-          ) => {
-            eq: (k: string, v: string) => Promise<{ error: unknown }>
-          }
-        }
-      }
-    }
-  )
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) throw new Error('No team found')
+
+  return teamId
+}
+
+/** Activate a skill for the current user's team (available → active) */
+export async function activateSkill(slug: string): Promise<void> {
+  const teamId = await getAuthenticatedTeamId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
+
+  const { error } = await supabase
     .from('skills')
     .update({ status: 'active', updated_at: new Date().toISOString() })
     .eq('team_id', teamId)
@@ -73,24 +76,13 @@ export async function activateSkill(teamId: string, slug: string): Promise<void>
   if (error) throw error
 }
 
-/** Deactivate a skill for a team (active → available) */
-export async function deactivateSkill(teamId: string, slug: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+/** Deactivate a skill for the current user's team (active → available) */
+export async function deactivateSkill(slug: string): Promise<void> {
+  const teamId = await getAuthenticatedTeamId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
 
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (d: unknown) => {
-          eq: (
-            k: string,
-            v: string
-          ) => {
-            eq: (k: string, v: string) => Promise<{ error: unknown }>
-          }
-        }
-      }
-    }
-  )
+  const { error } = await supabase
     .from('skills')
     .update({ status: 'available', updated_at: new Date().toISOString() })
     .eq('team_id', teamId)
@@ -99,85 +91,69 @@ export async function deactivateSkill(teamId: string, slug: string): Promise<voi
   if (error) throw error
 }
 
-/** Update skill configuration for a team */
+/** Update skill configuration for the current user's team */
 export async function updateSkillConfig(
-  teamId: string,
   slug: string,
   config: Record<string, unknown>
 ): Promise<void> {
-  const supabase = createServiceRoleClient()
+  const teamId = await getAuthenticatedTeamId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
 
-  await (
-    supabase as unknown as {
-      from: (t: string) => {
-        update: (d: unknown) => {
-          eq: (
-            k: string,
-            v: string
-          ) => {
-            eq: (k: string, v: string) => Promise<{ error: unknown }>
-          }
-        }
-      }
-    }
-  )
+  await supabase
     .from('skills')
     .update({ config_schema: config, updated_at: new Date().toISOString() })
     .eq('team_id', teamId)
     .eq('slug', slug)
 }
 
-/** Seed the Seasonal Calendar as the first real skill for a team */
-export async function seedSeasonalCalendar(teamId: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+/** Seed the Seasonal Calendar as the first real skill for the current user's team */
+export async function seedSeasonalCalendar(): Promise<void> {
+  const teamId = await getAuthenticatedTeamId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
 
   const now = new Date().toISOString()
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        upsert: (d: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>
-      }
-    }
+  const { error } = await supabase.from('skills').upsert(
+    {
+      team_id: teamId,
+      slug: 'seasonal-calendar',
+      name: 'Seasonal Calendar',
+      description: 'Mapeia 30+ datas priorizadas por potencial de receita histórico',
+      category: 'marketing-campanhas',
+      phase: 1,
+      icon: '📅',
+      color: 'hsl(38 92% 40%)',
+      emoji: '📅',
+      dependencies: [],
+      status: 'active',
+      is_native: true,
+      requires_connections: [],
+      system_prompt: null,
+      tools: [],
+      knowledge: [],
+      input_schema: null,
+      output_schema: null,
+      config_schema: null,
+      connected_skills: [],
+      outputs: [],
+      stats: [],
+      what_it_does: [],
+      expected_results: [],
+      created_at: now,
+      updated_at: now,
+    },
+    { onConflict: 'team_id,slug' }
   )
-    .from('skills')
-    .upsert(
-      {
-        team_id: teamId,
-        slug: 'seasonal-calendar',
-        name: 'Seasonal Calendar',
-        description: 'Mapeia 30+ datas priorizadas por potencial de receita histórico',
-        category: 'marketing-campanhas',
-        phase: 1,
-        icon: '📅',
-        color: 'hsl(38 92% 40%)',
-        emoji: '📅',
-        dependencies: [],
-        status: 'active',
-        is_native: true,
-        requires_connections: [],
-        system_prompt: null,
-        tools: [],
-        knowledge: [],
-        input_schema: null,
-        output_schema: null,
-        config_schema: null,
-        connected_skills: [],
-        outputs: [],
-        stats: [],
-        what_it_does: [],
-        expected_results: [],
-        created_at: now,
-        updated_at: now,
-      },
-      { onConflict: 'team_id,slug' }
-    )
 
   if (error) throw error
 }
 
-/** Seed skills from code registry for a team (called on team creation or migration) */
-export async function seedTeamSkills(teamId: string): Promise<void> {
-  const supabase = createServiceRoleClient()
+/** Seed skills from code registry for the current user's team */
+export async function seedTeamSkills(): Promise<void> {
+  const teamId = await getAuthenticatedTeamId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createServiceRoleClient() as any
 
   const rows = skillRegistry.map((skill) => ({
     team_id: teamId,
@@ -194,17 +170,7 @@ export async function seedTeamSkills(teamId: string): Promise<void> {
     requires_connections: skill.requiredConnections,
   }))
 
-  // Upsert to avoid conflicts on re-seed
-  const { error } = await (
-    supabase as unknown as {
-      from: (t: string) => {
-        upsert: (
-          d: unknown,
-          o: { onConflict: string; ignoreDuplicates: boolean }
-        ) => Promise<{ error: unknown }>
-      }
-    }
-  )
+  const { error } = await supabase
     .from('skills')
     .upsert(rows, { onConflict: 'team_id,slug', ignoreDuplicates: true })
 

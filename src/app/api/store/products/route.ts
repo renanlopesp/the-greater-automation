@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
     .eq('store_id', store.id)
     .eq('is_published', true)
 
-  if (search) query = query.ilike('name', `%${search}%`)
+  if (search) {
+    const safeSearch = search.replace(/[%_]/g, '\\$&')
+    query = query.ilike('name', `%${safeSearch}%`)
+  }
 
   const { data: products, error } = await query.order('name').limit(limit)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

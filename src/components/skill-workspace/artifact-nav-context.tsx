@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 interface ArtifactNavItem {
   level: number
@@ -17,26 +17,27 @@ interface ArtifactNavState {
 
 const ArtifactNavContext = createContext<ArtifactNavState | null>(null)
 
-export function ArtifactNavProvider({ children }: { children: React.ReactNode }) {
+export function ArtifactNavProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<ArtifactNavItem[]>([])
 
-  const push = (label: string) => {
+  const push = useCallback((label: string) => {
     setStack((prev) => [...prev, { level: prev.length + 1, label }])
-  }
+  }, [])
 
-  const pop = () => {
+  const pop = useCallback(() => {
     setStack((prev) => prev.slice(0, -1))
-  }
+  }, [])
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setStack([])
-  }
+  }, [])
 
-  return (
-    <ArtifactNavContext.Provider value={{ stack, push, pop, reset, depth: stack.length }}>
-      {children}
-    </ArtifactNavContext.Provider>
+  const value = useMemo(
+    () => ({ stack, push, pop, reset, depth: stack.length }),
+    [stack, push, pop, reset]
   )
+
+  return <ArtifactNavContext.Provider value={value}>{children}</ArtifactNavContext.Provider>
 }
 
 export function useArtifactNav(): ArtifactNavState {

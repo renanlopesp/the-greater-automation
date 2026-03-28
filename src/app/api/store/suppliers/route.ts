@@ -55,7 +55,10 @@ export async function GET(request: NextRequest) {
   if (status === 'active') query = query.eq('is_active', true)
   else if (status === 'inactive') query = query.eq('is_active', false)
 
-  if (search) query = query.ilike('name', `%${search}%`)
+  if (search) {
+    const safeSearch = search.replace(/[%_]/g, '\\$&')
+    query = query.ilike('name', `%${safeSearch}%`)
+  }
 
   const sortCol =
     sort === 'lead_time' ? 'lead_time_days' : sort === 'created' ? 'created_at' : 'name'

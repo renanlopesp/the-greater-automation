@@ -31,8 +31,6 @@ export async function GET(request: NextRequest) {
     // exchangeCodeForToken reads NUVEMSHOP_APP_ID and NUVEMSHOP_CLIENT_SECRET from env
     const tokenData = await NuvemshopClient.exchangeCodeForToken(code)
 
-    console.log('[nuvemshop/callback] Granted scope:', tokenData.scope)
-
     const serviceSupabase = createServiceRoleClient()
 
     // Try to update existing store first
@@ -82,7 +80,12 @@ export async function GET(request: NextRequest) {
     }
 
     const redirectPath = state.redirect_uri || '/onboarding/analyzing'
-    return NextResponse.redirect(new URL(redirectPath, origin))
+    // Prevent open redirect — only allow paths starting with / (not //)
+    const safePath =
+      redirectPath.startsWith('/') && !redirectPath.startsWith('//')
+        ? redirectPath
+        : '/onboarding/analyzing'
+    return NextResponse.redirect(new URL(safePath, origin))
   } catch (error) {
     console.error('[nuvemshop/callback] OAuth error:', error)
     return NextResponse.redirect(new URL('/workspace?error=oauth_failed', origin))

@@ -2,9 +2,9 @@
 
 import { activateSkill } from '@/lib/actions/skills'
 
-export async function completeOnboarding(teamId: string, selectedSkillSlugs: string[]) {
+export async function completeOnboarding(selectedSkillSlugs: string[]) {
   for (const slug of selectedSkillSlugs) {
-    await activateSkill(teamId, slug)
+    await activateSkill(slug)
   }
   // Future: mark onboarding as complete in user/team settings
 }

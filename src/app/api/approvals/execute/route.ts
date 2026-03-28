@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Log the action — actual campaign execution will be wired later
-  console.log('[approvals/execute]', {
+  console.info('[approvals/execute]', {
     userId: user.id,
     approvalId,
     action,

@@ -66,7 +66,8 @@ export default function WorkflowsList({
 
   async function handleToggleEnabled(workflowId: string, currentEnabled: boolean) {
     // TODO: Implement toggle enabled action
-    console.log('Toggle workflow', workflowId, !currentEnabled)
+    void workflowId
+    void currentEnabled
   }
 
   async function handleExecute(workflowId: string) {

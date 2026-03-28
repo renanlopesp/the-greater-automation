@@ -39,6 +39,5 @@ export async function GET() {
     console.error('[brand-dna API] Not found for team:', teamId, 'error:', error)
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
-  console.log('[brand-dna API] Found brand_dna for team:', teamId)
   return NextResponse.json(data)
 }

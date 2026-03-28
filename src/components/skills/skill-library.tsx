@@ -60,9 +60,9 @@ export default function SkillLibrary({ teamId, initialSkills }: SkillLibraryProp
   function handleToggle(skill: SkillRow) {
     startTransition(async () => {
       if (skill.status === 'active') {
-        await deactivateSkill(teamId, skill.slug)
+        await deactivateSkill(skill.slug)
       } else {
-        await activateSkill(teamId, skill.slug)
+        await activateSkill(skill.slug)
       }
       await refetch()
     })
