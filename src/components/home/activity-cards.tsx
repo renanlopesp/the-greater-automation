@@ -51,7 +51,7 @@ export default function ActivityCards() {
             onClick={() => router.push(card.route)}
             style={{
               background: 'var(--artifact-bg, #f7f6f3)',
-              border: '1px solid hsl(var(--border))',
+              border: '1px solid var(--border)',
               borderRadius: 16,
               padding: 20,
               minHeight: 100,
@@ -62,7 +62,7 @@ export default function ActivityCards() {
               style={{
                 fontSize: 14,
                 fontWeight: 500,
-                color: 'hsl(var(--foreground))',
+                color: 'var(--foreground)',
                 lineHeight: '19.6px',
                 margin: 0,
               }}

@@ -19,13 +19,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Divider */}
-        <div className="w-full" style={{ height: 1, background: 'hsl(var(--border))' }} />
+        <div className="w-full" style={{ height: 1, background: 'var(--border)' }} />
 
         {/* Activity cards */}
         <ActivityCards />
 
         {/* Divider */}
-        <div className="w-full" style={{ height: 1, background: 'hsl(var(--border))' }} />
+        <div className="w-full" style={{ height: 1, background: 'var(--border)' }} />
 
         {/* Skill actions grid */}
         <SkillActionsGrid />

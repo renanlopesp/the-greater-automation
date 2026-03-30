@@ -121,7 +121,7 @@ export default function SkillActionsGrid() {
           fontWeight: 500,
           textAlign: 'center',
           marginBottom: 20,
-          color: 'hsl(var(--foreground))',
+          color: 'var(--foreground)',
         }}
       >
         What Snew can do for you
@@ -280,7 +280,7 @@ export default function SkillActionsGrid() {
       <p
         style={{
           fontSize: 12,
-          color: 'hsl(var(--muted-foreground))',
+          color: 'var(--muted-foreground)',
           textAlign: 'center',
           marginTop: 24,
         }}
