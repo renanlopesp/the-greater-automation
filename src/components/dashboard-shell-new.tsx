@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { SVGFilters } from '@/config/design-system'
 import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
 import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
@@ -66,6 +67,7 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
   return (
     <LanguageProvider initialLanguage={shellData?.language ?? undefined}>
+      <SVGFilters />
       <div className="flex h-screen w-full overflow-hidden">
         {/* Mobile sidebar overlay */}
         {mobileOpen && (

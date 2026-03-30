@@ -24,13 +24,27 @@ export default function QuickSuggestions({ onSelect }: QuickSuggestionsProps) {
   }
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap justify-center gap-2">
       {PILLS.map((pill) => (
         <button
           key={pill}
           onClick={() => handleClick(pill)}
-          className="border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 rounded-full border px-3.5 py-1.5 transition-colors"
-          style={{ fontSize: 12 }}
+          className="transition-colors"
+          style={{
+            fontSize: 13,
+            padding: '6px 16px',
+            color: '#6B6760',
+            border: '1px solid #E5E3DC',
+            borderRadius: 100,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#2C2A25'
+            e.currentTarget.style.borderColor = '#C2BFB5'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#6B6760'
+            e.currentTarget.style.borderColor = '#E5E3DC'
+          }}
         >
           {pill}
         </button>

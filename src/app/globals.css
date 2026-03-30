@@ -308,6 +308,16 @@ summary {
   inherits: false;
 }
 
+@keyframes snew-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
 @keyframes conic-spin {
   to {
     --conic-angle: 360deg;

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Plus, Cpu, LayoutGrid, Clock } from 'lucide-react'
+import { Home, Plus, Cpu, AppWindow, ClipboardList, Zap, Settings } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { SidebarSkillPills } from '@/components/layout/sidebar-skill-pills'
 import { cn } from '@/lib/utils'
@@ -11,8 +11,8 @@ const navItems = [
   { label: 'Home', icon: Home, path: '/dashboard' },
   { label: 'New Chat', icon: Plus, path: '/chat' },
   { label: 'Skills', icon: Cpu, path: '/skills' },
-  { label: 'Apps', icon: LayoutGrid, path: '/apps' },
-  { label: 'History', icon: Clock, path: '/history' },
+  { label: 'Tarefas', icon: ClipboardList, path: '/tarefas' },
+  { label: 'Apps', icon: AppWindow, path: '/apps' },
 ] as const
 
 interface AppSidebarNewProps {
@@ -25,7 +25,8 @@ function isActive(pathname: string, path: string): boolean {
   if (path === '/dashboard') return pathname === '/' || pathname === '/dashboard'
   if (path === '/chat') return pathname === '/chat'
   if (path === '/skills') return pathname === '/skills' || pathname.startsWith('/skills/')
-  if (path === '/history') return pathname === '/history' || pathname.startsWith('/chat/')
+  if (path === '/tarefas') return pathname === '/tarefas' || pathname.startsWith('/tarefas/')
+  if (path === '/apps') return pathname === '/apps' || pathname.startsWith('/apps/')
   return pathname.startsWith(path)
 }
 
@@ -143,6 +144,73 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
 
         {/* Skill pills footer */}
         <SidebarSkillPills collapsed={collapsed} onClose={onClose} />
+
+        {/* Credits + Settings section */}
+        <div
+          className={cn(
+            'border-border shrink-0 border-t p-3',
+            collapsed ? 'flex flex-col items-center gap-2' : 'space-y-2'
+          )}
+        >
+          {/* Credits — expanded */}
+          <div
+            className={cn(
+              'w-full overflow-hidden transition-[opacity,max-height] duration-300 ease-in-out',
+              collapsed ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-24 opacity-100'
+            )}
+          >
+            <div className="mb-2 flex items-center gap-2 px-2">
+              <Zap className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+              <span className="text-muted-foreground text-xs whitespace-nowrap">
+                847 credits remaining
+              </span>
+            </div>
+            <button className="border-border text-foreground hover:bg-accent w-full rounded-md border px-3 py-1.5 text-sm transition-colors">
+              Upgrade
+            </button>
+          </div>
+
+          {/* Credits — collapsed (Zap icon only) */}
+          {collapsed && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="border-border hover:bg-accent flex h-8 w-8 items-center justify-center rounded-md border transition-colors">
+                  <Zap className="text-muted-foreground h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                sideOffset={8}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium"
+              >
+                847 credits remaining
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Settings button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  'border-border hover:bg-accent flex h-8 items-center justify-center rounded-md border transition-colors',
+                  collapsed ? 'w-8' : 'w-full'
+                )}
+              >
+                <Settings className="text-muted-foreground h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            {collapsed && (
+              <TooltipContent
+                side="right"
+                sideOffset={8}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium"
+              >
+                Settings
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
       </aside>
     </TooltipProvider>
   )
