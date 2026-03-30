@@ -51,8 +51,11 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
         >
           {collapsed ? (
             <div className="relative h-6 w-6">
-              <div className="text-foreground absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover:opacity-0">
-                <img src="/snew.svg" alt="Snew" className="h-5 w-5 dark:invert" />
+              <div className="bg-foreground text-background absolute inset-0 flex items-center justify-center rounded-md transition-opacity duration-150 group-hover:opacity-0">
+                <svg width="14" height="9" viewBox="0 0 535 323" fill="currentColor">
+                  <path d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z" />
+                  <path d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z" />
+                </svg>
               </div>
               <div className="text-muted-foreground absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 <svg
@@ -72,7 +75,12 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <img src="/snew.svg" alt="Snew" className="h-5 w-5 dark:invert" />
+              <div className="bg-foreground text-background flex h-6 w-6 shrink-0 items-center justify-center rounded-md">
+                <svg width="14" height="9" viewBox="0 0 535 323" fill="currentColor">
+                  <path d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z" />
+                  <path d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z" />
+                </svg>
+              </div>
               <span className="text-foreground flex-1 text-sm font-medium whitespace-nowrap">
                 Snew
               </span>
