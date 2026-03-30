@@ -72,38 +72,38 @@
 }
 
 :root {
-  --background: hsl(210 30% 99%);
-  --foreground: hsl(210 15% 10%);
-  --card: hsl(210 25% 99%);
-  --card-foreground: hsl(210 15% 10%);
-  --popover: hsl(210 25% 99%);
-  --popover-foreground: hsl(210 15% 10%);
-  --primary: hsl(210 15% 10%);
-  --primary-foreground: hsl(210 30% 99%);
-  --secondary: hsl(210 20% 95%);
-  --secondary-foreground: hsl(210 15% 10%);
-  --muted: hsl(210 20% 95%);
-  --muted-foreground: hsl(210 10% 45%);
-  --accent: hsl(210 20% 95%);
-  --accent-foreground: hsl(210 15% 10%);
+  --background: hsl(60 14% 98%);
+  --foreground: hsl(42 8% 16%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(42 8% 16%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(42 8% 16%);
+  --primary: hsl(42 8% 16%);
+  --primary-foreground: hsl(60 14% 98%);
+  --secondary: hsl(45 13% 95%);
+  --secondary-foreground: hsl(42 8% 16%);
+  --muted: hsl(45 13% 95%);
+  --muted-foreground: hsl(38 5% 58%);
+  --accent: hsl(45 13% 95%);
+  --accent-foreground: hsl(42 8% 16%);
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(210 15% 88%);
-  --input: hsl(210 15% 88%);
-  --ring: hsl(210 15% 10%);
+  --border: hsl(42 8% 88%);
+  --input: hsl(42 8% 88%);
+  --ring: hsl(42 8% 16%);
   --chart-1: hsl(210 60% 50%);
   --chart-2: hsl(170 45% 50%);
   --chart-3: hsl(40 80% 55%);
   --chart-4: hsl(0 0% 40%);
   --chart-5: hsl(0 0% 50%);
-  --sidebar: hsl(210 33% 99%);
-  --sidebar-foreground: hsl(210 15% 10%);
-  --sidebar-primary: hsl(210 15% 10%);
-  --sidebar-primary-foreground: hsl(210 30% 99%);
-  --sidebar-accent: hsl(210 20% 95%);
-  --sidebar-accent-foreground: hsl(210 15% 10%);
-  --sidebar-border: hsl(210 15% 88%);
-  --sidebar-ring: hsl(210 15% 10%);
+  --sidebar: hsl(60 14% 98%);
+  --sidebar-foreground: hsl(42 8% 16%);
+  --sidebar-primary: hsl(42 8% 16%);
+  --sidebar-primary-foreground: hsl(60 14% 98%);
+  --sidebar-accent: hsl(45 13% 95%);
+  --sidebar-accent-foreground: hsl(42 8% 16%);
+  --sidebar-border: hsl(42 8% 88%);
+  --sidebar-ring: hsl(42 8% 16%);
   --green: hsl(142 72% 29%);
   --green-bg: hsl(142 76% 96%);
   --amber: hsl(38 92% 40%);
@@ -306,6 +306,16 @@ summary {
   syntax: '<angle>';
   initial-value: 0deg;
   inherits: false;
+}
+
+@keyframes snew-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 @keyframes conic-spin {

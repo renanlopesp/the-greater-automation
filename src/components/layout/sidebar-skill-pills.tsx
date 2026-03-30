@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { BubbleAvatar } from '@/config/design-system'
 import { cn } from '@/lib/utils'
 
 const ACTIVE_SKILLS = [
-  { id: 'seasonal-calendar', emoji: '📅', name: 'Seasonal Calendar' },
-  { id: 'campaign-engine', emoji: '🎯', name: 'Campaign Engine' },
-  { id: 'revenue-intelligence', emoji: '📈', name: 'Revenue Intelligence' },
-  { id: 'funnel-diagnostics', emoji: '🔍', name: 'Funnel Diagnostics' },
+  { id: 'seasonal-calendar', name: 'Seasonal Calendar' },
+  { id: 'copywriter', name: 'Copywriter' },
+  { id: 'image-generator', name: 'Image Generator' },
+  { id: 'social-content', name: 'Social Asset Creator' },
 ] as const
 
 interface SidebarSkillPillsProps {
@@ -39,10 +40,7 @@ export function SidebarSkillPills({ collapsed, onClose }: SidebarSkillPillsProps
               collapsed ? 'justify-center p-1' : 'gap-2.5 px-2 py-1.5'
             )}
           >
-            <div className="bg-muted relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px]">
-              {skill.emoji}
-              <span className="ring-background absolute right-0 bottom-0 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-1" />
-            </div>
+            <BubbleAvatar skillName={skill.name} size={20} animated={false} />
             <div
               className={cn(
                 'min-w-0 flex-1 overflow-hidden transition-[opacity,max-width] duration-300 ease-in-out',

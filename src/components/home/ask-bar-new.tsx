@@ -30,10 +30,13 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
   return (
     <div
       className={cn(
-        'border-border bg-muted/50 focus-within:bg-background rounded-2xl border transition-all',
+        'bg-background border-border w-full border transition-all',
         'focus-within:border-foreground/25'
       )}
-      style={{ borderColor: 'transparent' }}
+      style={{
+        borderRadius: 16,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02)',
+      }}
       onClick={() => textareaRef.current?.focus()}
     >
       <textarea
@@ -47,8 +50,8 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
             send(value)
           }
         }}
-        placeholder="Ask something about your store..."
-        className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-5 pt-5 pb-3 text-sm leading-relaxed outline-none"
+        placeholder="Pergunte sobre campanhas, copies, assets, dados..."
+        className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-5 pt-4 pb-3 text-sm leading-relaxed outline-none"
       />
       <div className="flex items-center justify-end px-4 pb-4">
         <button

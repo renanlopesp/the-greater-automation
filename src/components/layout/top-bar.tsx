@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Folder, Bell, Settings, LogOut, Sun, Moon, Check } from 'lucide-react'
+import { Bell, Settings, LogOut, Sun, Moon, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import {
@@ -46,27 +46,9 @@ export function TopBar({
 
   return (
     <header
-      className={cn(
-        'border-border bg-background flex h-[48px] shrink-0 items-center gap-1 border-b px-4',
-        className
-      )}
+      className={cn('bg-background flex h-[48px] shrink-0 items-center gap-1 px-4', className)}
     >
       <div className="flex-1" />
-
-      {/* Feedback + Support */}
-      <button className="border-border text-muted-foreground hover:border-foreground/40 h-7 rounded-lg border bg-transparent px-2.5 text-[11px] transition-colors">
-        Feedback
-      </button>
-      <button className="border-border text-muted-foreground hover:border-foreground/40 h-7 rounded-lg border bg-transparent px-2.5 text-[11px] transition-colors">
-        Support
-      </button>
-
-      <div className="bg-border mx-1 h-5 w-px" />
-
-      {/* Folder */}
-      <button className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors">
-        <Folder className="h-4 w-4" />
-      </button>
 
       {/* Bell with notification dot */}
       <button
@@ -75,7 +57,15 @@ export function TopBar({
         aria-label="Notifications"
       >
         <Bell className="h-4 w-4" />
-        <span className="bg-foreground absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full" />
+        <span
+          className="absolute top-1.5 right-1.5 rounded-full"
+          style={{
+            width: 6,
+            height: 6,
+            background: '#e24b4a',
+            boxShadow: '0 0 0 1.5px var(--background)',
+          }}
+        />
       </button>
 
       {/* User avatar with dropdown */}
@@ -83,7 +73,13 @@ export function TopBar({
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
-              className="bg-muted text-foreground hover:ring-border flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-all hover:ring-2"
+              className="hover:ring-border flex items-center justify-center rounded-full font-semibold text-white transition-all hover:ring-2"
+              style={{
+                width: 28,
+                height: 28,
+                background: 'hsl(217 70% 55%)',
+                fontSize: 11,
+              }}
               aria-label="User menu"
             >
               {userInitials}
