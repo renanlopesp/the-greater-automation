@@ -20,7 +20,6 @@ export default function ArtifactPanelShell({ children, loading }: ArtifactPanelS
       className="flex-1 overflow-y-auto"
       style={{
         background: 'var(--muted)',
-        borderLeft: '1px solid var(--border)',
       }}
     >
       <div

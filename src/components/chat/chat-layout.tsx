@@ -72,8 +72,8 @@ export default function ChatLayout({ chatContent, artifactContent }: ChatLayoutP
 
       {/* Artifact panel */}
       <div
-        className="flex h-full min-w-0 flex-1 flex-col overflow-hidden"
-        style={{ background: 'var(--muted)' }}
+        className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-l"
+        style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}
       >
         {artifactContent}
       </div>
