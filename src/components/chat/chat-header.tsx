@@ -101,12 +101,8 @@ export default function ChatHeader() {
         </button>
       </div>
 
-      {/* Right side — artifact always open, no toggle/close/expand */}
-      <div className="flex items-center gap-0.5">
-        <HeaderButton icon={ExternalLink} label="Open externally" />
-        <HeaderButton icon={Download} label="Download" />
-        <HeaderButton icon={MoreHorizontal} label="More options" />
-      </div>
+      {/* Right side — empty for now */}
+      <div className="flex items-center gap-0.5" />
     </div>
   )
 }
