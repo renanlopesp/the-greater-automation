@@ -77,28 +77,6 @@ export default function ChatHeader() {
           {displayTitle}
         </span>
         <ChevronDown className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-
-        <div className="bg-border mx-2 h-4 w-px shrink-0" />
-
-        <MoreHorizontal className="text-muted-foreground h-4 w-4 shrink-0" />
-
-        <div className="ml-2 flex items-center gap-1.5">
-          <ActionPill icon={FileText} label="3" />
-          <ActionPill icon={Zap} label="2.4k" />
-          <ActionPill icon={ListChecks} label="Tarefa" />
-        </div>
-
-        <button
-          type="button"
-          className={cn(
-            'ml-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors',
-            'text-secondary-foreground hover:bg-secondary/80'
-          )}
-          style={{ fontSize: 13, fontWeight: 500 }}
-        >
-          <Share2 className="h-3.5 w-3.5" />
-          Compartilhar
-        </button>
       </div>
     </div>
   )
