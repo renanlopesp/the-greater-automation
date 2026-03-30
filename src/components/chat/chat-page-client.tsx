@@ -22,7 +22,7 @@ function ChatContentWithLayout({
   const chatContent = (
     <div className="flex h-full flex-col overflow-hidden">
       <ChatHeader />
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         <OrchestratorChatWrapper
           initialConversationId={initialConversationId}
           initialMessages={initialMessages}
