@@ -101,8 +101,10 @@ export default function ChatHeader() {
         </button>
       </div>
 
-      {/* Right side — empty for now */}
-      <div className="flex items-center gap-0.5" />
+      {/* Right side */}
+      <div className="flex items-center gap-0.5">
+        <HeaderButton icon={MoreHorizontal} label="More options" />
+      </div>
     </div>
   )
 }
