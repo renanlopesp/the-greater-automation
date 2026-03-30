@@ -51,8 +51,8 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
         >
           {collapsed ? (
             <div className="relative h-6 w-6">
-              <div className="bg-foreground text-background absolute inset-0 flex items-center justify-center rounded-md text-[11px] font-bold transition-opacity duration-150 group-hover:opacity-0">
-                S
+              <div className="text-foreground absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover:opacity-0">
+                <img src="/snew.svg" alt="Snew" className="h-5 w-5 dark:invert" />
               </div>
               <div className="text-muted-foreground absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 <svg
@@ -72,6 +72,7 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
             </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-2">
+              <img src="/snew.svg" alt="Snew" className="h-5 w-5 dark:invert" />
               <span className="text-foreground flex-1 text-sm font-medium whitespace-nowrap">
                 Snew
               </span>
