@@ -30,8 +30,8 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
   return (
     <div
       className={cn(
-        'bg-background w-full border border-transparent transition-all',
-        'focus-within:border-foreground/15'
+        'bg-background border-border w-full border transition-all',
+        'focus-within:border-foreground/25'
       )}
       style={{
         borderRadius: 16,
