@@ -100,11 +100,6 @@ export default function ChatHeader() {
           Compartilhar
         </button>
       </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-0.5">
-        <HeaderButton icon={MoreHorizontal} label="More options" />
-      </div>
     </div>
   )
 }
