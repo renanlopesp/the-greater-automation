@@ -32,7 +32,7 @@ export default function ActivityCards() {
           textAlign: 'center',
           marginBottom: 6,
           lineHeight: '27px',
-          color: 'rgb(44, 42, 38)',
+          color: 'var(--foreground)',
         }}
       >
         O que o Snew fez pela sua loja
@@ -50,7 +50,7 @@ export default function ActivityCards() {
             key={card.id}
             onClick={() => router.push(card.route)}
             style={{
-              background: 'var(--artifact-bg, #f7f6f3)',
+              background: 'var(--muted)',
               border: '1px solid var(--border)',
               borderRadius: 16,
               padding: 20,

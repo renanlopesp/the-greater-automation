@@ -33,17 +33,17 @@ export default function QuickSuggestions({ onSelect }: QuickSuggestionsProps) {
           style={{
             fontSize: 13,
             padding: '6px 16px',
-            color: '#6B6760',
-            border: '1px solid #E5E3DC',
+            color: 'var(--muted-foreground)',
+            border: '1px solid var(--border)',
             borderRadius: 100,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#2C2A25'
-            e.currentTarget.style.borderColor = '#C2BFB5'
+            e.currentTarget.style.color = 'var(--foreground)'
+            e.currentTarget.style.borderColor = 'var(--foreground)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#6B6760'
-            e.currentTarget.style.borderColor = '#E5E3DC'
+            e.currentTarget.style.color = 'var(--muted-foreground)'
+            e.currentTarget.style.borderColor = 'var(--border)'
           }}
         >
           {pill}

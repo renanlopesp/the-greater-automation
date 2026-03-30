@@ -37,7 +37,7 @@ export default function HeroRotatingTitle() {
           style={{
             fontSize: 20,
             fontWeight: 500,
-            color: '#2C2A25',
+            color: 'var(--foreground)',
             textAlign: 'center',
             lineHeight: '30px',
           }}
