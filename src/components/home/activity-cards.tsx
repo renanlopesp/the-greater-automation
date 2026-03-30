@@ -30,7 +30,7 @@ export default function ActivityCards() {
           fontSize: 18,
           fontWeight: 600,
           textAlign: 'center',
-          marginBottom: 6,
+          marginBottom: 20,
           lineHeight: '27px',
           color: 'var(--foreground)',
         }}
