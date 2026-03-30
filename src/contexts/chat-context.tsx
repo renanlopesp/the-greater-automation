@@ -27,7 +27,7 @@ function getStoredWidth(): number | null {
 
 export function ChatContextProvider({ children }: { children: ReactNode }) {
   const [chatTitle, setChatTitle] = useState('')
-  const [artifactOpen, setArtifactOpen] = useState(false)
+  const [artifactOpen, setArtifactOpen] = useState(true)
   const [chatWidthPx, setChatWidthPxState] = useState(() => getStoredWidth() ?? 0)
 
   const setChatWidthPx = useCallback((px: number) => {

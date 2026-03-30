@@ -18,8 +18,6 @@ function ChatContentWithLayout({
   initialMessages,
   initialQuery,
 }: ChatPageClientProps) {
-  const { artifactOpen } = useChatContext()
-
   const chatContent = (
     <OrchestratorChatWrapper
       initialConversationId={initialConversationId}
@@ -28,11 +26,11 @@ function ChatContentWithLayout({
     />
   )
 
-  const artifactContent = artifactOpen ? (
+  const artifactContent = (
     <ArtifactPanelShell>
       <DailySummaryArtifact />
     </ArtifactPanelShell>
-  ) : null
+  )
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

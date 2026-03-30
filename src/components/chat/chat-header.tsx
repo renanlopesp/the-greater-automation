@@ -101,24 +101,11 @@ export default function ChatHeader() {
         </button>
       </div>
 
-      {/* Right side */}
+      {/* Right side — artifact always open, no toggle/close/expand */}
       <div className="flex items-center gap-0.5">
-        {artifactOpen ? (
-          <>
-            <HeaderButton icon={ExternalLink} label="Open externally" />
-            <HeaderButton icon={Download} label="Download" />
-            <HeaderButton icon={MoreHorizontal} label="More options" />
-            <HeaderButton icon={Maximize2} label="Maximize" />
-            <div className="bg-border mx-1 h-4 w-px" />
-            <HeaderButton icon={X} onClick={() => setArtifactOpen(false)} label="Close artifact" />
-          </>
-        ) : (
-          <HeaderButton
-            icon={PanelRight}
-            onClick={() => setArtifactOpen(true)}
-            label="Open artifact panel"
-          />
-        )}
+        <HeaderButton icon={ExternalLink} label="Open externally" />
+        <HeaderButton icon={Download} label="Download" />
+        <HeaderButton icon={MoreHorizontal} label="More options" />
       </div>
     </div>
   )
