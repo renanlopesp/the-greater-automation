@@ -33,9 +33,9 @@ function ChatContentWithLayout({
   )
 
   const artifactContent = (
-    <ArtifactPanelShell>
-      {/* ⋯ button inside artifact content area */}
-      <div className="mb-4 flex justify-end">
+    <div className="flex h-full flex-col">
+      {/* Artifact top bar — aligned with chat header height */}
+      <div className="flex shrink-0 items-center justify-end px-4" style={{ height: 48 }}>
         <button
           type="button"
           className="text-muted-foreground hover:text-foreground hover:bg-background/50 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
@@ -44,8 +44,13 @@ function ChatContentWithLayout({
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
-      <DailySummaryArtifact />
-    </ArtifactPanelShell>
+      {/* Scrollable content */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ArtifactPanelShell>
+          <DailySummaryArtifact />
+        </ArtifactPanelShell>
+      </div>
+    </div>
   )
 
   return <ChatLayout chatContent={chatContent} artifactContent={artifactContent} />
