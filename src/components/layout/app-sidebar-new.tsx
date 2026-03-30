@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { label: 'Home', icon: Home, path: '/dashboard' },
-  { label: 'New Chat', icon: Plus, path: '/chat' },
+  { label: 'New Task', icon: Plus, path: '/chat' },
   { label: 'Skills', icon: Cpu, path: '/skills' },
   { label: 'Tarefas', icon: ClipboardList, path: '/tarefas' },
   { label: 'Apps', icon: AppWindow, path: '/apps' },
