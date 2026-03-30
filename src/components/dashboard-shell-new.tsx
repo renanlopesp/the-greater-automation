@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { SVGFilters } from '@/config/design-system'
 import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
@@ -32,6 +32,8 @@ interface DashboardShellNewProps {
 
 export default function DashboardShellNew({ children }: DashboardShellNewProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
   const { data: shellData } = useShellData()
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -97,21 +99,25 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <TopBar
-            userInitials={getInitials(user.fullName, user.email)}
-            userName={user.fullName ?? undefined}
-            userEmail={user.email}
-            userTeams={userTeams}
-            activeTeamId={team?.id}
-            onOpenSettings={() => {
-              setSettingsEverOpened(true)
-              setSettingsOpen(true)
-            }}
-            onSwitchWorkspace={(teamId) => {
-              switchWorkspaceAction(teamId).then(() => router.refresh())
-            }}
-          />
-          <main className="flex-1 overflow-auto">{children}</main>
+          {!isChatRoute && (
+            <TopBar
+              userInitials={getInitials(user.fullName, user.email)}
+              userName={user.fullName ?? undefined}
+              userEmail={user.email}
+              userTeams={userTeams}
+              activeTeamId={team?.id}
+              onOpenSettings={() => {
+                setSettingsEverOpened(true)
+                setSettingsOpen(true)
+              }}
+              onSwitchWorkspace={(teamId) => {
+                switchWorkspaceAction(teamId).then(() => router.refresh())
+              }}
+            />
+          )}
+          <main className={isChatRoute ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto'}>
+            {children}
+          </main>
         </div>
         {settingsEverOpened && (
           <SettingsDialog
