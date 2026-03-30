@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import OrchestratorChatWrapper from '@/components/chat/orchestrator-chat-wrapper'
+import ChatPageClient from '@/components/chat/chat-page-client'
 
 export default async function ChatPage() {
   const supabase = await createServerClient()
@@ -94,11 +94,9 @@ export default async function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      <OrchestratorChatWrapper
-        initialConversationId={activeConv?.id ?? null}
-        initialMessages={initialMessages}
-      />
-    </div>
+    <ChatPageClient
+      initialConversationId={activeConv?.id ?? null}
+      initialMessages={initialMessages}
+    />
   )
 }
