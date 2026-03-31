@@ -384,56 +384,107 @@ function Level2({
   onRegenerateConcept: () => void
   onSelectSection: (sectionType: SectionType) => void
 }) {
-  // Find the matching date for display info — we only have dateName here,
-  // so we'll derive a simple month label from the dateName context.
+  const hasCampaign = !!campaign
+
   return (
     <div className="flex flex-col">
       {/* Breadcrumb */}
-      <div className="px-5 pt-4 pb-2">
-        <Breadcrumb label="Calendário Sazonal" onClick={onBack} />
+      <div className="px-6 pt-5 pb-3">
+        <Breadcrumb label="Calendario Sazonal 2026" onClick={onBack} />
       </div>
 
-      {/* Date header */}
-      <div className="border-border border-b px-5 pb-4">
-        <h2 className="text-foreground text-xl font-medium">{dateName}</h2>
-        <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>{dateId}</p>
+      {/* Date header — modern layout like prototype */}
+      <div className="px-6 pb-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                color: 'var(--foreground)',
+                margin: 0,
+                lineHeight: 1.3,
+              }}
+            >
+              {dateName}
+            </h2>
+            <div className="mt-1.5 flex items-center gap-3">
+              <StatusBadge isActive={hasCampaign} />
+              {campaign && (
+                <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                  R${' '}
+                  {campaign.selectedProducts
+                    ?.reduce((s, p) => s + p.price, 0)
+                    .toLocaleString('pt-BR')}
+                </span>
+              )}
+            </div>
+          </div>
+          {campaign && (
+            <RegenerateButton onClick={onRegenerateConcept} isLoading={isRegeneratingConcept} />
+          )}
+        </div>
       </div>
+
+      <div style={{ height: 1, background: 'var(--border)' }} />
 
       {/* Loading */}
       {isGenerating && <Level2Skeleton />}
 
       {/* Error */}
       {generationError && !isGenerating && (
-        <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Erro ao gerar campanha. Tente novamente.
+        <div className="mx-6 mt-5 rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950">
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+            Erro ao gerar campanha
+          </p>
+          <p className="mt-1 text-xs text-red-500 dark:text-red-400/80">
+            Verifique se o Brand DNA está configurado e tente novamente.
           </p>
           <button
             onClick={onGenerate}
-            className="mt-2 text-sm text-red-600 underline dark:text-red-400"
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-red-700"
           >
             Tentar novamente
           </button>
         </div>
       )}
 
-      {/* No campaign */}
+      {/* No campaign — empty state */}
       {!campaign && !isGenerating && !generationError && (
-        <div className="flex flex-col items-center gap-4 px-5 py-8 text-center">
-          <Sparkles style={{ width: 32, height: 32, color: 'var(--muted-foreground)' }} />
-          <p style={{ color: 'var(--muted-foreground)', fontSize: 14 }}>
-            Campanha ainda não gerada para esta data
-          </p>
+        <div className="flex flex-col items-center gap-5 px-6 py-16 text-center">
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ background: 'color-mix(in srgb, var(--foreground) 5%, transparent)' }}
+          >
+            <Sparkles style={{ width: 24, height: 24, color: 'var(--muted-foreground)' }} />
+          </div>
+          <div>
+            <p
+              style={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)', marginBottom: 4 }}
+            >
+              Campanha ainda não gerada
+            </p>
+            <p
+              style={{
+                fontSize: 13,
+                color: 'var(--muted-foreground)',
+                maxWidth: 280,
+                margin: '0 auto',
+              }}
+            >
+              Gere uma campanha completa com conceito, copies, assets e timeline.
+            </p>
+          </div>
           <button
             onClick={onGenerate}
             className={cn(
-              'rounded-lg px-6 py-2.5 text-sm font-medium transition-colors',
-              'bg-foreground text-background hover:opacity-90'
+              'rounded-xl px-8 py-3 text-sm font-medium transition-all',
+              'bg-foreground text-background shadow-sm hover:opacity-90'
             )}
           >
             Gerar Campanha
           </button>
-          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 8 }}>
+          <p style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
             ou peça ao Snew: <em>&ldquo;Gera a campanha de {dateName}&rdquo;</em>
           </p>
         </div>
@@ -443,62 +494,69 @@ function Level2({
       {campaign && !isGenerating && (
         <>
           {/* Concept card */}
-          <div className="border-border border-b px-5 py-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span
-                className="tracking-[0.08em] uppercase"
-                style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
-              >
-                Conceito da Campanha
-              </span>
-              <RegenerateButton onClick={onRegenerateConcept} isLoading={isRegeneratingConcept} />
-            </div>
+          <div className="px-6 py-5">
+            <p
+              className="mb-3 tracking-[0.06em] uppercase"
+              style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
+            >
+              Conceito da Campanha
+            </p>
 
             {isRegeneratingConcept ? (
-              <div className="border-border flex flex-col gap-3 rounded-xl border p-5">
+              <div
+                className="flex flex-col gap-3 rounded-2xl bg-[var(--background)] p-6 shadow-sm"
+                style={{ border: '1px solid var(--border)' }}
+              >
                 {[0, 1, 2].map((i) => (
                   <SkeletonBox
                     key={i}
-                    className={i === 0 ? 'h-4 w-3/4' : i === 1 ? 'h-12 w-full' : 'h-3 w-24'}
+                    className={i === 0 ? 'h-5 w-3/4' : i === 1 ? 'h-16 w-full' : 'h-4 w-32'}
                   />
                 ))}
               </div>
             ) : (
-              <div className="border-border flex flex-col gap-3 rounded-xl border p-5">
-                <p className="text-foreground italic" style={{ fontSize: 15 }}>
+              <div
+                className="flex flex-col gap-4 rounded-2xl bg-[var(--background)] p-6 shadow-sm"
+                style={{ border: '1px solid var(--border)' }}
+              >
+                <p className="text-foreground text-base leading-snug font-medium italic">
                   &ldquo;{campaign.concept.slogan}&rdquo;
                 </p>
-                <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
                   {campaign.concept.description}
                 </p>
-                <p
-                  className="mt-1 tracking-[0.08em] uppercase"
-                  style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
-                >
-                  Produtos Sugeridos
-                </p>
-                <div className="flex flex-col gap-2">
-                  {campaign.concept.products.slice(0, 3).map((product, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <ProductThumb />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-foreground truncate text-sm leading-snug font-medium">
-                          {product.name}
-                        </p>
-                        <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-                          R$ {product.price}
-                        </p>
+
+                {/* Products */}
+                <div className="mt-1">
+                  <p
+                    className="mb-3 tracking-[0.06em] uppercase"
+                    style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
+                  >
+                    Produtos Sugeridos
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {campaign.concept.products.slice(0, 3).map((product, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <ProductThumb />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-foreground truncate text-sm leading-snug font-medium">
+                            {product.name}
+                          </p>
+                          <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+                            R$ {product.price}
+                          </p>
+                        </div>
+                        <ProductTagBadge tag={product.tag} />
                       </div>
-                      <ProductTagBadge tag={product.tag} />
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Section rows */}
-          <div className="flex flex-col">
+          {/* Section navigation — clean rows */}
+          <div className="flex flex-col px-2">
             {SECTION_DEFS.map((section, index) => {
               const isLast = index === SECTION_DEFS.length - 1
               return (
@@ -506,19 +564,30 @@ function Level2({
                   key={section.type}
                   onClick={() => onSelectSection(section.type)}
                   className={cn(
-                    'flex w-full cursor-pointer items-center gap-3 px-5 py-3.5 text-left',
-                    'hover:bg-muted/50 transition-colors duration-100',
+                    'group mx-4 flex w-auto cursor-pointer items-center gap-3.5 py-4 text-left',
+                    'transition-colors duration-100',
                     !isLast && 'border-border border-b'
                   )}
                 >
-                  <span style={{ color: 'var(--muted-foreground)' }}>{section.icon}</span>
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-lg"
+                    style={{
+                      background: 'color-mix(in srgb, var(--foreground) 5%, transparent)',
+                      color: 'var(--muted-foreground)',
+                    }}
+                  >
+                    {section.icon}
+                  </span>
                   <span className="text-foreground flex-1 text-sm font-medium">
                     {section.label}
                   </span>
-                  <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
                     {sectionMeta(section.type, campaign)}
                   </span>
-                  <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
+                  <ChevronRight
+                    size={15}
+                    className="text-muted-foreground flex-shrink-0 opacity-40 transition-opacity group-hover:opacity-100"
+                  />
                 </button>
               )
             })}
