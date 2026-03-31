@@ -433,6 +433,9 @@ function Level2({
           >
             Gerar Campanha
           </button>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 8 }}>
+            ou peça ao Snew: <em>&ldquo;Gera a campanha de {dateName}&rdquo;</em>
+          </p>
         </div>
       )}
 
