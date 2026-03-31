@@ -76,6 +76,7 @@ function GenericArtifact({ data }: { data: unknown }) {
 interface ArtifactRendererProps {
   artifactType: string | null
   artifactData: unknown
+  taskId?: string
 }
 
 /**
@@ -85,7 +86,11 @@ interface ArtifactRendererProps {
  * Phase 2: all types render as GenericArtifact (JSON prettified).
  * Phase 3 will add SeasonalCalendarArtifact for 'seasonal-calendar'.
  */
-export default function ArtifactRenderer({ artifactType, artifactData }: ArtifactRendererProps) {
+export default function ArtifactRenderer({
+  artifactType,
+  artifactData,
+  taskId,
+}: ArtifactRendererProps) {
   if (!artifactType || !artifactData) {
     return <ArtifactEmptyState />
   }
@@ -94,7 +99,7 @@ export default function ArtifactRenderer({ artifactType, artifactData }: Artifac
     case 'seasonal-calendar':
       return (
         <ArtifactPanelShell>
-          <SeasonalCalendarArtifact data={artifactData as never} />
+          <SeasonalCalendarArtifact data={artifactData as never} taskId={taskId} />
         </ArtifactPanelShell>
       )
     default:

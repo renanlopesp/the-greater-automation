@@ -729,9 +729,10 @@ function Level3({
 
 interface SeasonalCalendarArtifactProps {
   data: PersonalizedCalendar & { campaigns?: Record<string, FullCampaign> }
+  taskId?: string
 }
 
-export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps) {
+export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtifactProps) {
   const { dates, year, summary } = data
   const highCount = dates.filter((d) => d.priority === 'high').length
 
@@ -747,8 +748,25 @@ export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps
   const [regeneratingConcept, setRegeneratingConcept] = useState<Record<string, boolean>>({})
   const [regeneratingSection, setRegeneratingSection] = useState<Record<string, boolean>>({})
 
+  // --- Save campaigns to task artifact_data ---
+  async function saveCampaignsToTask(updatedCampaigns: Record<string, FullCampaign>) {
+    if (!taskId) return
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artifact_data: { ...data, campaigns: updatedCampaigns },
+        }),
+      })
+    } catch {
+      // best-effort save
+    }
+  }
+
   // --- Generate campaign ---
   async function generateCampaign(dateId: string, dateName: string) {
+    if (generating[dateId]) return // prevent duplicate calls
     setGenerating((prev) => ({ ...prev, [dateId]: true }))
     setGenerationError((prev) => ({ ...prev, [dateId]: false }))
     try {
@@ -764,7 +782,9 @@ export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps
       const body = await res.json()
       // API returns { executionId, campaign, durationMs } — extract campaign
       const campaign = (body.campaign ?? body) as FullCampaign
-      setCampaigns((prev) => ({ ...prev, [dateId]: campaign }))
+      const updated = { ...campaigns, [dateId]: campaign }
+      setCampaigns(updated)
+      void saveCampaignsToTask(updated)
     } catch {
       setGenerationError((prev) => ({ ...prev, [dateId]: true }))
     } finally {

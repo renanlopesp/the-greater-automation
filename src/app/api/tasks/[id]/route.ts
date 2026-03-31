@@ -4,6 +4,58 @@ import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeError } from '@/lib/safe-error'
 
 /**
+ * PATCH /api/tasks/[id] — Update task artifact_data.
+ */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createServerClient()
+  const serviceClient = createServiceRoleClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+
+  try {
+    const body = await request.json()
+    const { artifact_data } = body as { artifact_data?: unknown }
+
+    if (!artifact_data) {
+      return NextResponse.json({ error: 'artifact_data is required' }, { status: 400 })
+    }
+
+    await (
+      serviceClient as unknown as {
+        from: (t: string) => {
+          update: (d: unknown) => {
+            eq: (
+              k: string,
+              v: string
+            ) => {
+              eq: (k: string, v: string) => Promise<{ error: unknown }>
+            }
+          }
+        }
+      }
+    )
+      .from('tasks')
+      .update({ artifact_data, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('team_id', teamId)
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json(
+      { error: safeError('tasks-patch', error, 'Failed to update task') },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * GET /api/tasks/[id] — Get a single task with full artifact data.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

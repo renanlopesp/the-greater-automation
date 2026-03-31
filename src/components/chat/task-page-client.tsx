@@ -61,7 +61,11 @@ function TaskContentWithLayout({
     artifactInner = <ArtifactErrorState />
   } else if (task.skill_status === 'completed' && task.artifact_data) {
     artifactInner = (
-      <ArtifactRenderer artifactType={task.artifact_type} artifactData={task.artifact_data} />
+      <ArtifactRenderer
+        artifactType={task.artifact_type}
+        artifactData={task.artifact_data}
+        taskId={initialTask.id}
+      />
     )
   } else {
     artifactInner = <ArtifactEmptyState />
