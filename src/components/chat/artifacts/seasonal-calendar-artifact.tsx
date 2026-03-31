@@ -1,8 +1,34 @@
 'use client'
 
-import { ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  ClipboardList,
+  Mail,
+  MessageSquare,
+  Image as ImageIcon,
+  Video,
+  Clock,
+  Sparkles,
+  Copy,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PersonalizedCalendar, PersonalizedDate } from '@/lib/ai/seasonal-campaign-generator'
+import type { FullCampaign, ProductTag } from '@/data/campaign-data'
+import { productTagConfig } from '@/data/campaign-data'
+
+// ---------------------------------------------------------------------------
+// Navigation state
+// ---------------------------------------------------------------------------
+
+type SectionType = 'products' | 'email' | 'copies' | 'assets' | 'video' | 'timeline'
+
+type ArtifactView =
+  | { level: 1 }
+  | { level: 2; dateId: string; dateName: string }
+  | { level: 3; dateId: string; dateName: string; sectionType: SectionType }
 
 // ---------------------------------------------------------------------------
 // Priority dot colors
@@ -14,6 +40,23 @@ const PRIORITY_COLORS: Record<PersonalizedDate['priority'], string> = {
   low: '#9CA3AF',
 }
 
+// ---------------------------------------------------------------------------
+// Section definitions
+// ---------------------------------------------------------------------------
+
+const SECTION_DEFS: { type: SectionType; icon: React.ReactNode; label: string }[] = [
+  { type: 'products', icon: <ClipboardList size={18} />, label: 'Produtos' },
+  { type: 'email', icon: <Mail size={18} />, label: 'E-mail' },
+  { type: 'copies', icon: <MessageSquare size={18} />, label: 'Copies' },
+  { type: 'assets', icon: <ImageIcon size={18} />, label: 'Assets' },
+  { type: 'video', icon: <Video size={18} />, label: 'Script' },
+  { type: 'timeline', icon: <Clock size={18} />, label: 'Timeline' },
+]
+
+// ---------------------------------------------------------------------------
+// Formatters
+// ---------------------------------------------------------------------------
+
 function formatRevenue(value: number): string {
   if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1).replace('.0', '')}M`
   if (value >= 1_000) return `R$ ${Math.round(value / 1_000)}k`
@@ -21,19 +64,157 @@ function formatRevenue(value: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Row component
+// Shared sub-components
 // ---------------------------------------------------------------------------
 
-interface CalendarRowProps {
-  date: PersonalizedDate
-  isLast: boolean
+function ProductThumb() {
+  return <div className="bg-muted h-10 w-10 flex-shrink-0 rounded-lg" />
 }
 
-function CalendarRow({ date, isLast }: CalendarRowProps) {
+function ProductTagBadge({ tag }: { tag: ProductTag }) {
+  const config = productTagConfig(tag)
+  return (
+    <span
+      className="rounded-full px-2 py-0.5"
+      style={{ fontSize: 11, fontWeight: 500, background: config.bg, color: config.color }}
+    >
+      {config.label}
+    </span>
+  )
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p
+      className="border-border border-b px-5 py-3 tracking-[0.08em] uppercase"
+      style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
+    >
+      {label}
+    </p>
+  )
+}
+
+function RegenerateButton({
+  onClick,
+  isLoading = false,
+}: {
+  onClick?: () => void
+  isLoading?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="hover:text-foreground flex items-center gap-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+      style={{ fontSize: 13, color: 'var(--muted-foreground)' }}
+    >
+      <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+      Regenerar
+    </button>
+  )
+}
+
+function ActionButtons({ onRegenerate }: { onRegenerate?: () => void }) {
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        className="border-border text-foreground hover:bg-muted rounded-lg border px-3 py-1.5 transition-colors"
+        style={{ fontSize: 13 }}
+      >
+        Editar
+      </button>
+      <button
+        onClick={onRegenerate}
+        className="border-border text-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors"
+        style={{ fontSize: 13 }}
+      >
+        <RefreshCw size={13} />
+        Regenerar
+      </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+
+function SkeletonBox({ className }: { className?: string }) {
+  return <div className={cn('bg-muted animate-pulse rounded', className)} />
+}
+
+function Level2Skeleton() {
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      <SkeletonBox className="h-4 w-32" />
+      <SkeletonBox className="h-20 w-full rounded-xl" />
+      <SkeletonBox className="h-4 w-48" />
+      <div className="flex flex-col gap-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <SkeletonBox className="h-10 w-10 rounded-lg" />
+            <div className="flex flex-1 flex-col gap-1">
+              <SkeletonBox className="h-4 w-36" />
+              <SkeletonBox className="h-3 w-20" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-col gap-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <SkeletonBox key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Level3Skeleton() {
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      <SkeletonBox className="h-4 w-24" />
+      {[0, 1, 2].map((i) => (
+        <SkeletonBox key={i} className="h-16 w-full rounded-xl" />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumb
+// ---------------------------------------------------------------------------
+
+function Breadcrumb({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="hover:text-foreground flex items-center gap-1 transition-colors"
+      style={{ fontSize: 13, color: 'var(--muted-foreground)' }}
+    >
+      <ChevronLeft size={14} />
+      {label}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Level 1 — Date list row
+// ---------------------------------------------------------------------------
+
+function CalendarRow({
+  date,
+  isLast,
+  onClick,
+}: {
+  date: PersonalizedDate
+  isLast: boolean
+  onClick: () => void
+}) {
   const dotColor = PRIORITY_COLORS[date.priority]
 
   return (
     <div
+      onClick={onClick}
       className={cn(
         'flex cursor-pointer items-center justify-between transition-colors hover:bg-[var(--accent)]'
       )}
@@ -46,29 +227,13 @@ function CalendarRow({ date, isLast }: CalendarRowProps) {
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span
           className="shrink-0 rounded-full"
-          style={{
-            width: 8,
-            height: 8,
-            backgroundColor: dotColor,
-          }}
+          style={{ width: 8, height: 8, backgroundColor: dotColor }}
         />
         <div className="min-w-0">
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'var(--foreground)',
-            }}
-          >
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
             {date.name}
           </span>
-          <span
-            style={{
-              fontSize: 14,
-              color: 'var(--muted-foreground)',
-              marginLeft: 6,
-            }}
-          >
+          <span style={{ fontSize: 14, color: 'var(--muted-foreground)', marginLeft: 6 }}>
             &middot; {date.displayDate}
           </span>
         </div>
@@ -93,49 +258,646 @@ function CalendarRow({ date, isLast }: CalendarRowProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Level 2 — Campaign detail
+// ---------------------------------------------------------------------------
+
+function sectionMeta(type: SectionType, campaign: FullCampaign): string {
+  switch (type) {
+    case 'products':
+      return `${campaign.selectedProducts.length} selecionados`
+    case 'email':
+      return '1 template'
+    case 'copies':
+      return `${campaign.copies.length} canais`
+    case 'assets':
+      return `${campaign.assets.length} formatos`
+    case 'video':
+      return `${campaign.videoScripts.length} roteiros`
+    case 'timeline':
+      return `${campaign.timeline.length} fases`
+  }
+}
+
+function Level2({
+  dateId,
+  dateName,
+  campaign,
+  isGenerating,
+  isRegeneratingConcept,
+  generationError,
+  onBack,
+  onGenerate,
+  onRegenerateConcept,
+  onSelectSection,
+}: {
+  dateId: string
+  dateName: string
+  campaign: FullCampaign | null
+  isGenerating: boolean
+  isRegeneratingConcept: boolean
+  generationError: boolean
+  onBack: () => void
+  onGenerate: () => void
+  onRegenerateConcept: () => void
+  onSelectSection: (sectionType: SectionType) => void
+}) {
+  // Find the matching date for display info — we only have dateName here,
+  // so we'll derive a simple month label from the dateName context.
+  return (
+    <div className="flex flex-col">
+      {/* Breadcrumb */}
+      <div className="px-5 pt-4 pb-2">
+        <Breadcrumb label="Calendário Sazonal" onClick={onBack} />
+      </div>
+
+      {/* Date header */}
+      <div className="border-border border-b px-5 pb-4">
+        <h2 className="text-foreground text-xl font-medium">{dateName}</h2>
+        <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>{dateId}</p>
+      </div>
+
+      {/* Loading */}
+      {isGenerating && <Level2Skeleton />}
+
+      {/* Error */}
+      {generationError && !isGenerating && (
+        <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Erro ao gerar campanha. Tente novamente.
+          </p>
+          <button
+            onClick={onGenerate}
+            className="mt-2 text-sm text-red-600 underline dark:text-red-400"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
+      {/* No campaign */}
+      {!campaign && !isGenerating && !generationError && (
+        <div className="flex flex-col items-center gap-4 px-5 py-8 text-center">
+          <Sparkles style={{ width: 32, height: 32, color: 'var(--muted-foreground)' }} />
+          <p style={{ color: 'var(--muted-foreground)', fontSize: 14 }}>
+            Campanha ainda não gerada para esta data
+          </p>
+          <button
+            onClick={onGenerate}
+            className={cn(
+              'rounded-lg px-6 py-2.5 text-sm font-medium transition-colors',
+              'bg-foreground text-background hover:opacity-90'
+            )}
+          >
+            Gerar Campanha
+          </button>
+        </div>
+      )}
+
+      {/* Campaign content */}
+      {campaign && !isGenerating && (
+        <>
+          {/* Concept card */}
+          <div className="border-border border-b px-5 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span
+                className="tracking-[0.08em] uppercase"
+                style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
+              >
+                Conceito da Campanha
+              </span>
+              <RegenerateButton onClick={onRegenerateConcept} isLoading={isRegeneratingConcept} />
+            </div>
+
+            {isRegeneratingConcept ? (
+              <div className="border-border flex flex-col gap-3 rounded-xl border p-5">
+                {[0, 1, 2].map((i) => (
+                  <SkeletonBox
+                    key={i}
+                    className={i === 0 ? 'h-4 w-3/4' : i === 1 ? 'h-12 w-full' : 'h-3 w-24'}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="border-border flex flex-col gap-3 rounded-xl border p-5">
+                <p className="text-foreground italic" style={{ fontSize: 15 }}>
+                  &ldquo;{campaign.concept.slogan}&rdquo;
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                  {campaign.concept.description}
+                </p>
+                <p
+                  className="mt-1 tracking-[0.08em] uppercase"
+                  style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
+                >
+                  Produtos Sugeridos
+                </p>
+                <div className="flex flex-col gap-2">
+                  {campaign.concept.products.slice(0, 3).map((product, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <ProductThumb />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-foreground truncate text-sm leading-snug font-medium">
+                          {product.name}
+                        </p>
+                        <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                          R$ {product.price}
+                        </p>
+                      </div>
+                      <ProductTagBadge tag={product.tag} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section rows */}
+          <div className="flex flex-col">
+            {SECTION_DEFS.map((section, index) => {
+              const isLast = index === SECTION_DEFS.length - 1
+              return (
+                <button
+                  key={section.type}
+                  onClick={() => onSelectSection(section.type)}
+                  className={cn(
+                    'flex w-full cursor-pointer items-center gap-3 px-5 py-3.5 text-left',
+                    'hover:bg-muted/50 transition-colors duration-100',
+                    !isLast && 'border-border border-b'
+                  )}
+                >
+                  <span style={{ color: 'var(--muted-foreground)' }}>{section.icon}</span>
+                  <span className="text-foreground flex-1 text-sm font-medium">
+                    {section.label}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                    {sectionMeta(section.type, campaign)}
+                  </span>
+                  <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Level 3 — Section content
+// ---------------------------------------------------------------------------
+
+function CopiesSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
+  const firstProduct = campaign.selectedProducts[0]
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      {campaign.copies.map((copy, i) => (
+        <div key={i} className="border-border flex flex-col rounded-xl border p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-foreground text-sm font-medium">{copy.channel}</span>
+              <span
+                className="rounded-full px-2 py-0.5"
+                style={{
+                  fontSize: 11,
+                  background: 'var(--muted)',
+                  color: 'var(--muted-foreground)',
+                }}
+              >
+                {copy.timing}
+              </span>
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText(copy.text).catch(() => null)}
+              className="hover:text-foreground flex items-center gap-1 transition-colors"
+              style={{ fontSize: 13, color: 'var(--muted-foreground)' }}
+            >
+              <Copy size={12} />
+              Copiar
+            </button>
+          </div>
+          <p className="text-foreground leading-relaxed" style={{ fontSize: 14 }}>
+            {copy.text}
+          </p>
+          {i === 0 && firstProduct && (
+            <div className="border-border mt-3 flex items-center gap-3 rounded-lg border p-3">
+              <ProductThumb />
+              <div className="min-w-0 flex-1">
+                <p className="text-foreground truncate text-sm font-medium">{firstProduct.name}</p>
+                <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                  R$ {firstProduct.price}
+                </p>
+              </div>
+            </div>
+          )}
+          <ActionButtons onRegenerate={onRegenerate} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProductsSection({ campaign }: { campaign: FullCampaign }) {
+  return (
+    <div className="flex flex-col gap-3 p-5">
+      {campaign.selectedProducts.map((product, i) => (
+        <div key={i} className="border-border flex items-center gap-3 rounded-xl border p-4">
+          <ProductThumb />
+          <div className="min-w-0 flex-1">
+            <p className="text-foreground truncate text-sm leading-snug font-medium">
+              {product.name}
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>R$ {product.price}</p>
+          </div>
+          <div className="flex flex-shrink-0 flex-col items-end gap-1">
+            <ProductTagBadge tag={product.tag} />
+            {product.stock !== undefined && (
+              <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+                {product.stock} em estoque
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmailSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
+  return (
+    <div className="p-5">
+      <div className="border-border flex flex-col gap-3 rounded-xl border p-5">
+        <div>
+          <p
+            className="mb-1 tracking-[0.08em] uppercase"
+            style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
+          >
+            Assunto
+          </p>
+          <p className="text-foreground text-sm font-medium">{campaign.emailSubject}</p>
+        </div>
+        <div>
+          <p
+            className="mb-1 tracking-[0.08em] uppercase"
+            style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted-foreground)' }}
+          >
+            Preview
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>{campaign.emailPreview}</p>
+        </div>
+        <ActionButtons onRegenerate={onRegenerate} />
+      </div>
+    </div>
+  )
+}
+
+function AssetsSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3 p-5">
+      {campaign.assets.map((asset, i) => (
+        <div key={i} className="border-border flex flex-col overflow-hidden rounded-xl border">
+          <div className="h-24 w-full" style={{ background: asset.bg }} />
+          <div className="flex flex-col gap-1 p-3">
+            <p className="text-foreground text-sm font-medium">{asset.label}</p>
+            <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{asset.ratio}</p>
+            <ActionButtons onRegenerate={onRegenerate} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function VideoSection({
+  campaign,
+  onRegenerate,
+}: {
+  campaign: FullCampaign
+  onRegenerate?: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      {campaign.videoScripts.map((script, i) => (
+        <div key={i} className="border-border flex flex-col gap-2 rounded-xl border p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-foreground text-sm font-medium">{script.title}</span>
+            <span
+              className="rounded-full px-2 py-0.5"
+              style={{ fontSize: 11, background: 'var(--muted)', color: 'var(--muted-foreground)' }}
+            >
+              {script.duration}
+            </span>
+          </div>
+          <p
+            className="leading-relaxed whitespace-pre-line"
+            style={{ fontSize: 13, color: 'var(--muted-foreground)' }}
+          >
+            {script.content}
+          </p>
+          <ActionButtons onRegenerate={onRegenerate} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TimelineSection({ campaign }: { campaign: FullCampaign }) {
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      {campaign.timeline.map((item, i) => (
+        <div key={i} className="flex gap-4">
+          <div className="flex flex-shrink-0 flex-col items-center gap-1.5">
+            <span
+              className="rounded-full px-3 py-1 font-medium"
+              style={{
+                fontSize: 12,
+                background: 'var(--muted)',
+                color: 'var(--muted-foreground)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {item.day}
+            </span>
+            {i < campaign.timeline.length - 1 && (
+              <div className="bg-border w-px flex-1" style={{ minHeight: 16 }} />
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5 pb-4">
+            {item.actions.map((action, j) => (
+              <p key={j} className="text-foreground text-sm leading-snug">
+                {action}
+              </p>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Level3({
+  dateId,
+  dateName,
+  sectionType,
+  campaign,
+  isRegenerating,
+  onBack,
+  onRegenerate,
+}: {
+  dateId: string
+  dateName: string
+  sectionType: SectionType
+  campaign: FullCampaign
+  isRegenerating: boolean
+  onBack: () => void
+  onRegenerate: () => void
+}) {
+  const sectionLabel: Record<SectionType, string> = {
+    products: 'Produtos',
+    email: 'E-mail',
+    copies: 'Copies',
+    assets: 'Assets',
+    video: 'Script de Vídeo',
+    timeline: 'Timeline',
+  }
+
+  return (
+    <div className="flex flex-col">
+      {/* Breadcrumb */}
+      <div className="border-border flex items-center justify-between border-b px-5 py-3">
+        <Breadcrumb label={dateName} onClick={onBack} />
+        <button
+          onClick={onRegenerate}
+          disabled={isRegenerating}
+          className="hover:text-foreground flex items-center gap-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ fontSize: 13, color: 'var(--muted-foreground)' }}
+        >
+          <RefreshCw size={13} className={isRegenerating ? 'animate-spin' : ''} />
+          Regenerar
+        </button>
+      </div>
+
+      {/* Section label */}
+      <SectionLabel label={sectionLabel[sectionType]} />
+
+      {/* Content */}
+      {isRegenerating ? (
+        <Level3Skeleton />
+      ) : (
+        <>
+          {sectionType === 'copies' && (
+            <CopiesSection campaign={campaign} onRegenerate={onRegenerate} />
+          )}
+          {sectionType === 'products' && <ProductsSection campaign={campaign} />}
+          {sectionType === 'email' && (
+            <EmailSection campaign={campaign} onRegenerate={onRegenerate} />
+          )}
+          {sectionType === 'assets' && (
+            <AssetsSection campaign={campaign} onRegenerate={onRegenerate} />
+          )}
+          {sectionType === 'video' && (
+            <VideoSection campaign={campaign} onRegenerate={onRegenerate} />
+          )}
+          {sectionType === 'timeline' && <TimelineSection campaign={campaign} />}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
 interface SeasonalCalendarArtifactProps {
-  data: PersonalizedCalendar
+  data: PersonalizedCalendar & { campaigns?: Record<string, FullCampaign> }
 }
 
 export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps) {
   const { dates, year, summary } = data
   const highCount = dates.filter((d) => d.priority === 'high').length
 
-  return (
-    <div>
-      {/* Title */}
-      <h1
-        style={{
-          fontSize: 24,
-          fontWeight: 600,
-          color: 'var(--foreground)',
-          marginBottom: 4,
-        }}
-      >
-        Calendário Sazonal {year}
-      </h1>
+  // Navigation state
+  const [view, setView] = useState<ArtifactView>({ level: 1 })
 
-      {/* Subtitle */}
-      <p
-        style={{
-          fontSize: 13,
-          color: 'var(--muted-foreground)',
-          marginBottom: 24,
-        }}
-      >
-        {summary.totalDates} datas
-        {highCount > 0 && ` · ${highCount} precisam de ação imediata`}
-      </p>
+  // Campaign store (keyed by dateId)
+  const [campaigns, setCampaigns] = useState<Record<string, FullCampaign>>(data.campaigns ?? {})
 
-      {/* Date list */}
+  // Loading/error state per dateId
+  const [generating, setGenerating] = useState<Record<string, boolean>>({})
+  const [generationError, setGenerationError] = useState<Record<string, boolean>>({})
+  const [regeneratingConcept, setRegeneratingConcept] = useState<Record<string, boolean>>({})
+  const [regeneratingSection, setRegeneratingSection] = useState<Record<string, boolean>>({})
+
+  // --- Generate campaign ---
+  async function generateCampaign(dateId: string, dateName: string) {
+    setGenerating((prev) => ({ ...prev, [dateId]: true }))
+    setGenerationError((prev) => ({ ...prev, [dateId]: false }))
+    try {
+      const res = await fetch('/api/skills/seasonal-calendar/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId, dateName }),
+      })
+      if (!res.ok) throw new Error('generation failed')
+      const campaign = (await res.json()) as FullCampaign
+      setCampaigns((prev) => ({ ...prev, [dateId]: campaign }))
+    } catch {
+      setGenerationError((prev) => ({ ...prev, [dateId]: true }))
+    } finally {
+      setGenerating((prev) => ({ ...prev, [dateId]: false }))
+    }
+  }
+
+  // --- Regenerate concept ---
+  async function regenerateConcept(dateId: string, dateName: string) {
+    setRegeneratingConcept((prev) => ({ ...prev, [dateId]: true }))
+    try {
+      const res = await fetch('/api/skills/seasonal-calendar/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId, sectionType: 'concept' }),
+      })
+      if (!res.ok) throw new Error('regeneration failed')
+      const updated = (await res.json()) as Partial<FullCampaign>
+      setCampaigns((prev) => ({
+        ...prev,
+        [dateId]: { ...prev[dateId]!, ...updated },
+      }))
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setRegeneratingConcept((prev) => ({ ...prev, [dateId]: false }))
+    }
+  }
+
+  // --- Regenerate section ---
+  async function regenerateSection(dateId: string, sectionType: string) {
+    const key = `${dateId}:${sectionType}`
+    setRegeneratingSection((prev) => ({ ...prev, [key]: true }))
+    try {
+      const res = await fetch('/api/skills/seasonal-calendar/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateId, sectionType }),
+      })
+      if (!res.ok) throw new Error('regeneration failed')
+      const updated = (await res.json()) as Partial<FullCampaign>
+      setCampaigns((prev) => ({
+        ...prev,
+        [dateId]: { ...prev[dateId]!, ...updated },
+      }))
+    } catch {
+      // silently fail
+    } finally {
+      setRegeneratingSection((prev) => ({ ...prev, [key]: false }))
+    }
+  }
+
+  // --- Handle date click ---
+  function handleDateClick(date: PersonalizedDate) {
+    setView({ level: 2, dateId: date.id, dateName: date.name })
+    if (!campaigns[date.id]) {
+      void generateCampaign(date.id, date.name)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Level 1
+  // ---------------------------------------------------------------------------
+  if (view.level === 1) {
+    return (
       <div>
-        {dates.map((date, index) => (
-          <CalendarRow key={date.id} date={date} isLast={index === dates.length - 1} />
-        ))}
+        <h1 style={{ fontSize: 24, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
+          Calendário Sazonal {year}
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 24 }}>
+          {summary.totalDates} datas
+          {highCount > 0 && ` · ${highCount} precisam de ação imediata`}
+        </p>
+        <div>
+          {dates.map((date, index) => (
+            <CalendarRow
+              key={date.id}
+              date={date}
+              isLast={index === dates.length - 1}
+              onClick={() => handleDateClick(date)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Level 2
+  // ---------------------------------------------------------------------------
+  if (view.level === 2) {
+    const { dateId, dateName } = view
+    return (
+      <Level2
+        dateId={dateId}
+        dateName={dateName}
+        campaign={campaigns[dateId] ?? null}
+        isGenerating={generating[dateId] ?? false}
+        isRegeneratingConcept={regeneratingConcept[dateId] ?? false}
+        generationError={generationError[dateId] ?? false}
+        onBack={() => setView({ level: 1 })}
+        onGenerate={() => void generateCampaign(dateId, dateName)}
+        onRegenerateConcept={() => void regenerateConcept(dateId, dateName)}
+        onSelectSection={(sectionType) => setView({ level: 3, dateId, dateName, sectionType })}
+      />
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Level 3
+  // ---------------------------------------------------------------------------
+  if (view.level === 3) {
+    const { dateId, dateName, sectionType } = view
+    const campaign = campaigns[dateId]
+    if (!campaign) {
+      // Shouldn't happen, but guard anyway
+      return (
+        <div className="p-5 text-center" style={{ color: 'var(--muted-foreground)', fontSize: 14 }}>
+          Campanha não encontrada.{' '}
+          <button onClick={() => setView({ level: 2, dateId, dateName })} className="underline">
+            Voltar
+          </button>
+        </div>
+      )
+    }
+    const sectionKey = `${dateId}:${sectionType}`
+    return (
+      <Level3
+        dateId={dateId}
+        dateName={dateName}
+        sectionType={sectionType}
+        campaign={campaign}
+        isRegenerating={regeneratingSection[sectionKey] ?? false}
+        onBack={() => setView({ level: 2, dateId, dateName })}
+        onRegenerate={() => void regenerateSection(dateId, sectionType)}
+      />
+    )
+  }
+
+  return null
 }
