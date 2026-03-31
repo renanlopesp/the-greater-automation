@@ -112,7 +112,7 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
           style={{ flex: '1 1 0', overflowY: 'auto' }}
         >
           {navItems.map((item) => (
-            <Tooltip key={item.path}>
+            <Tooltip key={item.label}>
               <TooltipTrigger asChild>
                 <Link
                   href={item.path}
