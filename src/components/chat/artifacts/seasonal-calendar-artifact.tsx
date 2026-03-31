@@ -928,9 +928,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
   // --- Handle date click ---
   function handleDateClick(date: PersonalizedDate) {
     setView({ level: 2, dateId: date.id, dateName: date.name })
-    if (!campaigns[date.id]) {
-      void generateCampaign(date.id, date.name)
-    }
+    // Don't auto-generate — show empty state with "Gerar Campanha" button
   }
 
   // ---------------------------------------------------------------------------
