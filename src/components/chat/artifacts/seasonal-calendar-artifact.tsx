@@ -364,6 +364,8 @@ function sectionMeta(type: SectionType, campaign: FullCampaign): string {
 function Level2({
   dateId,
   dateName,
+  displayDate,
+  estimatedRevenue,
   campaign,
   isGenerating,
   isRegeneratingConcept,
@@ -375,6 +377,8 @@ function Level2({
 }: {
   dateId: string
   dateName: string
+  displayDate?: string
+  estimatedRevenue?: number
   campaign: FullCampaign | null
   isGenerating: boolean
   isRegeneratingConcept: boolean
@@ -393,8 +397,13 @@ function Level2({
         <Breadcrumb label="Calendario Sazonal 2026" onClick={onBack} />
       </div>
 
-      {/* Date header — modern layout like prototype */}
+      {/* Date header */}
       <div className="px-6 pb-5">
+        {displayDate && (
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 4 }}>
+            {displayDate}
+          </p>
+        )}
         <div className="flex items-start justify-between">
           <div>
             <h2
@@ -408,16 +417,11 @@ function Level2({
             >
               {dateName}
             </h2>
-            <div className="mt-1.5 flex items-center gap-3">
+            <div className="mt-2 flex items-center gap-3">
               <StatusBadge isActive={hasCampaign} />
-              {campaign && (
-                <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-                  R${' '}
-                  {campaign.selectedProducts
-                    ?.reduce((s, p) => s + p.price, 0)
-                    .toLocaleString('pt-BR')}
-                </span>
-              )}
+              <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+                R$ {(estimatedRevenue ?? 0).toLocaleString('pt-BR')}
+              </span>
             </div>
           </div>
           {campaign && (
@@ -1038,6 +1042,8 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       <Level2
         dateId={dateId}
         dateName={dateName}
+        displayDate={dates.find((d) => d.id === dateId)?.displayDate}
+        estimatedRevenue={dates.find((d) => d.id === dateId)?.estimatedRevenue}
         campaign={campaigns[dateId] ?? null}
         isGenerating={generating[dateId] ?? false}
         isRegeneratingConcept={regeneratingConcept[dateId] ?? false}
