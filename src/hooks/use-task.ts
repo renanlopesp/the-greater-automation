@@ -35,9 +35,9 @@ export function useTask(taskId: string) {
     select: (data) => data.task,
     refetchInterval: (query) => {
       const task = query.state.data?.task
-      if (!task) return false
-      if (task.skill_status === 'running') return 2000
-      return false
+      if (!task) return 2000 // poll until first data arrives
+      if (task.skill_status === 'running' || task.skill_status === 'idle') return 2000
+      return false // stop polling when completed or failed
     },
     retry: 3,
   })
