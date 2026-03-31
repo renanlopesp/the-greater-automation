@@ -757,8 +757,13 @@ export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dateId, dateName }),
       })
-      if (!res.ok) throw new Error('generation failed')
-      const campaign = (await res.json()) as FullCampaign
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.error ?? 'generation failed')
+      }
+      const body = await res.json()
+      // API returns { executionId, campaign, durationMs } — extract campaign
+      const campaign = (body.campaign ?? body) as FullCampaign
       setCampaigns((prev) => ({ ...prev, [dateId]: campaign }))
     } catch {
       setGenerationError((prev) => ({ ...prev, [dateId]: true }))
@@ -777,7 +782,8 @@ export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps
         body: JSON.stringify({ dateId, sectionType: 'concept' }),
       })
       if (!res.ok) throw new Error('regeneration failed')
-      const updated = (await res.json()) as Partial<FullCampaign>
+      const body = await res.json()
+      const updated = (body.campaign ?? body) as FullCampaign
       setCampaigns((prev) => ({
         ...prev,
         [dateId]: { ...prev[dateId]!, ...updated },
@@ -800,7 +806,8 @@ export function SeasonalCalendarArtifact({ data }: SeasonalCalendarArtifactProps
         body: JSON.stringify({ dateId, sectionType }),
       })
       if (!res.ok) throw new Error('regeneration failed')
-      const updated = (await res.json()) as Partial<FullCampaign>
+      const body = await res.json()
+      const updated = (body.campaign ?? body) as FullCampaign
       setCampaigns((prev) => ({
         ...prev,
         [dateId]: { ...prev[dateId]!, ...updated },
