@@ -369,11 +369,29 @@ function ArtifactRenderer({ artifactType, artifactData }: { artifactType: string
 - Create `ArtifactRenderer` component
 - Wire artifact panel to read `task.artifact_data` in real time
 
-### Phase 3: Seasonal Calendar in Artifact
+### Phase 3: Seasonal Calendar — Full Reimplementation
 
-- Move `SeasonalCalendarWorkspace` rendering into `SeasonalCalendarArtifact`
-- Remove standalone skill page
-- Skill invoked via orchestrator → output renders in artifact panel
+**Delete entirely:**
+
+- `src/components/skills/seasonal-calendar/` (entire directory — workspace, levels, calendar-artifact, etc.)
+- `src/hooks/use-seasonal-calendar.ts` (direct API hooks)
+- `src/hooks/use-skill-chat.ts` (unnecessary wrapper)
+
+**Keep (AI core):**
+
+- `src/lib/ai/seasonal-campaign-generator.ts` (generateCalendar, generateCampaign, regenerateSection)
+- `src/app/api/skills/seasonal-calendar/*.ts` (reused internally by skill dispatch, not by frontend)
+- Zod schemas (PersonalizedCalendar, FullCampaign)
+
+**Reimplement:**
+
+- `SeasonalCalendarArtifact` — new component in artifact panel (Level 1: date list, Level 2: campaign detail)
+- SNEW_RUN_SKILL dispatch with `action` parameter:
+  - `{ action: 'generate-calendar' }` → calls `generateCalendar()` → Level 1 data
+  - `{ action: 'generate-campaign', dateId }` → calls `generateCampaign()` → Level 2 data
+  - `{ action: 'regenerate', section, dateId }` → calls `regenerateSection()` → updated section
+- All drill-down via chat ("detalha Dia das Mães") → orchestrator re-invokes skill → artifact updates
+- Remove standalone skill page, remove `/skills/seasonal-calendar` workspace
 
 ### Phase 4: Tasks List + Skills Browse
 
