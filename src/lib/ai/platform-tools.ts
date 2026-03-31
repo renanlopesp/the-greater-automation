@@ -6,6 +6,7 @@ import type { Json } from '@/lib/supabase/database.types'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
 import { fetchTeamSkills, fetchSkillBySlug, fetchSkillExecutions } from '@/lib/queries/skills'
 import { executeSkill } from '@/lib/ai/skill-executor'
+import { generateCalendar } from '@/lib/ai/seasonal-campaign-generator'
 import { skills as skillCatalog } from '@/data/skills'
 
 type SupabaseClient =
@@ -124,6 +125,114 @@ export function buildPlatformTools(
             .eq('id', taskId)
         }
 
+        // ── Skill-specific generators (bypass Fase 0 executeSkill) ──
+        if (params.skill_slug === 'seasonal-calendar' && taskId) {
+          try {
+            // Fetch brand_dna + products for calendar generation
+            const [{ data: brandDna }, { data: products }] = await Promise.all([
+              (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    select: (s: string) => {
+                      eq: (
+                        k: string,
+                        v: string
+                      ) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
+                    }
+                  }
+                }
+              )
+                .from('brand_dna')
+                .select('niche, audience, positioning, tone, average_ticket, opportunities')
+                .eq('team_id', teamId)
+                .single(),
+              (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    select: (s: string) => {
+                      eq: (
+                        k: string,
+                        v: string
+                      ) => {
+                        limit: (
+                          n: number
+                        ) => Promise<{
+                          data: Array<{ name: string; category?: string; price: number }> | null
+                        }>
+                      }
+                    }
+                  }
+                }
+              )
+                .from('store_products')
+                .select('name, category, price')
+                .eq('team_id', teamId)
+                .limit(50),
+            ])
+
+            const calendarResult = await generateCalendar({
+              brandDna: {
+                niche: (brandDna?.niche as string) ?? 'varejo',
+                audience: (brandDna?.audience as string) ?? 'consumidores gerais',
+                positioning: (brandDna?.positioning as string) ?? '',
+                tone: (brandDna?.tone as string) ?? 'profissional',
+                average_ticket: (brandDna?.average_ticket as number) ?? 100,
+                opportunities:
+                  (brandDna?.opportunities as Array<{
+                    title: string
+                    description: string
+                    estimated_revenue: number
+                  }>) ?? [],
+              },
+              products: products ?? [],
+              currentDate: new Date(),
+              year: new Date().getFullYear(),
+            })
+
+            // Save real calendar data to task
+            await (
+              supabase as unknown as {
+                from: (t: string) => {
+                  update: (d: unknown) => {
+                    eq: (k: string, v: string) => Promise<{ error: unknown }>
+                  }
+                }
+              }
+            )
+              .from('tasks')
+              .update({
+                artifact_data: calendarResult,
+                artifact_type: 'seasonal-calendar',
+                skill_status: 'completed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', taskId)
+
+            return {
+              status: 'completed',
+              summary: `Calendário sazonal ${calendarResult.year} gerado com ${calendarResult.dates?.length ?? 0} datas.`,
+              data: calendarResult,
+            }
+          } catch (err) {
+            if (taskId) {
+              await (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    update: (d: unknown) => {
+                      eq: (k: string, v: string) => Promise<{ error: unknown }>
+                    }
+                  }
+                }
+              )
+                .from('tasks')
+                .update({ skill_status: 'failed', updated_at: new Date().toISOString() })
+                .eq('id', taskId)
+            }
+            return { error: err instanceof Error ? err.message : 'Calendar generation failed' }
+          }
+        }
+
+        // ── Default: Fase 0 executeSkill (context injection) ──
         const result = await executeSkill(supabase, teamId, params.skill_slug, params.input)
 
         if (result.status === 'failed') {
