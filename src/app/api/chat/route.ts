@@ -191,6 +191,90 @@ export async function POST(request: NextRequest) {
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
   }
 
+  // 7b. Auto-detect and run skills BEFORE AI (programmatic dispatch)
+  let skillContext = ''
+  if (taskId) {
+    const lowerMsg = userMessage.toLowerCase()
+    const isCalendarRequest =
+      lowerMsg.includes('calendário') ||
+      lowerMsg.includes('calendario') ||
+      lowerMsg.includes('sazonal') ||
+      lowerMsg.includes('seasonal') ||
+      lowerMsg.includes('datas sazonais')
+
+    if (isCalendarRequest) {
+      try {
+        // Set task to running
+        await serviceClient
+          .from('tasks' as never)
+          .update({
+            skill_status: 'running',
+            active_skill: 'seasonal-calendar',
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('id' as never, taskId)
+
+        // Fetch brand_dna + products for generation
+        const { data: bd } = await serviceClient
+          .from('brand_dna' as never)
+          .select('niche, audience, positioning, tone, average_ticket, opportunities')
+          .eq('team_id' as never, teamId)
+          .single()
+
+        const { data: prods } = await serviceClient
+          .from('store_products')
+          .select('name, price')
+          .eq('team_id' as never, teamId)
+          .limit(50)
+
+        const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
+        const calendarData = await generateCalendar({
+          brandDna: {
+            niche: ((bd as unknown as Record<string, unknown>)?.niche as string) ?? 'varejo',
+            audience:
+              ((bd as unknown as Record<string, unknown>)?.audience as string) ??
+              'consumidores gerais',
+            positioning: ((bd as unknown as Record<string, unknown>)?.positioning as string) ?? '',
+            tone: ((bd as unknown as Record<string, unknown>)?.tone as string) ?? 'profissional',
+            average_ticket:
+              ((bd as unknown as Record<string, unknown>)?.average_ticket as number) ?? 100,
+            opportunities:
+              ((bd as unknown as Record<string, unknown>)?.opportunities as Array<{
+                title: string
+                description: string
+                estimated_revenue: number
+              }>) ?? [],
+          },
+          products: (prods ?? []) as Array<{ name: string; price: number }>,
+          currentDate: new Date(),
+          year: new Date().getFullYear(),
+        })
+
+        // Save to task artifact
+        await serviceClient
+          .from('tasks' as never)
+          .update({
+            artifact_data: calendarData,
+            artifact_type: 'seasonal-calendar',
+            skill_status: 'completed',
+            active_skill: 'seasonal-calendar',
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('id' as never, taskId)
+
+        // Inject calendar result as context for AI to summarize
+        skillContext = `\n\n[SKILL RESULT — Calendário Sazonal gerado com ${calendarData.dates?.length ?? 0} datas. O resultado completo já está sendo exibido no painel de entrega ao lado. Responda com um resumo curto de 2-3 frases sobre o calendário gerado. NÃO repita os dados em tabela ou lista — eles já estão visíveis no painel lateral.]`
+      } catch (skillErr) {
+        await serviceClient
+          .from('tasks' as never)
+          .update({ skill_status: 'failed', updated_at: new Date().toISOString() } as never)
+          .eq('id' as never, taskId)
+
+        skillContext = `\n\n[SKILL ERROR — Falha ao gerar calendário sazonal: ${skillErr instanceof Error ? skillErr.message : 'erro desconhecido'}. Informe ao usuário que houve um erro técnico.]`
+      }
+    }
+  }
+
   // 8. Build orchestrator system prompt
   const orchestratorPrompt = buildOrchestratorSystemPrompt(
     team?.name ?? 'Your workspace',
@@ -289,7 +373,7 @@ export async function POST(request: NextRequest) {
       userId: entityId,
       agent: agentConfig,
       messages: modelMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-      systemPrompt: orchestratorPrompt,
+      systemPrompt: orchestratorPrompt + skillContext,
       relayTools: platformTools,
       connectedAppIds: appIds.size > 0 ? [...appIds] : undefined,
       connectedAccountMap,
