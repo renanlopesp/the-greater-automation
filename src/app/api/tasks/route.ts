@@ -106,20 +106,9 @@ export async function POST(request: NextRequest) {
       .update({ conversation_id: conversation.id })
       .eq('id', task.id)
 
-    // 7. Store the initial user message in conversation_messages
-    await (
-      serviceClient as unknown as {
-        from: (t: string) => { insert: (d: unknown) => Promise<unknown> }
-      }
-    )
-      .from('conversation_messages')
-      .insert({
-        conversation_id: conversation.id,
-        role: 'user',
-        content: message,
-      })
-
-    // 8. Return IDs
+    // 7. Return IDs — initial message is NOT stored here.
+    // The chat hook uses initialQuery to auto-send it to /api/chat,
+    // which handles both storing the message and triggering the AI response.
     return NextResponse.json({ taskId: task.id, conversationId: conversation.id })
   } catch (error) {
     return NextResponse.json(

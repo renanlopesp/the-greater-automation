@@ -27,12 +27,14 @@ interface TaskPageClientProps {
   task: TaskData
   initialConversationId: string | null
   initialMessages: Array<{ id: string; role: string; content: string }>
+  initialQuery?: string
 }
 
 function TaskContentWithLayout({
   task: initialTask,
   initialConversationId,
   initialMessages,
+  initialQuery,
 }: TaskPageClientProps) {
   // Poll task for artifact updates
   const { data: liveTask } = useTask(initialTask.id)
@@ -45,6 +47,7 @@ function TaskContentWithLayout({
         <OrchestratorChatWrapper
           initialConversationId={initialConversationId}
           initialMessages={initialMessages}
+          initialQuery={initialQuery}
           taskId={initialTask.id}
         />
       </div>

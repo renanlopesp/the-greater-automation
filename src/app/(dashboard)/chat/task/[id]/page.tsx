@@ -114,6 +114,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       }}
       initialConversationId={task.conversation_id}
       initialMessages={initialMessages}
+      initialQuery={initialMessages.length === 0 ? (task.initial_message ?? undefined) : undefined}
     />
   )
 }
