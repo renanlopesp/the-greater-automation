@@ -182,8 +182,10 @@ CREATE TABLE tasks (
   title TEXT NOT NULL DEFAULT 'New task',
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
   active_skill TEXT,                    -- current skill slug (nullable)
+  skill_status TEXT DEFAULT 'idle' CHECK (skill_status IN ('idle', 'running', 'completed', 'failed')),
   artifact_type TEXT,                   -- component to render: 'seasonal-calendar', 'campaign', etc.
   artifact_data JSONB DEFAULT '{}',     -- structured output from skill
+  initial_message TEXT,                 -- first user message (for task creation flow)
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -397,9 +399,80 @@ function ArtifactRenderer({ artifactType, artifactData }: { artifactType: string
 
 ---
 
+---
+
+## Critical Implementation Details (from review)
+
+### First Message Flow
+
+POST /api/tasks MUST:
+
+1. Create the task row
+2. Create the conversation row (linked to task)
+3. **Store the user's initial message** in `conversation_messages`
+4. Return `{ taskId, conversationId }`
+
+On `/chat/task/[id]`, the server component loads the message from DB as `initialMessages`. The `useOrchestratorChat` hook sends it to the AI via the normal flow. **Do NOT use `initialQuery` pattern** (it would double-send).
+
+`useOrchestratorChat` must be modified to include `taskId` in the transport body:
+
+```ts
+body: () => ({ conversationId: conversationIdRef.current, taskId })
+```
+
+### SNEW_RUN_SKILL → Task Artifact Pipeline
+
+1. `buildPlatformTools(userId, teamId, supabase, storeId, taskId)` — add `taskId` as 5th param
+2. Inside SNEW_RUN_SKILL.execute:
+   a. **Before calling generator**: UPDATE tasks SET `skill_status = 'running'`, `active_skill = slug`
+   b. **Call skill generator** (e.g., `generateCalendar()`)
+   c. **After generator returns**: UPDATE tasks SET `artifact_data = output`, `artifact_type = slug`, `skill_status = 'completed'`
+   d. **If generator throws**: UPDATE tasks SET `skill_status = 'failed'`
+   e. Return result to AI model (which generates the text response)
+
+The frontend (`useTask` hook) polls and sees:
+
+- `skill_status = 'running'` → show `ArtifactLoadingState` (skeleton + "Gerando calendário...")
+- `skill_status = 'completed'` → show `ArtifactRenderer` with real data → **stop polling**
+- `skill_status = 'failed'` → show `ArtifactErrorState` → **stop polling**
+
+### Seasonal Calendar Scope (Phase 3)
+
+Phase 3 renders **only Level 1** (calendar date list) in the artifact panel. Level 2/3 drill-down (campaign detail, section regeneration) is **out of scope** for this spec — added as future phase.
+
+### Artifact Panel States
+
+```
+skill_status = null/'idle'  → ArtifactEmptyState ("Ask Snew something")
+skill_status = 'running'    → ArtifactLoadingState (skeleton + skill name)
+skill_status = 'completed'  → ArtifactRenderer (real data)
+skill_status = 'failed'     → ArtifactErrorState (error message + retry)
+```
+
+### Error Handling
+
+- **Skill failure**: `skill_status = 'failed'` shown in artifact panel. Chat still shows AI's error explanation.
+- **Task not found**: `/chat/task/[id]` returns `notFound()` (Next.js 404 page)
+- **Task creation failure**: Ask bar shows toast error, stays on dashboard
+- **Network error during polling**: `useTask` has `retry: 3` in React Query config
+
+### Polling Logic (useTask hook)
+
+```ts
+refetchInterval: (query) => {
+  const task = query.state.data?.task
+  if (!task) return false
+  if (task.skill_status === 'running') return 2000 // poll every 2s
+  return false // stop polling when idle/completed/failed
+}
+```
+
+---
+
 ## Out of Scope
 
 - Multiple skills per task (future: task can chain skills)
+- Seasonal Calendar Level 2/3 drill-down (campaign detail) — future phase
 - Task scheduling/automation
 - Task sharing between team members
 - File uploads in tasks
