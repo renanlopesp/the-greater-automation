@@ -21,7 +21,8 @@ interface AppSidebarNewProps {
   onClose?: () => void
 }
 
-function isActive(pathname: string, path: string): boolean {
+function isActive(pathname: string, path: string, label: string): boolean {
+  if (label === 'New Task') return false // New Task is a shortcut, never active
   if (path === '/dashboard') return pathname === '/' || pathname === '/dashboard'
   if (path === '/chat') return pathname === '/chat'
   if (path === '/skills') return pathname === '/skills' || pathname.startsWith('/skills/')
@@ -120,7 +121,7 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
                   className={cn(
                     'relative mb-0.5 flex w-full items-center rounded-md transition-colors',
                     collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2',
-                    isActive(pathname, item.path)
+                    isActive(pathname, item.path, item.label)
                       ? 'bg-accent text-foreground font-medium'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
