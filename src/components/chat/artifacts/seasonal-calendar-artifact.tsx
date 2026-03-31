@@ -201,7 +201,92 @@ function Breadcrumb({ label, onClick }: { label: string; onClick: () => void }) 
 // Level 1 — Date list row
 // ---------------------------------------------------------------------------
 
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <span
+      className="rounded-full px-2.5 py-0.5"
+      style={{
+        fontSize: 11,
+        fontWeight: 500,
+        background: isActive
+          ? 'color-mix(in srgb, var(--green, #22c55e) 12%, transparent)'
+          : 'color-mix(in srgb, #f97316 12%, transparent)',
+        color: isActive ? 'var(--green, #22c55e)' : '#f97316',
+      }}
+    >
+      {isActive ? 'Ativo' : 'Pendente'}
+    </span>
+  )
+}
+
 function CalendarRow({
+  date,
+  isLast,
+  onClick,
+  hasCampaign,
+}: {
+  date: PersonalizedDate
+  isLast: boolean
+  onClick: () => void
+  hasCampaign: boolean
+}) {
+  // Extract month abbreviation from displayDate (e.g., "10 de Maio" → "MAI")
+  const monthMatch = date.displayDate?.match(/de\s+(\w+)/i)
+  const monthLabel = monthMatch ? monthMatch[1].substring(0, 3).toUpperCase() : ''
+  const dayMatch = date.displayDate?.match(/^(\d+)/)
+  const dayNumber = dayMatch ? dayMatch[1] : ''
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'flex cursor-pointer items-center justify-between transition-colors hover:bg-[var(--accent)]'
+      )}
+      style={{
+        padding: '16px 0',
+        borderBottom: isLast ? 'none' : '1px solid var(--border)',
+      }}
+    >
+      {/* Left: month/day + name + revenue */}
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <div className="flex w-10 shrink-0 flex-col items-center">
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 500,
+              color: 'var(--muted-foreground)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            {monthLabel}
+          </span>
+          <span
+            style={{ fontSize: 22, fontWeight: 600, color: 'var(--foreground)', lineHeight: 1 }}
+          >
+            {dayNumber}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>
+            {date.name}
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0, marginTop: 2 }}>
+            R$ {date.estimatedRevenue?.toLocaleString('pt-BR')}
+          </p>
+        </div>
+      </div>
+
+      {/* Right: status badge + chevron */}
+      <div className="flex shrink-0 items-center gap-2 pl-3">
+        <StatusBadge isActive={hasCampaign} />
+        <ChevronRight size={16} style={{ color: 'var(--muted-foreground)' }} />
+      </div>
+    </div>
+  )
+}
+
+/* Keep old PRIORITY_COLORS reference for potential future use */
+function _CalendarRowOld({
   date,
   isLast,
   onClick,
@@ -223,7 +308,6 @@ function CalendarRow({
         borderBottom: isLast ? 'none' : '1px solid var(--border)',
       }}
     >
-      {/* Left: dot + name + date */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span
           className="shrink-0 rounded-full"
@@ -239,7 +323,6 @@ function CalendarRow({
         </div>
       </div>
 
-      {/* Right: revenue + chevron */}
       <div className="flex shrink-0 items-center gap-2 pl-3">
         <span
           style={{
@@ -857,8 +940,9 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
           Calendário Sazonal {year}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 24 }}>
-          {summary.totalDates} datas
-          {highCount > 0 && ` · ${highCount} precisam de ação imediata`}
+          {dates.length} datas · {Object.keys(campaigns).length} geradas · R${' '}
+          {Math.round(dates.reduce((sum, d) => sum + (d.estimatedRevenue ?? 0), 0) / 1000)}k
+          potencial
         </p>
         <div>
           {dates.map((date, index) => (
@@ -867,6 +951,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
               date={date}
               isLast={index === dates.length - 1}
               onClick={() => handleDateClick(date)}
+              hasCampaign={!!campaigns[date.id]}
             />
           ))}
         </div>
