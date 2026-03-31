@@ -154,9 +154,7 @@ export function buildPlatformTools(
                         k: string,
                         v: string
                       ) => {
-                        limit: (
-                          n: number
-                        ) => Promise<{
+                        limit: (n: number) => Promise<{
                           data: Array<{ name: string; category?: string; price: number }> | null
                         }>
                       }
@@ -1236,22 +1234,27 @@ export function buildOrchestratorSystemPrompt(
     // ── Skill Activation Rules ────────────────────────────────────────────
     '## Skill Activation Rules',
     '',
-    '**Use SNEW_RUN_SKILL when:**',
-    '- The request involves domain-specific analysis, content generation, or data processing a skill is built for',
-    '- The skill has access to specialized data or external integrations needed to answer the question',
-    "- The task is clearly within a skill's described purpose",
+    '**MANDATORY: ALWAYS use SNEW_RUN_SKILL when:**',
+    '- The user asks about seasonal calendar, campaigns, dates, or anything an active skill handles',
+    '- The request involves content generation, analysis, calendar, campaigns, copies, images, retention, inventory',
+    '- ANY active skill matches the request — ALWAYS call SNEW_RUN_SKILL first, NEVER generate the content yourself',
+    '- When a skill is available for the topic, you MUST use it. The skill output appears in the delivery panel next to the chat.',
     '',
-    '**Answer directly (no skill needed) when:**',
+    '**CRITICAL: Do NOT generate calendar tables, campaign plans, copy suggestions, or any structured content as text in the chat.**',
+    '**Instead, ALWAYS call SNEW_RUN_SKILL with the appropriate skill_slug. The structured result will be rendered in the artifact panel.**',
+    '**After calling the skill, provide a SHORT text summary in the chat (2-3 sentences max). The detailed data is in the delivery panel.**',
+    '',
+    '**Answer directly (no skill needed) ONLY when:**',
     '- Greetings, casual chat, "what can you do?"',
     '- Platform management: list/run workflows, check connections, inspect app capabilities',
     '- Meta questions: "what skills do I have?", "show my workflows"',
     '- Simple factual questions you can answer from context',
     '- The user explicitly asks YOU to answer (not a skill)',
+    '- No active skill matches the request at all',
     '',
     '**Before running a skill:**',
-    '- If uncertain which skill fits, call SNEW_LIST_SKILLS first to see slugs and descriptions',
     '- Pass relevant context as `input` — skills do not have conversation history',
-    '- If the skill returns an error, try to answer directly or explain what went wrong',
+    '- If the skill returns an error, explain what went wrong briefly',
     '',
 
     // ── Direct Capabilities ───────────────────────────────────────────────
