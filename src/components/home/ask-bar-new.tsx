@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useImperativeHandle, forwardRef } from 'react'
+import { useState, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUp } from 'lucide-react'
+import { ArrowUp, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export interface AskBarHandle {
@@ -12,6 +13,7 @@ export interface AskBarHandle {
 export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
   const router = useRouter()
   const [value, setValue] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useImperativeHandle(ref, () => ({
@@ -21,11 +23,36 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
     },
   }))
 
-  const send = (msg: string) => {
-    const trimmed = msg.trim()
-    if (!trimmed) return
-    router.push(`/chat?q=${encodeURIComponent(trimmed)}`)
-  }
+  const send = useCallback(
+    async (msg: string) => {
+      const trimmed = msg.trim()
+      if (!trimmed || isCreating) return
+
+      setIsCreating(true)
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: trimmed }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to create task')
+        }
+
+        const { taskId } = await res.json()
+        setValue('')
+        router.push(`/chat/task/${taskId}`)
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : 'Erro ao criar tarefa. Tente novamente.'
+        )
+        setIsCreating(false)
+      }
+    },
+    [isCreating, router]
+  )
 
   return (
     <div
@@ -44,6 +71,7 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
         rows={2}
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        disabled={isCreating}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -51,17 +79,26 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
           }
         }}
         placeholder="Pergunte sobre campanhas, copies, assets, dados..."
-        className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-5 pt-4 pb-3 text-sm leading-relaxed outline-none"
+        className="placeholder:text-muted-foreground max-h-32 w-full resize-none bg-transparent px-5 pt-4 pb-3 text-sm leading-relaxed outline-none disabled:opacity-50"
       />
       <div className="flex items-center justify-end px-4 pb-4">
         <button
           onClick={() => send(value)}
+          disabled={isCreating}
           className={cn(
             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all',
-            value.trim() ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
+            isCreating
+              ? 'bg-muted text-muted-foreground'
+              : value.trim()
+                ? 'bg-foreground text-background'
+                : 'bg-muted text-muted-foreground'
           )}
         >
-          <ArrowUp className="h-4 w-4" />
+          {isCreating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowUp className="h-4 w-4" />
+          )}
         </button>
       </div>
     </div>
