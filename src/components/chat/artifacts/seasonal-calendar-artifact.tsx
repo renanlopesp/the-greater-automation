@@ -145,25 +145,69 @@ function SkeletonBox({ className }: { className?: string }) {
 
 function Level2Skeleton() {
   return (
-    <div className="flex flex-col gap-4 p-5">
-      <SkeletonBox className="h-4 w-32" />
-      <SkeletonBox className="h-20 w-full rounded-xl" />
-      <SkeletonBox className="h-4 w-48" />
-      <div className="flex flex-col gap-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <SkeletonBox className="h-10 w-10 rounded-lg" />
-            <div className="flex flex-1 flex-col gap-1">
-              <SkeletonBox className="h-4 w-36" />
-              <SkeletonBox className="h-3 w-20" />
-            </div>
-          </div>
-        ))}
+    <div className="flex flex-col" style={{ background: 'var(--muted)' }}>
+      {/* Header skeleton */}
+      <div
+        className="px-6 pt-5 pb-6"
+        style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
+      >
+        <SkeletonBox className="mb-4 h-3 w-20" />
+        <SkeletonBox className="mb-3 h-6 w-48" />
+        <div className="flex items-center gap-3">
+          <SkeletonBox className="h-5 w-16 rounded-full" />
+          <SkeletonBox className="h-4 w-24" />
+        </div>
       </div>
-      <div className="mt-4 flex flex-col gap-2">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <SkeletonBox key={i} className="h-12 w-full" />
-        ))}
+
+      {/* Concept card skeleton */}
+      <div className="px-4 pt-5 pb-2">
+        <SkeletonBox className="mb-3 h-3 w-36" />
+        <div
+          className="flex flex-col gap-3 rounded-2xl p-5"
+          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        >
+          <SkeletonBox className="h-5 w-4/5" />
+          <SkeletonBox className="h-4 w-full" />
+          <SkeletonBox className="h-4 w-3/4" />
+          <div
+            className="mt-2 flex flex-col gap-3 pt-2"
+            style={{ borderTop: '1px solid var(--border)' }}
+          >
+            <SkeletonBox className="h-3 w-28" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <SkeletonBox className="h-10 w-10 flex-shrink-0 rounded-xl" />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <SkeletonBox className="h-3.5 w-36" />
+                  <SkeletonBox className="h-3 w-20" />
+                </div>
+                <SkeletonBox className="h-5 w-14 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Section nav skeleton */}
+      <div className="px-4 pt-4 pb-5">
+        <SkeletonBox className="mb-3 h-3 w-24" />
+        <div
+          className="overflow-hidden rounded-2xl"
+          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        >
+          {[0, 1, 2, 3, 4, 5].map((i, idx, arr) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 px-4 py-3.5"
+              style={{ borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none' }}
+            >
+              <SkeletonBox className="h-8 w-8 flex-shrink-0 rounded-xl" />
+              <SkeletonBox className="h-4 w-24 flex-1" />
+              <SkeletonBox className="h-3 w-20" />
+              <SkeletonBox className="h-3 w-3" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -391,105 +435,156 @@ function Level2({
   const hasCampaign = !!campaign
 
   return (
-    <div className="flex flex-col">
-      {/* Breadcrumb */}
-      <div className="px-6 pt-5 pb-3">
-        <Breadcrumb label="Calendario Sazonal 2026" onClick={onBack} />
-      </div>
+    <div className="flex flex-col" style={{ background: 'var(--muted)', minHeight: '100%' }}>
+      {/* Header — white card surface */}
+      <div
+        className="px-6 pt-5 pb-6"
+        style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
+      >
+        <div className="mb-4">
+          <Breadcrumb label="Calendario Sazonal 2026" onClick={onBack} />
+        </div>
 
-      {/* Date header */}
-      <div className="px-6 pb-5">
         {displayDate && (
-          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 4 }}>
+          <p
+            className="mb-1 tracking-[0.06em] uppercase"
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: 'var(--muted-foreground)',
+              letterSpacing: '0.08em',
+            }}
+          >
             {displayDate}
           </p>
         )}
-        <div className="flex items-start justify-between">
-          <div>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 600,
-                color: 'var(--foreground)',
-                margin: 0,
-                lineHeight: 1.3,
-              }}
-            >
-              {dateName}
-            </h2>
-            <div className="mt-2 flex items-center gap-3">
-              <StatusBadge isActive={hasCampaign} />
-              <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-                R$ {(estimatedRevenue ?? 0).toLocaleString('pt-BR')}
-              </span>
-            </div>
-          </div>
+
+        <div className="flex items-start justify-between gap-4">
+          <h2
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: 'var(--foreground)',
+              margin: 0,
+              lineHeight: 1.25,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {dateName}
+          </h2>
           {campaign && (
             <RegenerateButton onClick={onRegenerateConcept} isLoading={isRegeneratingConcept} />
           )}
         </div>
+
+        <div className="mt-3 flex items-center gap-2.5">
+          <StatusBadge isActive={hasCampaign} />
+          <span
+            style={{
+              width: 3,
+              height: 3,
+              borderRadius: '50%',
+              background: 'var(--border)',
+              display: 'inline-block',
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: 13, color: 'var(--muted-foreground)', fontWeight: 500 }}>
+            {formatRevenue(estimatedRevenue ?? 0)}
+          </span>
+        </div>
       </div>
 
-      <div style={{ height: 1, background: 'var(--border)' }} />
-
       {/* Loading */}
-      {isGenerating && <Level2Skeleton />}
+      {isGenerating && (
+        <div style={{ background: 'var(--muted)' }}>
+          <Level2Skeleton />
+        </div>
+      )}
 
       {/* Error */}
       {generationError && !isGenerating && (
-        <div className="mx-6 mt-5 rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950">
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">
-            Erro ao gerar campanha
-          </p>
-          <p className="mt-1 text-xs text-red-500 dark:text-red-400/80">
-            Verifique se o Brand DNA está configurado e tente novamente.
-          </p>
-          <button
-            onClick={onGenerate}
-            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-red-700"
+        <div className="mx-4 mt-5">
+          <div
+            className="rounded-2xl p-5"
+            style={{
+              background: 'color-mix(in srgb, #ef4444 8%, var(--card))',
+              border: '1px solid color-mix(in srgb, #ef4444 20%, transparent)',
+            }}
           >
-            Tentar novamente
-          </button>
+            <p style={{ fontSize: 14, fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>
+              Erro ao gerar campanha
+            </p>
+            <p style={{ fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>
+              Verifique se o Brand DNA está configurado e tente novamente.
+            </p>
+            <button
+              onClick={onGenerate}
+              className="mt-4 rounded-xl px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: '#dc2626', fontSize: 13 }}
+            >
+              Tentar novamente
+            </button>
+          </div>
         </div>
       )}
 
       {/* No campaign — empty state */}
       {!campaign && !isGenerating && !generationError && (
-        <div className="flex flex-col items-center gap-5 px-6 py-16 text-center">
+        <div className="flex flex-col items-center px-6 py-20 text-center">
           <div
-            className="flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ background: 'color-mix(in srgb, var(--foreground) 5%, transparent)' }}
+            className="mb-6 flex items-center justify-center rounded-2xl"
+            style={{
+              width: 64,
+              height: 64,
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-sm)',
+            }}
           >
-            <Sparkles style={{ width: 24, height: 24, color: 'var(--muted-foreground)' }} />
+            <Sparkles style={{ width: 28, height: 28, color: 'var(--muted-foreground)' }} />
           </div>
-          <div>
-            <p
-              style={{ fontSize: 15, fontWeight: 500, color: 'var(--foreground)', marginBottom: 4 }}
-            >
-              Campanha ainda não gerada
-            </p>
-            <p
-              style={{
-                fontSize: 13,
-                color: 'var(--muted-foreground)',
-                maxWidth: 280,
-                margin: '0 auto',
-              }}
-            >
-              Gere uma campanha completa com conceito, copies, assets e timeline.
-            </p>
-          </div>
+
+          <p
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: 'var(--foreground)',
+              marginBottom: 8,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Campanha ainda não gerada
+          </p>
+          <p
+            style={{
+              fontSize: 13,
+              color: 'var(--muted-foreground)',
+              maxWidth: 260,
+              lineHeight: 1.6,
+              marginBottom: 24,
+            }}
+          >
+            Gere uma campanha completa com conceito, copies, assets e timeline.
+          </p>
+
           <button
             onClick={onGenerate}
-            className={cn(
-              'rounded-xl px-8 py-3 text-sm font-medium transition-all',
-              'bg-foreground text-background shadow-sm hover:opacity-90'
-            )}
+            className="rounded-xl font-medium transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              background: 'var(--foreground)',
+              color: 'var(--background)',
+              fontSize: 14,
+              padding: '12px 32px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
           >
             Gerar Campanha
           </button>
-          <p style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
-            ou peça ao Snew: <em>&ldquo;Gera a campanha de {dateName}&rdquo;</em>
+
+          <p style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 16 }}>
+            ou peça ao Snew:{' '}
+            <em style={{ fontStyle: 'italic' }}>&ldquo;Gera a campanha de {dateName}&rdquo;</em>
           </p>
         </div>
       )}
@@ -498,9 +593,9 @@ function Level2({
       {campaign && !isGenerating && (
         <>
           {/* Concept card */}
-          <div className="px-6 py-5">
+          <div className="px-4 pt-5 pb-2">
             <p
-              className="mb-3 tracking-[0.06em] uppercase"
+              className="mb-3 tracking-[0.08em] uppercase"
               style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
             >
               Conceito da Campanha
@@ -508,93 +603,171 @@ function Level2({
 
             {isRegeneratingConcept ? (
               <div
-                className="flex flex-col gap-3 rounded-2xl bg-[var(--background)] p-6 shadow-sm"
-                style={{ border: '1px solid var(--border)' }}
+                className="flex flex-col gap-3 rounded-2xl p-5"
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
               >
-                {[0, 1, 2].map((i) => (
-                  <SkeletonBox
-                    key={i}
-                    className={i === 0 ? 'h-5 w-3/4' : i === 1 ? 'h-16 w-full' : 'h-4 w-32'}
-                  />
-                ))}
+                <SkeletonBox className="h-5 w-3/4" />
+                <SkeletonBox className="h-4 w-full" />
+                <SkeletonBox className="h-4 w-2/3" />
+                <SkeletonBox className="mt-1 h-3 w-28" />
               </div>
             ) : (
               <div
-                className="flex flex-col gap-4 rounded-2xl bg-[var(--background)] p-6 shadow-sm"
-                style={{ border: '1px solid var(--border)' }}
+                className="flex flex-col rounded-2xl"
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-sm)',
+                  overflow: 'hidden',
+                }}
               >
-                <p className="text-foreground text-base leading-snug font-medium italic">
-                  &ldquo;{campaign.concept.slogan}&rdquo;
-                </p>
-                <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
-                  {campaign.concept.description}
-                </p>
-
-                {/* Products */}
-                <div className="mt-1">
+                {/* Slogan + description */}
+                <div className="flex flex-col gap-3 p-5">
                   <p
-                    className="mb-3 tracking-[0.06em] uppercase"
-                    style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: 'var(--foreground)',
+                      lineHeight: 1.4,
+                      fontStyle: 'italic',
+                      letterSpacing: '-0.01em',
+                    }}
                   >
-                    Produtos Sugeridos
+                    &ldquo;{campaign.concept.slogan}&rdquo;
                   </p>
-                  <div className="flex flex-col gap-3">
-                    {campaign.concept.products.slice(0, 3).map((product, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <ProductThumb />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-foreground truncate text-sm leading-snug font-medium">
-                            {product.name}
-                          </p>
-                          <p style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                            R$ {product.price}
-                          </p>
+                  <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted-foreground)' }}>
+                    {campaign.concept.description}
+                  </p>
+                </div>
+
+                {/* Products — separated by a hairline */}
+                <div style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="px-5 pt-4 pb-2">
+                    <p
+                      className="mb-3 tracking-[0.08em] uppercase"
+                      style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
+                    >
+                      Produtos Sugeridos
+                    </p>
+                    <div className="flex flex-col gap-3 pb-3">
+                      {campaign.concept.products.slice(0, 3).map((product, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 rounded-xl p-2.5 transition-colors"
+                          style={{
+                            background: 'color-mix(in srgb, var(--foreground) 3%, transparent)',
+                          }}
+                        >
+                          <div
+                            className="flex-shrink-0 rounded-xl"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              background: 'color-mix(in srgb, var(--foreground) 8%, transparent)',
+                            }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="truncate"
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: 'var(--foreground)',
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {product.name}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--muted-foreground)',
+                                marginTop: 1,
+                              }}
+                            >
+                              R$ {product.price}
+                            </p>
+                          </div>
+                          <ProductTagBadge tag={product.tag} />
                         </div>
-                        <ProductTagBadge tag={product.tag} />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Section navigation — clean rows */}
-          <div className="flex flex-col px-2">
-            {SECTION_DEFS.map((section, index) => {
-              const isLast = index === SECTION_DEFS.length - 1
-              return (
-                <button
-                  key={section.type}
-                  onClick={() => onSelectSection(section.type)}
-                  className={cn(
-                    'group mx-4 flex w-auto cursor-pointer items-center gap-3.5 py-4 text-left',
-                    'transition-colors duration-100',
-                    !isLast && 'border-border border-b'
-                  )}
-                >
-                  <span
-                    className="flex h-8 w-8 items-center justify-center rounded-lg"
-                    style={{
-                      background: 'color-mix(in srgb, var(--foreground) 5%, transparent)',
-                      color: 'var(--muted-foreground)',
-                    }}
+          {/* Section navigation */}
+          <div className="px-4 pt-3 pb-6">
+            <p
+              className="mb-3 tracking-[0.08em] uppercase"
+              style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)' }}
+            >
+              Seções
+            </p>
+            <div
+              className="overflow-hidden rounded-2xl"
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              {SECTION_DEFS.map((section, index) => {
+                const isLast = index === SECTION_DEFS.length - 1
+                return (
+                  <button
+                    key={section.type}
+                    onClick={() => onSelectSection(section.type)}
+                    className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[var(--accent)]"
+                    style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}
                   >
-                    {section.icon}
-                  </span>
-                  <span className="text-foreground flex-1 text-sm font-medium">
-                    {section.label}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
-                    {sectionMeta(section.type, campaign)}
-                  </span>
-                  <ChevronRight
-                    size={15}
-                    className="text-muted-foreground flex-shrink-0 opacity-40 transition-opacity group-hover:opacity-100"
-                  />
-                </button>
-              )
-            })}
+                    {/* Icon container */}
+                    <span
+                      className="flex flex-shrink-0 items-center justify-center rounded-xl transition-colors"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        background: 'color-mix(in srgb, var(--foreground) 6%, transparent)',
+                        color: 'var(--muted-foreground)',
+                      }}
+                    >
+                      {section.icon}
+                    </span>
+
+                    {/* Label */}
+                    <span
+                      className="flex-1"
+                      style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground)' }}
+                    >
+                      {section.label}
+                    </span>
+
+                    {/* Count */}
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--muted-foreground)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {sectionMeta(section.type, campaign)}
+                    </span>
+
+                    <ChevronRight
+                      size={15}
+                      className="flex-shrink-0 transition-transform group-hover:translate-x-0.5"
+                      style={{ color: 'var(--muted-foreground)', opacity: 0.5 }}
+                    />
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </>
       )}
