@@ -3,10 +3,14 @@
 import { ChatContextProvider } from '@/contexts/chat-context'
 import ChatHeader from '@/components/chat/chat-header'
 import ChatLayout from '@/components/chat/chat-layout'
-import ArtifactPanelShell from '@/components/chat/artifact-panel-shell'
 import OrchestratorChatWrapper from '@/components/chat/orchestrator-chat-wrapper'
+import ArtifactRenderer, {
+  ArtifactEmptyState,
+  ArtifactLoadingState,
+  ArtifactErrorState,
+} from '@/components/chat/artifact-renderer'
 import { useTask } from '@/hooks/use-task'
-import { MoreHorizontal, Sparkles } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 
 interface TaskData {
   id: string
@@ -25,48 +29,6 @@ interface TaskPageClientProps {
   initialMessages: Array<{ id: string; role: string; content: string }>
 }
 
-function ArtifactEmptyState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <div
-        className="mb-4 flex h-12 w-12 items-center justify-center rounded-full"
-        style={{ background: 'color-mix(in srgb, var(--foreground) 6%, transparent)' }}
-      >
-        <Sparkles className="h-5 w-5" style={{ color: 'var(--muted-foreground)' }} />
-      </div>
-      <p className="font-medium" style={{ fontSize: 14, color: 'var(--foreground)' }}>
-        Nenhum resultado ainda
-      </p>
-      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4, maxWidth: 280 }}>
-        Converse com o Snew e os resultados de skills aparecem aqui.
-      </p>
-    </div>
-  )
-}
-
-function ArtifactLoadingState({ skillName }: { skillName: string | null }) {
-  return (
-    <ArtifactPanelShell loading>
-      <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
-        {skillName ? `Gerando ${skillName}...` : 'Processando...'}
-      </p>
-    </ArtifactPanelShell>
-  )
-}
-
-function ArtifactErrorState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <p className="font-medium" style={{ fontSize: 14, color: 'var(--destructive)' }}>
-        Erro ao gerar resultado
-      </p>
-      <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4, maxWidth: 280 }}>
-        Tente novamente na conversa.
-      </p>
-    </div>
-  )
-}
-
 function TaskContentWithLayout({
   task: initialTask,
   initialConversationId,
@@ -83,6 +45,7 @@ function TaskContentWithLayout({
         <OrchestratorChatWrapper
           initialConversationId={initialConversationId}
           initialMessages={initialMessages}
+          taskId={initialTask.id}
         />
       </div>
     </div>
@@ -94,16 +57,8 @@ function TaskContentWithLayout({
   } else if (task.skill_status === 'failed') {
     artifactInner = <ArtifactErrorState />
   } else if (task.skill_status === 'completed' && task.artifact_data) {
-    // Phase 2 will wire real ArtifactRenderer here
     artifactInner = (
-      <ArtifactPanelShell>
-        <pre
-          className="overflow-x-auto text-xs"
-          style={{ color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}
-        >
-          {JSON.stringify(task.artifact_data, null, 2)}
-        </pre>
-      </ArtifactPanelShell>
+      <ArtifactRenderer artifactType={task.artifact_type} artifactData={task.artifact_data} />
     )
   } else {
     artifactInner = <ArtifactEmptyState />

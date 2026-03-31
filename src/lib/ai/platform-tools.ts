@@ -25,7 +25,8 @@ export function buildPlatformTools(
   userId: string,
   teamId: string,
   supabaseClient?: SupabaseClient,
-  storeId?: string
+  storeId?: string,
+  taskId?: string
 ) {
   const ownerUserId = userId
   const getClient = async () => supabaseClient ?? (await createServerClient())
@@ -102,10 +103,73 @@ export function buildPlatformTools(
       }),
       execute: async (params: { skill_slug: string; input?: Record<string, unknown> }) => {
         const supabase = await getClient()
+
+        // Update task status to 'running' before skill execution
+        if (taskId) {
+          await (
+            supabase as unknown as {
+              from: (t: string) => {
+                update: (d: unknown) => {
+                  eq: (k: string, v: string) => Promise<{ error: unknown }>
+                }
+              }
+            }
+          )
+            .from('tasks')
+            .update({
+              skill_status: 'running',
+              active_skill: params.skill_slug,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', taskId)
+        }
+
         const result = await executeSkill(supabase, teamId, params.skill_slug, params.input)
+
         if (result.status === 'failed') {
+          // Update task status to 'failed'
+          if (taskId) {
+            await (
+              supabase as unknown as {
+                from: (t: string) => {
+                  update: (d: unknown) => {
+                    eq: (k: string, v: string) => Promise<{ error: unknown }>
+                  }
+                }
+              }
+            )
+              .from('tasks')
+              .update({
+                skill_status: 'failed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', taskId)
+          }
           return { error: result.error ?? 'Skill execution failed' }
         }
+
+        // Update task with artifact data on success
+        if (taskId) {
+          await (
+            supabase as unknown as {
+              from: (t: string) => {
+                update: (d: unknown) => {
+                  eq: (k: string, v: string) => Promise<{ error: unknown }>
+                }
+              }
+            }
+          )
+            .from('tasks')
+            .update({
+              artifact_data: result.output,
+              artifact_type: params.skill_slug,
+              active_skill: params.skill_slug,
+              skill_status: 'completed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', taskId)
+        }
+
         return {
           execution_id: result.executionId,
           status: result.status,

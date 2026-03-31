@@ -1,5 +1,4 @@
 import SkillDetailNew from '@/components/skills/skill-detail-new'
-import { SeasonalCalendarWorkspace } from '@/components/skills/seasonal-calendar/seasonal-calendar-workspace'
 import { skills as skillRegistry } from '@/data/skills'
 
 interface SkillDetailPageProps {
@@ -36,12 +35,7 @@ function getGenericMock(skillName: string, skillDescription: string) {
 export default async function SkillDetailPage({ params }: SkillDetailPageProps) {
   const { slug } = await params
 
-  // Seasonal Calendar has its own workspace — render instantly
-  if (slug === 'seasonal-calendar') {
-    return <SeasonalCalendarWorkspace />
-  }
-
-  // For other skills, use static registry data (no server queries)
+  // For all skills, use static registry data (no server queries)
   const registrySkill = skillRegistry.find((s) => s.slug === slug)
 
   if (!registrySkill) {

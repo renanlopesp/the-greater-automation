@@ -47,18 +47,21 @@ interface OrchestratorChatWrapperProps {
   initialConversationId: string | null
   initialMessages: { id: string; role: string; content: string }[]
   initialQuery?: string
+  taskId?: string
 }
 
 export default function OrchestratorChatWrapper({
   initialConversationId,
   initialMessages,
   initialQuery,
+  taskId,
 }: OrchestratorChatWrapperProps) {
   const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
     useOrchestratorChat({
       initialConversationId,
       initialMessages,
       initialQuery,
+      taskId,
     })
 
   const hasMessages = messages.length > 0

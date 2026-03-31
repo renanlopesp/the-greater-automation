@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   let userMessage: string
   const existingConvId = body.conversationId as string | undefined
+  const taskId = body.taskId as string | undefined
 
   if (body.messages && Array.isArray(body.messages)) {
     const msgs = body.messages as UIMessage[]
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
   )
 
   // 9. Platform tools (SNEW_ASK_AGENT, retail tools, etc.)
-  const platformTools = buildPlatformTools(user.id, teamId, undefined, storeId ?? undefined)
+  const platformTools = buildPlatformTools(user.id, teamId, undefined, storeId ?? undefined, taskId)
 
   // 10. Load team connections for Composio
   const { data: teamMembers } = await serviceClient
