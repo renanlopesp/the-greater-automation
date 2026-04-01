@@ -1,6 +1,5 @@
 'use client'
 
-import type { UIMessage } from 'ai'
 import { isTextUIPart, isReasoningUIPart } from 'ai'
 import {
   ArrowUp,
@@ -37,7 +36,8 @@ const ORCHESTRATOR_STARTERS = [
   'Como estão meus co-workers?',
 ]
 
-// Module-level callback for new chat trigger from sidebar
+// Module-level event bus for sidebar "new chat" trigger.
+// Limitation: only supports single mounted instance. Consider Zustand if multiple instances needed.
 const _newChatState: { handler: (() => void) | null } = { handler: null }
 export function triggerOrchestratorNewChat() {
   _newChatState.handler?.()
@@ -64,7 +64,9 @@ export default function OrchestratorChatWrapper({
       taskId,
     })
 
-  // Refetch task data when AI finishes responding (catches SNEW_MODIFY_ARTIFACT changes)
+  // Refetch task data when AI finishes responding (catches SNEW_MODIFY_ARTIFACT changes).
+  // This is intentionally event-driven (streaming→ready transition), not derived state.
+  // TODO: replace with an onFinish callback once the AI SDK exposes one at this level.
   const queryClient = useQueryClient()
   const prevStatusRef = useRef(status)
   useEffect(() => {

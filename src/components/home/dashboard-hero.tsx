@@ -6,13 +6,18 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowUp, Loader2, Calendar, MessageSquare, PenTool } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { getActiveSkillConfigs, type SkillConfig } from '@/lib/skills/skill-registry'
+import { getActiveSkillConfigs } from '@/lib/skills/skill-registry'
 import { fetchSkillsAction } from '@/lib/actions/skills'
 
-const ICON_MAP: Record<string, React.ReactNode> = {
-  MessageSquare: <MessageSquare size={14} />,
-  Calendar: <Calendar size={14} />,
-  PenTool: <PenTool size={14} />,
+function getSkillIcon(iconName: string) {
+  switch (iconName) {
+    case 'Calendar':
+      return <Calendar size={14} />
+    case 'PenTool':
+      return <PenTool size={14} />
+    default:
+      return <MessageSquare size={14} />
+  }
 }
 
 export default function DashboardHero() {
@@ -120,7 +125,7 @@ export default function DashboardHero() {
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
                   )}
                 >
-                  {ICON_MAP[skill.icon] ?? <MessageSquare size={12} />}
+                  {getSkillIcon(skill.icon)}
                   {skill.name}
                 </button>
               )

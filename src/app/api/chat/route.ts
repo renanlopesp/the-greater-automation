@@ -1,5 +1,7 @@
 export const maxDuration = 120
 
+// TODO: Regenerate Supabase types (`supabase gen types typescript`) to remove as-any casts for tasks, conversations, conversation_messages tables
+
 import { NextRequest, NextResponse } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
     { data: brandDna },
     conversationId,
     allConnections,
+    taskMeta,
   ] = await Promise.all([
     // Team context (skills, store, team name, brand DNA)
     serviceClient
@@ -137,6 +140,20 @@ export async function POST(request: NextRequest) {
         .in('user_id', userIds)
       return data
     })(),
+
+    // Task metadata (for skill-based behavior) — light query, no artifact_data
+
+    taskId
+      ? (async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data } = await (serviceClient as any)
+            .from('tasks')
+            .select('selected_skill, artifact_type')
+            .eq('id', taskId)
+            .single()
+          return data
+        })()
+      : Promise.resolve(null),
   ])
 
   if (!conversationId) {
@@ -149,7 +166,7 @@ export async function POST(request: NextRequest) {
   // User message insert doesn't need to block the AI response.
   void (
     serviceClient as unknown as {
-      from: (t: string) => { insert: (d: unknown) => Promise<unknown> }
+      from: (t: string) => { insert: (d: unknown) => Promise<{ error?: unknown }> }
     }
   )
     .from('conversation_messages')
@@ -157,6 +174,9 @@ export async function POST(request: NextRequest) {
       conversation_id: conversationId,
       role: 'user',
       content: userMessage,
+    })
+    .then((result: { error?: unknown }) => {
+      if (result?.error) console.error('[chat] Failed to store user message:', result.error)
     })
 
   const [hasProducts, modelMessages] = await Promise.all([
@@ -204,21 +224,10 @@ export async function POST(request: NextRequest) {
   ])
 
   // ── 5. Skill-based dispatch + artifact context ───────────────────────
-  // taskMeta was loaded in parallel (or load now if not in parallel block)
   let skillContext = ''
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let taskMeta: any = null
   if (taskId) {
-    // Light query — only selected_skill + artifact_type (NOT artifact_data which can be huge)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (serviceClient as any)
-      .from('tasks')
-      .select('selected_skill, artifact_type')
-      .eq('id', taskId)
-      .single()
-    taskMeta = data
-
-    const selectedSkill = taskMeta?.selected_skill as string | null
+    const selectedSkill =
+      (taskMeta as { selected_skill?: string | null } | null)?.selected_skill ?? null
     const config = getSkillConfig(selectedSkill)
     if (config.promptAdditions) {
       skillContext += `\n\n${config.promptAdditions}`
@@ -237,7 +246,10 @@ export async function POST(request: NextRequest) {
       lowerMsg.includes('deixe') ||
       lowerMsg.includes('atuali')
     // Trigger calendar generation if: skill is 'seasonal-calendar' OR keyword match (backward compat)
-    const isCalendarBySkill = selectedSkill === 'seasonal-calendar' && !taskMeta?.artifact_data
+    // Use artifact_type (fetched in parallel) as proxy — if already set, calendar was already generated
+    const taskArtifactType =
+      (taskMeta as { artifact_type?: string | null } | null)?.artifact_type ?? null
+    const isCalendarBySkill = selectedSkill === 'seasonal-calendar' && !taskArtifactType
     const isCalendarByKeyword =
       !isModificationRequest &&
       (lowerMsg.includes('calendário') ||
@@ -321,10 +333,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Inject artifact context — only loads artifact_data when needed (calendar with dates)
-    if (
-      !skillContext.includes('SKILL RUNNING') &&
-      taskMeta?.artifact_type === 'seasonal-calendar'
-    ) {
+    if (!skillContext.includes('SKILL RUNNING') && taskArtifactType === 'seasonal-calendar') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: artifactRow } = await (serviceClient as any)
         .from('tasks')
@@ -332,8 +341,7 @@ export async function POST(request: NextRequest) {
         .eq('id', taskId)
         .single()
       if (artifactRow?.artifact_data) {
-        taskMeta.artifact_data = artifactRow.artifact_data
-        const cal = taskMeta.artifact_data as {
+        const cal = artifactRow.artifact_data as {
           dates?: Array<{ id: string; name: string; displayDate?: string; priority?: string }>
           year?: number
           campaigns?: Record<string, unknown>
@@ -363,8 +371,8 @@ REGRAS DE COMPORTAMENTO:
 3. NUNCA diga que alterou dados sem ter chamado a tool. Se a tool retornar erro, informe o erro ao usuário.
 4. NUNCA regenere o calendário inteiro — use apenas as operações acima.]`
       }
-    } else if (taskMeta?.artifact_type) {
-      skillContext += `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
+    } else if (taskArtifactType) {
+      skillContext += `\n\n[ARTIFACT — Tipo: ${taskArtifactType}. Dados disponíveis no painel lateral.]`
     }
   }
 

@@ -15,6 +15,7 @@ import {
   Copy,
   Package,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PersonalizedCalendar, PersonalizedDate } from '@/lib/ai/seasonal-campaign-generator'
 import type { FullCampaign, ProductTag } from '@/data/campaign-data'
@@ -416,8 +417,8 @@ function Level2({
 function CopiesSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="flex flex-col gap-3 px-6 py-5">
-      {campaign.copies.map((copy, i) => (
-        <div key={i} className="border-border rounded-xl border p-4">
+      {campaign.copies.map((copy) => (
+        <div key={`${copy.channel}-${copy.timing}`} className="border-border rounded-xl border p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-foreground text-sm font-medium">{copy.channel}</span>
@@ -449,9 +450,9 @@ function CopiesSection({ campaign }: { campaign: FullCampaign }) {
 function ProductsSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="flex flex-col gap-2 px-6 py-5">
-      {campaign.selectedProducts.map((product, i) => (
+      {campaign.selectedProducts.map((product) => (
         <div
-          key={i}
+          key={product.name}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5"
           style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
         >
@@ -503,8 +504,8 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
 function AssetsSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="grid grid-cols-2 gap-2 px-6 py-5">
-      {campaign.assets.map((asset, i) => (
-        <div key={i} className="border-border overflow-hidden rounded-xl border">
+      {campaign.assets.map((asset) => (
+        <div key={asset.label} className="border-border overflow-hidden rounded-xl border">
           <div className="h-20 w-full" style={{ background: asset.bg }} />
           <div className="p-3">
             <p className="text-foreground text-[13px] font-medium">{asset.label}</p>
@@ -519,8 +520,8 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
 function VideoSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="flex flex-col gap-3 px-6 py-5">
-      {campaign.videoScripts.map((script, i) => (
-        <div key={i} className="border-border rounded-xl border p-4">
+      {campaign.videoScripts.map((script) => (
+        <div key={script.title} className="border-border rounded-xl border p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-foreground text-sm font-medium">{script.title}</span>
             <span
@@ -546,7 +547,7 @@ function TimelineSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
       {campaign.timeline.map((item, i) => (
-        <div key={i} className="flex gap-4">
+        <div key={item.day} className="flex gap-4">
           <div className="flex shrink-0 flex-col items-center gap-1.5">
             <span
               className="rounded-full px-3 py-1 text-xs font-medium"
@@ -716,7 +717,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
   }
 
   // --- Regenerate concept ---
-  async function regenerateConcept(dateId: string, dateName: string) {
+  async function regenerateConcept(dateId: string) {
     setRegeneratingConcept((prev) => ({ ...prev, [dateId]: true }))
     try {
       const res = await fetch('/api/skills/seasonal-calendar/regenerate', {
@@ -734,7 +735,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       await saveCampaignsToTask(updatedCampaigns)
       if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
-      // silently fail
+      toast.error('Erro ao regenerar. Tente novamente.')
     } finally {
       setRegeneratingConcept((prev) => ({ ...prev, [dateId]: false }))
     }
@@ -760,7 +761,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       await saveCampaignsToTask(updatedCampaigns)
       if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
-      // silently fail
+      toast.error('Erro ao regenerar. Tente novamente.')
     } finally {
       setRegeneratingSection((prev) => ({ ...prev, [key]: false }))
     }
@@ -825,7 +826,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
         generationError={generationError[dateId] ?? false}
         onBack={() => setView({ level: 1 })}
         onGenerate={() => void generateCampaign(dateId, dateName)}
-        onRegenerateConcept={() => void regenerateConcept(dateId, dateName)}
+        onRegenerateConcept={() => void regenerateConcept(dateId)}
         onSelectSection={(sectionType) => setView({ level: 3, dateId, dateName, sectionType })}
       />
     )
