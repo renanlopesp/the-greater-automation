@@ -1,5 +1,4 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { syncProducts } from '@/lib/nuvemshop/sync'
 import { summarizeCatalog } from '@/lib/retail/catalog-summarizer'
 import { analyzeBrandDna, type BrandDnaResult } from '@/lib/ai/brand-dna-analyzer'
 import { createLogger } from '@/lib/logger'
@@ -53,9 +52,10 @@ export async function runAnalysisPipeline(
 ): Promise<{ brandDnaId: string }> {
   const supabase = createServiceRoleClient()
 
-  // Step 1: Sync products
-  onProgress({ step: 1, status: 'running', message: 'Sincronizando produtos...' })
+  // Step 1: Fetch products from API (no DB sync — products are fetched live when needed)
+  onProgress({ step: 1, status: 'running', message: 'Buscando produtos da loja...' })
 
+  let liveProductCount = 0
   try {
     const { data: store } = await supabase
       .from('stores')
@@ -65,26 +65,23 @@ export async function runAnalysisPipeline(
 
     if (!store) throw new Error('Store not found')
 
-    if (store.platform === 'nuvemshop' && store.platform_access_token) {
-      await syncProducts(storeId)
+    if (store.platform === 'nuvemshop' && store.platform_access_token && store.platform_store_id) {
+      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+      const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+      const products = await client.getProducts(1, 200)
+      liveProductCount = products.length
     }
-    // Shopify and other platforms: skip sync (handled separately)
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erro ao sincronizar produtos'
+    const message = err instanceof Error ? err.message : 'Erro ao buscar produtos'
     onProgress({ step: 1, status: 'error', message })
     throw err
   }
 
-  const { count: productCount } = await supabase
-    .from('store_products')
-    .select('id', { count: 'exact', head: true })
-    .eq('store_id', storeId)
-
   onProgress({
     step: 1,
     status: 'completed',
-    message: `${productCount ?? 0} produtos sincronizados`,
-    count: productCount ?? 0,
+    message: `${liveProductCount} produtos encontrados`,
+    count: liveProductCount,
   })
 
   // Step 2: Visual analysis (screenshot + GPT vision)
