@@ -10,7 +10,11 @@ export interface AskBarHandle {
   fill: (text: string) => void
 }
 
-export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
+interface AskBarNewProps {
+  selectedSkill?: string
+}
+
+export default forwardRef<AskBarHandle, AskBarNewProps>(function AskBarNew({ selectedSkill }, ref) {
   const router = useRouter()
   const [value, setValue] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -33,7 +37,7 @@ export default forwardRef<AskBarHandle>(function AskBarNew(_props, ref) {
         const res = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify({ message: trimmed, selected_skill: selectedSkill ?? null }),
         })
 
         if (!res.ok) {

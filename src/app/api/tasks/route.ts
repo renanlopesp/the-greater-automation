@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   const message = body.message as string | undefined
+  const selectedSkill = (body.selected_skill as string | undefined) ?? null
   if (!message?.trim()) {
     return NextResponse.json({ error: 'Message is required' }, { status: 400 })
   }
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
           title: message.slice(0, 60),
           status: 'active',
           initial_message: message,
+          selected_skill: selectedSkill,
         })
         .select('id')
         .single()
@@ -116,6 +118,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ taskId: task.id, conversationId: conversation?.id ?? null })
     }
 
+    // Update selected_skill on task (RPC doesn't support it yet)
+    if (selectedSkill && row.task_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (serviceClient as any)
+        .from('tasks')
+        .update({ selected_skill: selectedSkill })
+        .eq('id', row.task_id)
+    }
     return NextResponse.json({ taskId: row.task_id, conversationId: row.conversation_id })
   } catch (error) {
     return NextResponse.json(

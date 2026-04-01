@@ -162,7 +162,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     )
       .from('tasks')
       .select(
-        'id, title, status, active_skill, skill_status, artifact_type, artifact_data, conversation_id, initial_message, created_at, updated_at'
+        'id, title, status, active_skill, skill_status, artifact_type, artifact_data, conversation_id, initial_message, selected_skill, created_at, updated_at'
       )
       .eq('id', id)
       .eq('team_id', teamId)
