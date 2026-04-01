@@ -307,44 +307,38 @@ export async function POST(request: NextRequest) {
         .eq('id', taskId)
         .single()
 
-      if (currentTask?.artifact_data) {
-        const summary =
-          currentTask.artifact_type === 'seasonal-calendar'
-            ? (() => {
-                const cal = currentTask.artifact_data as {
-                  dates?: Array<{
-                    id: string
-                    name: string
-                    displayDate?: string
-                    priority?: string
-                  }>
-                  year?: number
-                  campaigns?: Record<string, unknown>
-                }
-                const dateNames = (cal.dates ?? [])
-                  .map((d) => `${d.name} (${d.displayDate ?? ''})`)
-                  .join(', ')
-                const campaignCount = Object.keys(cal.campaigns ?? {}).length
-                return `Calendário ${cal.year}: ${(cal.dates ?? []).length} datas [${dateNames}], ${campaignCount} campanhas geradas.`
-              })()
-            : `Artifact type: ${currentTask.artifact_type}`
+      if (currentTask?.artifact_data && currentTask.artifact_type === 'seasonal-calendar') {
+        const cal = currentTask.artifact_data as {
+          dates?: Array<{ id: string; name: string; displayDate?: string; priority?: string }>
+          year?: number
+          campaigns?: Record<string, unknown>
+        }
+        const campaigns = cal.campaigns ?? {}
+        const dateList = (cal.dates ?? [])
+          .map((d) => {
+            const hasCampaign = !!campaigns[d.id]
+            return `- ${d.id} → "${d.name}" (${d.displayDate ?? ''}) [${hasCampaign ? 'GERADA' : 'PENDENTE'}]`
+          })
+          .join('\n')
+        const campaignCount = Object.keys(campaigns).length
 
-        // Include date IDs so the AI can reference them in tool calls
-        const dateIds =
-          currentTask.artifact_type === 'seasonal-calendar'
-            ? (
-                (currentTask.artifact_data as { dates?: Array<{ id: string; name: string }> })
-                  .dates ?? []
-              )
-                .map((d) => `${d.id} (${d.name})`)
-                .join(', ')
-            : ''
-        skillContext = `\n\n[ARTIFACT CONTEXT — O painel lateral exibe: ${summary}. IDs das datas: ${dateIds}. Para modificar o calendário, use OBRIGATORIAMENTE a tool SNEW_MODIFY_ARTIFACT. Operações disponíveis:
-- "filter_dates": manter só as datas listadas em date_ids (remove o resto)
-- "remove_dates": remover as datas listadas em date_ids
-- "clear_campaigns": limpar campanhas geradas das datas em date_ids. Use except=true para limpar TODAS exceto as listadas
-- "generate_campaign": gerar campanha completa (copies, email, assets, video, timeline) para UMA data. Passe date_ids com UM único ID (ex: date_ids=["black-friday-2026"])
-NUNCA diga que alterou sem chamar a tool. SEMPRE execute a tool primeiro, depois confirme ao usuário.]`
+        skillContext = `\n\n[ARTIFACT — Calendário Sazonal ${cal.year} no painel lateral]
+Datas (${(cal.dates ?? []).length} total, ${campaignCount} com campanha gerada):
+${dateList}
+
+TOOL: SNEW_MODIFY_ARTIFACT — operações disponíveis:
+- generate_campaign: gerar campanha para UMA data (date_ids com 1 ID). Ex: operation="generate_campaign", date_ids=["black-friday-2026"]
+- remove_dates: remover datas da lista (date_ids com IDs a remover)
+- filter_dates: manter APENAS as datas listadas (date_ids com IDs a manter)
+- clear_campaigns: limpar campanhas (date_ids + except=true para limpar TODAS exceto as listadas)
+
+REGRAS DE COMPORTAMENTO:
+1. Para PERGUNTAS sobre o calendário ("quantas datas?", "quais têm campanha?"): responda usando o contexto acima SEM chamar nenhuma tool.
+2. Para MODIFICAÇÕES explícitas ("gere campanha de X", "remova Y", "limpe Z"): chame SNEW_MODIFY_ARTIFACT PRIMEIRO, depois confirme ao usuário.
+3. NUNCA diga que alterou dados sem ter chamado a tool. Se a tool retornar erro, informe o erro ao usuário.
+4. NUNCA regenere o calendário inteiro — use apenas as operações acima.]`
+      } else if (currentTask?.artifact_data) {
+        skillContext = `\n\n[ARTIFACT — Tipo: ${currentTask.artifact_type}. Dados disponíveis no painel lateral.]`
       }
     }
   }
