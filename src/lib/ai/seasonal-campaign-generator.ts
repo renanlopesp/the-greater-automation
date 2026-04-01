@@ -188,7 +188,7 @@ INSTRUÇÕES:
    - Inclua as grandes datas universais do varejo brasileiro FILTRADAS por relevância para o nicho: Carnaval, Dia da Mulher, Páscoa, Dia das Mães, Dia dos Namorados, Dia dos Pais, Dia das Crianças, Black Friday, Natal, Ano Novo.
    - Inclua 3-6 datas de NICHO específicas para esse segmento de mercado (ex: para pet shop: Dia dos Animais 04/10; para academia: Dia do Atleta 19/07; para bebês: Dia do Bebê 11/08).
    - Priorize as oportunidades identificadas no DNA da marca como datas de alta prioridade.
-   - Filtre datas que já passaram (anteriores a ${currentDateISO}) — inclua apenas se forem do ano que vem.
+   - OBRIGATÓRIO: NÃO inclua datas que já passaram (anteriores a ${currentDateISO}). Todas as datas retornadas DEVEM ter campo "date" posterior a ${currentDateISO}. Se Carnaval/Páscoa/etc já passou neste ano, inclua a versão do próximo ano (ex: se Carnaval 2026 já passou, use Carnaval 2027).
 
 2. TIPO (type):
    - 'universal': datas amplamente conhecidas e comercializadas (Black Friday, Natal, Dia das Mães)
