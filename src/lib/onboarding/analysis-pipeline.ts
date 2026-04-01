@@ -145,16 +145,42 @@ export async function runAnalysisPipeline(
   let ownerName = ''
 
   try {
-    const { data: products } = await supabase
-      .from('store_products')
-      .select('name, price')
-      .eq('store_id', storeId)
-
     const { data: storeInfo } = await supabase
       .from('stores')
-      .select('name, segment, platform')
+      .select('name, segment, platform, platform_store_id, platform_access_token')
       .eq('id', storeId)
       .single()
+
+    // Fetch products live from Nuvemshop API (not from DB cache)
+    let products: Array<{ name: string; price: number }> = []
+    if (
+      storeInfo?.platform === 'nuvemshop' &&
+      storeInfo.platform_store_id &&
+      storeInfo.platform_access_token
+    ) {
+      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+      const nuvemshop = new NuvemshopClient(
+        storeInfo.platform_store_id,
+        storeInfo.platform_access_token
+      )
+      const liveProducts = await nuvemshop.getProducts(1, 200)
+      products = liveProducts.map((p) => ({
+        name:
+          typeof p.name === 'object'
+            ? ((p.name as Record<string, string>).pt ??
+              Object.values(p.name as Record<string, string>)[0] ??
+              '')
+            : String(p.name),
+        price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+      }))
+    } else {
+      // Fallback to DB for non-Nuvemshop stores
+      const { data: dbProducts } = await supabase
+        .from('store_products')
+        .select('name, price')
+        .eq('store_id', storeId)
+      products = (dbProducts ?? []).map((p) => ({ name: p.name, price: p.price ?? 0 }))
+    }
 
     storeName = storeInfo?.name ?? ''
     storePlatform = storeInfo?.platform ?? ''
