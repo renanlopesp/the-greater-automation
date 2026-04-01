@@ -97,11 +97,7 @@ export default function ArtifactRenderer({
 
   switch (artifactType) {
     case 'seasonal-calendar':
-      return (
-        <ArtifactPanelShell>
-          <SeasonalCalendarArtifact data={artifactData as never} taskId={taskId} />
-        </ArtifactPanelShell>
-      )
+      return <SeasonalCalendarArtifact data={artifactData as never} taskId={taskId} />
     default:
       return <GenericArtifact data={artifactData} />
   }
