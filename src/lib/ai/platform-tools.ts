@@ -956,13 +956,19 @@ export function buildPlatformTools(
       ? {
           SNEW_MODIFY_ARTIFACT: {
             description:
-              'Modify the artifact in the side panel. Supports operations: "filter_dates" (keep only specified date IDs), "remove_dates" (remove specified date IDs), "clear_campaigns" (keep all dates but remove generated campaign content for specified date IDs — or for all except specified IDs), "replace" (replace entire artifact_data). The panel refreshes automatically.',
+              'Modify the artifact in the side panel. Supports: "filter_dates", "remove_dates", "clear_campaigns", "generate_campaign" (generate full campaign content for a date — copies, assets, email, video, timeline), "replace". Panel refreshes automatically.',
             inputSchema: jsonSchema({
               type: 'object',
               properties: {
                 operation: {
                   type: 'string',
-                  enum: ['filter_dates', 'remove_dates', 'clear_campaigns', 'replace'],
+                  enum: [
+                    'filter_dates',
+                    'remove_dates',
+                    'clear_campaigns',
+                    'generate_campaign',
+                    'replace',
+                  ],
                   description:
                     'Operation: "filter_dates" keeps only listed date IDs, "remove_dates" removes listed date IDs, "clear_campaigns" removes generated campaigns for listed date IDs (use "except" to invert — clear all EXCEPT listed IDs), "replace" replaces full artifact_data.',
                 },
@@ -985,7 +991,12 @@ export function buildPlatformTools(
               required: ['operation'],
             }),
             execute: async (params: {
-              operation: 'filter_dates' | 'remove_dates' | 'clear_campaigns' | 'replace'
+              operation:
+                | 'filter_dates'
+                | 'remove_dates'
+                | 'clear_campaigns'
+                | 'generate_campaign'
+                | 'replace'
               date_ids?: string[]
               except?: boolean
               artifact_data?: unknown
@@ -1094,6 +1105,75 @@ export function buildPlatformTools(
                   success: true,
                   message: `Campaigns cleared. ${Object.keys(filteredCampaigns).length} campaigns remaining.`,
                   remaining_campaigns: Object.keys(filteredCampaigns),
+                }
+              }
+
+              if (params.operation === 'generate_campaign' && params.date_ids?.length === 1) {
+                const dateId = params.date_ids[0]
+                const { data: taskRow } = await sc
+                  .from('tasks')
+                  .select('artifact_data')
+                  .eq('id', taskId)
+                  .single()
+
+                if (!taskRow?.artifact_data) return { error: 'No artifact data found.' }
+
+                const artifact = taskRow.artifact_data as {
+                  dates?: Array<{ id: string; name: string; displayDate?: string; emoji?: string }>
+                  campaigns?: Record<string, unknown>
+                  [key: string]: unknown
+                }
+
+                const dateObj = (artifact.dates ?? []).find((d) => d.id === dateId)
+                if (!dateObj) {
+                  const validList = (artifact.dates ?? [])
+                    .map((d) => `${d.id} (${d.name})`)
+                    .join(', ')
+                  return { error: `Date ID "${dateId}" not found. Valid: ${validList}` }
+                }
+
+                // Fetch brand_dna + products for campaign generation
+                const [{ data: brandDna }, { data: products }] = await Promise.all([
+                  sc
+                    .from('brand_dna')
+                    .select(
+                      'niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket'
+                    )
+                    .eq('team_id', teamId)
+                    .single(),
+                  sc.from('store_products').select('name, price').eq('team_id', teamId).limit(50),
+                ])
+
+                if (!brandDna)
+                  return { error: 'Brand DNA not found. Complete brand analysis first.' }
+
+                const { generateCampaign: genCampaign } =
+                  await import('@/lib/ai/seasonal-campaign-generator')
+                const campaign = await genCampaign({
+                  date: {
+                    id: dateId,
+                    name: dateObj.name,
+                    emoji: dateObj.emoji ?? '',
+                    displayDate: dateObj.displayDate ?? '',
+                  },
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  brandDna: brandDna as any,
+                  products: (products ?? []) as Array<{ name: string; price: number }>,
+                })
+
+                // Save campaign to artifact
+                const updatedCampaigns = { ...(artifact.campaigns ?? {}), [dateId]: campaign }
+                const updated = { ...artifact, campaigns: updatedCampaigns }
+                const { error: saveErr } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (saveErr) return { error: saveErr.message }
+                return {
+                  success: true,
+                  message: `Campaign generated for "${dateObj.name}". The panel will update automatically.`,
+                  campaign_date: dateObj.name,
                 }
               }
 

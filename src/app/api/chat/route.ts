@@ -342,7 +342,8 @@ export async function POST(request: NextRequest) {
         skillContext = `\n\n[ARTIFACT CONTEXT — O painel lateral exibe: ${summary}. IDs das datas: ${dateIds}. Para modificar o calendário, use OBRIGATORIAMENTE a tool SNEW_MODIFY_ARTIFACT. Operações disponíveis:
 - "filter_dates": manter só as datas listadas em date_ids (remove o resto)
 - "remove_dates": remover as datas listadas em date_ids
-- "clear_campaigns": limpar campanhas geradas das datas em date_ids. Use except=true para limpar TODAS exceto as listadas (ex: limpar tudo menos Dia das Mães = operation="clear_campaigns", date_ids=["dia-das-maes-2026"], except=true)
+- "clear_campaigns": limpar campanhas geradas das datas em date_ids. Use except=true para limpar TODAS exceto as listadas
+- "generate_campaign": gerar campanha completa (copies, email, assets, video, timeline) para UMA data. Passe date_ids com UM único ID (ex: date_ids=["black-friday-2026"])
 NUNCA diga que alterou sem chamar a tool. SEMPRE execute a tool primeiro, depois confirme ao usuário.]`
       }
     }

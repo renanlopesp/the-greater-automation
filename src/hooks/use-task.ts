@@ -33,7 +33,12 @@ export function useTask(taskId: string) {
     queryKey: ['task', taskId],
     queryFn: () => fetchTask(taskId),
     select: (data) => data.task,
-    refetchInterval: 2000,
+    refetchInterval: (query) => {
+      const task = query.state.data?.task
+      if (!task) return 2000
+      if (task.skill_status === 'running' || task.skill_status === 'idle') return 2000
+      return false // chat wrapper invalidates via queryClient when AI finishes
+    },
     retry: 3,
   })
 }

@@ -13,8 +13,8 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   Conversation,
@@ -63,6 +63,16 @@ export default function OrchestratorChatWrapper({
       initialQuery,
       taskId,
     })
+
+  // Refetch task data when AI finishes responding (catches SNEW_MODIFY_ARTIFACT changes)
+  const queryClient = useQueryClient()
+  const prevStatusRef = useRef(status)
+  useEffect(() => {
+    if (prevStatusRef.current === 'streaming' && status === 'ready' && taskId) {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+    }
+    prevStatusRef.current = status
+  }, [status, taskId, queryClient])
 
   const hasMessages = messages.length > 0
   const visibleMessages = useMemo(
