@@ -11,13 +11,13 @@ import { buildPlatformTools, buildOrchestratorSystemPrompt } from '@/lib/ai/plat
 
 /**
  * POST /api/chat — Orchestrator chat endpoint.
- * The orchestrator is NOT an agent. It uses its own `conversations` + `conversation_messages` tables.
+ * Queries are parallelized to minimize time-to-first-token.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
   const serviceClient = createServiceRoleClient()
 
-  // 1. Authenticate
+  // ── 1. Auth (sequential — required for everything) ────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -25,13 +25,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // 2. Get user's team
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
+  // Parse body in parallel with team lookup
+  const [body, { data: membership }] = await Promise.all([
+    request.json(),
+    supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1).single(),
+  ])
 
   if (!membership) {
     return NextResponse.json({ error: 'No team found' }, { status: 400 })
@@ -39,8 +37,7 @@ export async function POST(request: NextRequest) {
 
   const teamId = membership.team_id
 
-  // 3. Parse request body
-  const body = await request.json()
+  // ── 2. Parse user message ─────────────────────────────────────────────
   let userMessage: string
   const existingConvId = body.conversationId as string | undefined
   const taskId = body.taskId as string | undefined
@@ -61,57 +58,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Message is required' }, { status: 400 })
   }
 
-  // 4. Load team context in parallel
-  const [{ data: teamSkills }, { data: store }, { data: team }, { data: brandDna }] =
-    await Promise.all([
-      serviceClient
-        .from('skills' as never)
-        .select('slug, name, description, category, status')
-        .eq('team_id' as never, teamId)
-        .order('name' as never),
-      serviceClient
-        .from('stores')
-        .select('id, name, segment, platform')
-        .eq('team_id', teamId)
-        .limit(1)
-        .single(),
-      serviceClient.from('teams').select('name').eq('id', teamId).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (serviceClient as any)
-        .from('brand_dna')
-        .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
-        .eq('team_id', teamId)
-        .single(),
-    ])
-
-  const storeId = store?.id ?? null
-
-  const hasProducts = store
-    ? ((
-        await serviceClient
-          .from('store_products')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id)
-      ).count ?? 0) > 0
-    : false
-
-  // 5. Find or create conversation in `conversations` table (NOT agent_conversations)
-  let conversationId = existingConvId
-  if (!conversationId) {
-    // Find active conversation for this user+team
-    const { data: activeConv } = await serviceClient
-      .from('conversations' as never)
-      .select('id')
+  // ── 3. Parallel fetch: team context + conversation + connections ──────
+  // All of these only need teamId + user.id — run together instead of sequentially.
+  const [
+    { data: teamSkills },
+    { data: store },
+    { data: team },
+    { data: brandDna },
+    conversationId,
+    allConnections,
+  ] = await Promise.all([
+    // Team context (skills, store, team name, brand DNA)
+    serviceClient
+      .from('skills' as never)
+      .select('slug, name, description, category, status')
+      .eq('team_id' as never, teamId)
+      .order('name' as never),
+    serviceClient
+      .from('stores')
+      .select('id, name, segment, platform')
       .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .single(),
+    serviceClient.from('teams').select('name').eq('id', teamId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (serviceClient as any)
+      .from('brand_dna')
+      .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
+      .eq('team_id', teamId)
+      .single(),
 
-    if (activeConv) {
-      conversationId = (activeConv as { id: string }).id
-    } else {
+    // Conversation: find or create (was sequential step 5-6)
+    (async (): Promise<string | null> => {
+      if (existingConvId) return existingConvId
+      const { data: activeConv } = await serviceClient
+        .from('conversations' as never)
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (activeConv) return (activeConv as { id: string }).id
       const { data: conv } = await (
         serviceClient as unknown as {
           from: (t: string) => {
@@ -130,17 +119,34 @@ export async function POST(request: NextRequest) {
         })
         .select('id')
         .single()
+      return conv?.id ?? null
+    })(),
 
-      conversationId = conv?.id
-    }
-  }
+    // Composio connections (was sequential steps 10-11)
+    (async () => {
+      const { data: members } = await serviceClient
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+      const userIds = (members ?? []).map((m) => m.user_id)
+      if (userIds.length === 0) return null
+      const { data } = await serviceClient
+        .from('app_connections')
+        .select('app_id, composio_connection_id, user_id')
+        .in('user_id', userIds)
+      return data
+    })(),
+  ])
 
   if (!conversationId) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 
-  // 6. Insert user message into `conversation_messages` (NOT agent_messages)
-  await (
+  const storeId = store?.id ?? null
+
+  // ── 4. Insert message (fire-and-forget) + hasProducts + model messages ─
+  // User message insert doesn't need to block the AI response.
+  void (
     serviceClient as unknown as {
       from: (t: string) => { insert: (d: unknown) => Promise<unknown> }
     }
@@ -152,46 +158,51 @@ export async function POST(request: NextRequest) {
       content: userMessage,
     })
 
-  // 7. Build messages for the AI model
-  let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>
-
-  if (body.messages && Array.isArray(body.messages)) {
-    modelMessages = await convertToModelMessages(body.messages as UIMessage[])
-  } else {
-    // Load from conversation_messages
-    const { data: historyRows } = await (
-      serviceClient as unknown as {
-        from: (t: string) => {
-          select: (s: string) => {
-            eq: (
-              k: string,
-              v: string
-            ) => {
-              order: (
-                k: string,
-                o: { ascending: boolean }
-              ) => {
-                limit: (n: number) => Promise<{
-                  data: Array<{ role: string; content: string }> | null
-                }>
+  const [hasProducts, modelMessages] = await Promise.all([
+    store
+      ? serviceClient
+          .from('store_products')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id)
+          .then((r) => (r.count ?? 0) > 0)
+      : Promise.resolve(false),
+    body.messages && Array.isArray(body.messages)
+      ? convertToModelMessages(body.messages as UIMessage[])
+      : (async () => {
+          const { data: historyRows } = await (
+            serviceClient as unknown as {
+              from: (t: string) => {
+                select: (s: string) => {
+                  eq: (
+                    k: string,
+                    v: string
+                  ) => {
+                    order: (
+                      k: string,
+                      o: { ascending: boolean }
+                    ) => {
+                      limit: (n: number) => Promise<{
+                        data: Array<{ role: string; content: string }> | null
+                      }>
+                    }
+                  }
+                }
               }
             }
-          }
-        }
-      }
-    )
-      .from('conversation_messages')
-      .select('role, content')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .limit(50)
+          )
+            .from('conversation_messages')
+            .select('role, content')
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: true })
+            .limit(50)
 
-    modelMessages = (historyRows ?? [])
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-  }
+          return (historyRows ?? [])
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        })(),
+  ])
 
-  // 7b. Auto-detect and run skills BEFORE AI (programmatic dispatch)
+  // ── 5. Calendar skill: fire-and-forget (background) ───────────────────
   let skillContext = ''
   if (taskId) {
     const lowerMsg = userMessage.toLowerCase()
@@ -203,79 +214,80 @@ export async function POST(request: NextRequest) {
       lowerMsg.includes('datas sazonais')
 
     if (isCalendarRequest) {
-      try {
-        // Set task to running
-        await serviceClient
-          .from('tasks' as never)
-          .update({
-            skill_status: 'running',
-            active_skill: 'seasonal-calendar',
-            updated_at: new Date().toISOString(),
-          } as never)
-          .eq('id' as never, taskId)
+      // Mark task as running immediately
+      await serviceClient
+        .from('tasks' as never)
+        .update({
+          skill_status: 'running',
+          active_skill: 'seasonal-calendar',
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq('id' as never, taskId)
 
-        // Fetch brand_dna + products for generation
-        const { data: bd } = await serviceClient
-          .from('brand_dna' as never)
-          .select('niche, audience, positioning, tone, average_ticket, opportunities')
-          .eq('team_id' as never, teamId)
-          .single()
+      // Generate in background — useTask polling picks up the result
+      void (async () => {
+        try {
+          const [{ data: bd }, { data: prods }] = await Promise.all([
+            serviceClient
+              .from('brand_dna' as never)
+              .select('niche, audience, positioning, tone, average_ticket, opportunities')
+              .eq('team_id' as never, teamId)
+              .single(),
+            serviceClient
+              .from('store_products')
+              .select('name, price')
+              .eq('team_id' as never, teamId)
+              .limit(50),
+          ])
 
-        const { data: prods } = await serviceClient
-          .from('store_products')
-          .select('name, price')
-          .eq('team_id' as never, teamId)
-          .limit(50)
+          const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
+          const calendarData = await generateCalendar({
+            brandDna: {
+              niche: ((bd as unknown as Record<string, unknown>)?.niche as string) ?? 'varejo',
+              audience:
+                ((bd as unknown as Record<string, unknown>)?.audience as string) ??
+                'consumidores gerais',
+              positioning:
+                ((bd as unknown as Record<string, unknown>)?.positioning as string) ?? '',
+              tone: ((bd as unknown as Record<string, unknown>)?.tone as string) ?? 'profissional',
+              average_ticket:
+                ((bd as unknown as Record<string, unknown>)?.average_ticket as number) ?? 100,
+              opportunities:
+                ((bd as unknown as Record<string, unknown>)?.opportunities as Array<{
+                  title: string
+                  description: string
+                  estimated_revenue: number
+                }>) ?? [],
+            },
+            products: (prods ?? []) as Array<{ name: string; price: number }>,
+            currentDate: new Date(),
+            year: new Date().getFullYear(),
+          })
 
-        const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
-        const calendarData = await generateCalendar({
-          brandDna: {
-            niche: ((bd as unknown as Record<string, unknown>)?.niche as string) ?? 'varejo',
-            audience:
-              ((bd as unknown as Record<string, unknown>)?.audience as string) ??
-              'consumidores gerais',
-            positioning: ((bd as unknown as Record<string, unknown>)?.positioning as string) ?? '',
-            tone: ((bd as unknown as Record<string, unknown>)?.tone as string) ?? 'profissional',
-            average_ticket:
-              ((bd as unknown as Record<string, unknown>)?.average_ticket as number) ?? 100,
-            opportunities:
-              ((bd as unknown as Record<string, unknown>)?.opportunities as Array<{
-                title: string
-                description: string
-                estimated_revenue: number
-              }>) ?? [],
-          },
-          products: (prods ?? []) as Array<{ name: string; price: number }>,
-          currentDate: new Date(),
-          year: new Date().getFullYear(),
-        })
+          await serviceClient
+            .from('tasks' as never)
+            .update({
+              artifact_data: calendarData,
+              artifact_type: 'seasonal-calendar',
+              skill_status: 'completed',
+              active_skill: 'seasonal-calendar',
+              updated_at: new Date().toISOString(),
+            } as never)
+            .eq('id' as never, taskId)
+        } catch {
+          await serviceClient
+            .from('tasks' as never)
+            .update({ skill_status: 'failed', updated_at: new Date().toISOString() } as never)
+            .eq('id' as never, taskId)
+        }
+      })()
 
-        // Save to task artifact
-        await serviceClient
-          .from('tasks' as never)
-          .update({
-            artifact_data: calendarData,
-            artifact_type: 'seasonal-calendar',
-            skill_status: 'completed',
-            active_skill: 'seasonal-calendar',
-            updated_at: new Date().toISOString(),
-          } as never)
-          .eq('id' as never, taskId)
-
-        // Inject calendar result as context for AI to summarize
-        skillContext = `\n\n[SKILL RESULT — Calendário Sazonal gerado com ${calendarData.dates?.length ?? 0} datas. O resultado completo já está sendo exibido no painel de entrega ao lado. Responda com um resumo curto de 2-3 frases sobre o calendário gerado. NÃO repita os dados em tabela ou lista — eles já estão visíveis no painel lateral.]`
-      } catch (skillErr) {
-        await serviceClient
-          .from('tasks' as never)
-          .update({ skill_status: 'failed', updated_at: new Date().toISOString() } as never)
-          .eq('id' as never, taskId)
-
-        skillContext = `\n\n[SKILL ERROR — Falha ao gerar calendário sazonal: ${skillErr instanceof Error ? skillErr.message : 'erro desconhecido'}. Informe ao usuário que houve um erro técnico.]`
-      }
+      skillContext =
+        '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega ao lado em instantes. Responda ao usuário informando brevemente que o calendário está sendo gerado e que os resultados aparecerão no painel lateral. Seja breve (2-3 frases).]'
     }
   }
 
-  // 8. Build orchestrator system prompt
+  // ── 6. Build prompt + process connections (CPU-only, instant) ──────────
   const orchestratorPrompt = buildOrchestratorSystemPrompt(
     team?.name ?? 'Your workspace',
     (teamSkills as Array<{
@@ -307,24 +319,9 @@ export async function POST(request: NextRequest) {
       | undefined
   )
 
-  // 9. Platform tools (SNEW_ASK_AGENT, retail tools, etc.)
   const platformTools = buildPlatformTools(user.id, teamId, undefined, storeId ?? undefined, taskId)
 
-  // 10. Load team connections for Composio
-  const { data: teamMembers } = await serviceClient
-    .from('team_members')
-    .select('user_id')
-    .eq('team_id', teamId)
-  const teamUserIds = (teamMembers ?? []).map((m) => m.user_id)
-
-  const { data: allConnections } =
-    teamUserIds.length > 0
-      ? await serviceClient
-          .from('app_connections')
-          .select('app_id, composio_connection_id, user_id')
-          .in('user_id', teamUserIds)
-      : { data: null }
-
+  // Process Composio connections (CPU-only)
   const appIds = new Set<string>()
   let connectedAccountMap: Record<string, string> | undefined
   let entityId = user.id
@@ -356,17 +353,17 @@ export async function POST(request: NextRequest) {
     appIds.add(store.platform)
   }
 
-  // 11. Run AI chat
+  // ── 7. Stream AI ──────────────────────────────────────────────────────
   const agentConfig: AgentConfig = {
     id: 'orchestrator',
     name: 'Snew',
     system_prompt: null,
-    model: 'gpt-5.2',
+    model: 'gpt-4o',
     temperature: null,
     max_tokens: 16384,
   }
 
-  const convId = conversationId // capture for closure
+  const convId = conversationId
 
   try {
     const result = await runAgentChat({
