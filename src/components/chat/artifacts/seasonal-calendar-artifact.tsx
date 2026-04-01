@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ChevronLeft,
   ChevronRight,
@@ -650,19 +651,13 @@ interface SeasonalCalendarArtifactProps {
 
 export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtifactProps) {
   const { dates, year } = data
+  const queryClient = useQueryClient()
 
   // Navigation state
   const [view, setView] = useState<ArtifactView>({ level: 1 })
 
-  // Campaign store (keyed by dateId)
-  const [campaigns, setCampaigns] = useState<Record<string, FullCampaign>>(data.campaigns ?? {})
-
-  // Sync campaigns from parent data (e.g., after SNEW_MODIFY_ARTIFACT updates the DB and useTask refetches)
-  useEffect(() => {
-    if (data.campaigns) {
-      setCampaigns(data.campaigns)
-    }
-  }, [data.campaigns])
+  // Campaigns derived from parent data (source of truth is useTask → data.campaigns)
+  const campaigns = useMemo(() => data.campaigns ?? {}, [data.campaigns])
 
   // Loading/error state per dateId
   const [generating, setGenerating] = useState<Record<string, boolean>>({})
@@ -704,8 +699,8 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       const body = await res.json()
       const campaign = (body.campaign ?? body) as FullCampaign
       const updated = { ...campaigns, [dateId]: campaign }
-      setCampaigns(updated)
-      void saveCampaignsToTask(updated)
+      await saveCampaignsToTask(updated)
+      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
       setGenerationError((prev) => ({ ...prev, [dateId]: true }))
     } finally {
@@ -724,11 +719,13 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       })
       if (!res.ok) throw new Error('regeneration failed')
       const body = await res.json()
-      const updated = (body.campaign ?? body) as FullCampaign
-      setCampaigns((prev) => ({
-        ...prev,
-        [dateId]: { ...prev[dateId]!, ...updated },
-      }))
+      const updatedCampaign = (body.campaign ?? body) as FullCampaign
+      const updatedCampaigns = {
+        ...campaigns,
+        [dateId]: { ...campaigns[dateId]!, ...updatedCampaign },
+      }
+      await saveCampaignsToTask(updatedCampaigns)
+      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
       // silently fail
     } finally {
@@ -748,11 +745,13 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       })
       if (!res.ok) throw new Error('regeneration failed')
       const body = await res.json()
-      const updated = (body.campaign ?? body) as FullCampaign
-      setCampaigns((prev) => ({
-        ...prev,
-        [dateId]: { ...prev[dateId]!, ...updated },
-      }))
+      const updatedCampaign = (body.campaign ?? body) as FullCampaign
+      const updatedCampaigns = {
+        ...campaigns,
+        [dateId]: { ...campaigns[dateId]!, ...updatedCampaign },
+      }
+      await saveCampaignsToTask(updatedCampaigns)
+      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
       // silently fail
     } finally {
