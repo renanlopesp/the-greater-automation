@@ -117,10 +117,12 @@ function CalendarRow({
   date,
   onClick,
   hasCampaign,
+  isPast = false,
 }: {
   date: PersonalizedDate
   onClick: () => void
   hasCampaign: boolean
+  isPast?: boolean
 }) {
   const monthMatch = date.displayDate?.match(/de\s+(\w+)/i)
   const monthLabel = monthMatch ? monthMatch[1].substring(0, 3).toUpperCase() : ''
@@ -130,7 +132,10 @@ function CalendarRow({
   return (
     <button
       onClick={onClick}
-      className="hover:bg-accent/60 group flex w-full items-center gap-3.5 rounded-xl px-3 py-3 text-left transition-colors"
+      className={cn(
+        'hover:bg-accent/60 group flex w-full items-center gap-3.5 rounded-xl px-3 py-3 text-left transition-colors',
+        isPast && 'opacity-40'
+      )}
     >
       <div className="flex w-10 shrink-0 flex-col items-center">
         <span className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
@@ -142,6 +147,8 @@ function CalendarRow({
       <div className="min-w-0 flex-1">
         <p className="text-foreground truncate text-[13px] leading-snug font-medium">{date.name}</p>
         <p className="text-muted-foreground mt-0.5 text-xs">
+          {date.displayDate}
+          {date.date ? `, ${new Date(date.date).getFullYear()}` : ''} ·{' '}
           {formatRevenue(date.estimatedRevenue ?? 0)}
         </p>
       </div>
@@ -782,14 +789,20 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
         </p>
 
         <div className="-mx-3 mt-4">
-          {dates.map((date) => (
-            <CalendarRow
-              key={date.id}
-              date={date}
-              onClick={() => handleDateClick(date)}
-              hasCampaign={!!campaigns[date.id]}
-            />
-          ))}
+          {[...dates]
+            .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+            .map((date) => {
+              const isPast = date.date ? new Date(date.date) < new Date() : false
+              return (
+                <CalendarRow
+                  key={date.id}
+                  date={date}
+                  onClick={() => handleDateClick(date)}
+                  hasCampaign={!!campaigns[date.id]}
+                  isPast={isPast}
+                />
+              )
+            })}
         </div>
       </div>
     )
