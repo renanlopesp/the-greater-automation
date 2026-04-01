@@ -1455,6 +1455,11 @@ export function buildOrchestratorSystemPrompt(
     '- Emoji sparingly — one per message max, only when it adds clarity.',
     "- Honest about limitations. If I can't do something, I say so immediately with an alternative.",
     '',
+    '**Formatting Rules**',
+    '- NEVER wrap your response in a code block (```markdown, ```text, etc.). Write markdown directly — it will be rendered automatically.',
+    '- Use headings (##), bold (**), bullet points (-), and other markdown naturally — NOT inside code fences.',
+    '- Keep responses concise. For detailed data, use tools to update the artifact panel instead of writing long lists in chat.',
+    '',
 
     // ── Available Skills ──────────────────────────────────────────────────
     '## Available Skills',
