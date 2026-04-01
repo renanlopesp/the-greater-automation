@@ -8,6 +8,7 @@ import { safeError } from '@/lib/safe-error'
 import { runAgentChat, type AgentConfig } from '@/lib/ai/agent-chat'
 import { tokensToCredits } from '@/lib/billing/credits'
 import { buildPlatformTools, buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
+import { getSkillConfig } from '@/lib/skills/skill-registry'
 
 /**
  * POST /api/chat — Orchestrator chat endpoint.
@@ -203,25 +204,24 @@ export async function POST(request: NextRequest) {
   ])
 
   // ── 5. Skill-based dispatch + artifact context ───────────────────────
+  // taskMeta was loaded in parallel (or load now if not in parallel block)
   let skillContext = ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let taskMeta: any = null
   if (taskId) {
-    // Load task's selected_skill and artifact state
+    // Light query — only selected_skill + artifact_type (NOT artifact_data which can be huge)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: taskMeta } = await (serviceClient as any)
+    const { data } = await (serviceClient as any)
       .from('tasks')
-      .select('selected_skill, artifact_type, artifact_data')
+      .select('selected_skill, artifact_type')
       .eq('id', taskId)
       .single()
+    taskMeta = data
 
     const selectedSkill = taskMeta?.selected_skill as string | null
-
-    // Add skill-specific prompt from registry
-    if (selectedSkill) {
-      const { getSkillConfig } = await import('@/lib/skills/skill-registry')
-      const config = getSkillConfig(selectedSkill)
-      if (config.promptAdditions) {
-        skillContext += `\n\n${config.promptAdditions}`
-      }
+    const config = getSkillConfig(selectedSkill)
+    if (config.promptAdditions) {
+      skillContext += `\n\n${config.promptAdditions}`
     }
 
     const lowerMsg = userMessage.toLowerCase()
@@ -320,10 +320,19 @@ export async function POST(request: NextRequest) {
         '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega ao lado em instantes. Responda ao usuário informando brevemente que o calendário está sendo gerado e que os resultados aparecerão no painel lateral. Seja breve (2-3 frases).]'
     }
 
-    // Inject current artifact data so AI can read/modify it via SNEW_MODIFY_ARTIFACT
-    // Uses taskMeta already loaded above (no extra DB call)
-    if (!skillContext || !skillContext.includes('SKILL RUNNING')) {
-      if (taskMeta?.artifact_data && taskMeta.artifact_type === 'seasonal-calendar') {
+    // Inject artifact context — only loads artifact_data when needed (calendar with dates)
+    if (
+      !skillContext.includes('SKILL RUNNING') &&
+      taskMeta?.artifact_type === 'seasonal-calendar'
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: artifactRow } = await (serviceClient as any)
+        .from('tasks')
+        .select('artifact_data')
+        .eq('id', taskId)
+        .single()
+      if (artifactRow?.artifact_data) {
+        taskMeta.artifact_data = artifactRow.artifact_data
         const cal = taskMeta.artifact_data as {
           dates?: Array<{ id: string; name: string; displayDate?: string; priority?: string }>
           year?: number
@@ -353,9 +362,9 @@ REGRAS DE COMPORTAMENTO:
 2. Para MODIFICAÇÕES explícitas ("gere campanha de X", "remova Y", "limpe Z"): chame SNEW_MODIFY_ARTIFACT PRIMEIRO, depois confirme ao usuário.
 3. NUNCA diga que alterou dados sem ter chamado a tool. Se a tool retornar erro, informe o erro ao usuário.
 4. NUNCA regenere o calendário inteiro — use apenas as operações acima.]`
-      } else if (taskMeta?.artifact_data) {
-        skillContext = `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
       }
+    } else if (taskMeta?.artifact_type) {
+      skillContext += `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
     }
   }
 
