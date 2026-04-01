@@ -56,6 +56,53 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 /**
+ * DELETE /api/tasks/[id] — Delete a task and its conversation.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createServerClient()
+  const serviceClient = createServiceRoleClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sc = serviceClient as any
+
+    // 1. Find conversations for this task
+    const { data: convs } = await sc.from('conversations').select('id').eq('task_id', id)
+    const convIds = (convs ?? []).map((c: { id: string }) => c.id)
+
+    // 2. Delete conversation_messages for those conversations
+    if (convIds.length > 0) {
+      await sc.from('conversation_messages').delete().in('conversation_id', convIds)
+    }
+
+    // 3. Delete conversations
+    await sc.from('conversations').delete().eq('task_id', id)
+
+    // 4. Delete the task (with team_id check)
+    await sc.from('tasks').delete().eq('id', id).eq('team_id', teamId)
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return NextResponse.json(
+      { error: safeError('tasks-delete', error, 'Failed to delete task') },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * GET /api/tasks/[id] — Get a single task with full artifact data.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
