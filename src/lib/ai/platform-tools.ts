@@ -1006,32 +1006,50 @@ export function buildPlatformTools(
                 return { success: true, message: 'Artifact replaced.' }
               }
 
-              if (
-                (params.operation === 'filter_dates' || params.operation === 'remove_dates') &&
-                params.date_ids
-              ) {
-                // Load current artifact_data
-                const { data: task } = await sc
+              // Helper: load artifact and validate date_ids
+              async function loadAndValidate(dateIds: string[]) {
+                const { data: taskRow } = await sc
                   .from('tasks')
                   .select('artifact_data')
                   .eq('id', taskId)
                   .single()
 
-                if (!task?.artifact_data) return { error: 'No artifact data found on task.' }
+                if (!taskRow?.artifact_data) return { error: 'No artifact data found on task.' }
 
-                const artifact = task.artifact_data as {
-                  dates?: Array<{ id: string }>
+                const artifact = taskRow.artifact_data as {
+                  dates?: Array<{ id: string; name: string }>
                   campaigns?: Record<string, unknown>
                   [key: string]: unknown
                 }
-                const ids = new Set(params.date_ids)
 
+                const existingIds = new Set((artifact.dates ?? []).map((d) => d.id))
+                const invalid = dateIds.filter((id) => !existingIds.has(id))
+                if (invalid.length > 0) {
+                  const validList = (artifact.dates ?? [])
+                    .map((d) => `${d.id} (${d.name})`)
+                    .join(', ')
+                  return {
+                    error: `Date IDs not found: ${invalid.join(', ')}. Valid IDs are: ${validList}`,
+                  }
+                }
+
+                return { artifact }
+              }
+
+              if (
+                (params.operation === 'filter_dates' || params.operation === 'remove_dates') &&
+                params.date_ids
+              ) {
+                const result = await loadAndValidate(params.date_ids)
+                if ('error' in result) return result
+                const { artifact } = result
+
+                const ids = new Set(params.date_ids)
                 const filteredDates =
                   params.operation === 'filter_dates'
                     ? (artifact.dates ?? []).filter((d) => ids.has(d.id))
                     : (artifact.dates ?? []).filter((d) => !ids.has(d.id))
 
-                // Also clean campaigns for removed dates
                 const keptIds = new Set(filteredDates.map((d) => d.id))
                 const filteredCampaigns: Record<string, unknown> = {}
                 for (const [key, val] of Object.entries(artifact.campaigns ?? {})) {
@@ -1053,20 +1071,9 @@ export function buildPlatformTools(
               }
 
               if (params.operation === 'clear_campaigns' && params.date_ids) {
-                // Load current artifact_data
-                const { data: taskData } = await sc
-                  .from('tasks')
-                  .select('artifact_data')
-                  .eq('id', taskId)
-                  .single()
-
-                if (!taskData?.artifact_data) return { error: 'No artifact data found.' }
-
-                const art = taskData.artifact_data as {
-                  dates?: Array<{ id: string }>
-                  campaigns?: Record<string, unknown>
-                  [key: string]: unknown
-                }
+                const result = await loadAndValidate(params.date_ids)
+                if ('error' in result) return result
+                const { artifact: art } = result
                 const ids = new Set(params.date_ids)
 
                 // Clear campaigns: if except=true, clear all EXCEPT listed IDs
