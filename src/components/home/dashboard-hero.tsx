@@ -6,22 +6,17 @@ import HeroRotatingTitle from '@/components/home/hero-rotating-title'
 import AskBarNew from '@/components/home/ask-bar-new'
 import SkillSelector from '@/components/home/skill-selector'
 import { getActiveSkillConfigs } from '@/lib/skills/skill-registry'
-
-async function fetchActiveSkillSlugs(): Promise<string[]> {
-  const res = await fetch('/api/skills')
-  if (!res.ok) return []
-  const data = await res.json()
-  return (data.skills ?? [])
-    .filter((s: { status: string }) => s.status === 'active')
-    .map((s: { slug: string }) => s.slug)
-}
+import { fetchSkillsAction } from '@/lib/actions/skills'
 
 export default function DashboardHero() {
   const [selectedSkill, setSelectedSkill] = useState('general')
 
   const { data: activeSlugs = [] } = useQuery({
     queryKey: ['active-skill-slugs'],
-    queryFn: fetchActiveSkillSlugs,
+    queryFn: async () => {
+      const skills = await fetchSkillsAction()
+      return skills.filter((s) => s.status === 'active').map((s) => s.slug)
+    },
     staleTime: 60_000,
   })
 

@@ -202,9 +202,28 @@ export async function POST(request: NextRequest) {
         })(),
   ])
 
-  // ── 5. Calendar skill: fire-and-forget (background) ───────────────────
+  // ── 5. Skill-based dispatch + artifact context ───────────────────────
   let skillContext = ''
   if (taskId) {
+    // Load task's selected_skill and artifact state
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: taskMeta } = await (serviceClient as any)
+      .from('tasks')
+      .select('selected_skill, artifact_type, artifact_data')
+      .eq('id', taskId)
+      .single()
+
+    const selectedSkill = taskMeta?.selected_skill as string | null
+
+    // Add skill-specific prompt from registry
+    if (selectedSkill) {
+      const { getSkillConfig } = await import('@/lib/skills/skill-registry')
+      const config = getSkillConfig(selectedSkill)
+      if (config.promptAdditions) {
+        skillContext += `\n\n${config.promptAdditions}`
+      }
+    }
+
     const lowerMsg = userMessage.toLowerCase()
     // Only trigger calendar generation for explicit generation requests, not modifications
     const isModificationRequest =
@@ -217,13 +236,16 @@ export async function POST(request: NextRequest) {
       lowerMsg.includes('manten') ||
       lowerMsg.includes('deixe') ||
       lowerMsg.includes('atuali')
-    const isCalendarRequest =
+    // Trigger calendar generation if: skill is 'seasonal-calendar' OR keyword match (backward compat)
+    const isCalendarBySkill = selectedSkill === 'seasonal-calendar' && !taskMeta?.artifact_data
+    const isCalendarByKeyword =
       !isModificationRequest &&
       (lowerMsg.includes('calendário') ||
         lowerMsg.includes('calendario') ||
         lowerMsg.includes('sazonal') ||
         lowerMsg.includes('seasonal') ||
         lowerMsg.includes('datas sazonais'))
+    const isCalendarRequest = isCalendarBySkill || isCalendarByKeyword
 
     if (isCalendarRequest) {
       // Mark task as running immediately
@@ -298,17 +320,11 @@ export async function POST(request: NextRequest) {
         '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega ao lado em instantes. Responda ao usuário informando brevemente que o calendário está sendo gerado e que os resultados aparecerão no painel lateral. Seja breve (2-3 frases).]'
     }
 
-    // Inject current artifact data so AI can read/modify it via SNEW_UPDATE_ARTIFACT
-    if (!skillContext) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: currentTask } = await (serviceClient as any)
-        .from('tasks')
-        .select('artifact_type, artifact_data')
-        .eq('id', taskId)
-        .single()
-
-      if (currentTask?.artifact_data && currentTask.artifact_type === 'seasonal-calendar') {
-        const cal = currentTask.artifact_data as {
+    // Inject current artifact data so AI can read/modify it via SNEW_MODIFY_ARTIFACT
+    // Uses taskMeta already loaded above (no extra DB call)
+    if (!skillContext || !skillContext.includes('SKILL RUNNING')) {
+      if (taskMeta?.artifact_data && taskMeta.artifact_type === 'seasonal-calendar') {
+        const cal = taskMeta.artifact_data as {
           dates?: Array<{ id: string; name: string; displayDate?: string; priority?: string }>
           year?: number
           campaigns?: Record<string, unknown>
@@ -337,8 +353,8 @@ REGRAS DE COMPORTAMENTO:
 2. Para MODIFICAÇÕES explícitas ("gere campanha de X", "remova Y", "limpe Z"): chame SNEW_MODIFY_ARTIFACT PRIMEIRO, depois confirme ao usuário.
 3. NUNCA diga que alterou dados sem ter chamado a tool. Se a tool retornar erro, informe o erro ao usuário.
 4. NUNCA regenere o calendário inteiro — use apenas as operações acima.]`
-      } else if (currentTask?.artifact_data) {
-        skillContext = `\n\n[ARTIFACT — Tipo: ${currentTask.artifact_type}. Dados disponíveis no painel lateral.]`
+      } else if (taskMeta?.artifact_data) {
+        skillContext = `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
       }
     }
   }
