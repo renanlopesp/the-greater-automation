@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -656,6 +656,13 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
 
   // Campaign store (keyed by dateId)
   const [campaigns, setCampaigns] = useState<Record<string, FullCampaign>>(data.campaigns ?? {})
+
+  // Sync campaigns from parent data (e.g., after SNEW_MODIFY_ARTIFACT updates the DB and useTask refetches)
+  useEffect(() => {
+    if (data.campaigns) {
+      setCampaigns(data.campaigns)
+    }
+  }, [data.campaigns])
 
   // Loading/error state per dateId
   const [generating, setGenerating] = useState<Record<string, boolean>>({})
