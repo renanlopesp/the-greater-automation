@@ -260,8 +260,14 @@ export default function OrchestratorChatWrapper({
                 )
               })}
 
-              {/* Thinking indicator — shows while waiting for AI response */}
-              {status === 'submitted' && (
+              {/* Thinking indicator — shows while waiting OR streaming without visible text */}
+              {(status === 'submitted' ||
+                (isStreaming &&
+                  !visibleMessages.some(
+                    (m) =>
+                      m.role === 'assistant' &&
+                      m.parts?.some((p) => isTextUIPart(p) && p.text.length > 0)
+                  ))) && (
                 <Message from="assistant">
                   <div className="mb-0.5 flex items-center gap-2">
                     <SnewAvatar size={20} />
