@@ -152,7 +152,7 @@ export default function OrchestratorChatWrapper({
                         <p className="whitespace-pre-wrap">{rawText}</p>
                       ) : (
                         <>
-                          {reasoningParts.length > 0 && (
+                          {reasoningParts.length > 0 && reasoningText.trim() && (
                             <Reasoning
                               isStreaming={
                                 isStreaming &&

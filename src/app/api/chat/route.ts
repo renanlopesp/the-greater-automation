@@ -206,12 +206,24 @@ export async function POST(request: NextRequest) {
   let skillContext = ''
   if (taskId) {
     const lowerMsg = userMessage.toLowerCase()
+    // Only trigger calendar generation for explicit generation requests, not modifications
+    const isModificationRequest =
+      lowerMsg.includes('remov') ||
+      lowerMsg.includes('limp') ||
+      lowerMsg.includes('delet') ||
+      lowerMsg.includes('filtr') ||
+      lowerMsg.includes('alter') ||
+      lowerMsg.includes('modif') ||
+      lowerMsg.includes('manten') ||
+      lowerMsg.includes('deixe') ||
+      lowerMsg.includes('atuali')
     const isCalendarRequest =
-      lowerMsg.includes('calendário') ||
-      lowerMsg.includes('calendario') ||
-      lowerMsg.includes('sazonal') ||
-      lowerMsg.includes('seasonal') ||
-      lowerMsg.includes('datas sazonais')
+      !isModificationRequest &&
+      (lowerMsg.includes('calendário') ||
+        lowerMsg.includes('calendario') ||
+        lowerMsg.includes('sazonal') ||
+        lowerMsg.includes('seasonal') ||
+        lowerMsg.includes('datas sazonais'))
 
     if (isCalendarRequest) {
       // Mark task as running immediately
@@ -285,6 +297,55 @@ export async function POST(request: NextRequest) {
       skillContext =
         '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega ao lado em instantes. Responda ao usuário informando brevemente que o calendário está sendo gerado e que os resultados aparecerão no painel lateral. Seja breve (2-3 frases).]'
     }
+
+    // Inject current artifact data so AI can read/modify it via SNEW_UPDATE_ARTIFACT
+    if (!skillContext) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: currentTask } = await (serviceClient as any)
+        .from('tasks')
+        .select('artifact_type, artifact_data')
+        .eq('id', taskId)
+        .single()
+
+      if (currentTask?.artifact_data) {
+        const summary =
+          currentTask.artifact_type === 'seasonal-calendar'
+            ? (() => {
+                const cal = currentTask.artifact_data as {
+                  dates?: Array<{
+                    id: string
+                    name: string
+                    displayDate?: string
+                    priority?: string
+                  }>
+                  year?: number
+                  campaigns?: Record<string, unknown>
+                }
+                const dateNames = (cal.dates ?? [])
+                  .map((d) => `${d.name} (${d.displayDate ?? ''})`)
+                  .join(', ')
+                const campaignCount = Object.keys(cal.campaigns ?? {}).length
+                return `Calendário ${cal.year}: ${(cal.dates ?? []).length} datas [${dateNames}], ${campaignCount} campanhas geradas.`
+              })()
+            : `Artifact type: ${currentTask.artifact_type}`
+
+        // Include date IDs so the AI can reference them in tool calls
+        const dateIds =
+          currentTask.artifact_type === 'seasonal-calendar'
+            ? (
+                (currentTask.artifact_data as { dates?: Array<{ id: string; name: string }> })
+                  .dates ?? []
+              )
+                .map((d) => `${d.id} (${d.name})`)
+                .join(', ')
+            : ''
+        skillContext = `\n\n[ARTIFACT CONTEXT — O painel lateral exibe: ${summary}. IDs das datas: ${dateIds}. Para modificar o calendário, use OBRIGATORIAMENTE a tool SNEW_MODIFY_ARTIFACT. Operações disponíveis:
+- "filter_dates": manter só as datas listadas em date_ids (remove o resto)
+- "remove_dates": remover as datas listadas em date_ids
+- "clear_campaigns": limpar campanhas geradas das datas em date_ids. Use except=true para limpar TODAS exceto as listadas (ex: limpar tudo menos Dia das Mães = operation="clear_campaigns", date_ids=["dia-das-maes-2026"], except=true)
+NUNCA diga que alterou sem chamar a tool. SEMPRE execute a tool primeiro, depois confirme ao usuário.]`
+      }
+    }
   }
 
   // ── 6. Build prompt + process connections (CPU-only, instant) ──────────
@@ -319,7 +380,13 @@ export async function POST(request: NextRequest) {
       | undefined
   )
 
-  const platformTools = buildPlatformTools(user.id, teamId, undefined, storeId ?? undefined, taskId)
+  const platformTools = buildPlatformTools(
+    user.id,
+    teamId,
+    serviceClient,
+    storeId ?? undefined,
+    taskId
+  )
 
   // Process Composio connections (CPU-only)
   const appIds = new Set<string>()
@@ -358,7 +425,7 @@ export async function POST(request: NextRequest) {
     id: 'orchestrator',
     name: 'Snew',
     system_prompt: null,
-    model: 'gpt-4o',
+    model: 'gpt-5.2',
     temperature: null,
     max_tokens: 16384,
   }

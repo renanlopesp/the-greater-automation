@@ -26,19 +26,14 @@ async function fetchTask(taskId: string): Promise<{ task: Task }> {
 
 /**
  * React Query hook for fetching a single task with polling support.
- * Polls every 2s when skill_status is 'running', stops otherwise.
+ * Polls every 2s when skill is running, 5s otherwise (catches artifact updates from chat tools).
  */
 export function useTask(taskId: string) {
   return useQuery({
     queryKey: ['task', taskId],
     queryFn: () => fetchTask(taskId),
     select: (data) => data.task,
-    refetchInterval: (query) => {
-      const task = query.state.data?.task
-      if (!task) return 2000 // poll until first data arrives
-      if (task.skill_status === 'running' || task.skill_status === 'idle') return 2000
-      return false // stop polling when completed or failed
-    },
+    refetchInterval: 2000,
     retry: 3,
   })
 }

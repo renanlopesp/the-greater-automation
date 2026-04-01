@@ -951,6 +951,151 @@ export function buildPlatformTools(
       },
     },
 
+    // ── Modify artifact data on the current task ──────────────────────
+    ...(taskId
+      ? {
+          SNEW_MODIFY_ARTIFACT: {
+            description:
+              'Modify the artifact in the side panel. Supports operations: "filter_dates" (keep only specified date IDs), "remove_dates" (remove specified date IDs), "clear_campaigns" (keep all dates but remove generated campaign content for specified date IDs — or for all except specified IDs), "replace" (replace entire artifact_data). The panel refreshes automatically.',
+            inputSchema: jsonSchema({
+              type: 'object',
+              properties: {
+                operation: {
+                  type: 'string',
+                  enum: ['filter_dates', 'remove_dates', 'clear_campaigns', 'replace'],
+                  description:
+                    'Operation: "filter_dates" keeps only listed date IDs, "remove_dates" removes listed date IDs, "clear_campaigns" removes generated campaigns for listed date IDs (use "except" to invert — clear all EXCEPT listed IDs), "replace" replaces full artifact_data.',
+                },
+                except: {
+                  type: 'boolean',
+                  description:
+                    'When true, inverts the date_ids selection. For "clear_campaigns": clears campaigns for all dates EXCEPT the listed IDs. Default: false.',
+                },
+                date_ids: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description:
+                    'Date IDs to keep (filter_dates) or remove (remove_dates). Use the date ID format like "dia-das-maes-2026".',
+                },
+                artifact_data: {
+                  type: 'object',
+                  description: 'Full artifact_data (only for "replace" operation).',
+                },
+              },
+              required: ['operation'],
+            }),
+            execute: async (params: {
+              operation: 'filter_dates' | 'remove_dates' | 'clear_campaigns' | 'replace'
+              date_ids?: string[]
+              except?: boolean
+              artifact_data?: unknown
+            }) => {
+              const supabase = await getClient()
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const sc = supabase as any
+
+              if (params.operation === 'replace' && params.artifact_data) {
+                const { error } = await sc
+                  .from('tasks')
+                  .update({
+                    artifact_data: params.artifact_data,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', taskId)
+                if (error) return { error: error.message }
+                return { success: true, message: 'Artifact replaced.' }
+              }
+
+              if (
+                (params.operation === 'filter_dates' || params.operation === 'remove_dates') &&
+                params.date_ids
+              ) {
+                // Load current artifact_data
+                const { data: task } = await sc
+                  .from('tasks')
+                  .select('artifact_data')
+                  .eq('id', taskId)
+                  .single()
+
+                if (!task?.artifact_data) return { error: 'No artifact data found on task.' }
+
+                const artifact = task.artifact_data as {
+                  dates?: Array<{ id: string }>
+                  campaigns?: Record<string, unknown>
+                  [key: string]: unknown
+                }
+                const ids = new Set(params.date_ids)
+
+                const filteredDates =
+                  params.operation === 'filter_dates'
+                    ? (artifact.dates ?? []).filter((d) => ids.has(d.id))
+                    : (artifact.dates ?? []).filter((d) => !ids.has(d.id))
+
+                // Also clean campaigns for removed dates
+                const keptIds = new Set(filteredDates.map((d) => d.id))
+                const filteredCampaigns: Record<string, unknown> = {}
+                for (const [key, val] of Object.entries(artifact.campaigns ?? {})) {
+                  if (keptIds.has(key)) filteredCampaigns[key] = val
+                }
+
+                const updated = { ...artifact, dates: filteredDates, campaigns: filteredCampaigns }
+                const { error } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (error) return { error: error.message }
+                return {
+                  success: true,
+                  message: `Artifact updated: ${filteredDates.length} dates remaining.`,
+                  remaining_dates: filteredDates.map((d) => d.id),
+                }
+              }
+
+              if (params.operation === 'clear_campaigns' && params.date_ids) {
+                // Load current artifact_data
+                const { data: taskData } = await sc
+                  .from('tasks')
+                  .select('artifact_data')
+                  .eq('id', taskId)
+                  .single()
+
+                if (!taskData?.artifact_data) return { error: 'No artifact data found.' }
+
+                const art = taskData.artifact_data as {
+                  dates?: Array<{ id: string }>
+                  campaigns?: Record<string, unknown>
+                  [key: string]: unknown
+                }
+                const ids = new Set(params.date_ids)
+
+                // Clear campaigns: if except=true, clear all EXCEPT listed IDs
+                const filteredCampaigns: Record<string, unknown> = {}
+                for (const [key, val] of Object.entries(art.campaigns ?? {})) {
+                  const shouldKeep = params.except ? ids.has(key) : !ids.has(key)
+                  if (shouldKeep) filteredCampaigns[key] = val
+                }
+
+                const updated = { ...art, campaigns: filteredCampaigns }
+                const { error: updateErr } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (updateErr) return { error: updateErr.message }
+                return {
+                  success: true,
+                  message: `Campaigns cleared. ${Object.keys(filteredCampaigns).length} campaigns remaining.`,
+                  remaining_campaigns: Object.keys(filteredCampaigns),
+                }
+              }
+
+              return { error: 'Invalid operation or missing parameters.' }
+            },
+          },
+        }
+      : {}),
+
     // Merge retail tools when store exists
     ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient, ownerUserId) : {}),
   }
