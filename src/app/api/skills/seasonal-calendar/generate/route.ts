@@ -82,7 +82,23 @@ export async function POST(request: NextRequest) {
       .eq('store_id', (storeResult.data as { id: string }).id)
       .eq('is_published', true)
       .limit(50)
-    products = (storeProducts ?? []) as typeof products
+    products = (
+      (storeProducts ?? []) as Array<{
+        name: string
+        price: number
+        images?: Array<{ src: string }> | null
+        category?: string
+        cost_price?: number
+        stock_quantity?: number
+      }>
+    ).map((p) => ({
+      name: p.name,
+      price: p.price,
+      image_url: p.images?.[0]?.src ?? undefined,
+      category: p.category,
+      cost_price: p.cost_price,
+      stock_quantity: p.stock_quantity,
+    }))
   }
 
   // 6. Insert skill_executions record with status='running'

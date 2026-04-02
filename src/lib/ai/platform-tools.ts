@@ -1141,7 +1141,11 @@ export function buildPlatformTools(
                     )
                     .eq('team_id', teamId)
                     .single(),
-                  sc.from('store_products').select('name, price').eq('team_id', teamId).limit(50),
+                  sc
+                    .from('store_products')
+                    .select('name, price, images, category, cost_price, stock_quantity')
+                    .eq('team_id', teamId)
+                    .limit(50),
                 ])
 
                 if (!brandDna)
@@ -1158,7 +1162,23 @@ export function buildPlatformTools(
                   },
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   brandDna: brandDna as any,
-                  products: (products ?? []) as Array<{ name: string; price: number }>,
+                  products: (
+                    (products ?? []) as Array<{
+                      name: string
+                      price: number
+                      images?: Array<{ src: string }> | null
+                      category?: string
+                      cost_price?: number
+                      stock_quantity?: number
+                    }>
+                  ).map((p) => ({
+                    name: p.name,
+                    price: p.price,
+                    image_url: p.images?.[0]?.src ?? undefined,
+                    category: p.category,
+                    cost_price: p.cost_price,
+                    stock_quantity: p.stock_quantity,
+                  })),
                 })
 
                 // Save campaign to artifact

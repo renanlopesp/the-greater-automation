@@ -22,6 +22,7 @@ export interface CampaignProduct {
   price: number
   tag: ProductTag
   stock?: number
+  image_url?: string
 }
 
 export interface CampaignConcept {

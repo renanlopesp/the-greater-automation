@@ -365,12 +365,22 @@ function Level2({
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
                   style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
                 >
-                  <div
-                    className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
-                    style={{ background: 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
-                  >
-                    {product.name.charAt(0).toUpperCase()}
-                  </div>
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                      style={{
+                        background: 'color-mix(in srgb, var(--foreground) 7%, transparent)',
+                      }}
+                    >
+                      {product.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-foreground truncate text-[13px] font-medium">
                       {product.name}
@@ -456,12 +466,20 @@ function ProductsSection({ campaign }: { campaign: FullCampaign }) {
           className="flex items-center gap-3 rounded-lg px-3 py-2.5"
           style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
         >
-          <div
-            className="text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
-            style={{ background: 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
-          >
-            {product.name.charAt(0).toUpperCase()}
-          </div>
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div
+              className="text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+              style={{ background: 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
+            >
+              {product.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-foreground truncate text-[13px] font-medium">{product.name}</p>
             <p className="text-muted-foreground text-xs">R$ {product.price}</p>
