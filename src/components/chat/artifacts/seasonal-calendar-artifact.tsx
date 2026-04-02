@@ -626,30 +626,37 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
   ) => {
     try {
       const html2canvas = (await import('html2canvas')).default
-      // Create offscreen container at native resolution
+      // Create offscreen container at exact native resolution
       const container = document.createElement('div')
-      container.style.position = 'fixed'
-      container.style.left = '-9999px'
+      container.style.position = 'absolute'
+      container.style.left = '-99999px'
       container.style.top = '0'
       container.style.width = `${width}px`
       container.style.height = `${height}px`
+      container.style.overflow = 'hidden'
       container.innerHTML = assetHtml
       document.body.appendChild(container)
       const target = container.firstElementChild as HTMLElement
-      if (!target) return
+      if (!target) {
+        document.body.removeChild(container)
+        return
+      }
+      // Ensure target matches native dimensions
+      target.style.width = `${width}px`
+      target.style.height = `${height}px`
 
-      // Wait for images to load
-      const images = target.querySelectorAll('img')
-      await Promise.all(
-        Array.from(images).map(
-          (img) =>
-            new Promise<void>((resolve) => {
-              if (img.complete) return resolve()
-              img.onload = () => resolve()
-              img.onerror = () => resolve()
-            })
-        )
-      )
+      // Wait for background images to load via a hidden img preload
+      const bgMatch = assetHtml.match(/url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/)
+      if (bgMatch?.[1]) {
+        await new Promise<void>((resolve) => {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = bgMatch[1]
+          if (img.complete) resolve()
+        })
+      }
 
       const canvas = await html2canvas(target, {
         width,
@@ -657,6 +664,7 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
         scale: 1,
         useCORS: true,
         allowTaint: true,
+        backgroundColor: null,
       })
       document.body.removeChild(container)
 

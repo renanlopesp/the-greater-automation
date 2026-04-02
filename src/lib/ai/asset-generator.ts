@@ -154,14 +154,11 @@ function buildAssetHtml(params: {
     height: ${format.height}px;
     overflow: hidden;
     font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-image: url('${bgImage}');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   ">
-    <img src="${bgImage}" style="
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    " crossorigin="anonymous" />
     <div style="
       position: absolute;
       top: 0; left: 0;
