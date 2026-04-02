@@ -457,11 +457,14 @@ export class NuvemshopClient {
   async getOrders(
     page = 1,
     perPage = 50,
-    params?: { created_at_min?: string; status?: string }
+    params?: { created_at_min?: string; created_at_max?: string; status?: string }
   ): Promise<NuvemshopOrder[]> {
     let url = `/orders?page=${page}&per_page=${perPage}`
     if (params?.created_at_min) {
       url += `&created_at_min=${params.created_at_min}`
+    }
+    if (params?.created_at_max) {
+      url += `&created_at_max=${params.created_at_max}`
     }
     if (params?.status) {
       url += `&status=${params.status}`

@@ -324,10 +324,10 @@ export function buildRetailTools(
           while (true) {
             const orders = await client.getOrders(page, 200, {
               created_at_min: startDate.toISOString(),
+              created_at_max: endDate.toISOString(),
             })
-            // Filter by end date client-side (API only supports created_at_min)
             for (const o of orders) {
-              if (new Date(o.created_at) <= endDate) {
+              {
                 allOrders.push({
                   total: o.total ?? '0',
                   status: o.status ?? 'open',
