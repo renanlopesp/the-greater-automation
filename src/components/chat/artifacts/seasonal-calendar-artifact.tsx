@@ -572,16 +572,33 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
             <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.08em] uppercase">
               Template
             </p>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(html).catch(() => null)
-                toast.success('HTML copiado!')
-              }}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
-            >
-              <Copy size={12} />
-              Copiar HTML
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  const blob = new Blob([html], { type: 'text/html' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'email-template.html'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+              >
+                <Download size={12} />
+                Download
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(html).catch(() => null)
+                  toast.success('HTML copiado!')
+                }}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+              >
+                <Copy size={12} />
+                Copiar
+              </button>
+            </div>
           </div>
           <div className="border-border overflow-hidden rounded-xl border">
             <iframe
