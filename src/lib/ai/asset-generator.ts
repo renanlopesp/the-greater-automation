@@ -207,21 +207,18 @@ function buildAssetHtml(params: {
         max-width: ${isWide ? '500px' : '85%'};
       ">${subtext}</p>
 
-      <table style="margin: ${isWide ? '0' : '4px'} auto 0 auto; border-spacing: 0; border-collapse: collapse;">
-        <tr>
-          <td style="
-            background: ${accentColor};
-            color: #ffffff;
-            font-size: ${ctaSize};
-            font-weight: 600;
-            padding: ${ctaPadding};
-            border-radius: 50px;
-            text-align: center;
-            text-transform: uppercase;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-          ">${cta}</td>
-        </tr>
-      </table>
+      <p style="margin: ${isWide ? '0' : '4px'} 0 0; text-align: center; line-height: 1;">
+        <span style="
+          background: ${accentColor};
+          color: #ffffff;
+          font-size: ${ctaSize};
+          font-weight: 600;
+          padding: ${ctaPadding};
+          border-radius: 50px;
+          text-transform: uppercase;
+          font-family: 'Helvetica Neue', Arial, sans-serif;
+        ">${cta}</span>
+      </p>
       ${isWide ? '</div>' : ''}
     </div>
   </div>`
