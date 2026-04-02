@@ -52,6 +52,9 @@ const ProductTagSchema = z.enum([
 ] as [ProductTag, ...ProductTag[]])
 
 const CampaignProductSchema = z.object({
+  product_id: z
+    .string()
+    .describe('ID do produto — retorne EXATAMENTE o product_id fornecido na lista de produtos'),
   name: z.string().describe('Nome do produto'),
   price: z.number().describe('Preço em reais'),
   tag: ProductTagSchema.describe(
@@ -66,9 +69,8 @@ const CampaignConceptSchema = z.object({
   description: z.string().describe('Descrição estratégica do conceito da campanha'),
   products: z
     .array(CampaignProductSchema)
-    .min(2)
-    .max(5)
-    .describe('Produtos principais do conceito'),
+    .min(1)
+    .describe('Produtos principais do conceito — inclua todos os relevantes para a campanha'),
   alternates: z
     .array(
       z.object({
@@ -109,9 +111,10 @@ const FullCampaignSchema = z.object({
   concept: CampaignConceptSchema,
   selectedProducts: z
     .array(CampaignProductSchema)
-    .min(3)
-    .max(6)
-    .describe('Produtos selecionados para a campanha com estoque'),
+    .min(1)
+    .describe(
+      'Todos os produtos relevantes para a campanha — inclua quantos fizerem sentido para a data e o nicho'
+    ),
   emailSubject: z.string().describe('Assunto do e-mail de campanha'),
   emailPreview: z.string().describe('Preview text do e-mail (apareça abaixo do assunto)'),
   copies: z
@@ -260,12 +263,16 @@ export async function generateCampaign(params: {
     average_ticket: number
   }
   products: Array<{
+    product_id?: string
     name: string
     price: number
     image_url?: string
     category?: string
     cost_price?: number
     stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
   }>
 }): Promise<FullCampaign> {
   const openai = getOpenAIProvider()
@@ -275,10 +282,18 @@ export async function generateCampaign(params: {
     products.length > 0
       ? `\nPRODUTOS DISPONÍVEIS NA LOJA (selecione os mais adequados para a campanha):\n${products
           .slice(0, 30)
-          .map(
-            (p) =>
-              `- ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}${p.stock_quantity ? ` (estoque: ${p.stock_quantity})` : ''}${p.category ? ` [${p.category}]` : ''}`
-          )
+          .map((p) => {
+            const parts = [
+              `- [ID: ${p.product_id ?? 'unknown'}] ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}`,
+            ]
+            if (p.stock_quantity != null) parts.push(`estoque: ${p.stock_quantity}`)
+            if (p.sales_count != null && p.sales_count > 0)
+              parts.push(`vendas (90d): ${p.sales_count}`)
+            if (p.margin_pct != null) parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
+            if (p.suggested_tag) parts.push(`tag sugerida: ${p.suggested_tag}`)
+            if (p.category) parts.push(`[${p.category}]`)
+            return parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
+          })
           .join('\n')}`
       : '\nNenhum produto cadastrado — crie produtos representativos baseados no nicho da loja.'
 
@@ -303,10 +318,10 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
 2. CONCEPT (conceito criativo):
    - slogan: 1 frase curta e impactante, alinhada ao tom da marca
    - description: Explique a estratégia criativa — por que esse ângulo, como ele ressoa com o público
-   - products: 3-5 produtos do catálogo ou representativos, com tag adequada (best-seller/liberar-estoque/cross-sell/lancamento/alta-margem)
+   - products: TODOS os produtos relevantes para o conceito da campanha, com tag adequada (best-seller/liberar-estoque/cross-sell/lancamento/alta-margem). Não limite a quantidade — inclua todos que fazem sentido.
    - alternates: 2 conceitos alternativos com slogan + descrição (para diferentes ângulos estratégicos)
 
-3. SELECTED PRODUCTS: 4-6 produtos com estoque para a campanha. Use produtos reais da loja quando disponíveis, ou crie representativos com preços coerentes com o ticket médio. Distribua as tags estrategicamente.
+3. SELECTED PRODUCTS: TODOS os produtos relevantes para a campanha com estoque disponível. Inclua quantos fizerem sentido para a data e o nicho — pode ser 5, 10, 15 ou mais. Use produtos reais da loja quando disponíveis, priorizando os com melhor tag (best-seller, alta-margem). Distribua as tags estrategicamente.
 
 4. EMAIL: emailSubject (assunto chamativo, máx 60 chars) + emailPreview (preview text de 80-100 chars que complemente o assunto)
 
@@ -340,7 +355,9 @@ IMPORTANTE:
 - Use as palavras indicadas e evite as palavras proibidas em todas as copies
 - Mantenha consistência de tom em todos os canais
 - Os textos devem soar naturais para o mercado brasileiro, não traduzidos
-- Toda a saída deve estar em Português do Brasil`
+- Toda a saída deve estar em Português do Brasil
+- OBRIGATÓRIO: Para cada produto, retorne o campo product_id EXATAMENTE como fornecido na lista (ex: "12345"). Isso é crítico para vincular imagens e dados. NÃO invente IDs.
+- Use as tags sugeridas (best-seller, alta-margem, etc.) quando fornecidas — elas são baseadas em dados reais de vendas e margem da loja.`
 
   const { object } = await generateObject({
     model: openai.chat('gpt-4o'),

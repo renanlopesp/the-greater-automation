@@ -186,28 +186,6 @@ export function buildPlatformTools(
                     : String(p.name),
                 price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
               }))
-            } else if (storeInfo?.id) {
-              const { data: dbProducts } = await (
-                supabase as unknown as {
-                  from: (t: string) => {
-                    select: (s: string) => {
-                      eq: (
-                        k: string,
-                        v: string
-                      ) => {
-                        limit: (n: number) => Promise<{
-                          data: Array<{ name: string; category?: string; price: number }> | null
-                        }>
-                      }
-                    }
-                  }
-                }
-              )
-                .from('store_products')
-                .select('name, category, price')
-                .eq('store_id', storeInfo.id as string)
-                .limit(50)
-              calendarProducts = dbProducts ?? []
             }
 
             const calendarResult = await generateCalendar({
@@ -1193,14 +1171,16 @@ export function buildPlatformTools(
                 if (!brandDna)
                   return { error: 'Brand DNA not found. Complete brand analysis first.' }
 
-                // Fetch products from Nuvemshop API or fall back to store_products DB
+                // Fetch enriched products from Nuvemshop API with sales/margin data
                 let campaignProducts: Array<{
+                  product_id?: string
                   name: string
                   price: number
                   image_url?: string
-                  category?: string
-                  cost_price?: number
                   stock_quantity?: number
+                  sales_count?: number
+                  margin_pct?: number
+                  suggested_tag?: string
                 }> = []
                 const si = storeInfoForCampaign as {
                   id?: string
@@ -1214,41 +1194,9 @@ export function buildPlatformTools(
                   si.platform_access_token
                 ) {
                   const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+                  const { analyzeProductsSafe } = await import('@/lib/nuvemshop/product-analyzer')
                   const client = new NuvemshopClient(si.platform_store_id, si.platform_access_token)
-                  const liveProducts = await client.getProducts(1, 200)
-                  campaignProducts = liveProducts.map((p) => ({
-                    name:
-                      typeof p.name === 'object'
-                        ? ((p.name as Record<string, string>).pt ??
-                          Object.values(p.name as Record<string, string>)[0] ??
-                          '')
-                        : String(p.name),
-                    price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
-                    image_url: p.images?.[0]?.src ?? undefined,
-                  }))
-                } else if (si?.id) {
-                  const { data: dbProducts } = await sc
-                    .from('store_products')
-                    .select('name, price, images, category, cost_price, stock_quantity')
-                    .eq('store_id', si.id)
-                    .limit(50)
-                  campaignProducts = (
-                    (dbProducts ?? []) as Array<{
-                      name: string
-                      price: number
-                      images?: Array<{ src: string }> | null
-                      category?: string
-                      cost_price?: number
-                      stock_quantity?: number
-                    }>
-                  ).map((p) => ({
-                    name: p.name,
-                    price: p.price,
-                    image_url: p.images?.[0]?.src ?? undefined,
-                    category: p.category,
-                    cost_price: p.cost_price,
-                    stock_quantity: p.stock_quantity,
-                  }))
+                  campaignProducts = await analyzeProductsSafe(client)
                 }
 
                 const { generateCampaign: genCampaign } =
@@ -1265,17 +1213,20 @@ export function buildPlatformTools(
                   products: campaignProducts,
                 })
 
-                // Inject image_url from original products (AI doesn't reliably copy URLs)
-                const imgMap = new Map(
-                  campaignProducts.map((p) => [p.name.toLowerCase(), p.image_url])
+                // Inject image_url from original products by product_id (reliable match)
+                const productMap = new Map(
+                  campaignProducts.map((p) => [p.product_id, { image_url: p.image_url }])
                 )
                 for (const p of campaign.concept.products) {
-                  if (!p.image_url) p.image_url = imgMap.get(p.name.toLowerCase()) ?? undefined
+                  const match = p.product_id ? productMap.get(p.product_id) : undefined
+                  if (match?.image_url) p.image_url = match.image_url
                 }
                 for (const p of campaign.selectedProducts) {
-                  if (!(p as { image_url?: string | null }).image_url) {
-                    ;(p as { image_url?: string | null }).image_url =
-                      imgMap.get(p.name.toLowerCase()) ?? undefined
+                  const match = (p as { product_id?: string }).product_id
+                    ? productMap.get((p as { product_id?: string }).product_id!)
+                    : undefined
+                  if (match?.image_url) {
+                    ;(p as { image_url?: string | null }).image_url = match.image_url
                   }
                 }
 

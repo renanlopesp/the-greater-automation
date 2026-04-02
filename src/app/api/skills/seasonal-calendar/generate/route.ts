@@ -73,12 +73,16 @@ export async function POST(request: NextRequest) {
 
   // 4. Fetch store products (depends on store query)
   let products: Array<{
+    product_id?: string
     name: string
     price: number
     image_url?: string
     category?: string
     cost_price?: number
     stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
   }> = []
   if (storeResult.data) {
     const storeData = storeResult.data as {
@@ -97,41 +101,8 @@ export async function POST(request: NextRequest) {
         storeData.platform_store_id,
         storeData.platform_access_token
       )
-      const liveProducts = await client.getProducts(1, 200)
-      products = liveProducts.map((p) => ({
-        name:
-          typeof p.name === 'object'
-            ? ((p.name as Record<string, string>).pt ??
-              Object.values(p.name as Record<string, string>)[0] ??
-              '')
-            : String(p.name),
-        price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
-        image_url: p.images?.[0]?.src ?? undefined,
-      }))
-    } else {
-      const { data: storeProducts } = await serviceClient
-        .from('store_products')
-        .select('name, price, images, category, cost_price, stock_quantity')
-        .eq('store_id', storeData.id)
-        .eq('is_published', true)
-        .limit(50)
-      products = (
-        (storeProducts ?? []) as Array<{
-          name: string
-          price: number
-          images?: Array<{ src: string }> | null
-          category?: string
-          cost_price?: number
-          stock_quantity?: number
-        }>
-      ).map((p) => ({
-        name: p.name,
-        price: p.price,
-        image_url: p.images?.[0]?.src ?? undefined,
-        category: p.category,
-        cost_price: p.cost_price,
-        stock_quantity: p.stock_quantity,
-      }))
+      const { analyzeProductsSafe } = await import('@/lib/nuvemshop/product-analyzer')
+      products = await analyzeProductsSafe(client)
     }
   }
 
@@ -163,18 +134,17 @@ export async function POST(request: NextRequest) {
       products,
     })
 
-    // Inject image_url from original products (AI doesn't reliably copy URLs)
-    const productImageMap = new Map(products.map((p) => [p.name.toLowerCase(), p.image_url]))
+    // Inject image_url from original products by product_id (reliable match)
+    const productMap = new Map(
+      products.map((p) => [p.product_id, { image_url: p.image_url, stock: p.stock_quantity }])
+    )
     for (const p of campaign.concept.products) {
-      if (!p.image_url) {
-        p.image_url = productImageMap.get(p.name.toLowerCase()) ?? undefined
-      }
+      const match = p.product_id ? productMap.get(p.product_id) : undefined
+      if (match?.image_url) p.image_url = match.image_url
     }
     for (const p of campaign.selectedProducts) {
-      if (!p.image_url) {
-        ;(p as { image_url?: string | null }).image_url =
-          productImageMap.get(p.name.toLowerCase()) ?? undefined
-      }
+      const match = p.product_id ? productMap.get(p.product_id) : undefined
+      if (match?.image_url) (p as { image_url?: string | null }).image_url = match.image_url
     }
 
     const durationMs = Date.now() - startedAt

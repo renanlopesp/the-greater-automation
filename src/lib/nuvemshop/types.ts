@@ -10,6 +10,7 @@ export const NuvemshopVariantSchema = z.object({
     .nullish()
     .transform((v) => v ?? ''),
   price: z.string().nullable(),
+  cost: z.string().nullable().optional(),
   stock: z.number().nullable(),
   stock_management: z.boolean(),
   values: z

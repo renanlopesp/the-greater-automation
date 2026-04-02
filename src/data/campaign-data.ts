@@ -18,6 +18,7 @@ export type ProductTag =
   | 'alta-margem'
 
 export interface CampaignProduct {
+  product_id?: string
   name: string
   price: number
   tag: ProductTag

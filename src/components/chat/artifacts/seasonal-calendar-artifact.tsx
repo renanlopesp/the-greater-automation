@@ -359,9 +359,9 @@ function Level2({
           <div>
             <SectionHeading>Produtos</SectionHeading>
             <div className="flex flex-col gap-1.5">
-              {campaign.concept.products.slice(0, 3).map((product, i) => (
+              {campaign.concept.products.slice(0, 3).map((product) => (
                 <div
-                  key={i}
+                  key={product.product_id ?? product.name}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
                   style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
                 >
