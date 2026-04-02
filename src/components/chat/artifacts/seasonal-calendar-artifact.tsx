@@ -592,7 +592,6 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
               title="Email preview"
               sandbox=""
               className="h-[450px] w-full border-0"
-              style={{ pointerEvents: 'none' }}
             />
           </div>
         </>
