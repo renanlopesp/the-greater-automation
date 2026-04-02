@@ -35,8 +35,8 @@ export async function generateAssets(params: {
   }
 }): Promise<GeneratedAsset[]> {
   const { campaignSlogan, dateName, products, brandDna } = params
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY not set')
+  const apiKey = process.env.OPEN_AI_API_KEY
+  if (!apiKey) throw new Error('OPEN_AI_API_KEY not set')
 
   const topProducts = products
     .slice(0, 3)
@@ -60,7 +60,7 @@ export async function generateAssets(params: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-image-1',
+          model: 'dall-e-3',
           prompt,
           n: 1,
           size: getImageSize(format),
@@ -134,9 +134,9 @@ Professional quality, suitable for Instagram/Facebook/email marketing.`
 }
 
 function getImageSize(format: AssetConfig): string {
-  // OpenAI gpt-image-1 supported sizes
+  // dall-e-3 supported sizes: 1024x1024, 1024x1792, 1792x1024
   if (format.ratio === '9:16') return '1024x1792'
   if (format.ratio === '1:1') return '1024x1024'
-  if (format.ratio === '3:1') return '1792x1024' // closest to 3:1
+  if (format.ratio === '3:1') return '1792x1024'
   return '1024x1024'
 }
