@@ -176,28 +176,25 @@ function buildAssetHtml(params: {
       background: linear-gradient(to top, ${gradientColor}, ${gradientColor.replace(/[\d.]+\)$/, '0.4)')}, transparent);
     "></div>
 
-    <!-- Content centered at bottom -->
+    <!-- Content centered at bottom (no flexbox — html2canvas compatible) -->
     <div style="
       position: absolute;
       bottom: 0;
       left: 0;
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      ${isWide ? 'justify-content: center; top: 0; height: 100%;' : ''}
-      align-items: center;
+      ${isWide ? 'top: 0;' : ''}
       padding: ${contentPadding};
       box-sizing: border-box;
       text-align: center;
-      gap: ${gap};
     ">
+      ${isWide ? `<div style="position: relative; top: 50%; transform: translateY(-50%);">` : ''}
       <h1 style="
         color: #ffffff;
         font-size: ${headlineSize};
         font-weight: 700;
         line-height: 1.08;
         letter-spacing: -0.02em;
-        margin: 0;
+        margin: 0 auto ${gap};
         text-shadow: 0 2px 12px rgba(0,0,0,0.25);
       ">${headline}</h1>
 
@@ -206,24 +203,25 @@ function buildAssetHtml(params: {
         font-size: ${subtextSize};
         font-weight: 400;
         line-height: 1.4;
-        margin: 0;
+        margin: 0 auto ${gap};
         max-width: ${isWide ? '500px' : '85%'};
       ">${subtext}</p>
 
-      <a style="
-        display: inline-block;
-        background: ${accentColor};
-        color: #ffffff;
-        font-size: ${ctaSize};
-        font-weight: 600;
-        padding: ${ctaPadding};
-        border-radius: 50px;
-        text-decoration: none;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        margin-top: ${isWide ? '0' : '4px'};
-        text-align: center;
-      ">${cta}</a>
+      <div style="text-align: center; margin-top: ${isWide ? '0' : '4px'};">
+        <a style="
+          display: inline-block;
+          background: ${accentColor};
+          color: #ffffff;
+          font-size: ${ctaSize};
+          font-weight: 600;
+          padding: ${ctaPadding};
+          border-radius: 50px;
+          text-decoration: none;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        ">${cta}</a>
+      </div>
+      ${isWide ? '</div>' : ''}
     </div>
   </div>`
 }
