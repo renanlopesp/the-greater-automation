@@ -80,34 +80,78 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // 5. Map sectionType to regenerateSection format
-    const sectionMap: Record<string, string> = {
-      copies: 'copies',
-      email: 'email',
-      assets: 'assets',
-      video: 'video',
-      timeline: 'timeline',
-    }
-    const regenType = sectionMap[sectionType] as
-      | 'copies'
-      | 'email'
-      | 'assets'
-      | 'video'
-      | 'timeline'
-      | 'products'
+    // 5. Generate the specific section
+    const products = campaign.curatedProducts ?? campaign.selectedProducts
+    let result: Partial<FullCampaign> = {}
 
-    const result = await regenerateSection({
-      sectionType: regenType,
-      existingCampaign: campaign,
-      brandDna: brandDna as {
-        niche: string
-        tone: string
-        audience: string
-        positioning: string
-        words_to_use: string[]
-        words_to_avoid: string[]
-      },
-    })
+    if (sectionType === 'email') {
+      // Use dedicated email template generator for branded HTML
+      const { generateEmailTemplate } = await import('@/lib/ai/email-template-generator')
+      const emailResult = await generateEmailTemplate({
+        campaignSlogan: campaign.concept.slogan,
+        campaignIntro: campaign.intro,
+        dateName: campaign.concept.description,
+        products,
+        brandDna: brandDna as {
+          niche: string
+          tone: string
+          audience: string
+          positioning: string
+        },
+      })
+      result = {
+        emailSubject: emailResult.subject,
+        emailPreview: emailResult.preview,
+      }
+      // Store HTML in deliverables.email.data
+      campaign.deliverables = campaign.deliverables ?? {
+        copies: { status: 'not_generated' as const },
+        email: { status: 'not_generated' as const },
+        assets: { status: 'not_generated' as const },
+        video: { status: 'not_generated' as const },
+        timeline: { status: 'not_generated' as const },
+      }
+      campaign.deliverables.email = {
+        status: 'generated',
+        generated_at: new Date().toISOString(),
+        data: {
+          subject: emailResult.subject,
+          preview: emailResult.preview,
+          html: emailResult.html,
+        },
+      }
+    } else if (sectionType === 'assets') {
+      // Use dedicated asset generator for AI images
+      const { generateAssets } = await import('@/lib/ai/asset-generator')
+      const assets = await generateAssets({
+        campaignSlogan: campaign.concept.slogan,
+        dateName: campaign.concept.description,
+        products,
+        brandDna: brandDna as {
+          niche: string
+          tone: string
+          positioning: string
+        },
+      })
+      result = {
+        assets: assets.map((a) => ({ label: a.label, ratio: a.ratio, bg: a.image_url })),
+      }
+    } else {
+      // Use existing regenerateSection for copies, video, timeline
+      const regenType = sectionType as 'copies' | 'video' | 'timeline' | 'products'
+      result = await regenerateSection({
+        sectionType: regenType,
+        existingCampaign: campaign,
+        brandDna: brandDna as {
+          niche: string
+          tone: string
+          audience: string
+          positioning: string
+          words_to_use: string[]
+          words_to_avoid: string[]
+        },
+      })
+    }
 
     // 6. Update campaign with generated section + deliverable status
     const updatedCampaign = { ...campaign, ...result }

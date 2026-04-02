@@ -17,6 +17,7 @@ import {
   Pencil,
   Check,
   Search,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -539,24 +540,63 @@ function ProductsSection({ campaign }: { campaign: FullCampaign }) {
 }
 
 function EmailSection({ campaign }: { campaign: FullCampaign }) {
+  const emailData = campaign.deliverables?.email?.data as
+    | { subject: string; preview: string; html?: string }
+    | undefined
+  const html = emailData?.html
+  const subject = emailData?.subject ?? campaign.emailSubject
+  const preview = emailData?.preview ?? campaign.emailPreview
+
   return (
-    <div className="px-6 py-5">
+    <div className="flex flex-col gap-4 px-6 py-5">
+      {/* Subject + Preview */}
       <div className="border-border rounded-xl border p-4">
         <div className="mb-3">
           <p className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
             Assunto
           </p>
-          <p className="text-foreground text-sm font-medium">{campaign.emailSubject}</p>
+          <p className="text-foreground text-sm font-medium">{subject}</p>
         </div>
         <div>
           <p className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
             Preview
           </p>
-          <p className="text-muted-foreground text-[13px] leading-relaxed">
-            {campaign.emailPreview}
-          </p>
+          <p className="text-muted-foreground text-[13px] leading-relaxed">{preview}</p>
         </div>
       </div>
+
+      {/* HTML Preview + Copy */}
+      {html && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.08em] uppercase">
+              Template
+            </p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(html).catch(() => null)
+                toast.success('HTML copiado!')
+              }}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+            >
+              <Copy size={12} />
+              Copiar HTML
+            </button>
+          </div>
+          <div
+            className="border-border overflow-hidden rounded-xl border"
+            style={{ maxHeight: 500 }}
+          >
+            <iframe
+              srcDoc={html}
+              title="Email preview"
+              sandbox=""
+              className="h-[450px] w-full border-0"
+              style={{ pointerEvents: 'none' }}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -564,15 +604,35 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
 function AssetsSection({ campaign }: { campaign: FullCampaign }) {
   return (
     <div className="grid grid-cols-2 gap-2 px-6 py-5">
-      {campaign.assets.map((asset) => (
-        <div key={asset.label} className="border-border overflow-hidden rounded-xl border">
-          <div className="h-20 w-full" style={{ background: asset.bg }} />
-          <div className="p-3">
-            <p className="text-foreground text-[13px] font-medium">{asset.label}</p>
-            <p className="text-muted-foreground text-xs">{asset.ratio}</p>
+      {campaign.assets.map((asset) => {
+        const isImage = asset.bg && (asset.bg.startsWith('http') || asset.bg.startsWith('data:'))
+        return (
+          <div key={asset.label} className="border-border overflow-hidden rounded-xl border">
+            {isImage ? (
+              <img src={asset.bg} alt={asset.label} className="h-32 w-full object-cover" />
+            ) : (
+              <div className="h-20 w-full" style={{ background: asset.bg || 'var(--muted)' }} />
+            )}
+            <div className="flex items-center justify-between p-3">
+              <div>
+                <p className="text-foreground text-[13px] font-medium">{asset.label}</p>
+                <p className="text-muted-foreground text-xs">{asset.ratio}</p>
+              </div>
+              {isImage && (
+                <a
+                  href={asset.bg}
+                  download={`${asset.label.replace(/\s+/g, '-').toLowerCase()}.png`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Download size={14} />
+                </a>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
