@@ -58,7 +58,7 @@ const CampaignProductSchema = z.object({
     'Tag do produto: best-seller, liberar-estoque, cross-sell, lancamento ou alta-margem'
   ),
   stock: z.number().nullable().describe('Quantidade em estoque (null se desconhecido)'),
-  image_url: z.string().nullable().optional().describe('URL da imagem do produto'),
+  image_url: z.string().nullable().describe('URL da imagem do produto (null se não disponível)'),
 })
 
 const CampaignConceptSchema = z.object({

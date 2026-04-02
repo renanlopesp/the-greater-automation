@@ -181,7 +181,13 @@ export async function POST(request: NextRequest) {
     // 9. Return result
     return NextResponse.json({ executionId, campaign, durationMs })
   } catch (error) {
-    const safeMessage = safeError('generate-campaign', error, 'Campaign generation failed')
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('[generate-campaign] Error:', errMsg, error)
+    const safeMessage = safeError(
+      'generate-campaign',
+      error,
+      `Campaign generation failed: ${errMsg}`
+    )
 
     if (executionId) {
       await serviceClient
