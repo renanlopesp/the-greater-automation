@@ -457,18 +457,22 @@ export class NuvemshopClient {
   async getOrders(
     page = 1,
     perPage = 50,
-    params?: { created_at_min?: string; created_at_max?: string; status?: string }
+    params?: {
+      created_at_min?: string
+      created_at_max?: string
+      status?: string
+      payment_status?: string
+      shipping_status?: string
+      q?: string
+    }
   ): Promise<NuvemshopOrder[]> {
     let url = `/orders?page=${page}&per_page=${perPage}`
-    if (params?.created_at_min) {
-      url += `&created_at_min=${params.created_at_min}`
-    }
-    if (params?.created_at_max) {
-      url += `&created_at_max=${params.created_at_max}`
-    }
-    if (params?.status) {
-      url += `&status=${params.status}`
-    }
+    if (params?.created_at_min) url += `&created_at_min=${params.created_at_min}`
+    if (params?.created_at_max) url += `&created_at_max=${params.created_at_max}`
+    if (params?.status) url += `&status=${params.status}`
+    if (params?.payment_status) url += `&payment_status=${params.payment_status}`
+    if (params?.shipping_status) url += `&shipping_status=${params.shipping_status}`
+    if (params?.q) url += `&q=${encodeURIComponent(params.q)}`
     const data = await this.request<unknown[]>(url)
     return data.map((item) => NuvemshopOrderSchema.parse(item))
   }

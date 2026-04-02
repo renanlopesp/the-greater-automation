@@ -325,6 +325,7 @@ export function buildRetailTools(
             const orders = await client.getOrders(page, 200, {
               created_at_min: startDate.toISOString(),
               created_at_max: endDate.toISOString(),
+              payment_status: 'paid',
             })
             for (const o of orders) {
               {
