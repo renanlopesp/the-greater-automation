@@ -618,14 +618,83 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
 }
 
 function AssetsSection({ campaign }: { campaign: FullCampaign }) {
+  const downloadAsImage = async (
+    assetHtml: string,
+    label: string,
+    width: number,
+    height: number
+  ) => {
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      // Create offscreen container
+      const container = document.createElement('div')
+      container.style.position = 'fixed'
+      container.style.left = '-9999px'
+      container.style.top = '0'
+      container.innerHTML = assetHtml
+      document.body.appendChild(container)
+      const target = container.firstElementChild as HTMLElement
+      if (!target) return
+
+      // Wait for images to load
+      const images = target.querySelectorAll('img')
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) return resolve()
+              img.onload = () => resolve()
+              img.onerror = () => resolve()
+            })
+        )
+      )
+
+      const canvas = await html2canvas(target, {
+        width,
+        height,
+        scale: 1,
+        useCORS: true,
+        allowTaint: true,
+      })
+      document.body.removeChild(container)
+
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${label.replace(/\s+/g, '-').toLowerCase()}.png`
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    } catch {
+      toast.error('Erro ao baixar imagem.')
+    }
+  }
+
   return (
-    <div className="grid grid-cols-2 gap-2 px-6 py-5">
+    <div className="flex flex-col gap-4 px-6 py-5">
       {campaign.assets.map((asset) => {
-        const isImage = asset.bg && (asset.bg.startsWith('http') || asset.bg.startsWith('data:'))
+        const hasHtml = !!asset.html
+        // Preview dimensions scaled down
+        const previewHeight = asset.ratio === '9:16' ? 280 : asset.ratio === '3:1' ? 100 : 200
         return (
           <div key={asset.label} className="border-border overflow-hidden rounded-xl border">
-            {isImage ? (
-              <img src={asset.bg} alt={asset.label} className="h-32 w-full object-cover" />
+            {hasHtml ? (
+              <div className="w-full overflow-hidden" style={{ height: previewHeight }}>
+                <div
+                  dangerouslySetInnerHTML={{ __html: asset.html! }}
+                  style={{
+                    transform: `scale(${previewHeight / (asset.height ?? 1080)})`,
+                    transformOrigin: 'top left',
+                    width: asset.width ?? 1080,
+                    height: asset.height ?? 1080,
+                  }}
+                />
+              </div>
             ) : (
               <div className="h-20 w-full" style={{ background: asset.bg || 'var(--muted)' }} />
             )}
@@ -634,16 +703,21 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
                 <p className="text-foreground text-[13px] font-medium">{asset.label}</p>
                 <p className="text-muted-foreground text-xs">{asset.ratio}</p>
               </div>
-              {isImage && (
-                <a
-                  href={asset.bg}
-                  download={`${asset.label.replace(/\s+/g, '-').toLowerCase()}.png`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+              {hasHtml && (
+                <button
+                  onClick={() =>
+                    void downloadAsImage(
+                      asset.html!,
+                      asset.label,
+                      asset.width ?? 1080,
+                      asset.height ?? 1080
+                    )
+                  }
+                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
                 >
                   <Download size={14} />
-                </a>
+                  Baixar
+                </button>
               )}
             </div>
           </div>

@@ -43,6 +43,9 @@ export interface CampaignAsset {
   label: string
   ratio: string
   bg: string
+  html?: string
+  width?: number
+  height?: number
 }
 
 export interface CampaignVideoScript {

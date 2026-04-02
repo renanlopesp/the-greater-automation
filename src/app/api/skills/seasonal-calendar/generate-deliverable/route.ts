@@ -134,7 +134,14 @@ export async function POST(request: NextRequest) {
         },
       })
       result = {
-        assets: assets.map((a) => ({ label: a.label, ratio: a.ratio, bg: a.image_url })),
+        assets: assets.map((a) => ({
+          label: a.label,
+          ratio: a.ratio,
+          bg: '',
+          html: a.html,
+          width: a.width,
+          height: a.height,
+        })),
       }
     } else {
       // Use existing regenerateSection for copies, video, timeline
