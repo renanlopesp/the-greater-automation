@@ -1199,9 +1199,9 @@ export function buildPlatformTools(
                   campaignProducts = await analyzeProductsSafe(client)
                 }
 
-                const { generateCampaign: genCampaign } =
+                const { generateConcept: genConcept } =
                   await import('@/lib/ai/seasonal-campaign-generator')
-                const campaign = await genCampaign({
+                const conceptResult = await genConcept({
                   date: {
                     id: dateId,
                     name: dateObj.name,
@@ -1217,17 +1217,37 @@ export function buildPlatformTools(
                 const productMap = new Map(
                   campaignProducts.map((p) => [p.product_id, { image_url: p.image_url }])
                 )
-                for (const p of campaign.concept.products) {
+                for (const p of conceptResult.concept.products) {
                   const match = p.product_id ? productMap.get(p.product_id) : undefined
                   if (match?.image_url) p.image_url = match.image_url
                 }
-                for (const p of campaign.selectedProducts) {
+                for (const p of conceptResult.selectedProducts) {
                   const match = (p as { product_id?: string }).product_id
                     ? productMap.get((p as { product_id?: string }).product_id!)
                     : undefined
                   if (match?.image_url) {
                     ;(p as { image_url?: string | null }).image_url = match.image_url
                   }
+                }
+
+                // Build campaign with concept only + deliverables not_generated
+                const notGen = { status: 'not_generated' as const }
+                const campaign = {
+                  ...conceptResult,
+                  curatedProducts: conceptResult.selectedProducts,
+                  emailSubject: '',
+                  emailPreview: '',
+                  copies: [],
+                  assets: [],
+                  videoScripts: [],
+                  timeline: [],
+                  deliverables: {
+                    copies: notGen,
+                    email: notGen,
+                    assets: notGen,
+                    video: notGen,
+                    timeline: notGen,
+                  },
                 }
 
                 // Save campaign to artifact

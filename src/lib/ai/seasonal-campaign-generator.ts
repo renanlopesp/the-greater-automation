@@ -1,7 +1,12 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { getOpenAIProvider } from '@/lib/ai/agent-chat'
-import type { FullCampaign, ProductTag } from '@/data/campaign-data'
+import type {
+  FullCampaign,
+  ProductTag,
+  CampaignConcept,
+  CampaignProduct,
+} from '@/data/campaign-data'
 
 // ---------------------------------------------------------------------------
 // PersonalizedCalendar schemas
@@ -483,4 +488,117 @@ INSTRUÇÕES:
   })
 
   return object as Partial<FullCampaign>
+}
+
+// ---------------------------------------------------------------------------
+// generateConcept — Phase 1 only (concept + products, no deliverables)
+// ---------------------------------------------------------------------------
+
+const ConceptOnlySchema = z.object({
+  intro: z.string().describe('Parágrafo introdutório com análise estratégica da data para a loja'),
+  concept: CampaignConceptSchema,
+  selectedProducts: z
+    .array(CampaignProductSchema)
+    .min(1)
+    .describe(
+      'Todos os produtos relevantes para a campanha — inclua quantos fizerem sentido para a data e o nicho'
+    ),
+})
+
+export async function generateConcept(params: {
+  date: {
+    id: string
+    name: string
+    emoji: string
+    displayDate: string
+  }
+  brandDna: {
+    niche: string
+    tone: string
+    audience: string
+    positioning: string
+    words_to_use: string[]
+    words_to_avoid: string[]
+    average_ticket: number
+  }
+  products: Array<{
+    product_id?: string
+    name: string
+    price: number
+    image_url?: string
+    category?: string
+    description?: string
+    stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
+  }>
+}): Promise<{ intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }> {
+  const openai = getOpenAIProvider()
+  const { date, brandDna, products } = params
+
+  const productsContext =
+    products.length > 0
+      ? `\nPRODUTOS DISPONÍVEIS NA LOJA (selecione os mais adequados para a campanha):\n${products
+          .slice(0, 30)
+          .map((p) => {
+            const parts = [
+              `- [ID: ${p.product_id ?? 'unknown'}] ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}`,
+            ]
+            if (p.stock_quantity != null) parts.push(`estoque: ${p.stock_quantity}`)
+            if (p.sales_count != null && p.sales_count > 0)
+              parts.push(`vendas (90d): ${p.sales_count}`)
+            if (p.margin_pct != null) parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
+            if (p.suggested_tag) parts.push(`tag sugerida: ${p.suggested_tag}`)
+            if (p.category) parts.push(`categoria: ${p.category}`)
+            if (p.description) parts.push(`desc: ${p.description}`)
+            return parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
+          })
+          .join('\n')}`
+      : '\nNenhum produto cadastrado — crie produtos representativos baseados no nicho da loja.'
+
+  const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua tarefa é criar o CONCEITO e SELEÇÃO DE PRODUTOS para uma campanha sazonal. NÃO gere copies, e-mail, assets, vídeos ou timeline — apenas o conceito criativo e a seleção de produtos.
+
+DATA DA CAMPANHA: ${date.emoji} ${date.name} — ${date.displayDate}
+
+PERFIL DA LOJA:
+- Nicho: ${brandDna.niche}
+- Público-alvo: ${brandDna.audience}
+- Posicionamento: ${brandDna.positioning}
+- Tom de comunicação: ${brandDna.tone}
+- Ticket médio: R$ ${brandDna.average_ticket.toLocaleString('pt-BR')}
+- Palavras para usar: ${brandDna.words_to_use.join(', ')}
+- Palavras para evitar: ${brandDna.words_to_avoid.join(', ')}
+${productsContext}
+
+INSTRUÇÕES:
+
+1. INTRO: 2-3 frases estratégicas explicando por que essa data é importante para ESSA loja específica.
+
+2. CONCEPT:
+   - slogan: 1 frase curta e impactante
+   - description: Estratégia criativa — por que esse ângulo ressoa com o público
+   - products: TODOS os produtos relevantes para o conceito, com tag adequada
+   - alternates: 2 conceitos alternativos
+
+3. SELECTED PRODUCTS: TODOS os produtos relevantes para a campanha. Inclua quantos fizerem sentido.
+
+IMPORTANTE:
+- Retorne o product_id EXATAMENTE como fornecido na lista.
+- Use as tags sugeridas quando fornecidas — são baseadas em dados reais.
+- Toda a saída em Português do Brasil.`
+
+  const { object } = await generateObject({
+    model: openai.chat('gpt-4o'),
+    schema: ConceptOnlySchema,
+    system: systemPrompt,
+    messages: [
+      {
+        role: 'user',
+        content: `Gere o conceito e seleção de produtos para "${date.name}" (${date.displayDate}).`,
+      },
+    ],
+  })
+
+  return object as { intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }
 }

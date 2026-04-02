@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
-import { generateCampaign } from '@/lib/ai/seasonal-campaign-generator'
+import { generateConcept } from '@/lib/ai/seasonal-campaign-generator'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
 import { safeError } from '@/lib/safe-error'
 
@@ -122,8 +122,8 @@ export async function POST(request: NextRequest) {
   const executionId = (execRow as { id: string } | null)?.id
 
   try {
-    // 7. Generate campaign
-    const campaign = await generateCampaign({
+    // 7. Generate concept only (no copies, email, assets, video, timeline)
+    const conceptResult = await generateConcept({
       date: {
         id: dateId,
         name: dateName,
@@ -138,13 +138,33 @@ export async function POST(request: NextRequest) {
     const productMap = new Map(
       products.map((p) => [p.product_id, { image_url: p.image_url, stock: p.stock_quantity }])
     )
-    for (const p of campaign.concept.products) {
+    for (const p of conceptResult.concept.products) {
       const match = p.product_id ? productMap.get(p.product_id) : undefined
       if (match?.image_url) p.image_url = match.image_url
     }
-    for (const p of campaign.selectedProducts) {
+    for (const p of conceptResult.selectedProducts) {
       const match = p.product_id ? productMap.get(p.product_id) : undefined
       if (match?.image_url) (p as { image_url?: string | null }).image_url = match.image_url
+    }
+
+    // Build campaign with deliverables in not_generated state
+    const notGenerated = { status: 'not_generated' as const }
+    const campaign = {
+      ...conceptResult,
+      curatedProducts: conceptResult.selectedProducts,
+      emailSubject: '',
+      emailPreview: '',
+      copies: [],
+      assets: [],
+      videoScripts: [],
+      timeline: [],
+      deliverables: {
+        copies: notGenerated,
+        email: notGenerated,
+        assets: notGenerated,
+        video: notGenerated,
+        timeline: notGenerated,
+      },
     }
 
     const durationMs = Date.now() - startedAt

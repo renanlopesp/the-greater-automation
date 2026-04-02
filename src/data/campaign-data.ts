@@ -56,16 +56,41 @@ export interface CampaignTimelineItem {
   actions: string[]
 }
 
+// ---------------------------------------------------------------------------
+// Deliverable status tracking (052-campaign-deliverables)
+// ---------------------------------------------------------------------------
+
+export type DeliverableStatus = 'not_generated' | 'generating' | 'generated' | 'stale'
+
+export type DeliverableSectionType = 'copies' | 'email' | 'assets' | 'video' | 'timeline'
+
+export interface DeliverableSection<T = unknown> {
+  status: DeliverableStatus
+  generated_at?: string
+  data?: T
+}
+
+export interface CampaignDeliverables {
+  copies: DeliverableSection<CampaignCopy[]>
+  email: DeliverableSection<{ subject: string; preview: string; html?: string }>
+  assets: DeliverableSection<CampaignAsset[]>
+  video: DeliverableSection<CampaignVideoScript[]>
+  timeline: DeliverableSection<CampaignTimelineItem[]>
+}
+
 export interface FullCampaign {
   intro: string
   concept: CampaignConcept
   selectedProducts: CampaignProduct[]
+  curatedProducts?: CampaignProduct[]
   emailSubject: string
   emailPreview: string
   copies: CampaignCopy[]
   assets: CampaignAsset[]
   videoScripts: CampaignVideoScript[]
   timeline: CampaignTimelineItem[]
+  /** Per-section generation status. Absent = legacy campaign (all sections generated). */
+  deliverables?: CampaignDeliverables
 }
 
 export interface SeasonalDate {

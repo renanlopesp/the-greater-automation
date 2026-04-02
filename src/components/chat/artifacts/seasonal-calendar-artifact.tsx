@@ -14,11 +14,19 @@ import {
   Sparkles,
   Copy,
   Package,
+  Pencil,
+  Check,
+  Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PersonalizedCalendar, PersonalizedDate } from '@/lib/ai/seasonal-campaign-generator'
-import type { FullCampaign, ProductTag } from '@/data/campaign-data'
+import type {
+  FullCampaign,
+  ProductTag,
+  CampaignProduct,
+  DeliverableStatus,
+} from '@/data/campaign-data'
 import { productTagConfig } from '@/data/campaign-data'
 
 // ---------------------------------------------------------------------------
@@ -31,6 +39,7 @@ type ArtifactView =
   | { level: 1 }
   | { level: 2; dateId: string; dateName: string }
   | { level: 3; dateId: string; dateName: string; sectionType: SectionType }
+  | { level: 'curation'; dateId: string; dateName: string }
 
 // ---------------------------------------------------------------------------
 // Section config
@@ -227,6 +236,7 @@ function Level2({
   onGenerate,
   onRegenerateConcept,
   onSelectSection,
+  onToggleCuration,
 }: {
   dateName: string
   displayDate?: string
@@ -239,6 +249,7 @@ function Level2({
   onGenerate: () => void
   onRegenerateConcept: () => void
   onSelectSection: (sectionType: SectionType) => void
+  onToggleCuration: () => void
 }) {
   return (
     <div className="flex flex-col">
@@ -355,41 +366,57 @@ function Level2({
             )}
           </div>
 
-          {/* Products */}
+          {/* Products with curation */}
           <div>
-            <SectionHeading>Produtos</SectionHeading>
+            <div className="mb-3 flex items-center justify-between">
+              <SectionHeading>Produtos</SectionHeading>
+              <button
+                onClick={onToggleCuration}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+              >
+                <Pencil size={12} />
+                Editar
+              </button>
+            </div>
             <div className="flex flex-col gap-1.5">
-              {campaign.concept.products.slice(0, 3).map((product) => (
-                <div
-                  key={product.product_id ?? product.name}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
-                  style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
-                >
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="h-8 w-8 shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
-                      style={{
-                        background: 'color-mix(in srgb, var(--foreground) 7%, transparent)',
-                      }}
-                    >
-                      {product.name.charAt(0).toUpperCase()}
+              {(campaign.curatedProducts ?? campaign.selectedProducts)
+                .slice(0, 5)
+                .map((product) => (
+                  <div
+                    key={product.product_id ?? product.name}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors"
+                    style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
+                  >
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                        style={{
+                          background: 'color-mix(in srgb, var(--foreground) 7%, transparent)',
+                        }}
+                      >
+                        {product.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-foreground truncate text-[13px] font-medium">
+                        {product.name}
+                      </p>
+                      <p className="text-muted-foreground text-xs">R$ {product.price}</p>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-foreground truncate text-[13px] font-medium">
-                      {product.name}
-                    </p>
-                    <p className="text-muted-foreground text-xs">R$ {product.price}</p>
+                    <ProductTagBadge tag={product.tag} />
                   </div>
-                  <ProductTagBadge tag={product.tag} />
-                </div>
-              ))}
+                ))}
+              {(campaign.curatedProducts ?? campaign.selectedProducts).length > 5 && (
+                <p className="text-muted-foreground px-3 text-xs">
+                  +{(campaign.curatedProducts ?? campaign.selectedProducts).length - 5} produtos
+                </p>
+              )}
             </div>
           </div>
 
@@ -667,6 +694,130 @@ function Level3({
 }
 
 // ---------------------------------------------------------------------------
+// Product Curation view
+// ---------------------------------------------------------------------------
+
+function ProductCuration({
+  dateName,
+  allProducts,
+  selectedIds,
+  onSave,
+  onBack,
+}: {
+  dateName: string
+  allProducts: CampaignProduct[]
+  selectedIds: Set<string>
+  onSave: (selected: CampaignProduct[]) => void
+  onBack: () => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(selectedIds))
+  const [search, setSearch] = useState('')
+
+  const filtered = search
+    ? allProducts.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    : allProducts
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSave = () => {
+    const selectedProducts = allProducts.filter((p) => selected.has(p.product_id ?? p.name))
+    if (selectedProducts.length === 0) {
+      toast.error('Selecione pelo menos 1 produto.')
+      return
+    }
+    onSave(selectedProducts)
+  }
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between px-6 pt-4 pb-3">
+        <BackButton label={dateName} onClick={onBack} />
+        <button
+          onClick={handleSave}
+          className="bg-foreground text-background flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-90"
+        >
+          <Check size={12} />
+          Salvar ({selected.size})
+        </button>
+      </div>
+
+      <div className="border-border border-b px-6 py-2.5">
+        <div
+          className="flex items-center gap-2 rounded-lg px-3 py-2"
+          style={{ background: 'color-mix(in srgb, var(--foreground) 4%, transparent)' }}
+        >
+          <Search size={14} className="text-muted-foreground shrink-0" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar produto..."
+            className="text-foreground placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-0.5 px-6 py-3">
+        {filtered.map((product) => {
+          const id = product.product_id ?? product.name
+          const isSelected = selected.has(id)
+          return (
+            <button
+              key={id}
+              onClick={() => toggle(id)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                isSelected ? 'bg-foreground/5' : 'hover:bg-foreground/3'
+              )}
+            >
+              <div
+                className={cn(
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
+                  isSelected ? 'border-foreground bg-foreground' : 'border-border'
+                )}
+              >
+                {isSelected && <Check size={12} className="text-background" />}
+              </div>
+              {product.image_url ? (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <div
+                  className="text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                  style={{ background: 'color-mix(in srgb, var(--foreground) 7%, transparent)' }}
+                >
+                  {product.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-foreground truncate text-[13px] font-medium">{product.name}</p>
+                <p className="text-muted-foreground text-xs">R$ {product.price}</p>
+              </div>
+              {product.tag && <ProductTagBadge tag={product.tag} />}
+            </button>
+          )
+        })}
+        {filtered.length === 0 && (
+          <p className="text-muted-foreground py-8 text-center text-sm">
+            Nenhum produto encontrado.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -785,6 +936,30 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
     }
   }
 
+  // --- Save curated products ---
+  async function saveCuratedProducts(dateId: string, curatedProducts: CampaignProduct[]) {
+    const campaign = campaigns[dateId]
+    if (!campaign) return
+    const updated = { ...campaign, curatedProducts }
+    // Mark deliverables as stale if they were generated
+    if (updated.deliverables) {
+      const d = updated.deliverables
+      const stale = (s: { status: string }) =>
+        s.status === 'generated' ? { ...s, status: 'stale' as const } : s
+      updated.deliverables = {
+        copies: stale(d.copies) as typeof d.copies,
+        email: stale(d.email) as typeof d.email,
+        assets: stale(d.assets) as typeof d.assets,
+        video: stale(d.video) as typeof d.video,
+        timeline: stale(d.timeline) as typeof d.timeline,
+      }
+    }
+    const updatedCampaigns = { ...campaigns, [dateId]: updated }
+    await saveCampaignsToTask(updatedCampaigns)
+    if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+    toast.success(`${curatedProducts.length} produtos selecionados.`)
+  }
+
   // --- Handle date click ---
   function handleDateClick(date: PersonalizedDate) {
     setView({ level: 2, dateId: date.id, dateName: date.name })
@@ -846,6 +1021,33 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
         onGenerate={() => void generateCampaign(dateId, dateName)}
         onRegenerateConcept={() => void regenerateConcept(dateId)}
         onSelectSection={(sectionType) => setView({ level: 3, dateId, dateName, sectionType })}
+        onToggleCuration={() => setView({ level: 'curation', dateId, dateName })}
+      />
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // Curation
+  // ---------------------------------------------------------------------------
+  if (view.level === 'curation') {
+    const { dateId, dateName } = view
+    const campaign = campaigns[dateId]
+    if (!campaign) {
+      setView({ level: 2, dateId, dateName })
+      return null
+    }
+    const allProducts = campaign.curatedProducts ?? campaign.selectedProducts
+    const selectedIds = new Set(allProducts.map((p) => p.product_id ?? p.name))
+    return (
+      <ProductCuration
+        dateName={dateName}
+        allProducts={campaign.selectedProducts}
+        selectedIds={selectedIds}
+        onSave={(selected) => {
+          void saveCuratedProducts(dateId, selected)
+          setView({ level: 2, dateId, dateName })
+        }}
+        onBack={() => setView({ level: 2, dateId, dateName })}
       />
     )
   }
