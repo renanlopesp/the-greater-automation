@@ -424,21 +424,36 @@ function Level2({
           <div>
             <SectionHeading>Seções</SectionHeading>
             <div className="grid grid-cols-2 gap-2">
-              {SECTION_DEFS.map((section) => (
-                <button
-                  key={section.type}
-                  onClick={() => onSelectSection(section.type)}
-                  className="border-border hover:bg-accent/60 group flex flex-col gap-1 rounded-xl border p-3.5 text-left transition-all"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">{section.icon}</span>
-                    <span className="text-foreground text-[13px] font-medium">{section.label}</span>
-                  </div>
-                  <span className="text-muted-foreground text-xs">
-                    {sectionMeta(section.type, campaign)}
-                  </span>
-                </button>
-              ))}
+              {SECTION_DEFS.map((section) => {
+                const delivStatus =
+                  campaign.deliverables?.[section.type as keyof typeof campaign.deliverables]
+                    ?.status
+                const isNotGenerated = delivStatus === 'not_generated'
+                const isStale = delivStatus === 'stale'
+                return (
+                  <button
+                    key={section.type}
+                    onClick={() => onSelectSection(section.type)}
+                    className="border-border hover:bg-accent/60 group flex flex-col gap-1 rounded-xl border p-3.5 text-left transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{section.icon}</span>
+                      <span className="text-foreground text-[13px] font-medium">
+                        {section.label}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground text-xs">
+                      {isNotGenerated ? (
+                        <span className="text-amber-500">Gerar</span>
+                      ) : isStale ? (
+                        <span className="text-amber-500">Desatualizado</span>
+                      ) : (
+                        sectionMeta(section.type, campaign)
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -635,15 +650,19 @@ function Level3({
   sectionType,
   campaign,
   isRegenerating,
+  deliverableStatus,
   onBack,
   onRegenerate,
+  onGenerate,
 }: {
   dateName: string
   sectionType: SectionType
   campaign: FullCampaign
   isRegenerating: boolean
+  deliverableStatus?: DeliverableStatus
   onBack: () => void
   onRegenerate: () => void
+  onGenerate: () => void
 }) {
   const sectionLabel: Record<SectionType, string> = {
     products: 'Produtos',
@@ -654,19 +673,25 @@ function Level3({
     timeline: 'Timeline',
   }
 
+  const needsGeneration =
+    sectionType !== 'products' &&
+    (deliverableStatus === 'not_generated' || deliverableStatus === 'stale')
+
   return (
     <div className="flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-4 pb-3">
         <BackButton label={dateName} onClick={onBack} />
-        <button
-          onClick={onRegenerate}
-          disabled={isRegenerating}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
-          Regenerar
-        </button>
+        {!needsGeneration && (
+          <button
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
+            Regenerar
+          </button>
+        )}
       </div>
 
       {/* Section title */}
@@ -676,8 +701,31 @@ function Level3({
         </p>
       </div>
 
-      {/* Content */}
-      {isRegenerating ? (
+      {/* Not generated — show Generate button */}
+      {needsGeneration && !isRegenerating ? (
+        <div className="flex flex-col items-center px-6 py-16 text-center">
+          <div
+            className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ background: 'color-mix(in srgb, var(--foreground) 4%, transparent)' }}
+          >
+            <Sparkles className="text-muted-foreground h-6 w-6" />
+          </div>
+          <p className="text-foreground text-[15px] font-semibold">
+            {sectionLabel[sectionType]} não gerado
+          </p>
+          <p className="text-muted-foreground mt-2 max-w-[240px] text-[13px] leading-relaxed">
+            {deliverableStatus === 'stale'
+              ? 'O conceito ou produtos mudaram. Gere novamente.'
+              : 'Gere o conteúdo sob demanda.'}
+          </p>
+          <button
+            onClick={onGenerate}
+            className="bg-foreground text-background mt-6 rounded-xl px-7 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 active:scale-[0.98]"
+          >
+            Gerar {sectionLabel[sectionType]}
+          </button>
+        </div>
+      ) : isRegenerating ? (
         <Level3Skeleton />
       ) : (
         <>
@@ -960,6 +1008,28 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
     toast.success(`${curatedProducts.length} produtos selecionados.`)
   }
 
+  // --- Generate deliverable on demand ---
+  async function generateDeliverable(dateId: string, sectionType: string) {
+    const key = `${dateId}:${sectionType}`
+    setRegeneratingSection((prev) => ({ ...prev, [key]: true }))
+    try {
+      const res = await fetch('/api/skills/seasonal-calendar/generate-deliverable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, dateId, sectionType }),
+      })
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.error ?? 'generation failed')
+      }
+      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+    } catch {
+      toast.error('Erro ao gerar seção. Tente novamente.')
+    } finally {
+      setRegeneratingSection((prev) => ({ ...prev, [key]: false }))
+    }
+  }
+
   // --- Handle date click ---
   function handleDateClick(date: PersonalizedDate) {
     setView({ level: 2, dateId: date.id, dateName: date.name })
@@ -1075,8 +1145,12 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
         sectionType={sectionType}
         campaign={campaign}
         isRegenerating={regeneratingSection[sectionKey] ?? false}
+        deliverableStatus={
+          campaign.deliverables?.[sectionType as keyof typeof campaign.deliverables]?.status
+        }
         onBack={() => setView({ level: 2, dateId, dateName })}
         onRegenerate={() => void regenerateSection(dateId, sectionType)}
+        onGenerate={() => void generateDeliverable(dateId, sectionType)}
       />
     )
   }
