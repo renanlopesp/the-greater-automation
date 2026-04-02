@@ -583,15 +583,12 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
               Copiar HTML
             </button>
           </div>
-          <div
-            className="border-border overflow-hidden rounded-xl border"
-            style={{ maxHeight: 500 }}
-          >
+          <div className="border-border overflow-hidden rounded-xl border">
             <iframe
               srcDoc={html}
               title="Email preview"
               sandbox=""
-              className="h-[450px] w-full border-0"
+              className="h-[800px] w-full border-0"
             />
           </div>
         </>
