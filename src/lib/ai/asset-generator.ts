@@ -69,7 +69,10 @@ export async function generateAssets(params: {
       const { object: textContent } = await generateObject({
         model: openai.chat('gpt-4o'),
         schema: z.object({
-          assets: z.array(AssetTemplateSchema).length(productsWithImages.length),
+          assets: z
+            .array(AssetTemplateSchema)
+            .min(1)
+            .describe(`Gere exatamente ${productsWithImages.length} itens, um para cada produto`),
         }),
         system: `Você é um designer de marketing para e-commerce brasileiro. Gere textos para ${productsWithImages.length} assets visuais no formato "${format.label}" (${format.ratio}) de uma campanha sazonal.
 
