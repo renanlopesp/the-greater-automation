@@ -239,6 +239,23 @@ Toda a saída deve estar em Português do Brasil.`
     ],
   })
 
+  // Post-generation fix: bump past dates to next year
+  const now = new Date()
+  for (const date of object.dates) {
+    if (date.date) {
+      const dateObj = new Date(date.date)
+      if (dateObj < now) {
+        dateObj.setFullYear(dateObj.getFullYear() + 1)
+        date.date = dateObj.toISOString().split('T')[0]
+        date.id = date.id.replace(/\d{4}$/, String(dateObj.getFullYear()))
+        const yearStr = String(dateObj.getFullYear())
+        if (!date.displayDate.includes(yearStr)) {
+          date.displayDate = date.displayDate.replace(/\d{4}/, yearStr)
+        }
+      }
+    }
+  }
+
   return object
 }
 

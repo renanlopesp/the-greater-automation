@@ -27,7 +27,7 @@ export default function DashboardHero() {
   const [isCreating, setIsCreating] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { data: activeSlugs = [] } = useQuery({
+  const { data: activeSlugs = [], isLoading: isLoadingSkills } = useQuery({
     queryKey: ['active-skill-slugs'],
     queryFn: async () => {
       const skills = await fetchSkillsAction()
@@ -109,27 +109,34 @@ export default function DashboardHero() {
         <div className="flex items-center justify-between px-3 pb-3">
           {/* Skill pills */}
           <div className="flex items-center gap-1">
-            {skillConfigs.map((skill) => {
-              const isActive = skill.slug === selectedSkill
-              return (
-                <button
-                  key={skill.slug}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectedSkill(skill.slug)
-                  }}
-                  className={cn(
-                    'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all',
-                    isActive
-                      ? 'bg-foreground text-background'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
-                  )}
-                >
-                  {getSkillIcon(skill.icon)}
-                  {skill.name}
-                </button>
-              )
-            })}
+            {isLoadingSkills ? (
+              <>
+                <div className="bg-foreground/8 h-7 w-16 animate-pulse rounded-full" />
+                <div className="bg-foreground/8 h-7 w-24 animate-pulse rounded-full" />
+              </>
+            ) : (
+              skillConfigs.map((skill) => {
+                const isActive = skill.slug === selectedSkill
+                return (
+                  <button
+                    key={skill.slug}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedSkill(skill.slug)
+                    }}
+                    className={cn(
+                      'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all',
+                      isActive
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
+                    )}
+                  >
+                    {getSkillIcon(skill.icon)}
+                    {skill.name}
+                  </button>
+                )
+              })
+            )}
           </div>
 
           {/* Send button */}
@@ -156,15 +163,24 @@ export default function DashboardHero() {
 
       {/* Contextual suggestions */}
       <div className="flex flex-wrap justify-center gap-2">
-        {currentConfig.suggestions.map((text) => (
-          <button
-            key={text}
-            onClick={() => send(text)}
-            className="border-border text-muted-foreground hover:text-foreground hover:bg-accent/60 rounded-full border px-4 py-2 text-[13px] transition-colors"
-          >
-            {text}
-          </button>
-        ))}
+        {isLoadingSkills ? (
+          <>
+            <div className="bg-foreground/8 h-9 w-40 animate-pulse rounded-full" />
+            <div className="bg-foreground/8 h-9 w-48 animate-pulse rounded-full" />
+            <div className="bg-foreground/8 h-9 w-56 animate-pulse rounded-full" />
+            <div className="bg-foreground/8 h-9 w-44 animate-pulse rounded-full" />
+          </>
+        ) : (
+          currentConfig.suggestions.map((text) => (
+            <button
+              key={text}
+              onClick={() => send(text)}
+              className="border-border text-muted-foreground hover:text-foreground hover:bg-accent/60 rounded-full border px-4 py-2 text-[13px] transition-colors"
+            >
+              {text}
+            </button>
+          ))
+        )}
       </div>
     </div>
   )
