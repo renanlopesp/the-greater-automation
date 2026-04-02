@@ -63,16 +63,15 @@ export async function generateAssets(params: {
 
   const productNames = productsWithImages.map((p) => p.name)
 
-  // Generate text content per format — one AI call per format, batch all products
-  const allAssets: GeneratedAsset[] = []
-
-  for (const format of ASSET_FORMATS) {
-    const { object: textContent } = await generateObject({
-      model: openai.chat('gpt-4o'),
-      schema: z.object({
-        assets: z.array(AssetTemplateSchema).length(productsWithImages.length),
-      }),
-      system: `Você é um designer de marketing para e-commerce brasileiro. Gere textos para ${productsWithImages.length} assets visuais no formato "${format.label}" (${format.ratio}) de uma campanha sazonal.
+  // Generate text content per format — parallel AI calls (one per format)
+  const formatResults = await Promise.all(
+    ASSET_FORMATS.map(async (format) => {
+      const { object: textContent } = await generateObject({
+        model: openai.chat('gpt-4o'),
+        schema: z.object({
+          assets: z.array(AssetTemplateSchema).length(productsWithImages.length),
+        }),
+        system: `Você é um designer de marketing para e-commerce brasileiro. Gere textos para ${productsWithImages.length} assets visuais no formato "${format.label}" (${format.ratio}) de uma campanha sazonal.
 
 CAMPANHA: ${dateName}
 SLOGAN: "${campaignSlogan}"
@@ -90,41 +89,44 @@ Para CADA produto, gere:
 
 Os textos devem estar em Português do Brasil.
 Retorne exatamente ${productsWithImages.length} itens no array, um para cada produto.`,
-      messages: [
-        {
-          role: 'user',
-          content: `Gere os textos para ${productsWithImages.length} assets "${format.label}" da campanha "${dateName}".`,
-        },
-      ],
-    })
-
-    // Build HTML for each product in this format
-    for (let i = 0; i < productsWithImages.length; i++) {
-      const product = productsWithImages[i]
-      const text = textContent.assets[i]
-      if (!text) continue
-
-      allAssets.push({
-        label: format.label,
-        ratio: format.ratio,
-        width: format.width,
-        height: format.height,
-        product_name: product.name,
-        html: buildAssetHtml({
-          format,
-          bgImage: product.image_url ?? '',
-          headline: text.headline,
-          subtext: text.subtext,
-          cta: text.cta,
-          overlayColor: text.overlayColor,
-          textColor: text.textColor,
-          ctaBgColor: text.ctaBgColor,
-        }),
+        messages: [
+          {
+            role: 'user',
+            content: `Gere os textos para ${productsWithImages.length} assets "${format.label}" da campanha "${dateName}".`,
+          },
+        ],
       })
-    }
-  }
 
-  return allAssets
+      // Build HTML for each product in this format
+      const assets: GeneratedAsset[] = []
+      for (let i = 0; i < productsWithImages.length; i++) {
+        const product = productsWithImages[i]
+        const text = textContent.assets[i]
+        if (!text) continue
+
+        assets.push({
+          label: format.label,
+          ratio: format.ratio,
+          width: format.width,
+          height: format.height,
+          product_name: product.name,
+          html: buildAssetHtml({
+            format,
+            bgImage: product.image_url ?? '',
+            headline: text.headline,
+            subtext: text.subtext,
+            cta: text.cta,
+            overlayColor: text.overlayColor,
+            textColor: text.textColor,
+            ctaBgColor: text.ctaBgColor,
+          }),
+        })
+      }
+      return assets
+    })
+  )
+
+  return formatResults.flat()
 }
 
 function buildAssetHtml(params: {
