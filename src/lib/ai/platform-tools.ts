@@ -128,8 +128,8 @@ export function buildPlatformTools(
         // ── Skill-specific generators (bypass Fase 0 executeSkill) ──
         if (params.skill_slug === 'seasonal-calendar' && taskId) {
           try {
-            // Fetch brand_dna + products for calendar generation
-            const [{ data: brandDna }, { data: products }] = await Promise.all([
+            // Fetch brand_dna + store info for calendar generation
+            const [{ data: brandDna }, { data: storeInfo }] = await Promise.all([
               (
                 supabase as unknown as {
                   from: (t: string) => {
@@ -153,6 +153,47 @@ export function buildPlatformTools(
                       eq: (
                         k: string,
                         v: string
+                      ) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
+                    }
+                  }
+                }
+              )
+                .from('stores')
+                .select('id, platform, platform_store_id, platform_access_token')
+                .eq('team_id', teamId)
+                .single(),
+            ])
+
+            // Fetch products from Nuvemshop API or fall back to store_products DB
+            let calendarProducts: Array<{ name: string; category?: string; price: number }> = []
+            if (
+              storeInfo?.platform === 'nuvemshop' &&
+              storeInfo.platform_store_id &&
+              storeInfo.platform_access_token
+            ) {
+              const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+              const client = new NuvemshopClient(
+                storeInfo.platform_store_id as string,
+                storeInfo.platform_access_token as string
+              )
+              const liveProducts = await client.getProducts(1, 200)
+              calendarProducts = liveProducts.map((p) => ({
+                name:
+                  typeof p.name === 'object'
+                    ? ((p.name as Record<string, string>).pt ??
+                      Object.values(p.name as Record<string, string>)[0] ??
+                      '')
+                    : String(p.name),
+                price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+              }))
+            } else if (storeInfo?.id) {
+              const { data: dbProducts } = await (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    select: (s: string) => {
+                      eq: (
+                        k: string,
+                        v: string
                       ) => {
                         limit: (n: number) => Promise<{
                           data: Array<{ name: string; category?: string; price: number }> | null
@@ -164,9 +205,10 @@ export function buildPlatformTools(
               )
                 .from('store_products')
                 .select('name, category, price')
-                .eq('team_id', teamId)
-                .limit(50),
-            ])
+                .eq('store_id', storeInfo.id as string)
+                .limit(50)
+              calendarProducts = dbProducts ?? []
+            }
 
             const calendarResult = await generateCalendar({
               brandDna: {
@@ -182,7 +224,7 @@ export function buildPlatformTools(
                     estimated_revenue: number
                   }>) ?? [],
               },
-              products: products ?? [],
+              products: calendarProducts,
               currentDate: new Date(),
               year: new Date().getFullYear(),
             })
@@ -1132,8 +1174,8 @@ export function buildPlatformTools(
                   return { error: `Date ID "${dateId}" not found. Valid: ${validList}` }
                 }
 
-                // Fetch brand_dna + products for campaign generation
-                const [{ data: brandDna }, { data: products }] = await Promise.all([
+                // Fetch brand_dna + store info for campaign generation
+                const [{ data: brandDna }, { data: storeInfoForCampaign }] = await Promise.all([
                   sc
                     .from('brand_dna')
                     .select(
@@ -1142,28 +1184,56 @@ export function buildPlatformTools(
                     .eq('team_id', teamId)
                     .single(),
                   sc
-                    .from('store_products')
-                    .select('name, price, images, category, cost_price, stock_quantity')
+                    .from('stores')
+                    .select('id, platform, platform_store_id, platform_access_token')
                     .eq('team_id', teamId)
-                    .limit(50),
+                    .single(),
                 ])
 
                 if (!brandDna)
                   return { error: 'Brand DNA not found. Complete brand analysis first.' }
 
-                const { generateCampaign: genCampaign } =
-                  await import('@/lib/ai/seasonal-campaign-generator')
-                const campaign = await genCampaign({
-                  date: {
-                    id: dateId,
-                    name: dateObj.name,
-                    emoji: dateObj.emoji ?? '',
-                    displayDate: dateObj.displayDate ?? '',
-                  },
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  brandDna: brandDna as any,
-                  products: (
-                    (products ?? []) as Array<{
+                // Fetch products from Nuvemshop API or fall back to store_products DB
+                let campaignProducts: Array<{
+                  name: string
+                  price: number
+                  image_url?: string
+                  category?: string
+                  cost_price?: number
+                  stock_quantity?: number
+                }> = []
+                const si = storeInfoForCampaign as {
+                  id?: string
+                  platform?: string
+                  platform_store_id?: string
+                  platform_access_token?: string
+                } | null
+                if (
+                  si?.platform === 'nuvemshop' &&
+                  si.platform_store_id &&
+                  si.platform_access_token
+                ) {
+                  const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+                  const client = new NuvemshopClient(si.platform_store_id, si.platform_access_token)
+                  const liveProducts = await client.getProducts(1, 200)
+                  campaignProducts = liveProducts.map((p) => ({
+                    name:
+                      typeof p.name === 'object'
+                        ? ((p.name as Record<string, string>).pt ??
+                          Object.values(p.name as Record<string, string>)[0] ??
+                          '')
+                        : String(p.name),
+                    price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+                    image_url: p.images?.[0]?.src ?? undefined,
+                  }))
+                } else if (si?.id) {
+                  const { data: dbProducts } = await sc
+                    .from('store_products')
+                    .select('name, price, images, category, cost_price, stock_quantity')
+                    .eq('store_id', si.id)
+                    .limit(50)
+                  campaignProducts = (
+                    (dbProducts ?? []) as Array<{
                       name: string
                       price: number
                       images?: Array<{ src: string }> | null
@@ -1178,7 +1248,21 @@ export function buildPlatformTools(
                     category: p.category,
                     cost_price: p.cost_price,
                     stock_quantity: p.stock_quantity,
-                  })),
+                  }))
+                }
+
+                const { generateCampaign: genCampaign } =
+                  await import('@/lib/ai/seasonal-campaign-generator')
+                const campaign = await genCampaign({
+                  date: {
+                    id: dateId,
+                    name: dateObj.name,
+                    emoji: dateObj.emoji ?? '',
+                    displayDate: dateObj.displayDate ?? '',
+                  },
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  brandDna: brandDna as any,
+                  products: campaignProducts,
                 })
 
                 // Save campaign to artifact

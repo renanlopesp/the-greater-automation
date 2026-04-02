@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       .order('name' as never),
     serviceClient
       .from('stores')
-      .select('id, name, segment, platform')
+      .select('id, name, segment, platform, platform_store_id, platform_access_token')
       .eq('team_id', teamId)
       .limit(1)
       .single(),
@@ -273,18 +273,47 @@ export async function POST(request: NextRequest) {
       // Generate in background — useTask polling picks up the result
       void (async () => {
         try {
-          const [{ data: bd }, { data: prods }] = await Promise.all([
-            serviceClient
-              .from('brand_dna' as never)
-              .select('niche, audience, positioning, tone, average_ticket, opportunities')
-              .eq('team_id' as never, teamId)
-              .single(),
-            serviceClient
+          const { data: bd } = await serviceClient
+            .from('brand_dna' as never)
+            .select('niche, audience, positioning, tone, average_ticket, opportunities')
+            .eq('team_id' as never, teamId)
+            .single()
+
+          // Fetch products from Nuvemshop API or fall back to store_products DB
+          let calendarProducts: Array<{ name: string; price: number }> = []
+          const storeForProducts = store as {
+            platform?: string
+            platform_store_id?: string
+            platform_access_token?: string
+          } | null
+          if (
+            storeForProducts?.platform === 'nuvemshop' &&
+            storeForProducts.platform_store_id &&
+            storeForProducts.platform_access_token
+          ) {
+            const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+            const client = new NuvemshopClient(
+              storeForProducts.platform_store_id,
+              storeForProducts.platform_access_token
+            )
+            const liveProducts = await client.getProducts(1, 200)
+            calendarProducts = liveProducts.map((p) => ({
+              name:
+                typeof p.name === 'object'
+                  ? ((p.name as Record<string, string>).pt ??
+                    Object.values(p.name as Record<string, string>)[0] ??
+                    '')
+                  : String(p.name),
+              price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+            }))
+          } else if (store) {
+            const { data: prods } = await serviceClient
               .from('store_products')
               .select('name, price')
-              .eq('team_id' as never, teamId)
-              .limit(50),
-          ])
+              .eq('store_id' as never, (store as { id: string }).id)
+              .limit(50)
+            calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
+          }
 
           const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
           const calendarData = await generateCalendar({
@@ -305,7 +334,7 @@ export async function POST(request: NextRequest) {
                   estimated_revenue: number
                 }>) ?? [],
             },
-            products: (prods ?? []) as Array<{ name: string; price: number }>,
+            products: calendarProducts,
             currentDate: new Date(),
             year: new Date().getFullYear(),
           })
