@@ -268,6 +268,7 @@ export async function generateCampaign(params: {
     price: number
     image_url?: string
     category?: string
+    description?: string
     cost_price?: number
     stock_quantity?: number
     sales_count?: number
@@ -291,7 +292,8 @@ export async function generateCampaign(params: {
               parts.push(`vendas (90d): ${p.sales_count}`)
             if (p.margin_pct != null) parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
             if (p.suggested_tag) parts.push(`tag sugerida: ${p.suggested_tag}`)
-            if (p.category) parts.push(`[${p.category}]`)
+            if (p.category) parts.push(`categoria: ${p.category}`)
+            if (p.description) parts.push(`desc: ${p.description}`)
             return parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
           })
           .join('\n')}`

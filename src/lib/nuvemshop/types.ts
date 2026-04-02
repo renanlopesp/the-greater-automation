@@ -61,6 +61,21 @@ export const NuvemshopProductSchema = z.object({
     .optional(),
   variants: z.array(NuvemshopVariantSchema).default([]),
   images: z.array(NuvemshopImageSchema).default([]),
+  categories: z
+    .array(
+      z.object({
+        id: z.number(),
+        name: z
+          .object({
+            pt: z.string().optional(),
+            en: z.string().optional(),
+            es: z.string().optional(),
+          })
+          .nullable()
+          .optional(),
+      })
+    )
+    .default([]),
   published: z.boolean().default(true),
   updated_at: z.string().nullable().optional(),
   created_at: z.string().nullable().optional(),

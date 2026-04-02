@@ -113,7 +113,7 @@ export class NuvemshopClient {
   // Products
   async getProducts(page = 1, perPage = 200): Promise<NuvemshopProduct[]> {
     const data = await this.request<unknown[]>(
-      `/products?page=${page}&per_page=${perPage}&fields=id,name,description,handle,variants,images,published,updated_at,created_at`
+      `/products?page=${page}&per_page=${perPage}&fields=id,name,description,handle,variants,images,categories,published,updated_at,created_at`
     )
     return data.map((item) => NuvemshopProductSchema.parse(item))
   }

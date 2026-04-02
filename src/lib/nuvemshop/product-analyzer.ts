@@ -10,6 +10,8 @@ export interface EnrichedProduct {
   name: string
   price: number
   image_url: string | undefined
+  category: string | undefined
+  description: string | undefined
   cost_price: number | undefined
   stock_quantity: number
   sales_count: number
@@ -182,6 +184,17 @@ export async function analyzeProducts(client: NuvemshopClient): Promise<Enriched
       const variant = product.variants[0]
       const price = variant?.price ? Number(variant.price) : 0
       const imageUrl = product.images[0]?.src ?? undefined
+      const category = product.categories[0]?.name
+        ? ((product.categories[0].name as Record<string, string>).pt ??
+          Object.values(product.categories[0].name as Record<string, string>)[0])
+        : undefined
+      const desc = product.description
+        ? ((product.description as Record<string, string>).pt ??
+          Object.values(product.description as Record<string, string>)[0] ??
+          undefined)
+        : undefined
+      // Strip HTML tags and truncate description
+      const description = desc ? desc.replace(/<[^>]*>/g, '').slice(0, 120) : undefined
       const totalStock = product.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0)
       const salesCount = salesCounts.get(productId) ?? 0
       const marginPct = margins.get(productId)
@@ -203,6 +216,8 @@ export async function analyzeProducts(client: NuvemshopClient): Promise<Enriched
         name,
         price,
         image_url: imageUrl,
+        category,
+        description,
         cost_price: costPrice && costPrice > 0 ? costPrice : undefined,
         stock_quantity: totalStock,
         sales_count: salesCount,
@@ -259,6 +274,19 @@ export async function analyzeProductsSafe(client: NuvemshopClient): Promise<Enri
         name: extractProductName(p.name),
         price: p.variants[0]?.price ? Number(p.variants[0].price) : 0,
         image_url: p.images[0]?.src ?? undefined,
+        category: p.categories[0]?.name
+          ? ((p.categories[0].name as Record<string, string>).pt ??
+            Object.values(p.categories[0].name as Record<string, string>)[0])
+          : undefined,
+        description: p.description
+          ? (
+              (p.description as Record<string, string>).pt ??
+              Object.values(p.description as Record<string, string>)[0] ??
+              ''
+            )
+              .replace(/<[^>]*>/g, '')
+              .slice(0, 120) || undefined
+          : undefined,
         cost_price: undefined,
         stock_quantity: p.variants.reduce((sum, v) => sum + (v.stock ?? 0), 0),
         sales_count: 0,
