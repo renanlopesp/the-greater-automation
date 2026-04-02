@@ -1265,6 +1265,20 @@ export function buildPlatformTools(
                   products: campaignProducts,
                 })
 
+                // Inject image_url from original products (AI doesn't reliably copy URLs)
+                const imgMap = new Map(
+                  campaignProducts.map((p) => [p.name.toLowerCase(), p.image_url])
+                )
+                for (const p of campaign.concept.products) {
+                  if (!p.image_url) p.image_url = imgMap.get(p.name.toLowerCase()) ?? undefined
+                }
+                for (const p of campaign.selectedProducts) {
+                  if (!(p as { image_url?: string | null }).image_url) {
+                    ;(p as { image_url?: string | null }).image_url =
+                      imgMap.get(p.name.toLowerCase()) ?? undefined
+                  }
+                }
+
                 // Save campaign to artifact
                 const updatedCampaigns = { ...(artifact.campaigns ?? {}), [dateId]: campaign }
                 const updated = { ...artifact, campaigns: updatedCampaigns }

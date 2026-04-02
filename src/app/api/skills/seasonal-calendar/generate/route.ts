@@ -163,6 +163,20 @@ export async function POST(request: NextRequest) {
       products,
     })
 
+    // Inject image_url from original products (AI doesn't reliably copy URLs)
+    const productImageMap = new Map(products.map((p) => [p.name.toLowerCase(), p.image_url]))
+    for (const p of campaign.concept.products) {
+      if (!p.image_url) {
+        p.image_url = productImageMap.get(p.name.toLowerCase()) ?? undefined
+      }
+    }
+    for (const p of campaign.selectedProducts) {
+      if (!p.image_url) {
+        ;(p as { image_url?: string | null }).image_url =
+          productImageMap.get(p.name.toLowerCase()) ?? undefined
+      }
+    }
+
     const durationMs = Date.now() - startedAt
 
     // 8. Update execution record
