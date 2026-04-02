@@ -23,6 +23,7 @@ export interface GeneratedAsset {
   html: string
   width: number
   height: number
+  product_name: string
 }
 
 const AssetTemplateSchema = z.object({
@@ -40,7 +41,7 @@ const AssetTemplateSchema = z.object({
 
 /**
  * Generate campaign visual assets as HTML/CSS templates.
- * Each asset uses the product image as background with text overlay.
+ * Generates one asset per product per format — each product gets its own background image.
  * Download converts to image via html2canvas on the client.
  */
 export async function generateAssets(params: {
@@ -56,60 +57,74 @@ export async function generateAssets(params: {
   const openai = getOpenAIProvider()
   const { campaignSlogan, dateName, products, brandDna } = params
 
-  // Pick product with best image for background
-  const heroProduct = products.find((p) => p.image_url) ?? products[0]
-  const bgImage = heroProduct?.image_url ?? ''
+  // Filter to products with images only
+  const productsWithImages = products.filter((p) => p.image_url)
+  if (productsWithImages.length === 0) return []
 
-  // Generate text content for all assets at once
-  const { object: textContent } = await generateObject({
-    model: openai.chat('gpt-4o'),
-    schema: z.object({
-      assets: z.array(AssetTemplateSchema).length(4),
-    }),
-    system: `Você é um designer de marketing para e-commerce brasileiro. Gere textos para 4 assets visuais de uma campanha sazonal.
+  const productNames = productsWithImages.map((p) => p.name)
+
+  // Generate text content per format — one AI call per format, batch all products
+  const allAssets: GeneratedAsset[] = []
+
+  for (const format of ASSET_FORMATS) {
+    const { object: textContent } = await generateObject({
+      model: openai.chat('gpt-4o'),
+      schema: z.object({
+        assets: z.array(AssetTemplateSchema).length(productsWithImages.length),
+      }),
+      system: `Você é um designer de marketing para e-commerce brasileiro. Gere textos para ${productsWithImages.length} assets visuais no formato "${format.label}" (${format.ratio}) de uma campanha sazonal.
 
 CAMPANHA: ${dateName}
 SLOGAN: "${campaignSlogan}"
 NICHO: ${brandDna.niche}
 TOM: ${brandDna.tone}
-PRODUTO DESTAQUE: ${heroProduct?.name ?? 'produto da loja'}
 
-Gere 4 variações de texto para os formatos:
-1. Stories 9:16 (vertical, mobile)
-2. Feed 1:1 (quadrado, Instagram)
-3. Banner Email 3:1 (horizontal, largo)
-4. Stories Meta Ad 9:16 (vertical, anúncio)
+PRODUTOS (gere 1 asset para cada, na mesma ordem):
+${productNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 
-Cada um deve ter headline curto e impactante, subtexto, CTA, e cores do overlay que combinem com o nicho "${brandDna.niche}".
-Os textos devem estar em Português do Brasil.`,
-    messages: [
-      {
-        role: 'user',
-        content: `Gere os textos para os 4 assets da campanha "${dateName}".`,
-      },
-    ],
-  })
+Para CADA produto, gere:
+- headline curto e impactante (max 8 palavras) que destaque o produto
+- subtexto complementar (max 15 palavras)
+- CTA (max 4 palavras)
+- cores do overlay que combinem com o nicho "${brandDna.niche}"
 
-  // Build HTML/CSS for each asset
-  return ASSET_FORMATS.map((format, i) => {
-    const text = textContent.assets[i]
-    return {
-      label: format.label,
-      ratio: format.ratio,
-      width: format.width,
-      height: format.height,
-      html: buildAssetHtml({
-        format,
-        bgImage,
-        headline: text.headline,
-        subtext: text.subtext,
-        cta: text.cta,
-        overlayColor: text.overlayColor,
-        textColor: text.textColor,
-        ctaBgColor: text.ctaBgColor,
-      }),
+Os textos devem estar em Português do Brasil.
+Retorne exatamente ${productsWithImages.length} itens no array, um para cada produto.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Gere os textos para ${productsWithImages.length} assets "${format.label}" da campanha "${dateName}".`,
+        },
+      ],
+    })
+
+    // Build HTML for each product in this format
+    for (let i = 0; i < productsWithImages.length; i++) {
+      const product = productsWithImages[i]
+      const text = textContent.assets[i]
+      if (!text) continue
+
+      allAssets.push({
+        label: format.label,
+        ratio: format.ratio,
+        width: format.width,
+        height: format.height,
+        product_name: product.name,
+        html: buildAssetHtml({
+          format,
+          bgImage: product.image_url ?? '',
+          headline: text.headline,
+          subtext: text.subtext,
+          cta: text.cta,
+          overlayColor: text.overlayColor,
+          textColor: text.textColor,
+          ctaBgColor: text.ctaBgColor,
+        }),
+      })
     }
-  })
+  }
+
+  return allAssets
 }
 
 function buildAssetHtml(params: {
@@ -126,10 +141,10 @@ function buildAssetHtml(params: {
   const isVertical = format.ratio === '9:16'
   const isWide = format.ratio === '3:1'
 
-  const headlineSize = isWide ? '28px' : isVertical ? '42px' : '36px'
-  const subtextSize = isWide ? '14px' : '16px'
-  const ctaSize = isWide ? '13px' : '15px'
-  const ctaPadding = isWide ? '10px 24px' : '14px 32px'
+  const headlineSize = isWide ? '32px' : isVertical ? '48px' : '40px'
+  const subtextSize = isWide ? '18px' : '20px'
+  const ctaSize = isWide ? '15px' : '17px'
+  const ctaPadding = isWide ? '12px 28px' : '16px 36px'
 
   return `<div style="
     position: relative;
@@ -159,7 +174,7 @@ function buildAssetHtml(params: {
       height: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: ${isWide ? 'center' : 'space-between'};
+      justify-content: ${isWide ? 'center' : 'flex-end'};
       align-items: center;
       padding: ${isWide ? '20px 40px' : '60px 40px'};
       box-sizing: border-box;
@@ -172,32 +187,31 @@ function buildAssetHtml(params: {
         line-height: 1.1;
         text-transform: uppercase;
         letter-spacing: 0.02em;
-        margin: 0;
+        margin: 0 0 ${isWide ? '8px' : '16px'} 0;
         text-shadow: 0 2px 8px rgba(0,0,0,0.3);
       ">${headline}</h1>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: ${isWide ? '12px' : '20px'};">
-        <p style="
-          color: ${textColor};
-          font-size: ${subtextSize};
-          font-weight: 400;
-          line-height: 1.4;
-          margin: 0;
-          max-width: ${isWide ? '400px' : '320px'};
-          text-shadow: 0 1px 4px rgba(0,0,0,0.3);
-        ">${subtext}</p>
-        <a style="
-          display: inline-block;
-          background: ${ctaBgColor};
-          color: ${textColor};
-          font-size: ${ctaSize};
-          font-weight: 600;
-          padding: ${ctaPadding};
-          border-radius: 4px;
-          text-decoration: none;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        ">${cta}</a>
-      </div>
+      <p style="
+        color: ${textColor};
+        font-size: ${subtextSize};
+        font-weight: 400;
+        line-height: 1.4;
+        margin: 0 0 ${isWide ? '12px' : '24px'} 0;
+        max-width: ${isWide ? '500px' : '380px'};
+        text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      ">${subtext}</p>
+      <a style="
+        display: inline-block;
+        background: ${ctaBgColor};
+        color: ${textColor};
+        font-size: ${ctaSize};
+        font-weight: 600;
+        padding: ${ctaPadding};
+        border-radius: 4px;
+        text-decoration: none;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: ${isWide ? '0' : '40px'};
+      ">${cta}</a>
     </div>
   </div>`
 }

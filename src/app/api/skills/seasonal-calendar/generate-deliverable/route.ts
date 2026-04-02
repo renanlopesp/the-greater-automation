@@ -141,6 +141,7 @@ export async function POST(request: NextRequest) {
           html: a.html,
           width: a.width,
           height: a.height,
+          product_name: a.product_name,
         })),
       }
     } else {

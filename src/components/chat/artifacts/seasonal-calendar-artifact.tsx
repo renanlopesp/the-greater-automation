@@ -620,17 +620,19 @@ function EmailSection({ campaign }: { campaign: FullCampaign }) {
 function AssetsSection({ campaign }: { campaign: FullCampaign }) {
   const downloadAsImage = async (
     assetHtml: string,
-    label: string,
+    fileName: string,
     width: number,
     height: number
   ) => {
     try {
       const html2canvas = (await import('html2canvas')).default
-      // Create offscreen container
+      // Create offscreen container at native resolution
       const container = document.createElement('div')
       container.style.position = 'fixed'
       container.style.left = '-9999px'
       container.style.top = '0'
+      container.style.width = `${width}px`
+      container.style.height = `${height}px`
       container.innerHTML = assetHtml
       document.body.appendChild(container)
       const target = container.firstElementChild as HTMLElement
@@ -663,7 +665,7 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `${label.replace(/\s+/g, '-').toLowerCase()}.png`
+        a.download = `${fileName}.png`
         a.style.display = 'none'
         document.body.appendChild(a)
         a.click()
@@ -675,50 +677,105 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
     }
   }
 
+  // Group assets by format label
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof campaign.assets>()
+    for (const asset of campaign.assets) {
+      const existing = map.get(asset.label) ?? []
+      existing.push(asset)
+      map.set(asset.label, existing)
+    }
+    return map
+  }, [campaign.assets])
+
+  if (campaign.assets.length === 0) {
+    return (
+      <div className="px-6 py-8 text-center">
+        <ImageIcon size={32} className="text-muted-foreground mx-auto mb-3" />
+        <p className="text-muted-foreground text-sm">
+          Nenhum produto com imagem disponível para gerar assets.
+          <br />
+          Adicione imagens aos seus produtos.
+        </p>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-4 px-6 py-5">
-      {campaign.assets.map((asset) => {
-        const hasHtml = !!asset.html
-        // Preview dimensions scaled down
-        const previewHeight = asset.ratio === '9:16' ? 280 : asset.ratio === '3:1' ? 100 : 200
+    <div className="flex flex-col gap-6 px-6 py-5">
+      {Array.from(grouped.entries()).map(([formatLabel, assets]) => {
+        const firstAsset = assets[0]
+        const ratio = firstAsset.ratio
+        // Card dimensions for preview
+        const cardWidth = ratio === '3:1' ? 280 : ratio === '1:1' ? 180 : 150
+        const previewHeight = ratio === '9:16' ? 260 : ratio === '3:1' ? 90 : 180
+
         return (
-          <div key={asset.label} className="border-border overflow-hidden rounded-xl border">
-            {hasHtml ? (
-              <div className="w-full overflow-hidden" style={{ height: previewHeight }}>
-                <div
-                  dangerouslySetInnerHTML={{ __html: asset.html! }}
-                  style={{
-                    transform: `scale(${previewHeight / (asset.height ?? 1080)})`,
-                    transformOrigin: 'top left',
-                    width: asset.width ?? 1080,
-                    height: asset.height ?? 1080,
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="h-20 w-full" style={{ background: asset.bg || 'var(--muted)' }} />
-            )}
-            <div className="flex items-center justify-between p-3">
-              <div>
-                <p className="text-foreground text-[13px] font-medium">{asset.label}</p>
-                <p className="text-muted-foreground text-xs">{asset.ratio}</p>
-              </div>
-              {hasHtml && (
-                <button
-                  onClick={() =>
-                    void downloadAsImage(
-                      asset.html!,
-                      asset.label,
-                      asset.width ?? 1080,
-                      asset.height ?? 1080
-                    )
-                  }
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
-                >
-                  <Download size={14} />
-                  Baixar
-                </button>
-              )}
+          <div key={formatLabel}>
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-foreground text-sm font-medium">{formatLabel}</h4>
+              <span className="text-muted-foreground text-xs">
+                {assets.length} {assets.length === 1 ? 'variante' : 'variantes'}
+              </span>
+            </div>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2"
+              style={{ scrollSnapType: 'x mandatory' }}
+            >
+              {assets.map((asset, idx) => {
+                const hasHtml = !!asset.html
+                const fileName = `${formatLabel}-${asset.product_name ?? idx}`
+                  .replace(/\s+/g, '-')
+                  .toLowerCase()
+                return (
+                  <div
+                    key={`${asset.label}-${asset.product_name ?? idx}`}
+                    className="border-border flex-none overflow-hidden rounded-xl border"
+                    style={{ width: cardWidth, scrollSnapAlign: 'start' }}
+                  >
+                    {hasHtml ? (
+                      <div className="w-full overflow-hidden" style={{ height: previewHeight }}>
+                        <div
+                          dangerouslySetInnerHTML={{ __html: asset.html! }}
+                          style={{
+                            transform: `scale(${cardWidth / (asset.width ?? 1080)})`,
+                            transformOrigin: 'top left',
+                            width: asset.width ?? 1080,
+                            height: asset.height ?? 1080,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        style={{ height: previewHeight, background: asset.bg || 'var(--muted)' }}
+                      />
+                    )}
+                    <div className="p-2">
+                      {asset.product_name && (
+                        <p className="text-foreground mb-1 truncate text-xs font-medium">
+                          {asset.product_name}
+                        </p>
+                      )}
+                      {hasHtml && (
+                        <button
+                          onClick={() =>
+                            void downloadAsImage(
+                              asset.html!,
+                              fileName,
+                              asset.width ?? 1080,
+                              asset.height ?? 1080
+                            )
+                          }
+                          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
+                        >
+                          <Download size={12} />
+                          Baixar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )
