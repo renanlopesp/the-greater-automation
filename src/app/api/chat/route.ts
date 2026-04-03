@@ -1,5 +1,7 @@
 export const maxDuration = 120
 
+// TODO: Regenerate Supabase types (`supabase gen types typescript`) to remove as-any casts for tasks, conversations, conversation_messages tables
+
 import { NextRequest, NextResponse } from 'next/server'
 import { type UIMessage, convertToModelMessages } from 'ai'
 import { createServerClient } from '@/lib/supabase/server'
@@ -8,16 +10,17 @@ import { safeError } from '@/lib/safe-error'
 import { runAgentChat, type AgentConfig } from '@/lib/ai/agent-chat'
 import { tokensToCredits } from '@/lib/billing/credits'
 import { buildPlatformTools, buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
+import { getSkillConfig } from '@/lib/skills/skill-registry'
 
 /**
  * POST /api/chat — Orchestrator chat endpoint.
- * The orchestrator is NOT an agent. It uses its own `conversations` + `conversation_messages` tables.
+ * Queries are parallelized to minimize time-to-first-token.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
   const serviceClient = createServiceRoleClient()
 
-  // 1. Authenticate
+  // ── 1. Auth (sequential — required for everything) ────────────────────
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -25,13 +28,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // 2. Get user's team
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
+  // Parse body in parallel with team lookup
+  const [body, { data: membership }] = await Promise.all([
+    request.json(),
+    supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1).single(),
+  ])
 
   if (!membership) {
     return NextResponse.json({ error: 'No team found' }, { status: 400 })
@@ -39,10 +40,10 @@ export async function POST(request: NextRequest) {
 
   const teamId = membership.team_id
 
-  // 3. Parse request body
-  const body = await request.json()
+  // ── 2. Parse user message ─────────────────────────────────────────────
   let userMessage: string
   const existingConvId = body.conversationId as string | undefined
+  const taskId = body.taskId as string | undefined
 
   if (body.messages && Array.isArray(body.messages)) {
     const msgs = body.messages as UIMessage[]
@@ -60,57 +61,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Message is required' }, { status: 400 })
   }
 
-  // 4. Load team context in parallel
-  const [{ data: teamSkills }, { data: store }, { data: team }, { data: brandDna }] =
-    await Promise.all([
-      serviceClient
-        .from('skills' as never)
-        .select('slug, name, description, category, status')
-        .eq('team_id' as never, teamId)
-        .order('name' as never),
-      serviceClient
-        .from('stores')
-        .select('id, name, segment, platform')
-        .eq('team_id', teamId)
-        .limit(1)
-        .single(),
-      serviceClient.from('teams').select('name').eq('id', teamId).single(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (serviceClient as any)
-        .from('brand_dna')
-        .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
-        .eq('team_id', teamId)
-        .single(),
-    ])
-
-  const storeId = store?.id ?? null
-
-  const hasProducts = store
-    ? ((
-        await serviceClient
-          .from('store_products')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id)
-      ).count ?? 0) > 0
-    : false
-
-  // 5. Find or create conversation in `conversations` table (NOT agent_conversations)
-  let conversationId = existingConvId
-  if (!conversationId) {
-    // Find active conversation for this user+team
-    const { data: activeConv } = await serviceClient
-      .from('conversations' as never)
-      .select('id')
+  // ── 3. Parallel fetch: team context + conversation + connections ──────
+  // All of these only need teamId + user.id — run together instead of sequentially.
+  const [
+    { data: teamSkills },
+    { data: store },
+    { data: team },
+    { data: brandDna },
+    conversationId,
+    allConnections,
+    taskMeta,
+  ] = await Promise.all([
+    // Team context (skills, store, team name, brand DNA)
+    serviceClient
+      .from('skills' as never)
+      .select('slug, name, description, category, status')
+      .eq('team_id' as never, teamId)
+      .order('name' as never),
+    serviceClient
+      .from('stores')
+      .select('id, name, segment, platform, platform_store_id, platform_access_token')
       .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .single(),
+    serviceClient.from('teams').select('name').eq('id', teamId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (serviceClient as any)
+      .from('brand_dna')
+      .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
+      .eq('team_id', teamId)
+      .single(),
 
-    if (activeConv) {
-      conversationId = (activeConv as { id: string }).id
-    } else {
+    // Conversation: find or create (was sequential step 5-6)
+    (async (): Promise<string | null> => {
+      if (existingConvId) return existingConvId
+      const { data: activeConv } = await serviceClient
+        .from('conversations' as never)
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (activeConv) return (activeConv as { id: string }).id
       const { data: conv } = await (
         serviceClient as unknown as {
           from: (t: string) => {
@@ -129,19 +123,50 @@ export async function POST(request: NextRequest) {
         })
         .select('id')
         .single()
+      return conv?.id ?? null
+    })(),
 
-      conversationId = conv?.id
-    }
-  }
+    // Composio connections (was sequential steps 10-11)
+    (async () => {
+      const { data: members } = await serviceClient
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+      const userIds = (members ?? []).map((m) => m.user_id)
+      if (userIds.length === 0) return null
+      const { data } = await serviceClient
+        .from('app_connections')
+        .select('app_id, composio_connection_id, user_id')
+        .in('user_id', userIds)
+      return data
+    })(),
+
+    // Task metadata (for skill-based behavior) — light query, no artifact_data
+
+    taskId
+      ? (async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data } = await (serviceClient as any)
+            .from('tasks')
+            .select('selected_skill, artifact_type')
+            .eq('id', taskId)
+            .single()
+          return data
+        })()
+      : Promise.resolve(null),
+  ])
 
   if (!conversationId) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 
-  // 6. Insert user message into `conversation_messages` (NOT agent_messages)
-  await (
+  const storeId = store?.id ?? null
+
+  // ── 4. Insert message (fire-and-forget) + hasProducts + model messages ─
+  // User message insert doesn't need to block the AI response.
+  void (
     serviceClient as unknown as {
-      from: (t: string) => { insert: (d: unknown) => Promise<unknown> }
+      from: (t: string) => { insert: (d: unknown) => Promise<{ error?: unknown }> }
     }
   )
     .from('conversation_messages')
@@ -150,47 +175,237 @@ export async function POST(request: NextRequest) {
       role: 'user',
       content: userMessage,
     })
+    .then((result: { error?: unknown }) => {
+      if (result?.error) console.error('[chat] Failed to store user message:', result.error)
+    })
 
-  // 7. Build messages for the AI model
-  let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>
-
-  if (body.messages && Array.isArray(body.messages)) {
-    modelMessages = await convertToModelMessages(body.messages as UIMessage[])
-  } else {
-    // Load from conversation_messages
-    const { data: historyRows } = await (
-      serviceClient as unknown as {
-        from: (t: string) => {
-          select: (s: string) => {
-            eq: (
-              k: string,
-              v: string
-            ) => {
-              order: (
-                k: string,
-                o: { ascending: boolean }
-              ) => {
-                limit: (n: number) => Promise<{
-                  data: Array<{ role: string; content: string }> | null
-                }>
+  const [hasProducts, modelMessages] = await Promise.all([
+    store
+      ? serviceClient
+          .from('store_products')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id)
+          .then((r) => (r.count ?? 0) > 0)
+      : Promise.resolve(false),
+    body.messages && Array.isArray(body.messages)
+      ? convertToModelMessages(body.messages as UIMessage[])
+      : (async () => {
+          const { data: historyRows } = await (
+            serviceClient as unknown as {
+              from: (t: string) => {
+                select: (s: string) => {
+                  eq: (
+                    k: string,
+                    v: string
+                  ) => {
+                    order: (
+                      k: string,
+                      o: { ascending: boolean }
+                    ) => {
+                      limit: (n: number) => Promise<{
+                        data: Array<{ role: string; content: string }> | null
+                      }>
+                    }
+                  }
+                }
               }
             }
-          }
-        }
-      }
-    )
-      .from('conversation_messages')
-      .select('role, content')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .limit(50)
+          )
+            .from('conversation_messages')
+            .select('role, content')
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: true })
+            .limit(50)
 
-    modelMessages = (historyRows ?? [])
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+          return (historyRows ?? [])
+            .filter((m) => m.role === 'user' || m.role === 'assistant')
+            .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        })(),
+  ])
+
+  // ── 5. Skill-based dispatch + artifact context ───────────────────────
+  let skillContext = ''
+  if (taskId) {
+    const selectedSkill =
+      (taskMeta as { selected_skill?: string | null } | null)?.selected_skill ?? null
+    const config = getSkillConfig(selectedSkill)
+    if (config.promptAdditions) {
+      skillContext += `\n\n${config.promptAdditions}`
+    }
+
+    const lowerMsg = userMessage.toLowerCase()
+    // Only trigger calendar generation for explicit generation requests, not modifications
+    const isModificationRequest =
+      lowerMsg.includes('remov') ||
+      lowerMsg.includes('limp') ||
+      lowerMsg.includes('delet') ||
+      lowerMsg.includes('filtr') ||
+      lowerMsg.includes('alter') ||
+      lowerMsg.includes('modif') ||
+      lowerMsg.includes('manten') ||
+      lowerMsg.includes('deixe') ||
+      lowerMsg.includes('atuali')
+    // Trigger calendar generation if: skill is 'seasonal-calendar' OR keyword match (backward compat)
+    // Use artifact_type (fetched in parallel) as proxy — if already set, calendar was already generated
+    const taskArtifactType =
+      (taskMeta as { artifact_type?: string | null } | null)?.artifact_type ?? null
+    const isCalendarBySkill = selectedSkill === 'seasonal-calendar' && !taskArtifactType
+    const isCalendarByKeyword =
+      !isModificationRequest &&
+      (lowerMsg.includes('calendário') ||
+        lowerMsg.includes('calendario') ||
+        lowerMsg.includes('sazonal') ||
+        lowerMsg.includes('seasonal') ||
+        lowerMsg.includes('datas sazonais'))
+    const isCalendarRequest = isCalendarBySkill || isCalendarByKeyword
+
+    if (isCalendarRequest) {
+      // Mark task as running immediately
+      await serviceClient
+        .from('tasks' as never)
+        .update({
+          skill_status: 'running',
+          active_skill: 'seasonal-calendar',
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq('id' as never, taskId)
+
+      // Generate in background — useTask polling picks up the result
+      void (async () => {
+        try {
+          const { data: bd } = await serviceClient
+            .from('brand_dna' as never)
+            .select('niche, audience, positioning, tone, average_ticket, opportunities')
+            .eq('team_id' as never, teamId)
+            .single()
+
+          // Fetch products from Nuvemshop API or fall back to store_products DB
+          let calendarProducts: Array<{ name: string; price: number }> = []
+          const storeForProducts = store as {
+            platform?: string
+            platform_store_id?: string
+            platform_access_token?: string
+          } | null
+          if (
+            storeForProducts?.platform === 'nuvemshop' &&
+            storeForProducts.platform_store_id &&
+            storeForProducts.platform_access_token
+          ) {
+            const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+            const client = new NuvemshopClient(
+              storeForProducts.platform_store_id,
+              storeForProducts.platform_access_token
+            )
+            const liveProducts = await client.getProducts(1, 200)
+            calendarProducts = liveProducts.map((p) => ({
+              name:
+                typeof p.name === 'object'
+                  ? ((p.name as Record<string, string>).pt ??
+                    Object.values(p.name as Record<string, string>)[0] ??
+                    '')
+                  : String(p.name),
+              price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+            }))
+          } else if (store) {
+            const { data: prods } = await serviceClient
+              .from('store_products')
+              .select('name, price')
+              .eq('store_id' as never, (store as { id: string }).id)
+              .limit(50)
+            calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
+          }
+
+          const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
+          const calendarData = await generateCalendar({
+            brandDna: {
+              niche: ((bd as unknown as Record<string, unknown>)?.niche as string) ?? 'varejo',
+              audience:
+                ((bd as unknown as Record<string, unknown>)?.audience as string) ??
+                'consumidores gerais',
+              positioning:
+                ((bd as unknown as Record<string, unknown>)?.positioning as string) ?? '',
+              tone: ((bd as unknown as Record<string, unknown>)?.tone as string) ?? 'profissional',
+              average_ticket:
+                ((bd as unknown as Record<string, unknown>)?.average_ticket as number) ?? 100,
+              opportunities:
+                ((bd as unknown as Record<string, unknown>)?.opportunities as Array<{
+                  title: string
+                  description: string
+                  estimated_revenue: number
+                }>) ?? [],
+            },
+            products: calendarProducts,
+            currentDate: new Date(),
+            year: new Date().getFullYear(),
+          })
+
+          await serviceClient
+            .from('tasks' as never)
+            .update({
+              artifact_data: calendarData,
+              artifact_type: 'seasonal-calendar',
+              skill_status: 'completed',
+              active_skill: 'seasonal-calendar',
+              updated_at: new Date().toISOString(),
+            } as never)
+            .eq('id' as never, taskId)
+        } catch {
+          await serviceClient
+            .from('tasks' as never)
+            .update({ skill_status: 'failed', updated_at: new Date().toISOString() } as never)
+            .eq('id' as never, taskId)
+        }
+      })()
+
+      skillContext =
+        '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega ao lado em instantes. Responda ao usuário informando brevemente que o calendário está sendo gerado e que os resultados aparecerão no painel lateral. Seja breve (2-3 frases).]'
+    }
+
+    // Inject artifact context — only loads artifact_data when needed (calendar with dates)
+    if (!skillContext.includes('SKILL RUNNING') && taskArtifactType === 'seasonal-calendar') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: artifactRow } = await (serviceClient as any)
+        .from('tasks')
+        .select('artifact_data')
+        .eq('id', taskId)
+        .single()
+      if (artifactRow?.artifact_data) {
+        const cal = artifactRow.artifact_data as {
+          dates?: Array<{ id: string; name: string; displayDate?: string; priority?: string }>
+          year?: number
+          campaigns?: Record<string, unknown>
+        }
+        const campaigns = cal.campaigns ?? {}
+        const dateList = (cal.dates ?? [])
+          .map((d) => {
+            const hasCampaign = !!campaigns[d.id]
+            return `- ${d.id} → "${d.name}" (${d.displayDate ?? ''}) [${hasCampaign ? 'GERADA' : 'PENDENTE'}]`
+          })
+          .join('\n')
+        const campaignCount = Object.keys(campaigns).length
+
+        skillContext = `\n\n[ARTIFACT — Calendário Sazonal ${cal.year} no painel lateral]
+Datas (${(cal.dates ?? []).length} total, ${campaignCount} com campanha gerada):
+${dateList}
+
+TOOL: SNEW_MODIFY_ARTIFACT — operações disponíveis:
+- generate_campaign: gerar campanha para UMA data (date_ids com 1 ID). Ex: operation="generate_campaign", date_ids=["black-friday-2026"]
+- remove_dates: remover datas da lista (date_ids com IDs a remover)
+- filter_dates: manter APENAS as datas listadas (date_ids com IDs a manter)
+- clear_campaigns: limpar campanhas (date_ids + except=true para limpar TODAS exceto as listadas)
+
+REGRAS DE COMPORTAMENTO:
+1. Para PERGUNTAS sobre o calendário ("quantas datas?", "quais têm campanha?"): responda usando o contexto acima SEM chamar nenhuma tool.
+2. Para MODIFICAÇÕES explícitas ("gere campanha de X", "remova Y", "limpe Z"): chame SNEW_MODIFY_ARTIFACT PRIMEIRO, depois confirme ao usuário.
+3. NUNCA diga que alterou dados sem ter chamado a tool. Se a tool retornar erro, informe o erro ao usuário.
+4. NUNCA regenere o calendário inteiro — use apenas as operações acima.]`
+      }
+    } else if (taskArtifactType) {
+      skillContext += `\n\n[ARTIFACT — Tipo: ${taskArtifactType}. Dados disponíveis no painel lateral.]`
+    }
   }
 
-  // 8. Build orchestrator system prompt
+  // ── 6. Build prompt + process connections (CPU-only, instant) ──────────
   const orchestratorPrompt = buildOrchestratorSystemPrompt(
     team?.name ?? 'Your workspace',
     (teamSkills as Array<{
@@ -222,24 +437,15 @@ export async function POST(request: NextRequest) {
       | undefined
   )
 
-  // 9. Platform tools (SNEW_ASK_AGENT, retail tools, etc.)
-  const platformTools = buildPlatformTools(user.id, teamId, undefined, storeId ?? undefined)
+  const platformTools = buildPlatformTools(
+    user.id,
+    teamId,
+    serviceClient,
+    storeId ?? undefined,
+    taskId
+  )
 
-  // 10. Load team connections for Composio
-  const { data: teamMembers } = await serviceClient
-    .from('team_members')
-    .select('user_id')
-    .eq('team_id', teamId)
-  const teamUserIds = (teamMembers ?? []).map((m) => m.user_id)
-
-  const { data: allConnections } =
-    teamUserIds.length > 0
-      ? await serviceClient
-          .from('app_connections')
-          .select('app_id, composio_connection_id, user_id')
-          .in('user_id', teamUserIds)
-      : { data: null }
-
+  // Process Composio connections (CPU-only)
   const appIds = new Set<string>()
   let connectedAccountMap: Record<string, string> | undefined
   let entityId = user.id
@@ -271,7 +477,7 @@ export async function POST(request: NextRequest) {
     appIds.add(store.platform)
   }
 
-  // 11. Run AI chat
+  // ── 7. Stream AI ──────────────────────────────────────────────────────
   const agentConfig: AgentConfig = {
     id: 'orchestrator',
     name: 'Snew',
@@ -281,14 +487,14 @@ export async function POST(request: NextRequest) {
     max_tokens: 16384,
   }
 
-  const convId = conversationId // capture for closure
+  const convId = conversationId
 
   try {
     const result = await runAgentChat({
       userId: entityId,
       agent: agentConfig,
       messages: modelMessages as Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-      systemPrompt: orchestratorPrompt,
+      systemPrompt: orchestratorPrompt + skillContext,
       relayTools: platformTools,
       connectedAppIds: appIds.size > 0 ? [...appIds] : undefined,
       connectedAccountMap,

@@ -230,18 +230,29 @@ export function buildRetailTools(
 
     STORE_QUERY_SALES: {
       description:
-        'Get sales summary for a date range. Shows order count, revenue, and top products. Queries the store API directly for fresh data. Use this when the user asks about sales, revenue, or "quanto vendi?".',
+        'Get sales summary for a time period. Shows order count, revenue, average ticket, and top products. Queries the store API directly for fresh data. Use this when the user asks about sales, revenue, ticket médio, or "quanto vendi?". Supports both preset periods AND custom date ranges (e.g., "maio de 2025").',
       inputSchema: jsonSchema({
         type: 'object',
         properties: {
           period: {
             type: 'string',
-            enum: ['today', 'yesterday', 'this_week', 'this_month'],
-            description: 'Time period for the summary (default: today)',
+            enum: ['today', 'yesterday', 'this_week', 'this_month', 'custom'],
+            description:
+              'Time period. Use "custom" with start_date/end_date for historical queries (default: today)',
+          },
+          start_date: {
+            type: 'string',
+            description:
+              'Start date in YYYY-MM-DD format. Required when period is "custom". Example: "2025-05-01"',
+          },
+          end_date: {
+            type: 'string',
+            description:
+              'End date in YYYY-MM-DD format. Required when period is "custom". Example: "2025-05-31"',
           },
         },
       }),
-      execute: async (params: { period?: string }) => {
+      execute: async (params: { period?: string; start_date?: string; end_date?: string }) => {
         const supabase = getClient()
         const { data: store } = await supabase
           .from('stores')
@@ -263,6 +274,19 @@ export function buildRetailTools(
         let endDate: Date = now
 
         switch (params.period) {
+          case 'custom': {
+            if (!params.start_date || !params.end_date) {
+              return {
+                error: 'start_date and end_date are required for custom period (YYYY-MM-DD format)',
+              }
+            }
+            startDate = new Date(params.start_date + 'T00:00:00')
+            endDate = new Date(params.end_date + 'T23:59:59')
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+            }
+            break
+          }
           case 'yesterday': {
             startDate = new Date(now)
             startDate.setDate(startDate.getDate() - 1)
@@ -300,10 +324,11 @@ export function buildRetailTools(
           while (true) {
             const orders = await client.getOrders(page, 200, {
               created_at_min: startDate.toISOString(),
+              created_at_max: endDate.toISOString(),
+              payment_status: 'paid',
             })
-            // Filter by end date client-side (API only supports created_at_min)
             for (const o of orders) {
-              if (new Date(o.created_at) <= endDate) {
+              {
                 allOrders.push({
                   total: o.total ?? '0',
                   status: o.status ?? 'open',
@@ -332,7 +357,9 @@ export function buildRetailTools(
               status: o.status,
               payment_status: o.payment_status,
             })),
-            params.period ?? 'today'
+            params.period === 'custom'
+              ? `${params.start_date} a ${params.end_date}`
+              : (params.period ?? 'today')
           )
         } catch (err) {
           return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` }

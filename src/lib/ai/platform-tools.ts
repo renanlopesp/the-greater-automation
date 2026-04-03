@@ -6,6 +6,7 @@ import type { Json } from '@/lib/supabase/database.types'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
 import { fetchTeamSkills, fetchSkillBySlug, fetchSkillExecutions } from '@/lib/queries/skills'
 import { executeSkill } from '@/lib/ai/skill-executor'
+import { generateCalendar } from '@/lib/ai/seasonal-campaign-generator'
 import { skills as skillCatalog } from '@/data/skills'
 
 type SupabaseClient =
@@ -25,7 +26,8 @@ export function buildPlatformTools(
   userId: string,
   teamId: string,
   supabaseClient?: SupabaseClient,
-  storeId?: string
+  storeId?: string,
+  taskId?: string
 ) {
   const ownerUserId = userId
   const getClient = async () => supabaseClient ?? (await createServerClient())
@@ -102,10 +104,199 @@ export function buildPlatformTools(
       }),
       execute: async (params: { skill_slug: string; input?: Record<string, unknown> }) => {
         const supabase = await getClient()
+
+        // Update task status to 'running' before skill execution
+        if (taskId) {
+          await (
+            supabase as unknown as {
+              from: (t: string) => {
+                update: (d: unknown) => {
+                  eq: (k: string, v: string) => Promise<{ error: unknown }>
+                }
+              }
+            }
+          )
+            .from('tasks')
+            .update({
+              skill_status: 'running',
+              active_skill: params.skill_slug,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', taskId)
+        }
+
+        // ── Skill-specific generators (bypass Fase 0 executeSkill) ──
+        if (params.skill_slug === 'seasonal-calendar' && taskId) {
+          try {
+            // Fetch brand_dna + store info for calendar generation
+            const [{ data: brandDna }, { data: storeInfo }] = await Promise.all([
+              (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    select: (s: string) => {
+                      eq: (
+                        k: string,
+                        v: string
+                      ) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
+                    }
+                  }
+                }
+              )
+                .from('brand_dna')
+                .select('niche, audience, positioning, tone, average_ticket, opportunities')
+                .eq('team_id', teamId)
+                .single(),
+              (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    select: (s: string) => {
+                      eq: (
+                        k: string,
+                        v: string
+                      ) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
+                    }
+                  }
+                }
+              )
+                .from('stores')
+                .select('id, platform, platform_store_id, platform_access_token')
+                .eq('team_id', teamId)
+                .single(),
+            ])
+
+            // Fetch products from Nuvemshop API or fall back to store_products DB
+            let calendarProducts: Array<{ name: string; category?: string; price: number }> = []
+            if (
+              storeInfo?.platform === 'nuvemshop' &&
+              storeInfo.platform_store_id &&
+              storeInfo.platform_access_token
+            ) {
+              const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+              const client = new NuvemshopClient(
+                storeInfo.platform_store_id as string,
+                storeInfo.platform_access_token as string
+              )
+              const liveProducts = await client.getProducts(1, 200)
+              calendarProducts = liveProducts.map((p) => ({
+                name:
+                  typeof p.name === 'object'
+                    ? ((p.name as Record<string, string>).pt ??
+                      Object.values(p.name as Record<string, string>)[0] ??
+                      '')
+                    : String(p.name),
+                price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+              }))
+            }
+
+            const calendarResult = await generateCalendar({
+              brandDna: {
+                niche: (brandDna?.niche as string) ?? 'varejo',
+                audience: (brandDna?.audience as string) ?? 'consumidores gerais',
+                positioning: (brandDna?.positioning as string) ?? '',
+                tone: (brandDna?.tone as string) ?? 'profissional',
+                average_ticket: (brandDna?.average_ticket as number) ?? 100,
+                opportunities:
+                  (brandDna?.opportunities as Array<{
+                    title: string
+                    description: string
+                    estimated_revenue: number
+                  }>) ?? [],
+              },
+              products: calendarProducts,
+              currentDate: new Date(),
+              year: new Date().getFullYear(),
+            })
+
+            // Save real calendar data to task
+            await (
+              supabase as unknown as {
+                from: (t: string) => {
+                  update: (d: unknown) => {
+                    eq: (k: string, v: string) => Promise<{ error: unknown }>
+                  }
+                }
+              }
+            )
+              .from('tasks')
+              .update({
+                artifact_data: calendarResult,
+                artifact_type: 'seasonal-calendar',
+                skill_status: 'completed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', taskId)
+
+            return {
+              status: 'completed',
+              summary: `Calendário sazonal ${calendarResult.year} gerado com ${calendarResult.dates?.length ?? 0} datas.`,
+              data: calendarResult,
+            }
+          } catch (err) {
+            if (taskId) {
+              await (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    update: (d: unknown) => {
+                      eq: (k: string, v: string) => Promise<{ error: unknown }>
+                    }
+                  }
+                }
+              )
+                .from('tasks')
+                .update({ skill_status: 'failed', updated_at: new Date().toISOString() })
+                .eq('id', taskId)
+            }
+            return { error: err instanceof Error ? err.message : 'Calendar generation failed' }
+          }
+        }
+
+        // ── Default: Fase 0 executeSkill (context injection) ──
         const result = await executeSkill(supabase, teamId, params.skill_slug, params.input)
+
         if (result.status === 'failed') {
+          // Update task status to 'failed'
+          if (taskId) {
+            await (
+              supabase as unknown as {
+                from: (t: string) => {
+                  update: (d: unknown) => {
+                    eq: (k: string, v: string) => Promise<{ error: unknown }>
+                  }
+                }
+              }
+            )
+              .from('tasks')
+              .update({
+                skill_status: 'failed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', taskId)
+          }
           return { error: result.error ?? 'Skill execution failed' }
         }
+
+        // Update task with artifact data on success
+        if (taskId) {
+          await (
+            supabase as unknown as {
+              from: (t: string) => {
+                update: (d: unknown) => {
+                  eq: (k: string, v: string) => Promise<{ error: unknown }>
+                }
+              }
+            }
+          )
+            .from('tasks')
+            .update({
+              artifact_data: result.output,
+              artifact_type: params.skill_slug,
+              active_skill: params.skill_slug,
+              skill_status: 'completed',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', taskId)
+        }
+
         return {
           execution_id: result.executionId,
           status: result.status,
@@ -780,6 +971,307 @@ export function buildPlatformTools(
       },
     },
 
+    // ── Modify artifact data on the current task ──────────────────────
+    ...(taskId
+      ? {
+          SNEW_MODIFY_ARTIFACT: {
+            description:
+              'Modify the artifact in the side panel. Supports: "filter_dates", "remove_dates", "clear_campaigns", "generate_campaign" (generate full campaign content for a date — copies, assets, email, video, timeline), "replace". Panel refreshes automatically.',
+            inputSchema: jsonSchema({
+              type: 'object',
+              properties: {
+                operation: {
+                  type: 'string',
+                  enum: [
+                    'filter_dates',
+                    'remove_dates',
+                    'clear_campaigns',
+                    'generate_campaign',
+                    'replace',
+                  ],
+                  description:
+                    'Operation: "filter_dates" keeps only listed date IDs, "remove_dates" removes listed date IDs, "clear_campaigns" removes generated campaigns for listed date IDs (use "except" to invert — clear all EXCEPT listed IDs), "replace" replaces full artifact_data.',
+                },
+                except: {
+                  type: 'boolean',
+                  description:
+                    'When true, inverts the date_ids selection. For "clear_campaigns": clears campaigns for all dates EXCEPT the listed IDs. Default: false.',
+                },
+                date_ids: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description:
+                    'Date IDs to keep (filter_dates) or remove (remove_dates). Use the date ID format like "dia-das-maes-2026".',
+                },
+                artifact_data: {
+                  type: 'object',
+                  description: 'Full artifact_data (only for "replace" operation).',
+                },
+              },
+              required: ['operation'],
+            }),
+            execute: async (params: {
+              operation:
+                | 'filter_dates'
+                | 'remove_dates'
+                | 'clear_campaigns'
+                | 'generate_campaign'
+                | 'replace'
+              date_ids?: string[]
+              except?: boolean
+              artifact_data?: unknown
+            }) => {
+              const supabase = await getClient()
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const sc = supabase as any
+
+              if (params.operation === 'replace' && params.artifact_data) {
+                const { error } = await sc
+                  .from('tasks')
+                  .update({
+                    artifact_data: params.artifact_data,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', taskId)
+                if (error) return { error: error.message }
+                return { success: true, message: 'Artifact replaced.' }
+              }
+
+              // Helper: load artifact and validate date_ids
+              async function loadAndValidate(dateIds: string[]) {
+                const { data: taskRow } = await sc
+                  .from('tasks')
+                  .select('artifact_data')
+                  .eq('id', taskId)
+                  .single()
+
+                if (!taskRow?.artifact_data) return { error: 'No artifact data found on task.' }
+
+                const artifact = taskRow.artifact_data as {
+                  dates?: Array<{ id: string; name: string }>
+                  campaigns?: Record<string, unknown>
+                  [key: string]: unknown
+                }
+
+                const existingIds = new Set((artifact.dates ?? []).map((d) => d.id))
+                const invalid = dateIds.filter((id) => !existingIds.has(id))
+                if (invalid.length > 0) {
+                  const validList = (artifact.dates ?? [])
+                    .map((d) => `${d.id} (${d.name})`)
+                    .join(', ')
+                  return {
+                    error: `Date IDs not found: ${invalid.join(', ')}. Valid IDs are: ${validList}`,
+                  }
+                }
+
+                return { artifact }
+              }
+
+              if (
+                (params.operation === 'filter_dates' || params.operation === 'remove_dates') &&
+                params.date_ids
+              ) {
+                const result = await loadAndValidate(params.date_ids)
+                if ('error' in result) return result
+                const { artifact } = result
+
+                const ids = new Set(params.date_ids)
+                const filteredDates =
+                  params.operation === 'filter_dates'
+                    ? (artifact.dates ?? []).filter((d) => ids.has(d.id))
+                    : (artifact.dates ?? []).filter((d) => !ids.has(d.id))
+
+                const keptIds = new Set(filteredDates.map((d) => d.id))
+                const filteredCampaigns: Record<string, unknown> = {}
+                for (const [key, val] of Object.entries(artifact.campaigns ?? {})) {
+                  if (keptIds.has(key)) filteredCampaigns[key] = val
+                }
+
+                const updated = { ...artifact, dates: filteredDates, campaigns: filteredCampaigns }
+                const { error } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (error) return { error: error.message }
+                return {
+                  success: true,
+                  message: `Artifact updated: ${filteredDates.length} dates remaining.`,
+                  remaining_dates: filteredDates.map((d) => d.id),
+                }
+              }
+
+              if (params.operation === 'clear_campaigns' && params.date_ids) {
+                const result = await loadAndValidate(params.date_ids)
+                if ('error' in result) return result
+                const { artifact: art } = result
+                const ids = new Set(params.date_ids)
+
+                // Clear campaigns: if except=true, clear all EXCEPT listed IDs
+                const filteredCampaigns: Record<string, unknown> = {}
+                for (const [key, val] of Object.entries(art.campaigns ?? {})) {
+                  const shouldKeep = params.except ? ids.has(key) : !ids.has(key)
+                  if (shouldKeep) filteredCampaigns[key] = val
+                }
+
+                const updated = { ...art, campaigns: filteredCampaigns }
+                const { error: updateErr } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (updateErr) return { error: updateErr.message }
+                return {
+                  success: true,
+                  message: `Campaigns cleared. ${Object.keys(filteredCampaigns).length} campaigns remaining.`,
+                  remaining_campaigns: Object.keys(filteredCampaigns),
+                }
+              }
+
+              if (params.operation === 'generate_campaign' && params.date_ids?.length === 1) {
+                const dateId = params.date_ids[0]
+                const { data: taskRow } = await sc
+                  .from('tasks')
+                  .select('artifact_data')
+                  .eq('id', taskId)
+                  .single()
+
+                if (!taskRow?.artifact_data) return { error: 'No artifact data found.' }
+
+                const artifact = taskRow.artifact_data as {
+                  dates?: Array<{ id: string; name: string; displayDate?: string; emoji?: string }>
+                  campaigns?: Record<string, unknown>
+                  [key: string]: unknown
+                }
+
+                const dateObj = (artifact.dates ?? []).find((d) => d.id === dateId)
+                if (!dateObj) {
+                  const validList = (artifact.dates ?? [])
+                    .map((d) => `${d.id} (${d.name})`)
+                    .join(', ')
+                  return { error: `Date ID "${dateId}" not found. Valid: ${validList}` }
+                }
+
+                // Fetch brand_dna + store info for campaign generation
+                const [{ data: brandDna }, { data: storeInfoForCampaign }] = await Promise.all([
+                  sc
+                    .from('brand_dna')
+                    .select(
+                      'niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket'
+                    )
+                    .eq('team_id', teamId)
+                    .single(),
+                  sc
+                    .from('stores')
+                    .select('id, platform, platform_store_id, platform_access_token')
+                    .eq('team_id', teamId)
+                    .single(),
+                ])
+
+                if (!brandDna)
+                  return { error: 'Brand DNA not found. Complete brand analysis first.' }
+
+                // Fetch enriched products from Nuvemshop API with sales/margin data
+                let campaignProducts: Array<{
+                  product_id?: string
+                  name: string
+                  price: number
+                  image_url?: string
+                  stock_quantity?: number
+                  sales_count?: number
+                  margin_pct?: number
+                  suggested_tag?: string
+                }> = []
+                const si = storeInfoForCampaign as {
+                  id?: string
+                  platform?: string
+                  platform_store_id?: string
+                  platform_access_token?: string
+                } | null
+                if (
+                  si?.platform === 'nuvemshop' &&
+                  si.platform_store_id &&
+                  si.platform_access_token
+                ) {
+                  const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+                  const { analyzeProductsSafe } = await import('@/lib/nuvemshop/product-analyzer')
+                  const client = new NuvemshopClient(si.platform_store_id, si.platform_access_token)
+                  campaignProducts = await analyzeProductsSafe(client)
+                }
+
+                const { generateConcept: genConcept } =
+                  await import('@/lib/ai/seasonal-campaign-generator')
+                const conceptResult = await genConcept({
+                  date: {
+                    id: dateId,
+                    name: dateObj.name,
+                    emoji: dateObj.emoji ?? '',
+                    displayDate: dateObj.displayDate ?? '',
+                  },
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  brandDna: brandDna as any,
+                  products: campaignProducts,
+                })
+
+                // Inject image_url from original products by product_id (reliable match)
+                const productMap = new Map(
+                  campaignProducts.map((p) => [p.product_id, { image_url: p.image_url }])
+                )
+                for (const p of conceptResult.concept.products) {
+                  const match = p.product_id ? productMap.get(p.product_id) : undefined
+                  if (match?.image_url) p.image_url = match.image_url
+                }
+                for (const p of conceptResult.selectedProducts) {
+                  const match = (p as { product_id?: string }).product_id
+                    ? productMap.get((p as { product_id?: string }).product_id!)
+                    : undefined
+                  if (match?.image_url) {
+                    ;(p as { image_url?: string | null }).image_url = match.image_url
+                  }
+                }
+
+                // Build campaign with concept only + deliverables not_generated
+                const notGen = { status: 'not_generated' as const }
+                const campaign = {
+                  ...conceptResult,
+                  curatedProducts: conceptResult.selectedProducts,
+                  emailSubject: '',
+                  emailPreview: '',
+                  copies: [],
+                  assets: [],
+                  videoScripts: [],
+                  timeline: [],
+                  deliverables: {
+                    copies: notGen,
+                    email: notGen,
+                    assets: notGen,
+                    video: notGen,
+                    timeline: notGen,
+                  },
+                }
+
+                // Save campaign to artifact
+                const updatedCampaigns = { ...(artifact.campaigns ?? {}), [dateId]: campaign }
+                const updated = { ...artifact, campaigns: updatedCampaigns }
+                const { error: saveErr } = await sc
+                  .from('tasks')
+                  .update({ artifact_data: updated, updated_at: new Date().toISOString() })
+                  .eq('id', taskId)
+
+                if (saveErr) return { error: saveErr.message }
+                return {
+                  success: true,
+                  message: `Campaign generated for "${dateObj.name}". The panel will update automatically.`,
+                  campaign_date: dateObj.name,
+                }
+              }
+
+              return { error: 'Invalid operation or missing parameters.' }
+            },
+          },
+        }
+      : {}),
+
     // Merge retail tools when store exists
     ...(storeId ? buildRetailTools(storeId, teamId, supabaseClient, ownerUserId) : {}),
   }
@@ -1052,6 +1544,11 @@ export function buildOrchestratorSystemPrompt(
     '- Emoji sparingly — one per message max, only when it adds clarity.',
     "- Honest about limitations. If I can't do something, I say so immediately with an alternative.",
     '',
+    '**Formatting Rules**',
+    '- NEVER wrap your response in a code block (```markdown, ```text, etc.). Write markdown directly — it will be rendered automatically.',
+    '- Use headings (##), bold (**), bullet points (-), and other markdown naturally — NOT inside code fences.',
+    '- Keep responses concise. For detailed data, use tools to update the artifact panel instead of writing long lists in chat.',
+    '',
 
     // ── Available Skills ──────────────────────────────────────────────────
     '## Available Skills',
@@ -1063,22 +1560,27 @@ export function buildOrchestratorSystemPrompt(
     // ── Skill Activation Rules ────────────────────────────────────────────
     '## Skill Activation Rules',
     '',
-    '**Use SNEW_RUN_SKILL when:**',
-    '- The request involves domain-specific analysis, content generation, or data processing a skill is built for',
-    '- The skill has access to specialized data or external integrations needed to answer the question',
-    "- The task is clearly within a skill's described purpose",
+    '**MANDATORY: ALWAYS use SNEW_RUN_SKILL when:**',
+    '- The user asks about seasonal calendar, campaigns, dates, or anything an active skill handles',
+    '- The request involves content generation, analysis, calendar, campaigns, copies, images, retention, inventory',
+    '- ANY active skill matches the request — ALWAYS call SNEW_RUN_SKILL first, NEVER generate the content yourself',
+    '- When a skill is available for the topic, you MUST use it. The skill output appears in the delivery panel next to the chat.',
     '',
-    '**Answer directly (no skill needed) when:**',
+    '**CRITICAL: Do NOT generate calendar tables, campaign plans, copy suggestions, or any structured content as text in the chat.**',
+    '**Instead, ALWAYS call SNEW_RUN_SKILL with the appropriate skill_slug. The structured result will be rendered in the artifact panel.**',
+    '**After calling the skill, provide a SHORT text summary in the chat (2-3 sentences max). The detailed data is in the delivery panel.**',
+    '',
+    '**Answer directly (no skill needed) ONLY when:**',
     '- Greetings, casual chat, "what can you do?"',
     '- Platform management: list/run workflows, check connections, inspect app capabilities',
     '- Meta questions: "what skills do I have?", "show my workflows"',
     '- Simple factual questions you can answer from context',
     '- The user explicitly asks YOU to answer (not a skill)',
+    '- No active skill matches the request at all',
     '',
     '**Before running a skill:**',
-    '- If uncertain which skill fits, call SNEW_LIST_SKILLS first to see slugs and descriptions',
     '- Pass relevant context as `input` — skills do not have conversation history',
-    '- If the skill returns an error, try to answer directly or explain what went wrong',
+    '- If the skill returns an error, explain what went wrong briefly',
     '',
 
     // ── Direct Capabilities ───────────────────────────────────────────────

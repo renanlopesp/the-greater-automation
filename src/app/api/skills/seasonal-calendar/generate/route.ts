@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
-import { generateCampaign } from '@/lib/ai/seasonal-campaign-generator'
+import { generateConcept } from '@/lib/ai/seasonal-campaign-generator'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
 import { safeError } from '@/lib/safe-error'
 
@@ -45,7 +45,12 @@ export async function POST(request: NextRequest) {
       .eq('team_id', teamId)
       .limit(1)
       .single(),
-    serviceClient.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
+    serviceClient
+      .from('stores')
+      .select('id, platform, platform_store_id, platform_access_token')
+      .eq('team_id', teamId)
+      .limit(1)
+      .single(),
     getSkillId(teamId),
   ])
 
@@ -68,21 +73,37 @@ export async function POST(request: NextRequest) {
 
   // 4. Fetch store products (depends on store query)
   let products: Array<{
+    product_id?: string
     name: string
     price: number
     image_url?: string
     category?: string
     cost_price?: number
     stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
   }> = []
   if (storeResult.data) {
-    const { data: storeProducts } = await serviceClient
-      .from('store_products')
-      .select('name, price, images, category, cost_price, stock_quantity')
-      .eq('store_id', (storeResult.data as { id: string }).id)
-      .eq('is_published', true)
-      .limit(50)
-    products = (storeProducts ?? []) as typeof products
+    const storeData = storeResult.data as {
+      id: string
+      platform?: string
+      platform_store_id?: string
+      platform_access_token?: string
+    }
+    if (
+      storeData.platform === 'nuvemshop' &&
+      storeData.platform_store_id &&
+      storeData.platform_access_token
+    ) {
+      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+      const client = new NuvemshopClient(
+        storeData.platform_store_id,
+        storeData.platform_access_token
+      )
+      const { analyzeProductsSafe } = await import('@/lib/nuvemshop/product-analyzer')
+      products = await analyzeProductsSafe(client)
+    }
   }
 
   // 6. Insert skill_executions record with status='running'
@@ -101,8 +122,8 @@ export async function POST(request: NextRequest) {
   const executionId = (execRow as { id: string } | null)?.id
 
   try {
-    // 7. Generate campaign
-    const campaign = await generateCampaign({
+    // 7. Generate concept only (no copies, email, assets, video, timeline)
+    const conceptResult = await generateConcept({
       date: {
         id: dateId,
         name: dateName,
@@ -112,6 +133,39 @@ export async function POST(request: NextRequest) {
       brandDna,
       products,
     })
+
+    // Inject image_url from original products by product_id (reliable match)
+    const productMap = new Map(
+      products.map((p) => [p.product_id, { image_url: p.image_url, stock: p.stock_quantity }])
+    )
+    for (const p of conceptResult.concept.products) {
+      const match = p.product_id ? productMap.get(p.product_id) : undefined
+      if (match?.image_url) p.image_url = match.image_url
+    }
+    for (const p of conceptResult.selectedProducts) {
+      const match = p.product_id ? productMap.get(p.product_id) : undefined
+      if (match?.image_url) (p as { image_url?: string | null }).image_url = match.image_url
+    }
+
+    // Build campaign with deliverables in not_generated state
+    const notGenerated = { status: 'not_generated' as const }
+    const campaign = {
+      ...conceptResult,
+      curatedProducts: conceptResult.selectedProducts,
+      emailSubject: '',
+      emailPreview: '',
+      copies: [],
+      assets: [],
+      videoScripts: [],
+      timeline: [],
+      deliverables: {
+        copies: notGenerated,
+        email: notGenerated,
+        assets: notGenerated,
+        video: notGenerated,
+        timeline: notGenerated,
+      },
+    }
 
     const durationMs = Date.now() - startedAt
 
@@ -131,7 +185,13 @@ export async function POST(request: NextRequest) {
     // 9. Return result
     return NextResponse.json({ executionId, campaign, durationMs })
   } catch (error) {
-    const safeMessage = safeError('generate-campaign', error, 'Campaign generation failed')
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('[generate-campaign] Error:', errMsg, error)
+    const safeMessage = safeError(
+      'generate-campaign',
+      error,
+      `Campaign generation failed: ${errMsg}`
+    )
 
     if (executionId) {
       await serviceClient

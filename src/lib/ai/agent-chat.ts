@@ -608,7 +608,7 @@ export async function runAgentChat(options: AgentChatOptions) {
     stopWhen: stepCountIs(10),
     ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
     ...(reasoning
-      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' } } }
       : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
     ...(options.onFinish
@@ -683,7 +683,11 @@ export async function runAgentChatSync(
       stopWhen: stepCountIs(10),
       ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
       ...(reasoning
-        ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+        ? {
+            providerOptions: {
+              openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' },
+            },
+          }
         : {}),
       maxOutputTokens: agent.max_tokens ?? 4096,
       onStepFinish: async ({ text: stepText, toolCalls }) => {
@@ -730,7 +734,7 @@ export async function runAgentChatSync(
       : {}),
     ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
     ...(reasoning
-      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'auto' } } }
+      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' } } }
       : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
   })

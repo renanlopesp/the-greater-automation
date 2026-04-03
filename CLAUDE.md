@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Vercel AI SDK (generateObject), Zod, html2canvas, shadcn/ui, Tailwind CSS v4 (053-asset-template-refinement)
+- Supabase PostgreSQL (tasks.artifact_data JSONB — existing, no schema changes) (053-asset-template-refinement)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19.2.3, Vercel AI SDK (`ai@^6.0.86`, `@ai-sdk/openai@^3.0.29`, `@ai-sdk/react@^3.0.88`), Zod 4, TanStack React Query, Zustand, shadcn/ui (new-york), Tailwind CSS v4 (044-seasonal-calendar-ai)
 - Supabase PostgreSQL — `skill_executions` table (existing), `brand_dna` table (existing), `store_products` table (existing), `skills` table (existing) (044-seasonal-calendar-ai)
 

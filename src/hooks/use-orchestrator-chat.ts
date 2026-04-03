@@ -14,6 +14,7 @@ interface UseOrchestratorChatOptions {
   initialConversationId?: string | null
   initialMessages?: ServerMessage[]
   initialQuery?: string
+  taskId?: string
 }
 
 /**
@@ -42,11 +43,16 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     conversationIdRef.current = conversationId
   }, [conversationId])
 
+  const taskIdRef = useRef<string | undefined>(options?.taskId)
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
-        body: () => ({ conversationId: conversationIdRef.current }),
+        body: () => ({
+          conversationId: conversationIdRef.current,
+          taskId: taskIdRef.current,
+        }),
         fetch: async (url, fetchOptions) => {
           const response = await globalThis.fetch(url as string, fetchOptions as RequestInit)
           const newConvId = response.headers.get('X-Conversation-Id')

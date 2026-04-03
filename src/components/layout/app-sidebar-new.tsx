@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { label: 'Home', icon: Home, path: '/dashboard' },
-  { label: 'New Task', icon: Plus, path: '/chat' },
+  { label: 'New Task', icon: Plus, path: '/dashboard' },
   { label: 'Tarefas', icon: ClipboardList, path: '/tarefas' },
   { label: 'Skills', icon: Cpu, path: '/skills' },
   { label: 'Apps', icon: AppWindow, path: '/apps' },
@@ -21,7 +21,8 @@ interface AppSidebarNewProps {
   onClose?: () => void
 }
 
-function isActive(pathname: string, path: string): boolean {
+function isActive(pathname: string, path: string, label: string): boolean {
+  if (label === 'New Task') return false // New Task is a shortcut, never active
   if (path === '/dashboard') return pathname === '/' || pathname === '/dashboard'
   if (path === '/chat') return pathname === '/chat'
   if (path === '/skills') return pathname === '/skills' || pathname.startsWith('/skills/')
@@ -112,7 +113,7 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
           style={{ flex: '1 1 0', overflowY: 'auto' }}
         >
           {navItems.map((item) => (
-            <Tooltip key={item.path}>
+            <Tooltip key={item.label}>
               <TooltipTrigger asChild>
                 <Link
                   href={item.path}
@@ -120,7 +121,7 @@ export function AppSidebarNew({ collapsed, onToggleCollapse, onClose }: AppSideb
                   className={cn(
                     'relative mb-0.5 flex w-full items-center rounded-md transition-colors',
                     collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2',
-                    isActive(pathname, item.path)
+                    isActive(pathname, item.path, item.label)
                       ? 'bg-accent text-foreground font-medium'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}

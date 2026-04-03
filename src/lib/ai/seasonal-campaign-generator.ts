@@ -1,7 +1,12 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { getOpenAIProvider } from '@/lib/ai/agent-chat'
-import type { FullCampaign, ProductTag } from '@/data/campaign-data'
+import type {
+  FullCampaign,
+  ProductTag,
+  CampaignConcept,
+  CampaignProduct,
+} from '@/data/campaign-data'
 
 // ---------------------------------------------------------------------------
 // PersonalizedCalendar schemas
@@ -52,12 +57,16 @@ const ProductTagSchema = z.enum([
 ] as [ProductTag, ...ProductTag[]])
 
 const CampaignProductSchema = z.object({
+  product_id: z
+    .string()
+    .describe('ID do produto — retorne EXATAMENTE o product_id fornecido na lista de produtos'),
   name: z.string().describe('Nome do produto'),
   price: z.number().describe('Preço em reais'),
   tag: ProductTagSchema.describe(
     'Tag do produto: best-seller, liberar-estoque, cross-sell, lancamento ou alta-margem'
   ),
   stock: z.number().nullable().describe('Quantidade em estoque (null se desconhecido)'),
+  image_url: z.string().nullable().describe('URL da imagem do produto (null se não disponível)'),
 })
 
 const CampaignConceptSchema = z.object({
@@ -65,9 +74,8 @@ const CampaignConceptSchema = z.object({
   description: z.string().describe('Descrição estratégica do conceito da campanha'),
   products: z
     .array(CampaignProductSchema)
-    .min(2)
-    .max(5)
-    .describe('Produtos principais do conceito'),
+    .min(1)
+    .describe('Produtos principais do conceito — inclua todos os relevantes para a campanha'),
   alternates: z
     .array(
       z.object({
@@ -108,9 +116,10 @@ const FullCampaignSchema = z.object({
   concept: CampaignConceptSchema,
   selectedProducts: z
     .array(CampaignProductSchema)
-    .min(3)
-    .max(6)
-    .describe('Produtos selecionados para a campanha com estoque'),
+    .min(1)
+    .describe(
+      'Todos os produtos relevantes para a campanha — inclua quantos fizerem sentido para a data e o nicho'
+    ),
   emailSubject: z.string().describe('Assunto do e-mail de campanha'),
   emailPreview: z.string().describe('Preview text do e-mail (apareça abaixo do assunto)'),
   copies: z
@@ -188,7 +197,7 @@ INSTRUÇÕES:
    - Inclua as grandes datas universais do varejo brasileiro FILTRADAS por relevância para o nicho: Carnaval, Dia da Mulher, Páscoa, Dia das Mães, Dia dos Namorados, Dia dos Pais, Dia das Crianças, Black Friday, Natal, Ano Novo.
    - Inclua 3-6 datas de NICHO específicas para esse segmento de mercado (ex: para pet shop: Dia dos Animais 04/10; para academia: Dia do Atleta 19/07; para bebês: Dia do Bebê 11/08).
    - Priorize as oportunidades identificadas no DNA da marca como datas de alta prioridade.
-   - Filtre datas que já passaram (anteriores a ${currentDateISO}) — inclua apenas se forem do ano que vem.
+   - OBRIGATÓRIO: NÃO inclua datas que já passaram (anteriores a ${currentDateISO}). Todas as datas retornadas DEVEM ter campo "date" posterior a ${currentDateISO}. Se Carnaval/Páscoa/etc já passou neste ano, inclua a versão do próximo ano (ex: se Carnaval 2026 já passou, use Carnaval 2027).
 
 2. TIPO (type):
    - 'universal': datas amplamente conhecidas e comercializadas (Black Friday, Natal, Dia das Mães)
@@ -235,6 +244,23 @@ Toda a saída deve estar em Português do Brasil.`
     ],
   })
 
+  // Post-generation fix: bump past dates to next year
+  const now = new Date()
+  for (const date of object.dates) {
+    if (date.date) {
+      const dateObj = new Date(date.date)
+      if (dateObj < now) {
+        dateObj.setFullYear(dateObj.getFullYear() + 1)
+        date.date = dateObj.toISOString().split('T')[0]
+        date.id = date.id.replace(/\d{4}$/, String(dateObj.getFullYear()))
+        const yearStr = String(dateObj.getFullYear())
+        if (!date.displayDate.includes(yearStr)) {
+          date.displayDate = date.displayDate.replace(/\d{4}/, yearStr)
+        }
+      }
+    }
+  }
+
   return object
 }
 
@@ -259,12 +285,17 @@ export async function generateCampaign(params: {
     average_ticket: number
   }
   products: Array<{
+    product_id?: string
     name: string
     price: number
     image_url?: string
     category?: string
+    description?: string
     cost_price?: number
     stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
   }>
 }): Promise<FullCampaign> {
   const openai = getOpenAIProvider()
@@ -274,10 +305,19 @@ export async function generateCampaign(params: {
     products.length > 0
       ? `\nPRODUTOS DISPONÍVEIS NA LOJA (selecione os mais adequados para a campanha):\n${products
           .slice(0, 30)
-          .map(
-            (p) =>
-              `- ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}${p.stock_quantity ? ` (estoque: ${p.stock_quantity})` : ''}${p.category ? ` [${p.category}]` : ''}`
-          )
+          .map((p) => {
+            const parts = [
+              `- [ID: ${p.product_id ?? 'unknown'}] ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}`,
+            ]
+            if (p.stock_quantity != null) parts.push(`estoque: ${p.stock_quantity}`)
+            if (p.sales_count != null && p.sales_count > 0)
+              parts.push(`vendas (90d): ${p.sales_count}`)
+            if (p.margin_pct != null) parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
+            if (p.suggested_tag) parts.push(`tag sugerida: ${p.suggested_tag}`)
+            if (p.category) parts.push(`categoria: ${p.category}`)
+            if (p.description) parts.push(`desc: ${p.description}`)
+            return parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
+          })
           .join('\n')}`
       : '\nNenhum produto cadastrado — crie produtos representativos baseados no nicho da loja.'
 
@@ -302,10 +342,10 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
 2. CONCEPT (conceito criativo):
    - slogan: 1 frase curta e impactante, alinhada ao tom da marca
    - description: Explique a estratégia criativa — por que esse ângulo, como ele ressoa com o público
-   - products: 3-5 produtos do catálogo ou representativos, com tag adequada (best-seller/liberar-estoque/cross-sell/lancamento/alta-margem)
+   - products: TODOS os produtos relevantes para o conceito da campanha, com tag adequada (best-seller/liberar-estoque/cross-sell/lancamento/alta-margem). Não limite a quantidade — inclua todos que fazem sentido.
    - alternates: 2 conceitos alternativos com slogan + descrição (para diferentes ângulos estratégicos)
 
-3. SELECTED PRODUCTS: 4-6 produtos com estoque para a campanha. Use produtos reais da loja quando disponíveis, ou crie representativos com preços coerentes com o ticket médio. Distribua as tags estrategicamente.
+3. SELECTED PRODUCTS: TODOS os produtos relevantes para a campanha com estoque disponível. Inclua quantos fizerem sentido para a data e o nicho — pode ser 5, 10, 15 ou mais. Use produtos reais da loja quando disponíveis, priorizando os com melhor tag (best-seller, alta-margem). Distribua as tags estrategicamente.
 
 4. EMAIL: emailSubject (assunto chamativo, máx 60 chars) + emailPreview (preview text de 80-100 chars que complemente o assunto)
 
@@ -339,7 +379,9 @@ IMPORTANTE:
 - Use as palavras indicadas e evite as palavras proibidas em todas as copies
 - Mantenha consistência de tom em todos os canais
 - Os textos devem soar naturais para o mercado brasileiro, não traduzidos
-- Toda a saída deve estar em Português do Brasil`
+- Toda a saída deve estar em Português do Brasil
+- OBRIGATÓRIO: Para cada produto, retorne o campo product_id EXATAMENTE como fornecido na lista (ex: "12345"). Isso é crítico para vincular imagens e dados. NÃO invente IDs.
+- Use as tags sugeridas (best-seller, alta-margem, etc.) quando fornecidas — elas são baseadas em dados reais de vendas e margem da loja.`
 
   const { object } = await generateObject({
     model: openai.chat('gpt-4o'),
@@ -446,4 +488,117 @@ INSTRUÇÕES:
   })
 
   return object as Partial<FullCampaign>
+}
+
+// ---------------------------------------------------------------------------
+// generateConcept — Phase 1 only (concept + products, no deliverables)
+// ---------------------------------------------------------------------------
+
+const ConceptOnlySchema = z.object({
+  intro: z.string().describe('Parágrafo introdutório com análise estratégica da data para a loja'),
+  concept: CampaignConceptSchema,
+  selectedProducts: z
+    .array(CampaignProductSchema)
+    .min(1)
+    .describe(
+      'Todos os produtos relevantes para a campanha — inclua quantos fizerem sentido para a data e o nicho'
+    ),
+})
+
+export async function generateConcept(params: {
+  date: {
+    id: string
+    name: string
+    emoji: string
+    displayDate: string
+  }
+  brandDna: {
+    niche: string
+    tone: string
+    audience: string
+    positioning: string
+    words_to_use: string[]
+    words_to_avoid: string[]
+    average_ticket: number
+  }
+  products: Array<{
+    product_id?: string
+    name: string
+    price: number
+    image_url?: string
+    category?: string
+    description?: string
+    stock_quantity?: number
+    sales_count?: number
+    margin_pct?: number
+    suggested_tag?: string
+  }>
+}): Promise<{ intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }> {
+  const openai = getOpenAIProvider()
+  const { date, brandDna, products } = params
+
+  const productsContext =
+    products.length > 0
+      ? `\nPRODUTOS DISPONÍVEIS NA LOJA (selecione os mais adequados para a campanha):\n${products
+          .slice(0, 30)
+          .map((p) => {
+            const parts = [
+              `- [ID: ${p.product_id ?? 'unknown'}] ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}`,
+            ]
+            if (p.stock_quantity != null) parts.push(`estoque: ${p.stock_quantity}`)
+            if (p.sales_count != null && p.sales_count > 0)
+              parts.push(`vendas (90d): ${p.sales_count}`)
+            if (p.margin_pct != null) parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
+            if (p.suggested_tag) parts.push(`tag sugerida: ${p.suggested_tag}`)
+            if (p.category) parts.push(`categoria: ${p.category}`)
+            if (p.description) parts.push(`desc: ${p.description}`)
+            return parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
+          })
+          .join('\n')}`
+      : '\nNenhum produto cadastrado — crie produtos representativos baseados no nicho da loja.'
+
+  const systemPrompt = `Você é o Snew, um CMO de IA especializado em e-commerce brasileiro. Sua tarefa é criar o CONCEITO e SELEÇÃO DE PRODUTOS para uma campanha sazonal. NÃO gere copies, e-mail, assets, vídeos ou timeline — apenas o conceito criativo e a seleção de produtos.
+
+DATA DA CAMPANHA: ${date.emoji} ${date.name} — ${date.displayDate}
+
+PERFIL DA LOJA:
+- Nicho: ${brandDna.niche}
+- Público-alvo: ${brandDna.audience}
+- Posicionamento: ${brandDna.positioning}
+- Tom de comunicação: ${brandDna.tone}
+- Ticket médio: R$ ${brandDna.average_ticket.toLocaleString('pt-BR')}
+- Palavras para usar: ${brandDna.words_to_use.join(', ')}
+- Palavras para evitar: ${brandDna.words_to_avoid.join(', ')}
+${productsContext}
+
+INSTRUÇÕES:
+
+1. INTRO: 2-3 frases estratégicas explicando por que essa data é importante para ESSA loja específica.
+
+2. CONCEPT:
+   - slogan: 1 frase curta e impactante
+   - description: Estratégia criativa — por que esse ângulo ressoa com o público
+   - products: TODOS os produtos relevantes para o conceito, com tag adequada
+   - alternates: 2 conceitos alternativos
+
+3. SELECTED PRODUCTS: TODOS os produtos relevantes para a campanha. Inclua quantos fizerem sentido.
+
+IMPORTANTE:
+- Retorne o product_id EXATAMENTE como fornecido na lista.
+- Use as tags sugeridas quando fornecidas — são baseadas em dados reais.
+- Toda a saída em Português do Brasil.`
+
+  const { object } = await generateObject({
+    model: openai.chat('gpt-4o'),
+    schema: ConceptOnlySchema,
+    system: systemPrompt,
+    messages: [
+      {
+        role: 'user',
+        content: `Gere o conceito e seleção de produtos para "${date.name}" (${date.displayDate}).`,
+      },
+    ],
+  })
+
+  return object as { intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }
 }

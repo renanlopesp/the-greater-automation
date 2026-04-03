@@ -35,7 +35,7 @@ export async function GET() {
   const { data, error } = await (serviceClient as any)
     .from('brand_dna')
     .select(
-      'id, team_id, niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket, brand_name, visual_identity, content_pillars, competitors, strengths, weaknesses, opportunities, fonts, texts, created_at, updated_at'
+      'id, team_id, store_name, niche, tone, audience, positioning, words_to_use, words_to_avoid, average_ticket, strengths, opportunities, alerts, color_palette, palette_description, fonts, brand_texts, owner_name, greeting, intro, created_at, updated_at'
     )
     .eq('team_id', teamId)
     .single()

@@ -35,7 +35,12 @@ export async function POST(request: NextRequest) {
       .eq('team_id', teamId)
       .limit(1)
       .single(),
-    serviceClient.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
+    serviceClient
+      .from('stores')
+      .select('id, platform, platform_store_id, platform_access_token')
+      .eq('team_id', teamId)
+      .limit(1)
+      .single(),
     getSkillId(teamId),
   ])
 
@@ -58,13 +63,41 @@ export async function POST(request: NextRequest) {
   // 4. Fetch store products (depends on store query)
   let products: Array<{ name: string; category?: string; price: number }> = []
   if (storeResult.data) {
-    const { data: storeProducts } = await serviceClient
-      .from('store_products')
-      .select('name, price, images, category, cost_price, stock_quantity')
-      .eq('store_id', (storeResult.data as { id: string }).id)
-      .eq('is_published', true)
-      .limit(50)
-    products = (storeProducts ?? []) as Array<{ name: string; category?: string; price: number }>
+    const storeData = storeResult.data as {
+      id: string
+      platform?: string
+      platform_store_id?: string
+      platform_access_token?: string
+    }
+    if (
+      storeData.platform === 'nuvemshop' &&
+      storeData.platform_store_id &&
+      storeData.platform_access_token
+    ) {
+      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+      const client = new NuvemshopClient(
+        storeData.platform_store_id,
+        storeData.platform_access_token
+      )
+      const liveProducts = await client.getProducts(1, 200)
+      products = liveProducts.map((p) => ({
+        name:
+          typeof p.name === 'object'
+            ? ((p.name as Record<string, string>).pt ??
+              Object.values(p.name as Record<string, string>)[0] ??
+              '')
+            : String(p.name),
+        price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+      }))
+    } else {
+      const { data: storeProducts } = await serviceClient
+        .from('store_products')
+        .select('name, price, category')
+        .eq('store_id', storeData.id)
+        .eq('is_published', true)
+        .limit(50)
+      products = (storeProducts ?? []) as Array<{ name: string; category?: string; price: number }>
+    }
   }
 
   // 6. Insert skill_executions record with status='running'

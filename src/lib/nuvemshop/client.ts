@@ -113,7 +113,7 @@ export class NuvemshopClient {
   // Products
   async getProducts(page = 1, perPage = 200): Promise<NuvemshopProduct[]> {
     const data = await this.request<unknown[]>(
-      `/products?page=${page}&per_page=${perPage}&fields=id,name,description,handle,variants,images,published,updated_at,created_at`
+      `/products?page=${page}&per_page=${perPage}&fields=id,name,description,handle,variants,images,categories,published,updated_at,created_at`
     )
     return data.map((item) => NuvemshopProductSchema.parse(item))
   }
@@ -457,15 +457,22 @@ export class NuvemshopClient {
   async getOrders(
     page = 1,
     perPage = 50,
-    params?: { created_at_min?: string; status?: string }
+    params?: {
+      created_at_min?: string
+      created_at_max?: string
+      status?: string
+      payment_status?: string
+      shipping_status?: string
+      q?: string
+    }
   ): Promise<NuvemshopOrder[]> {
     let url = `/orders?page=${page}&per_page=${perPage}`
-    if (params?.created_at_min) {
-      url += `&created_at_min=${params.created_at_min}`
-    }
-    if (params?.status) {
-      url += `&status=${params.status}`
-    }
+    if (params?.created_at_min) url += `&created_at_min=${params.created_at_min}`
+    if (params?.created_at_max) url += `&created_at_max=${params.created_at_max}`
+    if (params?.status) url += `&status=${params.status}`
+    if (params?.payment_status) url += `&payment_status=${params.payment_status}`
+    if (params?.shipping_status) url += `&shipping_status=${params.shipping_status}`
+    if (params?.q) url += `&q=${encodeURIComponent(params.q)}`
     const data = await this.request<unknown[]>(url)
     return data.map((item) => NuvemshopOrderSchema.parse(item))
   }
