@@ -154,7 +154,7 @@ function buildAssetHtml(params: {
   const ctaSize = isWide ? '14px' : isVertical ? '18px' : '16px'
   const ctaPadding = isWide ? '12px 32px' : isVertical ? '18px 48px' : '16px 40px'
   const contentPadding = isWide ? '24px 48px' : isVertical ? '0 60px 80px' : '0 48px 48px'
-  const gap = isWide ? '10px' : isVertical ? '20px' : '16px'
+  const gap = isWide ? '12px' : isVertical ? '32px' : '24px'
 
   return `<div style="
     position: relative;
@@ -208,7 +208,7 @@ function buildAssetHtml(params: {
 
       <div style="
         width: 280px;
-        margin: ${isWide ? '0' : '8px'} auto 0;
+        margin: ${isWide ? '0' : '16px'} auto 0;
         background: ${accentColor};
         color: #ffffff;
         font-size: ${ctaSize};
