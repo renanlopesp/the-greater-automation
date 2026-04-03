@@ -1280,24 +1280,21 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
     }
   }
 
-  // --- Regenerate section ---
+  // --- Regenerate section (uses generate-deliverable to regenerate + update status) ---
   async function regenerateSection(dateId: string, sectionType: string) {
     const key = `${dateId}:${sectionType}`
     setRegeneratingSection((prev) => ({ ...prev, [key]: true }))
     try {
-      const res = await fetch('/api/skills/seasonal-calendar/regenerate', {
+      // Use the same endpoint as generateDeliverable — it handles status updates
+      const res = await fetch('/api/skills/seasonal-calendar/generate-deliverable', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dateId, sectionType }),
+        body: JSON.stringify({ taskId, dateId, sectionType }),
       })
-      if (!res.ok) throw new Error('regeneration failed')
-      const body = await res.json()
-      const updatedCampaign = (body.campaign ?? body) as FullCampaign
-      const updatedCampaigns = {
-        ...campaigns,
-        [dateId]: { ...campaigns[dateId]!, ...updatedCampaign },
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.error ?? 'regeneration failed')
       }
-      await saveCampaignsToTask(updatedCampaigns)
       if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     } catch {
       toast.error('Erro ao regenerar. Tente novamente.')
