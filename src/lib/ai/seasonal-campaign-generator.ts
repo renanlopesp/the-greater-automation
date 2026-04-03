@@ -140,9 +140,9 @@ const FullCampaignSchema = z.object({
     ),
   videoScripts: z
     .array(CampaignVideoScriptSchema)
-    .min(2)
-    .max(2)
-    .describe('Exatamente 2 roteiros: Reels 15s e Reels 30s'),
+    .min(3)
+    .max(3)
+    .describe('Exatamente 3 roteiros: AI Video 8s (para Veo 3/Sora), Reels 15s, Reels 30s'),
   timeline: z
     .array(CampaignTimelineItemSchema)
     .min(6)
@@ -367,10 +367,11 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
    - Stories Meta Ad (ratio: "9:16")
    Para cada asset, crie um gradiente CSS temático adequado à data e ao posicionamento da marca. Use cores que remetam à data (ex: rosa/pink para Dia das Mães, verde/dourado para Natal).
 
-7. VIDEO SCRIPTS — exatamente 2 roteiros profissionais:
+7. VIDEO SCRIPTS — exatamente 3 roteiros profissionais:
+   - AI Video 8s: prompt descritivo de 1-2 frases para geração por IA (Veo 3, Sora). Descreva a cena visual completa em texto corrido — sem timestamps. Inclua: ambiente, iluminação, movimento de câmera, produto em foco, mood. Duração: 8 segundos. Title: "AI Video 8s", duration: "8 segundos".
    - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto em destaque, CTA.
    - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling, voz em off, produto em ação, CTA.
-   FORMATO: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+   FORMATO Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
    Pode incluir voz em off, narração, storytelling, múltiplos ângulos. Roteiro de produção profissional.
 
 8. TIMELINE — exatamente 6 fases em ordem:
@@ -454,7 +455,7 @@ export async function regenerateSection(params: {
     email: 'assunto e preview do e-mail (emailSubject + emailPreview)',
     assets:
       '4 assets visuais com gradientes CSS (Stories 9:16, Feed 1:1, Banner E-mail, Stories Meta Ad)',
-    video: '2 roteiros de vídeo (Reels 15s e Reels 30s)',
+    video: '3 roteiros de vídeo (AI Video 8s, Reels 15s e Reels 30s)',
     timeline: '6 fases da timeline de campanha (D-45 até D-Day)',
   }
 
@@ -488,12 +489,13 @@ INSTRUÇÕES:
   const videoExtra =
     sectionType === 'video'
       ? `\n\nINSTRUÇÕES ESPECÍFICAS PARA ROTEIROS DE VÍDEO:
+- AI Video 8s: prompt descritivo de 1-2 frases para IA geradora de vídeo (Veo 3, Sora). Descreva a cena visual em texto corrido — sem timestamps. Ambiente, iluminação, câmera, produto, mood. Title: "AI Video 8s", duration: "8 segundos".
 - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto, CTA.
 - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling completo.
-- Formato de cada cena: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+- Formato Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
 - Pode incluir: voz em off, narração, storytelling, múltiplos ângulos, close-ups, transições.
 - Roteiro de produção profissional — criativo, envolvente e com narrativa.
-- IMPORTANTE: respeitar as durações (15s e 30s) — não ultrapassar os timestamps.`
+- IMPORTANTE: respeitar as durações — não ultrapassar os timestamps.`
       : ''
 
   const { object } = await generateObject({
