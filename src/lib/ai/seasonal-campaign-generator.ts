@@ -368,7 +368,7 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
    Para cada asset, crie um gradiente CSS temático adequado à data e ao posicionamento da marca. Use cores que remetam à data (ex: rosa/pink para Dia das Mães, verde/dourado para Natal).
 
 7. VIDEO SCRIPTS — exatamente 3 roteiros profissionais:
-   - AI Video 8s: prompt descritivo de 1-2 frases para geração por IA (Veo 3, Sora). Descreva a cena visual completa em texto corrido — sem timestamps. Inclua: ambiente, iluminação, movimento de câmera, produto em foco, mood. Duração: 8 segundos. Title: "AI Video 8s", duration: "8 segundos".
+   - AI Video 8s: prompt para IA geradora de vídeo (Veo 3, Sora). DEVE começar com "Start frame:" descrevendo o quadro inicial (composição, produto posicionado, iluminação, cenário). Depois "Action:" descrevendo o movimento/transição nos 8 segundos (câmera, produto, efeitos). Inclua: ambiente, iluminação, mood. Title: "AI Video 8s", duration: "8 segundos".
    - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto em destaque, CTA.
    - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling, voz em off, produto em ação, CTA.
    FORMATO Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
@@ -489,7 +489,7 @@ INSTRUÇÕES:
   const videoExtra =
     sectionType === 'video'
       ? `\n\nINSTRUÇÕES ESPECÍFICAS PARA ROTEIROS DE VÍDEO:
-- AI Video 8s: prompt descritivo de 1-2 frases para IA geradora de vídeo (Veo 3, Sora). Descreva a cena visual em texto corrido — sem timestamps. Ambiente, iluminação, câmera, produto, mood. Title: "AI Video 8s", duration: "8 segundos".
+- AI Video 8s: prompt para IA geradora de vídeo (Veo 3, Sora). DEVE começar com "Start frame:" (quadro inicial: composição, produto, iluminação, cenário). Depois "Action:" (movimento/transição nos 8s). Title: "AI Video 8s", duration: "8 segundos".
 - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto, CTA.
 - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling completo.
 - Formato Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
