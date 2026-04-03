@@ -658,6 +658,12 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
         })
       }
 
+      // Fix html2canvas bug #2829: Tailwind's global `img { display: block }` corrupts
+      // text metrics. Temporarily override to `inline` during capture.
+      const fixStyle = document.createElement('style')
+      fixStyle.textContent = 'img { display: inline !important; }'
+      document.head.appendChild(fixStyle)
+
       const canvas = await html2canvas(target, {
         width,
         height,
@@ -666,6 +672,8 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
         allowTaint: true,
         backgroundColor: null,
       })
+
+      document.head.removeChild(fixStyle)
       document.body.removeChild(container)
 
       canvas.toBlob((blob) => {

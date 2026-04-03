@@ -193,7 +193,6 @@ function buildAssetHtml(params: {
         font-size: ${headlineSize};
         font-weight: 700;
         line-height: 1.08;
-        letter-spacing: -0.02em;
         margin: 0 auto ${gap};
         text-shadow: 0 2px 12px rgba(0,0,0,0.25);
       ">${headline}</h1>
@@ -207,20 +206,20 @@ function buildAssetHtml(params: {
         max-width: ${isWide ? '500px' : '85%'};
       ">${subtext}</p>
 
-      <p style="margin: ${isWide ? '0' : '4px'} 0 0; text-align: center; line-height: 1;">
-        <span style="
-          display: inline-block;
-          background: ${accentColor};
-          color: #ffffff;
-          font-size: ${ctaSize};
-          font-weight: 600;
-          padding: ${ctaPadding};
-          border-radius: 50px;
-          text-transform: uppercase;
-          text-align: center;
-          font-family: 'Helvetica Neue', Arial, sans-serif;
-        ">${cta}</span>
-      </p>
+      <div style="
+        width: 280px;
+        margin: ${isWide ? '0' : '8px'} auto 0;
+        background: ${accentColor};
+        color: #ffffff;
+        font-size: ${ctaSize};
+        font-weight: 600;
+        padding: ${ctaPadding};
+        border-radius: 50px;
+        text-transform: uppercase;
+        text-align: center;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        position: relative;
+      ">${cta}</div>
       ${isWide ? '</div>' : ''}
     </div>
   </div>`
