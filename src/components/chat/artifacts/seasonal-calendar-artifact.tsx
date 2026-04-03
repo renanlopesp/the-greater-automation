@@ -18,6 +18,11 @@ import {
   Check,
   Search,
   Download,
+  Heart,
+  MessageCircle,
+  Send,
+  Bookmark,
+  CheckCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -467,35 +472,202 @@ function Level2({
 // Level 3 — Section content
 // ---------------------------------------------------------------------------
 
+function detectPlatform(channel: string): 'whatsapp' | 'instagram' | 'meta' | 'sms' | 'unknown' {
+  const lower = channel.toLowerCase()
+  if (lower.includes('whatsapp')) return 'whatsapp'
+  if (lower.includes('instagram')) return 'instagram'
+  if (lower.includes('meta')) return 'meta'
+  if (lower.includes('sms')) return 'sms'
+  return 'unknown'
+}
+
+function CopyHeader({ channel, timing, text }: { channel: string; timing: string; text: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-foreground text-sm font-medium">{channel}</span>
+        <span
+          className="rounded-full px-2 py-0.5 text-[11px]"
+          style={{
+            background: 'color-mix(in srgb, var(--foreground) 5%, transparent)',
+            color: 'var(--muted-foreground)',
+          }}
+        >
+          {timing}
+        </span>
+      </div>
+      <button
+        onClick={() => navigator.clipboard.writeText(text).catch(() => null)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+      >
+        <Copy size={12} />
+        Copiar
+      </button>
+    </div>
+  )
+}
+
+function WhatsAppMockup({ text }: { text: string }) {
+  return (
+    <div className="overflow-hidden rounded-xl" style={{ background: '#e5ddd5' }}>
+      {/* WhatsApp header */}
+      <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: '#075e54' }}>
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
+          L
+        </div>
+        <span className="text-sm font-medium text-white">Sua Loja</span>
+      </div>
+      {/* Chat area */}
+      <div className="px-4 py-4">
+        <div className="ml-auto max-w-[85%]">
+          <div className="rounded-lg rounded-tr-none px-3 py-2" style={{ background: '#dcf8c6' }}>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-gray-800">{text}</p>
+            <div className="mt-1 flex items-center justify-end gap-1">
+              <span className="text-[10px] text-gray-500">10:42</span>
+              <CheckCheck size={14} className="text-blue-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InstagramMockup({ text }: { text: string }) {
+  // Highlight hashtags
+  const parts = text.split(/(#\w+)/g)
+  return (
+    <div className="border-border overflow-hidden rounded-xl border bg-white dark:bg-gray-950">
+      {/* Post header */}
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-xs font-bold text-white">
+          L
+        </div>
+        <span className="text-foreground text-[13px] font-semibold">sua_loja</span>
+      </div>
+      {/* Image placeholder */}
+      <div
+        className="flex items-center justify-center"
+        style={{
+          height: 200,
+          background: 'color-mix(in srgb, var(--foreground) 5%, transparent)',
+        }}
+      >
+        <ImageIcon size={32} className="text-muted-foreground/30" />
+      </div>
+      {/* Action icons */}
+      <div className="flex items-center justify-between px-3 py-2.5">
+        <div className="flex items-center gap-4">
+          <Heart size={22} className="text-foreground" />
+          <MessageCircle size={22} className="text-foreground" />
+          <Send size={22} className="text-foreground" />
+        </div>
+        <Bookmark size={22} className="text-foreground" />
+      </div>
+      {/* Caption */}
+      <div className="px-3 pb-3">
+        <p className="text-foreground text-[13px] leading-relaxed">
+          <span className="font-semibold">sua_loja </span>
+          {parts.map((part, i) =>
+            part.startsWith('#') ? (
+              <span key={i} className="text-blue-500">
+                {part}
+              </span>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function MetaAdMockup({ text }: { text: string }) {
+  return (
+    <div className="border-border overflow-hidden rounded-xl border bg-white dark:bg-gray-950">
+      {/* Ad header */}
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
+          L
+        </div>
+        <div>
+          <p className="text-foreground text-[13px] font-semibold">Sua Loja</p>
+          <p className="text-muted-foreground text-[11px]">Patrocinado</p>
+        </div>
+      </div>
+      {/* Ad text */}
+      <div className="px-3 pb-3">
+        <p className="text-foreground text-[13px] leading-relaxed whitespace-pre-wrap">{text}</p>
+      </div>
+      {/* CTA bar */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ background: 'color-mix(in srgb, var(--foreground) 4%, transparent)' }}
+      >
+        <div>
+          <p className="text-muted-foreground text-[11px]">sua-loja.com.br</p>
+          <p className="text-foreground text-xs font-medium">Conheça a coleção</p>
+        </div>
+        <div
+          className="rounded-md px-3 py-1.5 text-xs font-semibold"
+          style={{ background: 'color-mix(in srgb, var(--foreground) 8%, transparent)' }}
+        >
+          Saiba Mais
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SmsMockup({ text }: { text: string }) {
+  return (
+    <div
+      className="overflow-hidden rounded-xl"
+      style={{ background: 'color-mix(in srgb, var(--foreground) 3%, transparent)' }}
+    >
+      {/* Phone header */}
+      <div className="flex items-center justify-center py-2">
+        <span className="text-muted-foreground text-[11px]">Mensagem de Texto</span>
+      </div>
+      {/* Message area */}
+      <div className="px-4 pb-4">
+        <div className="max-w-[85%]">
+          <div
+            className="rounded-2xl rounded-tl-sm px-3.5 py-2.5"
+            style={{ background: 'color-mix(in srgb, var(--foreground) 8%, transparent)' }}
+          >
+            <p className="text-foreground text-[13px] leading-relaxed whitespace-pre-wrap">
+              {text}
+            </p>
+          </div>
+          <span className="text-muted-foreground mt-1 block text-[10px]">09:15</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CopiesSection({ campaign }: { campaign: FullCampaign }) {
   return (
-    <div className="flex flex-col gap-3 px-6 py-5">
-      {campaign.copies.map((copy) => (
-        <div key={`${copy.channel}-${copy.timing}`} className="border-border rounded-xl border p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-foreground text-sm font-medium">{copy.channel}</span>
-              <span
-                className="rounded-full px-2 py-0.5 text-[11px]"
-                style={{
-                  background: 'color-mix(in srgb, var(--foreground) 5%, transparent)',
-                  color: 'var(--muted-foreground)',
-                }}
-              >
-                {copy.timing}
-              </span>
-            </div>
-            <button
-              onClick={() => navigator.clipboard.writeText(copy.text).catch(() => null)}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
-            >
-              <Copy size={12} />
-              Copiar
-            </button>
+    <div className="flex flex-col gap-4 px-6 py-5">
+      {campaign.copies.map((copy) => {
+        const platform = detectPlatform(copy.channel)
+        return (
+          <div key={`${copy.channel}-${copy.timing}`}>
+            <CopyHeader channel={copy.channel} timing={copy.timing} text={copy.text} />
+            {platform === 'whatsapp' && <WhatsAppMockup text={copy.text} />}
+            {platform === 'instagram' && <InstagramMockup text={copy.text} />}
+            {platform === 'meta' && <MetaAdMockup text={copy.text} />}
+            {platform === 'sms' && <SmsMockup text={copy.text} />}
+            {platform === 'unknown' && (
+              <div className="border-border rounded-xl border p-4">
+                <p className="text-foreground text-sm leading-relaxed">{copy.text}</p>
+              </div>
+            )}
           </div>
-          <p className="text-foreground text-sm leading-relaxed">{copy.text}</p>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
