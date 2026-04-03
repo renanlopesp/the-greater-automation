@@ -5,6 +5,8 @@ import { regenerateSection } from '@/lib/ai/seasonal-campaign-generator'
 import type { FullCampaign, DeliverableSectionType } from '@/data/campaign-data'
 import { safeError } from '@/lib/safe-error'
 
+export const maxDuration = 120
+
 const VALID_SECTIONS: DeliverableSectionType[] = ['copies', 'email', 'assets', 'video', 'timeline']
 
 export async function POST(request: NextRequest) {
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
           html: a.html,
           width: a.width,
           height: a.height,
+          product_name: a.product_name,
         })),
       }
     } else {

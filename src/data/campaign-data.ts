@@ -46,6 +46,7 @@ export interface CampaignAsset {
   html?: string
   width?: number
   height?: number
+  product_name?: string
 }
 
 export interface CampaignVideoScript {
