@@ -101,9 +101,13 @@ const CampaignAssetSchema = z.object({
 })
 
 const CampaignVideoScriptSchema = z.object({
-  title: z.string().describe('Título do roteiro (ex: Reels 30s)'),
-  duration: z.string().describe('Duração (ex: 30 segundos)'),
-  content: z.string().describe('Roteiro completo com timestamps e descrição de cenas'),
+  title: z.string().describe('Título do roteiro (ex: Reels 15s)'),
+  duration: z.string().describe('Duração (ex: 15 segundos)'),
+  content: z
+    .string()
+    .describe(
+      'Roteiro curto e direto: 3-4 cenas com timestamps, descrição visual simples e texto na tela. Máximo 5 linhas.'
+    ),
 })
 
 const CampaignTimelineItemSchema = z.object({
@@ -138,7 +142,7 @@ const FullCampaignSchema = z.object({
     .array(CampaignVideoScriptSchema)
     .min(2)
     .max(2)
-    .describe('Exatamente 2 roteiros: Reels 30s e Reels 60s'),
+    .describe('Exatamente 2 roteiros: Reels 15s e Reels 30s'),
   timeline: z
     .array(CampaignTimelineItemSchema)
     .min(6)
@@ -363,9 +367,10 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
    - Stories Meta Ad (ratio: "9:16")
    Para cada asset, crie um gradiente CSS temático adequado à data e ao posicionamento da marca. Use cores que remetam à data (ex: rosa/pink para Dia das Mães, verde/dourado para Natal).
 
-7. VIDEO SCRIPTS — exatamente 2 roteiros:
-   - Reels 30s: roteiro com timestamps em segundos (0-3s, 3-10s, etc.), descrição de cena, texto na tela, CTA final
-   - Reels 60s: roteiro mais desenvolvido com hook, storytelling, produto em ação, depoimento ou prova social, CTA
+7. VIDEO SCRIPTS — exatamente 2 roteiros CURTOS e SIMPLES:
+   - Reels 15s: 3 cenas rápidas com timestamps (0-5s, 5-10s, 10-15s), descrição visual simples, texto na tela, CTA. Máximo 5 linhas.
+   - Reels 30s: 4 cenas com timestamps (0-7s, 7-15s, 15-22s, 22-30s), descrição visual, texto na tela, CTA. Máximo 7 linhas.
+   IMPORTANTE: Roteiros devem ser curtos e executáveis por uma loja pequena com celular. Nada de storytelling complexo, filmagem profissional ou múltiplos cenários.
 
 8. TIMELINE — exatamente 6 fases em ordem:
    - D-45: preparação estratégica e produção
@@ -448,7 +453,7 @@ export async function regenerateSection(params: {
     email: 'assunto e preview do e-mail (emailSubject + emailPreview)',
     assets:
       '4 assets visuais com gradientes CSS (Stories 9:16, Feed 1:1, Banner E-mail, Stories Meta Ad)',
-    video: '2 roteiros de vídeo (Reels 30s e Reels 60s)',
+    video: '2 roteiros de vídeo (Reels 15s e Reels 30s)',
     timeline: '6 fases da timeline de campanha (D-45 até D-Day)',
   }
 
