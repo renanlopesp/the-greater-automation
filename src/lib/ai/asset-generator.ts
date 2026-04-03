@@ -209,6 +209,7 @@ function buildAssetHtml(params: {
 
       <p style="margin: ${isWide ? '0' : '4px'} 0 0; text-align: center; line-height: 1;">
         <span style="
+          display: inline-block;
           background: ${accentColor};
           color: #ffffff;
           font-size: ${ctaSize};
@@ -216,6 +217,7 @@ function buildAssetHtml(params: {
           padding: ${ctaPadding};
           border-radius: 50px;
           text-transform: uppercase;
+          text-align: center;
           font-family: 'Helvetica Neue', Arial, sans-serif;
         ">${cta}</span>
       </p>
