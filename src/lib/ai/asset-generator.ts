@@ -147,14 +147,14 @@ function buildAssetHtml(params: {
   const isWide = format.ratio === '3:1'
 
   // Gradient covers bottom portion for text readability
-  const gradientHeight = isWide ? '100%' : isVertical ? '55%' : '50%'
+  const gradientHeight = isWide ? '100%' : isVertical ? '60%' : '55%'
 
   const headlineSize = isWide ? '36px' : isVertical ? '56px' : '44px'
   const subtextSize = isWide ? '16px' : isVertical ? '24px' : '20px'
   const ctaSize = isWide ? '14px' : isVertical ? '18px' : '16px'
   const ctaPadding = isWide ? '12px 32px' : isVertical ? '18px 48px' : '16px 40px'
-  const contentPadding = isWide ? '24px 48px' : isVertical ? '0 60px 80px' : '0 48px 48px'
-  const gap = isWide ? '12px' : isVertical ? '32px' : '24px'
+  const contentPadding = isWide ? '24px 48px' : isVertical ? '0 60px 140px' : '0 48px 80px'
+  const gap = isWide ? '12px' : isVertical ? '28px' : '20px'
 
   return `<div style="
     position: relative;
@@ -208,7 +208,7 @@ function buildAssetHtml(params: {
 
       <div style="
         width: 280px;
-        margin: ${isWide ? '0' : '16px'} auto 0;
+        margin: ${isWide ? '0' : '24px'} auto 0;
         background: ${accentColor};
         color: #ffffff;
         font-size: ${ctaSize};
