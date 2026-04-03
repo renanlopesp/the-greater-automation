@@ -367,11 +367,11 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
    - Stories Meta Ad (ratio: "9:16")
    Para cada asset, crie um gradiente CSS temático adequado à data e ao posicionamento da marca. Use cores que remetam à data (ex: rosa/pink para Dia das Mães, verde/dourado para Natal).
 
-7. VIDEO SCRIPTS — exatamente 2 roteiros CURTOS e SIMPLES:
-   - Reels 15s: EXATAMENTE 3 cenas: [0-5s], [5-10s], [10-15s]. Máximo 4 linhas total.
-   - Reels 30s: EXATAMENTE 4 cenas: [0-7s], [7-15s], [15-22s], [22-30s]. Máximo 6 linhas total.
-   FORMATO de cada cena: "[Xs-Ys] Descrição visual. Texto na tela: \"frase\"."
-   REGRAS: executável com celular, sem voz em off, sem narração, sem filmagem profissional. Apenas mostrar produto de perto + texto animado + CTA.
+7. VIDEO SCRIPTS — exatamente 2 roteiros profissionais:
+   - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto em destaque, CTA.
+   - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling, voz em off, produto em ação, CTA.
+   FORMATO: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+   Pode incluir voz em off, narração, storytelling, múltiplos ângulos. Roteiro de produção profissional.
 
 8. TIMELINE — exatamente 6 fases em ordem:
    - D-45: preparação estratégica e produção
@@ -488,13 +488,12 @@ INSTRUÇÕES:
   const videoExtra =
     sectionType === 'video'
       ? `\n\nINSTRUÇÕES ESPECÍFICAS PARA ROTEIROS DE VÍDEO:
-- Reels 15s: EXATAMENTE 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Máximo 4 linhas no total.
-- Reels 30s: EXATAMENTE 4 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Máximo 6 linhas no total.
-- Cada cena: "[Xs-Ys] Descrição visual curta. Texto na tela: \"frase curta\"."
-- O roteiro deve ser SIMPLES e executável com um celular. Nada de filmagem profissional, múltiplos cenários ou storytelling complexo.
-- Foco: mostrar o produto de perto, texto animado simples, CTA final.
-- NÃO inclua voz em off, narração, ou descrições de produção cinematográfica.
-- Formato: texto plano, sem marcadores extras, apenas os timestamps e descrições.`
+- Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto, CTA.
+- Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling completo.
+- Formato de cada cena: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+- Pode incluir: voz em off, narração, storytelling, múltiplos ângulos, close-ups, transições.
+- Roteiro de produção profissional — criativo, envolvente e com narrativa.
+- IMPORTANTE: respeitar as durações (15s e 30s) — não ultrapassar os timestamps.`
       : ''
 
   const { object } = await generateObject({
