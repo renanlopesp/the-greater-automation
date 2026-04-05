@@ -1028,13 +1028,14 @@ export function buildPlatformTools(
               if (params.operation === 'replace' && params.artifact_data) {
                 // Detect artifact_type from payload (chat-data artifacts include a 'type' field)
                 const payloadType = (params.artifact_data as { type?: string })?.type
-                const isChatData = [
+                const chatDataTypes = [
                   'sales_summary',
                   'product_table',
                   'order_list',
                   'metric_card',
                   'html',
-                ].includes(payloadType ?? '')
+                ]
+                const isChatData = chatDataTypes.includes(payloadType ?? '')
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 let finalData: any = params.artifact_data
@@ -1052,7 +1053,8 @@ export function buildPlatformTools(
                     history?: Array<{ title: string; html: string; timestamp: string }>
                   } | null
                   if (
-                    prev?.type === 'html' &&
+                    prev?.type &&
+                    chatDataTypes.includes(prev.type) &&
                     prev?.html &&
                     prevRow?.artifact_type === 'chat-data'
                   ) {
@@ -1734,28 +1736,41 @@ export function buildOrchestratorSystemPrompt(
           '',
           '**IMPORTANT**: For retail queries, ALWAYS use the STORE_ tools. Do NOT use SNEW_ tools for stock, sales, or order questions.',
           '',
-          '**ARTIFACT PANEL (CRITICAL)**: After EVERY STORE_QUERY_SALES, STORE_QUERY_STOCK, or STORE_LIST_ORDERS call, you MUST call SNEW_MODIFY_ARTIFACT with operation="replace" to display a BEAUTIFUL visual dashboard in the artifact panel.',
+          '**ARTIFACT PANEL (CRITICAL)**: After EVERY STORE_QUERY_SALES, STORE_QUERY_STOCK, or STORE_LIST_ORDERS call, you MUST call SNEW_MODIFY_ARTIFACT with operation="replace" to display a rich visual dashboard in the artifact panel.',
           '',
-          'Format: {"type":"html","title":"Título descritivo","html":"<full HTML+CSS content>"}',
+          'Format: {"type":"html","title":"Título descritivo","html":"<your HTML using CSS classes>"}',
           '',
-          'The "html" field must contain beautiful, self-contained HTML+CSS that visualizes the data like a mini dashboard or infographic. Think Perplexity/Claude Artifacts style.',
+          'The iframe has a pre-loaded CSS design system. Use CSS CLASSES — do NOT write inline styles or <style> tags.',
           '',
-          'DESIGN SYSTEM (follow strictly):',
-          '- Font: font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          '- Body: padding: 32px; max-width: 100%; background: #fff; color: #111',
-          '- NO box-shadow anywhere. NO drop-shadows. NO borders on cards. Use background color (#f5f5f5) to create separation.',
-          '- NO side-by-side two-column layouts when content is dense — use single column, full width',
-          '- Spacing: use lots of whitespace. padding: 20px-32px on sections. margin-bottom: 24px between sections.',
-          '- Rounded corners: border-radius: 16px on cards/sections',
-          '- Colors: primary text #111, secondary text #666, muted text #999. Accent: #10b981 (green), #f59e0b (amber), #ef4444 (red)',
-          '- Numbers: large size (font-size: 36px-48px, font-weight: 700) for hero metrics',
-          '- Progress bars: height: 6px, border-radius: 3px, background: #f0f0f0, fill with accent color',
-          '- Badges: font-size: 11px, padding: 4px 10px, border-radius: 20px, background-color based on status',
-          '- Lists: clean vertical list with subtle #f8f8f8 alternating rows, no borders',
-          '- Dark mode: @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #e5e5e5 } use #1a1a1a for card bg, #333 for borders }',
-          '- The iframe is ~600px wide. Use SINGLE COLUMN layout. Full-width elements.',
-          '- Keep it MINIMAL. Less is more. Focus on the KEY data point.',
-          '- Self-contained HTML — inline <style> tags, no external resources',
+          'AVAILABLE CSS CLASSES:',
+          '- Layout: section, grid-2, grid-3, grid-4, flex, flex-col, items-center, items-baseline, justify-between, gap-1/2/3/4/6, w-full, flex-1, truncate, text-right, text-center',
+          '- Spacing: mt-1/2/3/4/6, mb-1/2/3/4, p-3/4/5, px-4, py-2/3, pr-4',
+          '- Type: hero (44px bold), h1 (22px), h2 (17px), h3 (14px), label (11px uppercase), value (24px bold), value-sm (18px), body (14px), small (12px), tiny (11px), mono, tabular, bold, medium',
+          '- Color: text-primary, text-secondary, text-muted, text-green, text-red, text-amber, text-blue, text-purple',
+          '- Cards: card (gray bg), card-elevated (white + shadow), card-outline (white + border), card-accent-green/red/amber/blue (left border)',
+          '- Badges: badge + badge-green/red/amber/blue/purple/gray',
+          '- Lists: list-item (flex between, striped odd rows)',
+          '- Progress: progress > progress-fill + bar-green/blue/amber/red/purple',
+          '- Bar chart: bar-row > bar-label + bar-track > bar-value (+ progress-fill inside bar-track)',
+          '- Table: just use <table><th><td>, th.number/td.number for right-align',
+          '- Trend: trend-up (green ↑), trend-down (red ↓), trend-neutral (→)',
+          '- Other: divider, pill, stat (.value + .label inside)',
+          '- Dark mode is AUTOMATIC via @media prefers-color-scheme',
+          '',
+          'CONTENT RULES (be comprehensive):',
+          '- For SALES: show revenue hero + metrics (orders, paid, ticket médio) + top products with bar chart + payment status breakdown + daily comparison if available',
+          '- For STOCK: show total products + critical/low/ok counts as stat cards + product table sorted by urgency + category grouping if relevant',
+          '- For ORDERS: show order count + status distribution (badges) + recent orders table with customer/total/status + total revenue',
+          '- ALWAYS add context: comparisons (vs yesterday, vs last week), distributions, breakdowns. Make the dashboard USEFUL, not just a data echo.',
+          '- Use sections with labels to organize. Each section should tell a story.',
+          '- Use bar charts (bar-row) to show proportions visually.',
+          '- Use badges for status/categories.',
+          '',
+          'EXAMPLE for "Quanto vendi hoje?":',
+          '<div class="section"><span class="label">Hoje, 05/04/2026</span><div class="flex items-baseline gap-3 mt-1"><span class="hero">R$ 910,66</span><span class="badge badge-green">Pago</span></div><span class="small mt-1">2 pedidos finalizados</span></div>',
+          '<div class="section"><div class="grid-3">..stat cards..</div></div>',
+          '<div class="section"><span class="label mb-3">Receita por produto</span>..bar-row items..</div>',
+          '<div class="section"><span class="label mb-3">Pedidos</span><table>..order details..</table></div>',
           '',
           'Do NOT skip SNEW_MODIFY_ARTIFACT after retail tool calls.',
           'Do NOT call SNEW_MODIFY_ARTIFACT if a skill artifact (like seasonal-calendar) is already active.',
