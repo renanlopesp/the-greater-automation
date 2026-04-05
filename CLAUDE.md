@@ -91,6 +91,8 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + React 19, Tailwind CSS v4, shadcn/ui, lucide-react (icons) (054-copy-platform-preview)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Vercel AI SDK (generateObject), Zod, html2canvas, shadcn/ui, Tailwind CSS v4 (053-asset-template-refinement)
 - Supabase PostgreSQL (tasks.artifact_data JSONB — existing, no schema changes) (053-asset-template-refinement)
 

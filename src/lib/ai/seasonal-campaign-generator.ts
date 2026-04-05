@@ -101,9 +101,13 @@ const CampaignAssetSchema = z.object({
 })
 
 const CampaignVideoScriptSchema = z.object({
-  title: z.string().describe('Título do roteiro (ex: Reels 30s)'),
-  duration: z.string().describe('Duração (ex: 30 segundos)'),
-  content: z.string().describe('Roteiro completo com timestamps e descrição de cenas'),
+  title: z.string().describe('Título do roteiro (ex: Reels 15s)'),
+  duration: z.string().describe('Duração (ex: 15 segundos)'),
+  content: z
+    .string()
+    .describe(
+      'Roteiro curto e direto: 3-4 cenas com timestamps, descrição visual simples e texto na tela. Máximo 5 linhas.'
+    ),
 })
 
 const CampaignTimelineItemSchema = z.object({
@@ -136,9 +140,9 @@ const FullCampaignSchema = z.object({
     ),
   videoScripts: z
     .array(CampaignVideoScriptSchema)
-    .min(2)
-    .max(2)
-    .describe('Exatamente 2 roteiros: Reels 30s e Reels 60s'),
+    .min(3)
+    .max(3)
+    .describe('Exatamente 3 roteiros: AI Video 8s (para Veo 3/Sora), Reels 15s, Reels 30s'),
   timeline: z
     .array(CampaignTimelineItemSchema)
     .min(6)
@@ -363,9 +367,12 @@ INSTRUÇÕES PARA CADA SEÇÃO DA CAMPANHA:
    - Stories Meta Ad (ratio: "9:16")
    Para cada asset, crie um gradiente CSS temático adequado à data e ao posicionamento da marca. Use cores que remetam à data (ex: rosa/pink para Dia das Mães, verde/dourado para Natal).
 
-7. VIDEO SCRIPTS — exatamente 2 roteiros:
-   - Reels 30s: roteiro com timestamps em segundos (0-3s, 3-10s, etc.), descrição de cena, texto na tela, CTA final
-   - Reels 60s: roteiro mais desenvolvido com hook, storytelling, produto em ação, depoimento ou prova social, CTA
+7. VIDEO SCRIPTS — exatamente 3 roteiros profissionais:
+   - AI Video 8s: prompt para IA geradora de vídeo (Veo 3, Sora). DEVE começar com "Start frame:" descrevendo o quadro inicial (composição, produto posicionado, iluminação, cenário). Depois "Action:" descrevendo o movimento/transição nos 8 segundos (câmera, produto, efeitos). Inclua: ambiente, iluminação, mood. Title: "AI Video 8s", duration: "8 segundos".
+   - Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto em destaque, CTA.
+   - Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling, voz em off, produto em ação, CTA.
+   FORMATO Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+   Pode incluir voz em off, narração, storytelling, múltiplos ângulos. Roteiro de produção profissional.
 
 8. TIMELINE — exatamente 6 fases em ordem:
    - D-45: preparação estratégica e produção
@@ -448,7 +455,7 @@ export async function regenerateSection(params: {
     email: 'assunto e preview do e-mail (emailSubject + emailPreview)',
     assets:
       '4 assets visuais com gradientes CSS (Stories 9:16, Feed 1:1, Banner E-mail, Stories Meta Ad)',
-    video: '2 roteiros de vídeo (Reels 30s e Reels 60s)',
+    video: '3 roteiros de vídeo (AI Video 8s, Reels 15s e Reels 30s)',
     timeline: '6 fases da timeline de campanha (D-45 até D-Day)',
   }
 
@@ -475,10 +482,26 @@ INSTRUÇÕES:
 
   const schema = SectionSchemas[sectionType]
 
+  // Use gpt-5.2 for video scripts (better reasoning for structure/format)
+  const modelId = sectionType === 'video' ? 'gpt-5.2' : 'gpt-4o'
+
+  // Extra instructions for video scripts
+  const videoExtra =
+    sectionType === 'video'
+      ? `\n\nINSTRUÇÕES ESPECÍFICAS PARA ROTEIROS DE VÍDEO:
+- AI Video 8s: prompt para IA geradora de vídeo (Veo 3, Sora). DEVE começar com "Start frame:" (quadro inicial: composição, produto, iluminação, cenário). Depois "Action:" (movimento/transição nos 8s). Title: "AI Video 8s", duration: "8 segundos".
+- Reels 15s: 3 cenas com timestamps [0-5s], [5-10s], [10-15s]. Hook rápido, produto, CTA.
+- Reels 30s: 4-5 cenas com timestamps [0-7s], [7-15s], [15-22s], [22-30s]. Storytelling completo.
+- Formato Reels: "[Xs-Ys] Descrição visual. Voz em off: \"frase\". Texto na tela: \"frase\"."
+- Pode incluir: voz em off, narração, storytelling, múltiplos ângulos, close-ups, transições.
+- Roteiro de produção profissional — criativo, envolvente e com narrativa.
+- IMPORTANTE: respeitar as durações — não ultrapassar os timestamps.`
+      : ''
+
   const { object } = await generateObject({
-    model: openai.chat('gpt-4o'),
+    model: openai.chat(modelId),
     schema,
-    system: systemPrompt,
+    system: systemPrompt + videoExtra,
     messages: [
       {
         role: 'user',
