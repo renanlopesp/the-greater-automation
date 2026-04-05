@@ -3,6 +3,7 @@
 import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
 import ArtifactPanelShell from '@/components/chat/artifact-panel-shell'
 import { SeasonalCalendarArtifact } from '@/components/chat/artifacts/seasonal-calendar-artifact'
+import { ChatDataArtifact } from '@/components/chat/artifacts/chat-data-artifact'
 
 // ── Empty State ────────────────────────────────────────────────────────
 export function ArtifactEmptyState() {
@@ -98,6 +99,8 @@ export default function ArtifactRenderer({
   switch (artifactType) {
     case 'seasonal-calendar':
       return <SeasonalCalendarArtifact data={artifactData as never} taskId={taskId} />
+    case 'chat-data':
+      return <ChatDataArtifact data={artifactData} />
     default:
       return <GenericArtifact data={artifactData} />
   }

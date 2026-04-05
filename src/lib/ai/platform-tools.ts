@@ -1026,10 +1026,21 @@ export function buildPlatformTools(
               const sc = supabase as any
 
               if (params.operation === 'replace' && params.artifact_data) {
+                // Detect artifact_type from payload (chat-data artifacts include a 'type' field)
+                const payloadType = (params.artifact_data as { type?: string })?.type
+                const isChatData = [
+                  'sales_summary',
+                  'product_table',
+                  'order_list',
+                  'metric_card',
+                ].includes(payloadType ?? '')
                 const { error } = await sc
                   .from('tasks')
                   .update({
                     artifact_data: params.artifact_data,
+                    ...(isChatData
+                      ? { artifact_type: 'chat-data', skill_status: 'completed' }
+                      : {}),
                     updated_at: new Date().toISOString(),
                   })
                   .eq('id', taskId)
@@ -1684,6 +1695,18 @@ export function buildOrchestratorSystemPrompt(
             : 'The store has no synced products yet. If the user asks about stock or sales, suggest connecting their platform or triggering a sync.',
           '',
           '**IMPORTANT**: For retail queries, ALWAYS use the STORE_ tools. Do NOT use SNEW_ tools for stock, sales, or order questions.',
+          '',
+          '**ARTIFACT PANEL (CRITICAL)**: After EVERY STORE_QUERY_SALES, STORE_QUERY_STOCK, or STORE_LIST_ORDERS call, you MUST call SNEW_MODIFY_ARTIFACT with operation="replace" to display the data visually in the artifact panel.',
+          'Format the artifact_data as:',
+          '```json',
+          '{"type":"sales_summary|product_table|order_list|metric_card","title":"Título descritivo","data":{...}}',
+          '```',
+          '- sales_summary: {"total_revenue":number,"order_count":number,"paid_count":number,"period":"hoje|semana|mês","top_products":[{"name":"...","quantity":1,"revenue":100}]}',
+          '- product_table: {"products":[{"name":"...","stock":5,"price":100,"status":"warning|critical"}],"total_count":number}',
+          '- order_list: {"orders":[{"number":"#123","customer":"Nome","total":100,"status":"paid|pending","date":"10:42"}],"total_revenue":number,"total_count":number}',
+          '- metric_card: {"value":"R$ 455","label":"ticket médio","subtitle":"Baseado em X pedidos"}',
+          'Do NOT skip SNEW_MODIFY_ARTIFACT after retail tool calls — the visual panel is a core part of the user experience.',
+          'Do NOT call SNEW_MODIFY_ARTIFACT with chat-data if a skill artifact (like seasonal-calendar) is already active on this task.',
           '',
         ]
       : []),
