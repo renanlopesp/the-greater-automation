@@ -1035,10 +1035,47 @@ export function buildPlatformTools(
                   'metric_card',
                   'html',
                 ].includes(payloadType ?? '')
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                let finalData: any = params.artifact_data
+                // Versioning: if replacing a chat-data artifact, preserve previous in history
+                if (isChatData) {
+                  const { data: prevRow } = await sc
+                    .from('tasks')
+                    .select('artifact_data, artifact_type')
+                    .eq('id', taskId)
+                    .single()
+                  const prev = prevRow?.artifact_data as {
+                    type?: string
+                    title?: string
+                    html?: string
+                    history?: Array<{ title: string; html: string; timestamp: string }>
+                  } | null
+                  if (
+                    prev?.type === 'html' &&
+                    prev?.html &&
+                    prevRow?.artifact_type === 'chat-data'
+                  ) {
+                    const prevHistory = prev.history ?? []
+                    const newHistory = [
+                      {
+                        title: prev.title ?? '',
+                        html: prev.html,
+                        timestamp: new Date().toISOString(),
+                      },
+                      ...prevHistory,
+                    ].slice(0, 10) // keep max 10 versions
+                    finalData = {
+                      ...(params.artifact_data as Record<string, unknown>),
+                      history: newHistory,
+                    }
+                  }
+                }
+
                 const { error } = await sc
                   .from('tasks')
                   .update({
-                    artifact_data: params.artifact_data,
+                    artifact_data: finalData,
                     ...(isChatData
                       ? { artifact_type: 'chat-data', skill_status: 'completed' }
                       : {}),
