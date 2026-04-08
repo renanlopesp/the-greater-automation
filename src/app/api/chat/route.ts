@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
   let userMessage: string
   const existingConvId = body.conversationId as string | undefined
   const taskId = body.taskId as string | undefined
+  const requestedModel = body.model as string | undefined
 
   if (body.messages && Array.isArray(body.messages)) {
     const msgs = body.messages as UIMessage[]
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
       return conv?.id ?? null
     })(),
 
-    // Composio connections (was sequential steps 10-11)
+    // Composio connections — DB + Composio sync for the current user
     (async () => {
       const { data: members } = await serviceClient
         .from('team_members')
@@ -134,11 +135,32 @@ export async function POST(request: NextRequest) {
         .eq('team_id', teamId)
       const userIds = (members ?? []).map((m) => m.user_id)
       if (userIds.length === 0) return null
-      const { data } = await serviceClient
+      const { data: dbRows } = await serviceClient
         .from('app_connections')
         .select('app_id, composio_connection_id, user_id')
         .in('user_id', userIds)
-      return data
+      const rows = [...(dbRows ?? [])]
+      // Also check Composio for active connections not yet in our DB
+      try {
+        const { getComposio } = await import('@/lib/composio/client')
+        const composio = getComposio()
+        const { items: userAccounts } = await composio.connectedAccounts.list({
+          userIds: [user.id],
+        })
+        const active = (userAccounts ?? []).filter(
+          (acc: { status: string }) => acc.status === 'ACTIVE'
+        )
+        const dbAppIds = new Set(rows.map((r) => r.app_id))
+        for (const acc of active as Array<{ id: string; toolkit?: { slug?: string } }>) {
+          const appId = acc.toolkit?.slug ?? 'unknown'
+          if (!dbAppIds.has(appId)) {
+            rows.push({ app_id: appId, composio_connection_id: acc.id, user_id: user.id })
+          }
+        }
+      } catch {
+        /* Composio unavailable — use DB only */
+      }
+      return rows.length > 0 ? rows : null
     })(),
 
     // Task metadata (for skill-based behavior) — light query, no artifact_data
@@ -478,11 +500,15 @@ REGRAS DE COMPORTAMENTO:
   }
 
   // ── 7. Stream AI ──────────────────────────────────────────────────────
+  const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-6', 'gpt-5.2']
+  const selectedModel =
+    requestedModel && ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'claude-sonnet-4-6'
+
   const agentConfig: AgentConfig = {
     id: 'orchestrator',
     name: 'Snew',
     system_prompt: null,
-    model: 'gpt-5.2',
+    model: selectedModel,
     temperature: null,
     max_tokens: 16384,
   }

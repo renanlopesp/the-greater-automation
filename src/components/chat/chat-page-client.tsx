@@ -35,7 +35,10 @@ function ChatContentWithLayout({
   const artifactContent = (
     <div className="flex h-full flex-col">
       {/* Artifact top bar — aligned with chat header height */}
-      <div className="flex shrink-0 items-center justify-end px-4" style={{ height: 48 }}>
+      <div
+        className="border-border flex shrink-0 items-center justify-end border-b px-4"
+        style={{ height: 48 }}
+      >
         <button
           type="button"
           className="text-muted-foreground hover:text-foreground hover:bg-background/50 flex h-8 w-8 items-center justify-center rounded-md transition-colors"

@@ -15,6 +15,7 @@ interface UseOrchestratorChatOptions {
   initialMessages?: ServerMessage[]
   initialQuery?: string
   taskId?: string
+  model?: string
 }
 
 /**
@@ -44,6 +45,7 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
   }, [conversationId])
 
   const taskIdRef = useRef<string | undefined>(options?.taskId)
+  const modelRef = useRef<string | undefined>(options?.model)
 
   const transport = useMemo(
     () =>
@@ -52,6 +54,7 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
         body: () => ({
           conversationId: conversationIdRef.current,
           taskId: taskIdRef.current,
+          ...(modelRef.current ? { model: modelRef.current } : {}),
         }),
         fetch: async (url, fetchOptions) => {
           const response = await globalThis.fetch(url as string, fetchOptions as RequestInit)
@@ -99,6 +102,10 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     setMessages([])
   }, [setMessages])
 
+  const setModel = useCallback((model: string | undefined) => {
+    modelRef.current = model
+  }, [])
+
   const isStreaming = status === 'streaming'
   const isLoading = status === 'submitted' || isStreaming
 
@@ -113,5 +120,7 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     startNewChat,
     stop,
     setMessages,
+    model: modelRef.current,
+    setModel,
   }
 }

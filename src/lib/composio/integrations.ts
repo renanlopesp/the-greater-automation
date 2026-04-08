@@ -21,7 +21,12 @@ async function loadIntegrations(): Promise<Record<string, string>> {
   for (const item of items) {
     const appName = item.toolkit?.slug
     if (appName && item.id) {
-      _integrationCache[appName.toLowerCase()] = item.id
+      const key = appName.toLowerCase()
+      // Prefer OAuth2 over API_KEY when multiple auth configs exist for the same app
+      const existing = _integrationCache[key]
+      if (!existing || (item as { authScheme?: string }).authScheme === 'OAUTH2') {
+        _integrationCache[key] = item.id
+      }
     }
   }
   return _integrationCache

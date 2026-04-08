@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Loader2, Calendar, MessageSquare, PenTool } from 'lucide-react'
+import { ArrowUp, Loader2, Calendar, MessageSquare, PenTool, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { getActiveSkillConfigs } from '@/lib/skills/skill-registry'
@@ -20,9 +20,22 @@ function getSkillIcon(iconName: string) {
   }
 }
 
+const MODEL_OPTIONS = [
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+  { id: 'gpt-5.2', label: 'GPT-5.2' },
+] as const
+
+function getStoredModel(): string {
+  if (typeof window === 'undefined') return 'gpt-5.2'
+  return localStorage.getItem('snew-chat-model') || 'gpt-5.2'
+}
+
 export default function DashboardHero() {
   const router = useRouter()
   const [selectedSkill, setSelectedSkill] = useState('general')
+  const [selectedModel, setSelectedModel] = useState(getStoredModel)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const [value, setValue] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -139,25 +152,64 @@ export default function DashboardHero() {
             )}
           </div>
 
-          {/* Send button */}
-          <button
-            onClick={() => send(value)}
-            disabled={isCreating}
-            className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all',
-              isCreating
-                ? 'bg-muted text-muted-foreground'
-                : value.trim()
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted text-muted-foreground'
-            )}
-          >
-            {isCreating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUp className="h-4 w-4" />
-            )}
-          </button>
+          {/* Model selector + Send button */}
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setModelMenuOpen((o) => !o)
+                }}
+                className="text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors"
+              >
+                {MODEL_OPTIONS.find((m) => m.id === selectedModel)?.label}
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </button>
+              {modelMenuOpen && (
+                <div className="border-border bg-popover text-popover-foreground absolute right-0 bottom-full mb-1 w-44 rounded-lg border p-1 shadow-lg">
+                  {MODEL_OPTIONS.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedModel(m.id)
+                        localStorage.setItem('snew-chat-model', m.id)
+                        setModelMenuOpen(false)
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors',
+                        selectedModel === m.id
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-muted'
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => send(value)}
+              disabled={isCreating}
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all',
+                isCreating
+                  ? 'bg-muted text-muted-foreground'
+                  : value.trim()
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {isCreating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -21,7 +21,9 @@ export async function getComposioSession(
 ) {
   const composio = getComposio()
   return composio.create(userId, {
-    ...(toolkits && toolkits.length > 0 ? { toolkits } : {}),
+    // When manageConnections is enabled, don't restrict toolkits —
+    // the AI needs to connect ANY app, not just already-connected ones.
+    ...(toolkits && toolkits.length > 0 && !manageConnections ? { toolkits } : {}),
     ...(connectedAccounts && Object.keys(connectedAccounts).length > 0
       ? { connectedAccounts }
       : {}),

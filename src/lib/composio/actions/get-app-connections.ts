@@ -74,34 +74,45 @@ export async function getAppConnections(): Promise<AppConnection[]> {
       }
     }
 
-    if (dbConnections && dbConnections.length > 0) {
-      // Append native Nuvemshop connection if not already present
-      if (nuvemshopConnection && !dbConnections.some((c) => c.app_id === 'nuvemshop')) {
-        return [...dbConnections, nuvemshopConnection]
-      }
-      return dbConnections
+    const allConnections: AppConnection[] = [...(dbConnections ?? [])]
+
+    // Append native Nuvemshop connection if not already present
+    if (nuvemshopConnection && !allConnections.some((c) => c.app_id === 'nuvemshop')) {
+      allConnections.push(nuvemshopConnection)
     }
 
-    if (nuvemshopConnection) return [nuvemshopConnection]
-
-    // 2. Fallback: query Composio for the user's own connected accounts
-    const composio = getComposio()
-    const { items: userAccounts } = await composio.connectedAccounts.list({
-      userIds: [user.id],
-    })
-    const activeUserAccounts = (userAccounts ?? []).filter(
-      (acc: { status: string }) => acc.status === 'ACTIVE'
-    )
-
-    return activeUserAccounts.map(
-      (acc: { id: string; toolkit?: { slug?: string }; createdAt?: string }) => ({
-        id: acc.id,
-        app_id: acc.toolkit?.slug ?? 'unknown',
-        account_label: null,
-        created_at: acc.createdAt ?? new Date().toISOString(),
-        composio_connection_id: acc.id,
+    // 2. Always check Composio for active connections not yet in our DB
+    try {
+      const composio = getComposio()
+      const { items: userAccounts } = await composio.connectedAccounts.list({
+        userIds: [user.id],
       })
-    )
+      const activeUserAccounts = (userAccounts ?? []).filter(
+        (acc: { status: string }) => acc.status === 'ACTIVE'
+      )
+
+      const dbAppIds = new Set(allConnections.map((c) => c.app_id))
+      for (const acc of activeUserAccounts as Array<{
+        id: string
+        toolkit?: { slug?: string }
+        createdAt?: string
+      }>) {
+        const appId = acc.toolkit?.slug ?? 'unknown'
+        if (!dbAppIds.has(appId)) {
+          allConnections.push({
+            id: acc.id,
+            app_id: appId,
+            account_label: null,
+            created_at: acc.createdAt ?? new Date().toISOString(),
+            composio_connection_id: acc.id,
+          })
+        }
+      }
+    } catch (composioError) {
+      log.warn({ err: composioError }, 'Composio sync check failed, using DB only')
+    }
+
+    return allConnections
   } catch (error) {
     log.error({ err: error }, 'Failed to fetch app connections')
     return []

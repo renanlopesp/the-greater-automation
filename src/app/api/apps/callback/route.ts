@@ -3,6 +3,7 @@ import { getComposio } from '@/lib/composio/client'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('api/apps/callback')
@@ -100,6 +101,10 @@ export async function GET(request: NextRequest) {
         })
         .eq('team_id', teamId)
     }
+
+    // Revalidate pages that show connection status
+    revalidatePath('/(dashboard)/apps')
+    revalidatePath('/(dashboard)/workspace')
 
     return NextResponse.redirect(`${siteUrl}/workspace?connected=${pending.appId}`)
   } catch (error) {

@@ -1,5 +1,6 @@
 import { streamText, generateText, stepCountIs, type ToolSet } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { getComposioSession } from '@/lib/composio/composio-session'
 import { createLogger } from '@/lib/logger'
 
@@ -405,6 +406,11 @@ function isReasoningModel(modelId: string): boolean {
   )
 }
 
+/** Check if a model ID belongs to Anthropic (Claude) */
+export function isAnthropicModel(modelId: string): boolean {
+  return modelId.startsWith('claude-')
+}
+
 /**
  * Get the OpenAI provider for agent chat.
  * Uses OPEN_AI_API_KEY for function calling support.
@@ -419,11 +425,25 @@ export function getOpenAIProvider() {
 }
 
 /**
+ * Get the Anthropic provider for Claude models.
+ */
+export function getAnthropicProvider() {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY environment variable is required for Claude models')
+  }
+  return createAnthropic({ apiKey })
+}
+
+/**
  * Get the correct model instance for a given model ID.
- * Reasoning models (o1, o3, o4, gpt-5.x) use the Responses API (supports reasoningSummary).
- * Regular models use the Chat Completions API.
+ * Routes to the appropriate provider based on model prefix.
  */
 function getModel(provider: ReturnType<typeof getOpenAIProvider>, modelId: string) {
+  if (isAnthropicModel(modelId)) {
+    const anthropic = getAnthropicProvider()
+    return anthropic(modelId)
+  }
   return isReasoningModel(modelId) ? provider.responses(modelId) : provider.chat(modelId)
 }
 
@@ -433,25 +453,19 @@ function getModel(provider: ReturnType<typeof getOpenAIProvider>, modelId: strin
 
 /**
  * Composio tool prefixes to REMOVE from agent chat.
- * We keep SEARCH_TOOLS, GET_TOOL_SCHEMAS, and MULTI_EXECUTE_TOOL —
- * the AI needs these to discover and execute app-specific actions (e.g. Shopify).
- * We remove connection management tools (AI shouldn't manage connections)
- * and remote execution tools (not needed for retail/app integrations).
+ * We keep: SEARCH_TOOLS, GET_TOOL_SCHEMAS, MULTI_EXECUTE_TOOL (discover & execute actions),
+ * and MANAGE_CONNECTIONS, CHECK_ACTIVE_CONNECTIONS, INITIATE_CONNECTION (in-chat connection flow).
+ * We only remove remote execution tools (not needed for retail/app integrations).
  */
 const COMPOSIO_META_TOOL_PREFIXES = [
-  'COMPOSIO_MANAGE_CONNECTIONS',
-  'COMPOSIO_CHECK_ACTIVE_CONNECTIONS',
-  'COMPOSIO_INITIATE_CONNECTION',
   'COMPOSIO_FIND_TOOLS',
   'COMPOSIO_REMOTE_BASH',
   'COMPOSIO_REMOTE_WORKBENCH',
 ]
 
 /**
- * Filter out Composio meta-tools from agent chat.
- * Meta-tools (search/manage connections) cause the AI to initiate new connections
- * instead of using the SNEW_* relay tools that handle Composio interactions properly.
- * Always remove them — the relay tools already provide connection management.
+ * Filter out Composio tools that aren't needed in agent chat.
+ * We keep connection management tools so the AI can prompt users to connect apps inline.
  */
 function filterComposioMetaTools(tools: Record<string, unknown>): Record<string, unknown> {
   const filtered: Record<string, unknown> = {}
@@ -580,7 +594,7 @@ export async function runAgentChat(options: AgentChatOptions) {
   let composioTools: Record<string, unknown> = {}
   if (connectedAppIds && connectedAppIds.length > 0) {
     try {
-      const session = await getComposioSession(userId, connectedAppIds, connectedAccountMap)
+      const session = await getComposioSession(userId, connectedAppIds, connectedAccountMap, true)
       const rawTools = await session.tools()
       composioTools = wrapComposioTools(filterComposioMetaTools(rawTools))
     } catch (err) {
@@ -591,26 +605,32 @@ export async function runAgentChat(options: AgentChatOptions) {
   // Merge Relay virtual tools with Composio tools
   const allTools = relayTools ? { ...composioTools, ...relayTools } : composioTools
 
-  // Use OpenAI for agent chat (supports function calling)
+  // Resolve model and provider
   const provider = getOpenAIProvider()
   const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
+  const anthropic = isAnthropicModel(modelId)
 
-  // Add OpenAI web search for grounded responses with source citations
-  allTools['web_search'] = provider.tools.webSearch({ searchContextSize: 'medium' })
+  // Add OpenAI web search for grounded responses (not available for Anthropic)
+  if (!anthropic) {
+    allTools['web_search'] = provider.tools.webSearch({ searchContextSize: 'medium' })
+  }
 
   // Stream with native tool calling + multi-step loop
-  const reasoning = isReasoningModel(modelId)
+  const reasoning = !anthropic && isReasoningModel(modelId)
   const result = streamText({
     model: getModel(provider, modelId),
     system: systemPrompt,
     messages,
     tools: allTools as unknown as ToolSet,
     stopWhen: stepCountIs(10),
-    ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
+    ...(!reasoning && !anthropic ? { temperature: agent.temperature ?? 0.7 } : {}),
     ...(reasoning
       ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' } } }
       : {}),
-    maxOutputTokens: agent.max_tokens ?? 4096,
+    ...(anthropic
+      ? { providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } } }
+      : {}),
+    maxOutputTokens: agent.max_tokens ?? (anthropic ? 16384 : 4096),
     ...(options.onFinish
       ? {
           onFinish: async (event: {
@@ -656,7 +676,7 @@ export async function runAgentChatSync(
   let composioTools: Record<string, unknown> = {}
   if (connectedAppIds && connectedAppIds.length > 0) {
     try {
-      const session = await getComposioSession(userId, connectedAppIds, connectedAccountMap)
+      const session = await getComposioSession(userId, connectedAppIds, connectedAccountMap, true)
       const rawTools = await session.tools()
       composioTools = wrapComposioTools(filterComposioMetaTools(rawTools))
     } catch (err) {

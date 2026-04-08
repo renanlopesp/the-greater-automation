@@ -1,6 +1,6 @@
 'use client'
 
-import { isTextUIPart, isReasoningUIPart } from 'ai'
+import { isTextUIPart, isReasoningUIPart, isFileUIPart } from 'ai'
 import {
   ArrowUp,
   Square,
@@ -11,8 +11,12 @@ import {
   RefreshCw,
   ThumbsUp,
   ThumbsDown,
+  ChevronDown,
+  Paperclip,
+  X,
+  ExternalLink,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -25,6 +29,7 @@ import { Message, MessageContent, MessageResponse } from '@/components/ai-elemen
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 
 import { useOrchestratorChat } from '@/hooks/use-orchestrator-chat'
+import { uploadChatFileAction } from '@/lib/actions/chat-upload'
 import { generateFollowUps } from '@/lib/actions/follow-ups'
 import SnewAvatar from './snew-avatar'
 import OrchestratorEmptyState from './orchestrator-empty-state'
@@ -50,19 +55,70 @@ interface OrchestratorChatWrapperProps {
   taskId?: string
 }
 
+/** Extract Composio connection URLs from tool-result parts */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractConnectionUrls(parts: any[]): Array<{ app: string; url: string }> {
+  const results: Array<{ app: string; url: string }> = []
+  for (const part of parts) {
+    if (part.type !== 'tool-result') continue
+    try {
+      const result = typeof part.result === 'string' ? JSON.parse(part.result) : part.result
+      // Composio MANAGE_CONNECTIONS returns redirectUrl or url
+      const url = result?.redirectUrl ?? result?.url ?? result?.data?.redirectUrl
+      if (typeof url === 'string' && url.includes('composio.dev')) {
+        const app =
+          result?.app ?? result?.toolkit ?? part.toolName?.replace('COMPOSIO_', '') ?? 'App'
+        results.push({ app: String(app), url })
+      }
+    } catch {
+      /* not JSON, skip */
+    }
+  }
+  return results
+}
+
+const MODEL_OPTIONS = [
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', short: 'Opus' },
+  { id: 'gpt-5.2', label: 'GPT-5.2', short: 'GPT' },
+] as const
+
 export default function OrchestratorChatWrapper({
   initialConversationId,
   initialMessages,
   initialQuery,
   taskId,
 }: OrchestratorChatWrapperProps) {
-  const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
-    useOrchestratorChat({
-      initialConversationId,
-      initialMessages,
-      initialQuery,
-      taskId,
-    })
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    if (typeof window === 'undefined') return MODEL_OPTIONS[0].id
+    return localStorage.getItem('snew-chat-model') || MODEL_OPTIONS[0].id
+  })
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+
+  const {
+    messages,
+    status,
+    isLoading,
+    isStreaming,
+    error,
+    sendMessage,
+    startNewChat,
+    stop,
+    setModel,
+  } = useOrchestratorChat({
+    initialConversationId,
+    initialMessages,
+    initialQuery,
+    taskId,
+    model: selectedModel,
+  })
+
+  // Keep hook model ref in sync
+  useEffect(() => {
+    setModel(selectedModel)
+  }, [selectedModel, setModel])
 
   // Refetch task data when AI finishes responding (catches SNEW_MODIFY_ARTIFACT changes).
   // This is intentionally event-driven (streaming→ready transition), not derived state.
@@ -114,16 +170,52 @@ export default function OrchestratorChatWrapper({
   const handleSuggestion = useCallback((text: string) => sendMessage(text), [sendMessage])
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault()
       const form = e.target as HTMLFormElement
       const textarea = form.querySelector('textarea')
       const text = textarea?.value?.trim()
-      if (!text) return
-      sendMessage(text)
+      if (!text && pendingFiles.length === 0) return
+
+      if (pendingFiles.length > 0) {
+        const fileParts = await Promise.all(
+          pendingFiles.map(async (file) => {
+            // Upload to Supabase Storage for a public URL
+            const formData = new FormData()
+            formData.append('file', file)
+            const result = await uploadChatFileAction(formData)
+            const url = result.url
+            if (!url) {
+              // Fallback to data URL if upload fails
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader()
+                reader.onload = () => resolve(reader.result as string)
+                reader.readAsDataURL(file)
+              })
+              return {
+                type: 'file' as const,
+                url: dataUrl,
+                mediaType: file.type,
+                filename: file.name,
+              }
+            }
+            return { type: 'file' as const, url, mediaType: file.type, filename: file.name }
+          })
+        )
+        // Append public URLs to the text so the AI has them as strings (for Instagram API, etc.)
+        const publicUrls = fileParts.filter((f) => f.url.startsWith('http')).map((f) => f.url)
+        const textWithUrls =
+          publicUrls.length > 0
+            ? `${text || ''}\n\n[Arquivos anexados — URLs públicas]\n${publicUrls.join('\n')}`.trim()
+            : text || ''
+        sendMessage(textWithUrls, fileParts)
+        setPendingFiles([])
+      } else {
+        sendMessage(text || '')
+      }
       if (textarea) textarea.value = ''
     },
-    [sendMessage]
+    [sendMessage, pendingFiles]
   )
 
   return (
@@ -161,7 +253,28 @@ export default function OrchestratorChatWrapper({
                     )}
                     <MessageContent>
                       {isUser ? (
-                        <p className="whitespace-pre-wrap">{rawText}</p>
+                        <>
+                          {parts.filter(isFileUIPart).map((filePart, i) =>
+                            filePart.mediaType.startsWith('image/') ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={i}
+                                src={filePart.url}
+                                alt={filePart.filename || 'Attached image'}
+                                className="mb-2 max-h-64 rounded-xl object-cover"
+                              />
+                            ) : (
+                              <div
+                                key={i}
+                                className="bg-muted mb-2 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                              >
+                                <Paperclip className="h-3.5 w-3.5" />
+                                <span>{filePart.filename || 'Arquivo'}</span>
+                              </div>
+                            )
+                          )}
+                          {rawText && <p className="whitespace-pre-wrap">{rawText}</p>}
+                        </>
                       ) : (
                         <>
                           {reasoningParts.length > 0 && (
@@ -177,6 +290,27 @@ export default function OrchestratorChatWrapper({
                             </Reasoning>
                           )}
                           <MessageResponse>{textContent}</MessageResponse>
+                          {/* Composio connection buttons */}
+                          {(() => {
+                            const connUrls = extractConnectionUrls(parts)
+                            if (connUrls.length === 0) return null
+                            return (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {connUrls.map((conn, i) => (
+                                  <a
+                                    key={i}
+                                    href={conn.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-foreground text-background inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                    Conectar {conn.app}
+                                  </a>
+                                ))}
+                              </div>
+                            )
+                          })()}
                         </>
                       )}
                     </MessageContent>
@@ -319,6 +453,34 @@ export default function OrchestratorChatWrapper({
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-5">
           <form onSubmit={handleSubmit}>
             <div className="border-border focus-within:border-foreground/30 focus-within:bg-background bg-muted/40 overflow-hidden rounded-2xl border shadow-sm transition-all">
+              {/* File preview */}
+              {pendingFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-4 pt-3">
+                  {pendingFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      className="bg-muted relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+                    >
+                      {file.type.startsWith('image/') ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      ) : null}
+                      <span className="text-foreground/70 max-w-[120px] truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPendingFiles((f) => f.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-foreground -mr-0.5 ml-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <textarea
                 rows={2}
                 placeholder="Pergunte qualquer coisa ao Snew..."
@@ -332,8 +494,59 @@ export default function OrchestratorChatWrapper({
                 }}
                 className="placeholder:text-muted-foreground max-h-48 w-full resize-none rounded-t-2xl bg-transparent px-4 pt-4 pb-2 text-sm leading-relaxed outline-none"
               />
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.txt,.csv,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  if (files.length > 0) setPendingFiles((prev) => [...prev, ...files])
+                  e.target.value = ''
+                }}
+              />
               <div className="flex items-center justify-between gap-2 px-3 pt-1 pb-3">
-                <div className="flex-1" />
+                <div className="relative flex flex-1 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                    title="Anexar arquivo"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModelMenuOpen((o) => !o)}
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+                  >
+                    {MODEL_OPTIONS.find((m) => m.id === selectedModel)?.label}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </button>
+                  {modelMenuOpen && (
+                    <div className="border-border bg-popover text-popover-foreground absolute bottom-full left-0 mb-1 w-48 rounded-lg border p-1 shadow-lg">
+                      {MODEL_OPTIONS.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModel(m.id)
+                            localStorage.setItem('snew-chat-model', m.id)
+                            setModelMenuOpen(false)
+                          }}
+                          className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                            selectedModel === m.id
+                              ? 'bg-accent text-accent-foreground'
+                              : 'hover:bg-muted'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={isLoading}
