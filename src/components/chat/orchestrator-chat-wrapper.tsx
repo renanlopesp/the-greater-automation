@@ -289,8 +289,53 @@ export default function OrchestratorChatWrapper({
                               <ReasoningContent>{reasoningText}</ReasoningContent>
                             </Reasoning>
                           )}
-                          <MessageResponse>{textContent}</MessageResponse>
-                          {/* Composio connection buttons */}
+                          {(() => {
+                            // Extract Composio connection links from markdown and render as buttons
+                            const composioLinkRegex =
+                              /\[([^\]]+)\]\((https?:\/\/[^\s)]*composio[^\s)]*)\)/g
+                            const composioLinks: Array<{ label: string; url: string }> = []
+                            let cleanedText = textContent
+                            let match
+                            while ((match = composioLinkRegex.exec(textContent)) !== null) {
+                              composioLinks.push({
+                                label: match[1].replace(/\*\*/g, '').replace(/\*/g, ''),
+                                url: match[2],
+                              })
+                            }
+                            // Remove the markdown link lines + surrounding emoji/text from displayed text
+                            if (composioLinks.length > 0) {
+                              cleanedText = cleanedText
+                                .replace(
+                                  /👉\s*\[([^\]]+)\]\(https?:\/\/[^\s)]*composio[^\s)]*\)/g,
+                                  ''
+                                )
+                                .replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]*composio[^\s)]*\)/g, '')
+                                .replace(/\n{3,}/g, '\n\n')
+                                .trim()
+                            }
+                            return (
+                              <>
+                                <MessageResponse>{cleanedText}</MessageResponse>
+                                {composioLinks.length > 0 && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {composioLinks.map((link, i) => (
+                                      <a
+                                        key={i}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="bg-foreground/90 text-background hover:bg-foreground inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all active:scale-[0.98]"
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                        {link.label}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })()}
+                          {/* Composio connection buttons from tool results */}
                           {(() => {
                             const connUrls = extractConnectionUrls(parts)
                             if (connUrls.length === 0) return null
@@ -302,7 +347,7 @@ export default function OrchestratorChatWrapper({
                                     href={conn.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="bg-foreground text-background inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90"
+                                    className="bg-foreground text-background inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                     Conectar {conn.app}
