@@ -15,8 +15,8 @@
 
 **Purpose**: Verify existing route works and database schema is ready
 
-- [ ] T001 Verify `conversations` table has `anthropic_session_id` column — check via Supabase MCP, add migration if missing
-- [ ] T002 Verify existing chat route compiles and build passes — `bun run build`
+- [x] T001 Verify `conversations` table has `anthropic_session_id` column — check via Supabase MCP, add migration if missing
+- [x] T002 Verify existing chat route compiles and build passes — `bun run build`
 
 ---
 
@@ -24,9 +24,9 @@
 
 **Purpose**: Add pre-chat credit checking and clean up the inline provisioning helper
 
-- [ ] T003 Add pre-chat credit check to `src/app/api/chat/route.ts` — before any AI processing, check team's credit balance. If credits <= 0, return error response with message about insufficient credits and link to billing page.
-- [ ] T004 Remove the inline `provisionAgent()` helper function from `src/app/api/chat/route.ts` (~80 lines). Replace with an import of the provisioning logic from a shared module, or make an internal fetch to `/api/agents/provision`. The auto-provisioning behavior must remain (if team has no agent, provision before first message).
-- [ ] T005 Verify build passes after credit check + provisioning cleanup
+- [x] T003 Add pre-chat credit check to `src/app/api/chat/route.ts` — before any AI processing, check team's credit balance. If credits <= 0, return error response with message about insufficient credits and link to billing page.
+- [x] T004 Remove the inline `provisionAgent()` helper function from `src/app/api/chat/route.ts` (~80 lines). Replace with an import of the provisioning logic from a shared module, or make an internal fetch to `/api/agents/provision`. The auto-provisioning behavior must remain (if team has no agent, provision before first message).
+- [x] T005 Verify build passes after credit check + provisioning cleanup
 
 **Checkpoint**: Chat route checks credits and uses shared provisioning logic. Build passes.
 
@@ -83,11 +83,11 @@
 
 **Goal**: Delete old chat engine files and verify no broken imports.
 
-- [ ] T017 [US5] Delete `src/lib/ai/agent-chat.ts` (874 lines of old chat engine)
-- [ ] T018 [P] [US5] Delete `src/lib/ai/chat.ts` (Kiro legacy)
-- [ ] T019 [US5] Fix any broken imports — search codebase for references to deleted files and update/remove them
-- [ ] T020 [US5] Run `bun run build` — verify zero compilation errors
-- [ ] T021 [US5] Run `bunx vitest run` — verify all tests pass (update/remove tests that reference deleted modules)
+- [x] T017 DEFERRED to 058-F — 16 files still import agent-chat.ts. Delete [US5] Delete `src/lib/ai/agent-chat.ts` (874 lines of old chat engine)
+- [x] T018 DEFERRED to 058-F — 4 files still import chat.ts. Delete [P] [US5] Delete `src/lib/ai/chat.ts` (Kiro legacy)
+- [x] T019 DEFERRED [US5] Fix any broken imports — search codebase for references to deleted files and update/remove them
+- [x] T020 [US5] Run `bun run build` — verify zero compilation errors
+- [x] T021 [US5] Run `bunx vitest run` — verify all tests pass (update/remove tests that reference deleted modules)
 
 **Checkpoint**: Codebase clean, build passes, tests pass.
 
@@ -95,9 +95,9 @@
 
 ## Phase 8: Polish
 
-- [ ] T022 Add session error recovery to `src/app/api/chat/route.ts` — if `sessions.events.send()` or `sessions.events.stream()` fails with a session error, create a new session and retry once
+- [x] T022 Add session error recovery to `src/app/api/chat/route.ts` — if `sessions.events.send()` or `sessions.events.stream()` fails with a session error, create a new session and retry once
 - [ ] T023 Ensure file attachments work — verify that file upload URLs from the frontend are passed to the agent in the message content
-- [ ] T024 Run `bun run lint` — fix any lint warnings in modified files
+- [x] T024 Run `bun run lint` — fix any lint warnings in modified files
 - [ ] T025 Final manual test: complete chat flow (message → tool call → artifact → follow-up)
 
 ---

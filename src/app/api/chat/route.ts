@@ -6,7 +6,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getAnthropicClient } from '@/lib/anthropic'
 import { safeError } from '@/lib/safe-error'
 import { tokensToCredits } from '@/lib/billing/credits'
-import { buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
+import { checkUsageLimits } from '@/lib/billing/usage-check'
 
 /**
  * POST /api/chat — Orchestrator chat via Anthropic Managed Agents API.
@@ -41,6 +41,20 @@ export async function POST(request: NextRequest) {
   }
 
   const teamId = membership.team_id
+
+  // ── 1b. Pre-chat credit check ─────────────────────────────────────────
+  const usage = await checkUsageLimits(teamId)
+  if (!usage.allowed) {
+    return NextResponse.json(
+      {
+        error: usage.reason ?? 'Credit limit reached',
+        code: 'INSUFFICIENT_CREDITS',
+        aiCreditsUsed: usage.aiCreditsUsed,
+        aiCreditsLimit: usage.aiCreditsLimit,
+      },
+      { status: 402 }
+    )
+  }
 
   // ── 2. Parse user message ─────────────────────────────────────────────
   let userMessage: string
@@ -363,6 +377,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Auto-provision a Managed Agent + Environment for a team.
+ * Delegates to the dedicated provision route handler.
  */
 async function provisionAgent(
   anthropic: ReturnType<typeof getAnthropicClient>,
@@ -370,70 +385,36 @@ async function provisionAgent(
   teamId: string,
   teamName?: string
 ): Promise<{ agentId: string; envId: string }> {
-  // Gather context for system prompt
-  const [{ data: teamSkills }, { data: store }, { data: brandDna }] = await Promise.all([
-    serviceClient
-      .from('skills' as never)
-      .select('slug, name, description, category, status')
-      .eq('team_id' as never, teamId)
-      .order('name' as never),
-    serviceClient
-      .from('stores')
-      .select('id, name, segment, platform')
-      .eq('team_id', teamId)
-      .limit(1)
-      .single(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (serviceClient as any)
-      .from('brand_dna')
-      .select('niche, tone, audience, positioning, words_to_use, words_to_avoid, store_name')
-      .eq('team_id', teamId)
-      .single(),
-  ])
+  // Use the same logic as the provision route: import directly
+  const { buildOrchestratorSystemPrompt } = await import('@/lib/ai/platform-tools')
+  const { getTeamPlan } = await import('@/lib/billing/feature-gate')
 
-  const hasProducts = store
-    ? await serviceClient
-        .from('store_products')
-        .select('id', { count: 'exact', head: true })
-        .eq('store_id', store.id)
-        .then((r) => (r.count ?? 0) > 0)
-    : false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: brandDna } = await (serviceClient as any)
+    .from('brand_dna')
+    .select('niche')
+    .eq('team_id', teamId)
+    .single()
+
+  const hasBrandDna = brandDna && brandDna.niche
+  const mode = hasBrandDna ? 'full' : 'onboarding'
 
   const systemPrompt = buildOrchestratorSystemPrompt(
     teamName ?? 'Your workspace',
-    (teamSkills as Array<{
-      slug: string
-      name: string
-      description: string | null
-      category: string
-      status: string
-    }> | null) ?? [],
-    store
-      ? {
-          storeName: store.name,
-          segment: store.segment,
-          platform: store.platform,
-          hasProducts,
-        }
-      : undefined,
-    brandDna as
-      | {
-          niche: string | null
-          tone: string | null
-          audience: string | null
-          positioning: string | null
-          words_to_use: string[] | null
-          words_to_avoid: string[] | null
-          store_name: string | null
-        }
-      | null
-      | undefined
+    [],
+    undefined,
+    null,
+    mode
   )
+
+  const plan = await getTeamPlan(teamId)
+  const model =
+    plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
       name: 'Snew',
-      model: 'claude-sonnet-4-6',
+      model,
       system: systemPrompt,
       tools: [{ type: 'agent_toolset_20260401' }],
       description: `Snew assistant for team ${teamName ?? teamId}`,
@@ -543,15 +524,16 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         .select('niche, audience, positioning, tone, average_ticket, opportunities')
         .eq('team_id', teamId)
         .single(),
-      serviceClient.from('stores').select('id, platform, platform_store_id, platform_access_token').eq('team_id', teamId).limit(1).single(),
+      serviceClient
+        .from('stores')
+        .select('id, platform, platform_store_id, platform_access_token')
+        .eq('team_id', teamId)
+        .limit(1)
+        .single(),
     ])
 
     let calendarProducts: Array<{ name: string; price: number }> = []
-    if (
-      store?.platform === 'nuvemshop' &&
-      store.platform_store_id &&
-      store.platform_access_token
-    ) {
+    if (store?.platform === 'nuvemshop' && store.platform_store_id && store.platform_access_token) {
       const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
       const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
       const liveProducts = await client.getProducts(1, 200)
