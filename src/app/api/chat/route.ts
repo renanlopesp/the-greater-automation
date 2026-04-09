@@ -242,37 +242,14 @@ export async function POST(request: NextRequest) {
       ],
     })
 
-    // Build tool executors for handling custom_tool_use events
-    const { buildPlatformTools } = await import('@/lib/ai/platform-tools')
-    const { buildRetailTools } = await import('@/lib/ai/retail-tools')
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const storeId = await (serviceClient as any)
-      .from('stores')
-      .select('id')
-      .eq('team_id', teamId)
-      .limit(1)
-      .single()
-      .then((r: { data: { id: string } | null }) => r.data?.id ?? null)
-
-    const platformTools = buildPlatformTools(user.id, teamId, serviceClient, storeId, taskId)
-    const retailTools = storeId ? buildRetailTools(storeId, teamId, serviceClient, user.id) : null
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allTools: Record<string, { execute: (params: any) => Promise<unknown> }> = {
-      ...platformTools,
-      ...(retailTools ?? {}),
-    }
-
     // Stream session events and translate to UIMessageStream
+    // The agent handles tool calls via MCP server — we just proxy the stream
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         let fullText = ''
         let totalTokens = 0
         let currentTextId = 0
-        let pendingToolUseId: string | null = null
-
-        // First round: real-time stream
+        // Pure streaming proxy — agent handles tools via MCP server
         const eventStream = await anthropic.beta.sessions.events.stream(sId)
 
         for await (const event of eventStream) {
@@ -300,42 +277,6 @@ export async function POST(request: NextRequest) {
               break
             }
 
-            case 'agent.custom_tool_use': {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const te = event as any
-              console.error(`[chat] Tool call: ${te.name}`, JSON.stringify(te.input).slice(0, 200))
-              pendingToolUseId = te.id
-
-              let toolResult: unknown
-              let isError = false
-              try {
-                const tool = allTools[te.name]
-                if (!tool) {
-                  toolResult = { error: `Unknown tool: ${te.name}` }
-                  isError = true
-                } else {
-                  toolResult = await tool.execute(te.input)
-                  if (toolResult && typeof toolResult === 'object' && 'error' in toolResult)
-                    isError = true
-                }
-              } catch (err) {
-                toolResult = { error: err instanceof Error ? err.message : String(err) }
-                isError = true
-              }
-
-              await anthropic.beta.sessions.events.send(sId, {
-                events: [
-                  {
-                    type: 'user.custom_tool_result',
-                    custom_tool_use_id: te.id,
-                    content: [{ type: 'text', text: JSON.stringify(toolResult) }],
-                    is_error: isError,
-                  },
-                ],
-              })
-              break
-            }
-
             case 'span.model_request_end': {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const usage = (event as any).model_usage
@@ -349,81 +290,63 @@ export async function POST(request: NextRequest) {
               break
             }
 
-            case 'session.status_idle':
-            case 'session.status_terminated':
-            case 'session.error':
-              // Stream ended — break out
+            case 'session.status_idle': {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const idleEvent = event as any
+              if (idleEvent.stop_reason?.type === 'end_turn') {
+                // Agent finished — finalize
+                writer.write({ type: 'finish', finishReason: 'stop' })
+
+                if (fullText) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  await (serviceClient as any)
+                    .from('conversation_messages')
+                    .insert({ conversation_id: convId, role: 'assistant', content: fullText })
+                    .then((r: { error?: unknown }) => {
+                      if (r?.error) console.error('[chat] Failed to persist:', r.error)
+                    })
+                }
+
+                const credits = tokensToCredits(totalTokens)
+                if (credits > 0) {
+                  void serviceClient.rpc('increment_ai_credits', {
+                    p_team_id: teamId,
+                    p_credits: credits,
+                  })
+                }
+                return
+              }
+              // For MCP tool use: stream stays open, agent continues after tool result
               break
+            }
+
+            case 'session.status_terminated': {
+              if (!fullText) {
+                writer.write({ type: 'text-start', id: 'error-0' })
+                writer.write({
+                  type: 'text-delta',
+                  delta: 'The session ended unexpectedly. Please try again.',
+                  id: 'error-0',
+                })
+                writer.write({ type: 'text-end', id: 'error-0' })
+              }
+              writer.write({ type: 'finish', finishReason: 'stop' })
+              return
+            }
+
+            case 'session.error': {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const errEvent = event as any
+              writer.write({
+                type: 'error',
+                errorText: errEvent.error?.message ?? 'An error occurred',
+              })
+              return
+            }
 
             default:
               break
           }
-        }
-
-        // After first stream ends: check if we had a tool call
-        // If so, poll for agent to finish processing, then fetch remaining events
-        if (pendingToolUseId) {
-          // Poll until session is idle (agent processed tool result and responded)
-          for (let poll = 0; poll < 30; poll++) {
-            await new Promise((r) => setTimeout(r, 1000))
-            const session = await anthropic.beta.sessions.retrieve(sId)
-            if (session.status === 'idle') break
-          }
-
-          // Fetch all events and find the agent's response after the tool result
-          const allEvts = await anthropic.beta.sessions.events.list(sId)
-          const evtList = allEvts.data ?? []
-          const toolResultIdx = evtList.findLastIndex(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (e: any) => e.type === 'user.custom_tool_result'
-          )
-
-          if (toolResultIdx >= 0) {
-            for (let i = toolResultIdx + 1; i < evtList.length; i++) {
-              const evt = evtList[i]
-              if (evt.type === 'agent.message') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const textBlocks = (evt as any).content?.filter((b: any) => b.type === 'text')
-                if (textBlocks) {
-                  for (const block of textBlocks) {
-                    const partId = `text-${currentTextId++}`
-                    writer.write({ type: 'text-start', id: partId })
-                    writer.write({ type: 'text-delta', delta: block.text, id: partId })
-                    writer.write({ type: 'text-end', id: partId })
-                    fullText += block.text
-                  }
-                }
-              } else if (evt.type === 'span.model_request_end') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const usage = (evt as any).model_usage
-                if (usage) {
-                  totalTokens +=
-                    (usage.input_tokens ?? 0) +
-                    (usage.output_tokens ?? 0) +
-                    (usage.cache_read_input_tokens ?? 0) +
-                    (usage.cache_creation_input_tokens ?? 0)
-                }
-              }
-            }
-          }
-        }
-
-        // Finalize
-        writer.write({ type: 'finish', finishReason: 'stop' })
-
-        if (fullText) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (serviceClient as any)
-            .from('conversation_messages')
-            .insert({ conversation_id: convId, role: 'assistant', content: fullText })
-            .then((r: { error?: unknown }) => {
-              if (r?.error) console.error('[chat] Failed to persist:', r.error)
-            })
-        }
-
-        const credits = tokensToCredits(totalTokens)
-        if (credits > 0) {
-          void serviceClient.rpc('increment_ai_credits', { p_team_id: teamId, p_credits: credits })
         }
       },
       onError: (error) => {
@@ -483,16 +406,16 @@ async function provisionAgent(
   const model =
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
-  const { buildCustomToolDefinitions } = await import('@/lib/mcp/custom-tool-definitions')
-  const customTools = buildCustomToolDefinitions({ hasStore: true })
+  const mcpBaseUrl =
+    process.env.MCP_SERVER_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const mcpUrl = `${mcpBaseUrl}/api/mcp/snew-tools?team_id=${teamId}&user_id=${teamId}`
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
       name: 'Snew',
       model,
       system: systemPrompt,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: customTools as any,
+      mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
       description: `Snew assistant for team ${teamName ?? teamId}`,
     }),
     anthropic.beta.environments.create({

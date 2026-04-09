@@ -3,7 +3,6 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getAnthropicClient } from '@/lib/anthropic'
 import { buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
 import { getTeamPlan } from '@/lib/billing/feature-gate'
-import { buildCustomToolDefinitions } from '@/lib/mcp/custom-tool-definitions'
 import { safeError } from '@/lib/safe-error'
 
 /**
@@ -126,10 +125,10 @@ export async function POST() {
         ? 'claude-opus-4-6'
         : 'claude-sonnet-4-6'
 
-    // ── Build custom tools for agent ──────────────────────────────────
-    const customTools = buildCustomToolDefinitions({
-      hasStore: !!store,
-    })
+    // ── Build MCP server URL for the agent ─────────────────────────────
+    const mcpBaseUrl =
+      process.env.MCP_SERVER_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    const mcpUrl = `${mcpBaseUrl}/api/mcp/snew-tools?team_id=${teamId}&user_id=${user.id}${store ? `&store_id=${store.id}` : ''}`
 
     // ── Create Managed Agent + Environment ──────────────────────────────
     const anthropic = getAnthropicClient()
@@ -139,8 +138,7 @@ export async function POST() {
         name: 'Snew',
         model,
         system: systemPrompt,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tools: customTools as any,
+        mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
         description: `Snew assistant for team ${team?.name ?? teamId}`,
       }),
       anthropic.beta.environments.create({
