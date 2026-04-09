@@ -45,6 +45,7 @@ const SELF_AUTHENTICATED_API_PREFIXES = [
   '/api/store/daily-summary',
   '/api/messaging/telegram/webhook',
   '/api/messaging/telegram/process',
+  '/api/mcp', // MCP server — called by Anthropic Managed Agent, auth via query params
   '/api/workflows/webhook',
   '/api/workflows/test-step',
   '/api/apps/callback',
