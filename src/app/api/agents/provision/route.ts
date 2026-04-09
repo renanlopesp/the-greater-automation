@@ -139,6 +139,7 @@ export async function POST() {
         model,
         system: systemPrompt,
         mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
+        tools: [{ type: 'mcp_toolset', mcp_server_name: 'snew-tools' }],
         description: `Snew assistant for team ${team?.name ?? teamId}`,
       }),
       anthropic.beta.environments.create({

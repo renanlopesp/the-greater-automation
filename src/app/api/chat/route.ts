@@ -416,6 +416,7 @@ async function provisionAgent(
       model,
       system: systemPrompt,
       mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
+      tools: [{ type: 'mcp_toolset', mcp_server_name: 'snew-tools' }],
       description: `Snew assistant for team ${teamName ?? teamId}`,
     }),
     anthropic.beta.environments.create({
