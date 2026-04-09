@@ -612,16 +612,8 @@ Deno.serve(async (req: Request) => {
       )
       const filtered = results.filter((r) => r !== undefined)
       if (filtered.length === 0) return new Response(null, { status: 202, headers: corsHeaders })
-      // SSE format for batch
-      const sseLines = filtered
-        .map((r) => `event: message\ndata: ${JSON.stringify(r)}\n\n`)
-        .join('')
-      return new Response(sseLines, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
+      return new Response(JSON.stringify(filtered.length === 1 ? filtered[0] : filtered), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -631,9 +623,8 @@ Deno.serve(async (req: Request) => {
       return new Response(null, { status: 202, headers: corsHeaders })
     }
 
-    const jsonRpcResponse = JSON.stringify({ jsonrpc: '2.0', result, id: body.id ?? null })
-    return new Response(`event: message\ndata: ${jsonRpcResponse}\n\n`, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    return new Response(JSON.stringify({ jsonrpc: '2.0', result, id: body.id ?? null }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: unknown) {
     const rpcErr = err as { code?: number; message?: string }
