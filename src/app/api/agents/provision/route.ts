@@ -129,7 +129,6 @@ export async function POST() {
     // ── Build custom tools for agent ──────────────────────────────────
     const customTools = buildCustomToolDefinitions({
       hasStore: !!store,
-      hasTask: false, // No task at provisioning time — artifact tool added per-session
     })
 
     // ── Create Managed Agent + Environment ──────────────────────────────

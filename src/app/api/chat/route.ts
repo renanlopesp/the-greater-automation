@@ -508,7 +508,7 @@ async function provisionAgent(
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
   const { buildCustomToolDefinitions } = await import('@/lib/mcp/custom-tool-definitions')
-  const customTools = buildCustomToolDefinitions({ hasStore: true, hasTask: false })
+  const customTools = buildCustomToolDefinitions({ hasStore: true })
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({

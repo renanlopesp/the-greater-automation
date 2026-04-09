@@ -304,15 +304,8 @@ const RETAIL_TOOLS: CustomToolDef[] = [
 /**
  * Build the list of custom tools to register on a Managed Agent.
  */
-export function buildCustomToolDefinitions(opts: {
-  hasStore: boolean
-  hasTask: boolean
-}): CustomToolDef[] {
-  const tools: CustomToolDef[] = [...PLATFORM_TOOLS]
-
-  if (opts.hasTask) {
-    tools.push(ARTIFACT_TOOL)
-  }
+export function buildCustomToolDefinitions(opts: { hasStore: boolean }): CustomToolDef[] {
+  const tools: CustomToolDef[] = [...PLATFORM_TOOLS, ARTIFACT_TOOL]
 
   if (opts.hasStore) {
     tools.push(...RETAIL_TOOLS)
