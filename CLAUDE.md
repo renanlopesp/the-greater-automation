@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + `@modelcontextprotocol/sdk` (McpServer, StdioServerTransport), `zod/v4`, `@supabase/supabase-js` (058-mcp-tools-server)
+- Supabase PostgreSQL (existing — no schema changes) (058-mcp-tools-server)
+
 - TypeScript 5 (strict mode) + Next.js 16.1.6, React 19, Tailwind CSS v4, shadcn/ui, Vercel AI SDK (streamText, tools) (055-chat-dynamic-artifacts)
 - Supabase PostgreSQL — existing `tasks` table (`artifact_data` JSONB, `artifact_type` text, `skill_status` text) (055-chat-dynamic-artifacts)
 
