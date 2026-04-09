@@ -7,9 +7,8 @@ import { createClient } from '@supabase/supabase-js'
  * Points to the prototype Supabase project (plkhvlnqjihonpzeeybh),
  * separate from the main relay Supabase project.
  */
-const STUDIO_SUPABASE_URL = 'https://plkhvlnqjihonpzeeybh.supabase.co'
-const STUDIO_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2h2bG5xamlob25wemVleWJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzY1MDUsImV4cCI6MjA4OTYxMjUwNX0.cQCQWCT7xf91O_8wR8GY8OSLLQ5AI1fVpIluCkrNraw'
+const STUDIO_SUPABASE_URL = process.env.NEXT_PUBLIC_STUDIO_SUPABASE_URL!
+const STUDIO_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_STUDIO_SUPABASE_ANON_KEY!
 
 export const studioSupabase = createClient(STUDIO_SUPABASE_URL, STUDIO_SUPABASE_ANON_KEY, {
   auth: {
