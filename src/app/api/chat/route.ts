@@ -374,22 +374,37 @@ export async function POST(request: NextRequest) {
             ],
           })
 
-          // Poll until session is idle again (agent processes tool result)
-          for (let i = 0; i < 30; i++) {
-            await new Promise((r) => setTimeout(r, 1000))
+          // Wait for agent to start processing the tool result
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 500))
             const session = await anthropic.beta.sessions.retrieve(sId)
-            if (session.status === 'idle') break
+            if (session.status === 'running') break
           }
 
-          // Fetch events after tool result and emit agent's response
-          const allEvts = await anthropic.beta.sessions.events.list(sId)
-          const evtList = allEvts.data ?? []
-          const trIdx = evtList.findLastIndex(
+          // Stream round 2: agent's response after tool result
+          const stream2 = await anthropic.beta.sessions.events.stream(sId)
+          for await (const event of stream2) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (ev: any) => ev.type === 'user.custom_tool_result'
-          )
-          if (trIdx >= 0) {
-            emitEvents(evtList.slice(trIdx + 1))
+            const e = event as any
+            if (e.type === 'agent.message') {
+              const textBlocks = e.content?.filter((b: { type: string }) => b.type === 'text')
+              if (textBlocks) {
+                for (const block of textBlocks) {
+                  const partId = `text-${currentTextId++}`
+                  writer.write({ type: 'text-start', id: partId })
+                  writer.write({ type: 'text-delta', delta: block.text, id: partId })
+                  writer.write({ type: 'text-end', id: partId })
+                  fullText += block.text
+                }
+              }
+            } else if (e.type === 'span.model_request_end' && e.model_usage) {
+              const u = e.model_usage
+              totalTokens +=
+                (u.input_tokens ?? 0) +
+                (u.output_tokens ?? 0) +
+                (u.cache_read_input_tokens ?? 0) +
+                (u.cache_creation_input_tokens ?? 0)
+            }
           }
         }
 
