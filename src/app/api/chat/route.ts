@@ -246,17 +246,37 @@ export async function POST(request: NextRequest) {
     // The agent handles tool calls via MCP server — we just proxy the stream
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
+        // Build tool executors
+        const { buildPlatformTools } = await import('@/lib/ai/platform-tools')
+        const { buildRetailTools } = await import('@/lib/ai/retail-tools')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const storeIdVal = await (serviceClient as any)
+          .from('stores')
+          .select('id')
+          .eq('team_id', teamId)
+          .limit(1)
+          .single()
+          .then((r: { data: { id: string } | null }) => r.data?.id ?? null)
+        const platformTools = buildPlatformTools(user.id, teamId, serviceClient, storeIdVal, taskId)
+        const retailTools = storeIdVal
+          ? buildRetailTools(storeIdVal, teamId, serviceClient, user.id)
+          : null
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allTools: Record<string, { execute: (params: any) => Promise<unknown> }> = {
+          ...platformTools,
+          ...(retailTools ?? {}),
+        }
+
         let fullText = ''
         let totalTokens = 0
         let currentTextId = 0
-        // Pure streaming proxy — agent handles tools via MCP server
-        const eventStream = await anthropic.beta.sessions.events.stream(sId)
 
-        for await (const event of eventStream) {
-          switch (event.type) {
-            case 'agent.message': {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const textBlocks = (event as any).content?.filter((b: any) => b.type === 'text')
+        // Helper: emit text blocks from events to the UI stream
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const emitEvents = (events: any[]) => {
+          for (const evt of events) {
+            if (evt.type === 'agent.message') {
+              const textBlocks = evt.content?.filter((b: { type: string }) => b.type === 'text')
               if (textBlocks) {
                 for (const block of textBlocks) {
                   const partId = `text-${currentTextId++}`
@@ -266,87 +286,129 @@ export async function POST(request: NextRequest) {
                   fullText += block.text
                 }
               }
-              break
+            } else if (evt.type === 'agent.thinking') {
+              const rid = `reasoning-${currentTextId++}`
+              writer.write({ type: 'reasoning-start', id: rid })
+              writer.write({ type: 'reasoning-delta', id: rid, delta: '(thinking...)' })
+              writer.write({ type: 'reasoning-end', id: rid })
+            } else if (evt.type === 'span.model_request_end' && evt.model_usage) {
+              const u = evt.model_usage
+              totalTokens +=
+                (u.input_tokens ?? 0) +
+                (u.output_tokens ?? 0) +
+                (u.cache_read_input_tokens ?? 0) +
+                (u.cache_creation_input_tokens ?? 0)
             }
-
-            case 'agent.thinking': {
-              const reasonId = `reasoning-${currentTextId++}`
-              writer.write({ type: 'reasoning-start', id: reasonId })
-              writer.write({ type: 'reasoning-delta', id: reasonId, delta: '(thinking...)' })
-              writer.write({ type: 'reasoning-end', id: reasonId })
-              break
-            }
-
-            case 'span.model_request_end': {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const usage = (event as any).model_usage
-              if (usage) {
-                totalTokens +=
-                  (usage.input_tokens ?? 0) +
-                  (usage.output_tokens ?? 0) +
-                  (usage.cache_read_input_tokens ?? 0) +
-                  (usage.cache_creation_input_tokens ?? 0)
-              }
-              break
-            }
-
-            case 'session.status_idle': {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const idleEvent = event as any
-              if (idleEvent.stop_reason?.type === 'end_turn') {
-                // Agent finished — finalize
-                writer.write({ type: 'finish', finishReason: 'stop' })
-
-                if (fullText) {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  await (serviceClient as any)
-                    .from('conversation_messages')
-                    .insert({ conversation_id: convId, role: 'assistant', content: fullText })
-                    .then((r: { error?: unknown }) => {
-                      if (r?.error) console.error('[chat] Failed to persist:', r.error)
-                    })
-                }
-
-                const credits = tokensToCredits(totalTokens)
-                if (credits > 0) {
-                  void serviceClient.rpc('increment_ai_credits', {
-                    p_team_id: teamId,
-                    p_credits: credits,
-                  })
-                }
-                return
-              }
-              // For MCP tool use: stream stays open, agent continues after tool result
-              break
-            }
-
-            case 'session.status_terminated': {
-              if (!fullText) {
-                writer.write({ type: 'text-start', id: 'error-0' })
-                writer.write({
-                  type: 'text-delta',
-                  delta: 'The session ended unexpectedly. Please try again.',
-                  id: 'error-0',
-                })
-                writer.write({ type: 'text-end', id: 'error-0' })
-              }
-              writer.write({ type: 'finish', finishReason: 'stop' })
-              return
-            }
-
-            case 'session.error': {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const errEvent = event as any
-              writer.write({
-                type: 'error',
-                errorText: errEvent.error?.message ?? 'An error occurred',
-              })
-              return
-            }
-
-            default:
-              break
           }
+        }
+
+        // Round 1: stream events in real-time
+        const eventStream = await anthropic.beta.sessions.events.stream(sId)
+        let toolUseId: string | null = null
+        let toolName = ''
+        let toolInput: Record<string, unknown> = {}
+
+        for await (const event of eventStream) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const e = event as any
+          if (e.type === 'agent.message') {
+            const textBlocks = e.content?.filter((b: { type: string }) => b.type === 'text')
+            if (textBlocks) {
+              for (const block of textBlocks) {
+                const partId = `text-${currentTextId++}`
+                writer.write({ type: 'text-start', id: partId })
+                writer.write({ type: 'text-delta', delta: block.text, id: partId })
+                writer.write({ type: 'text-end', id: partId })
+                fullText += block.text
+              }
+            }
+          } else if (e.type === 'agent.thinking') {
+            const rid = `reasoning-${currentTextId++}`
+            writer.write({ type: 'reasoning-start', id: rid })
+            writer.write({ type: 'reasoning-delta', id: rid, delta: '(thinking...)' })
+            writer.write({ type: 'reasoning-end', id: rid })
+          } else if (e.type === 'agent.custom_tool_use') {
+            toolUseId = e.id
+            toolName = e.name
+            toolInput = e.input ?? {}
+          } else if (e.type === 'span.model_request_end' && e.model_usage) {
+            const u = e.model_usage
+            totalTokens +=
+              (u.input_tokens ?? 0) +
+              (u.output_tokens ?? 0) +
+              (u.cache_read_input_tokens ?? 0) +
+              (u.cache_creation_input_tokens ?? 0)
+          }
+          // Stream ends when session goes idle
+        }
+
+        // After stream: handle tool call if one was requested
+        if (toolUseId) {
+          console.error(`[chat] Tool call: ${toolName}`, JSON.stringify(toolInput).slice(0, 200))
+          let toolResult: unknown
+          let isError = false
+          try {
+            const tool = allTools[toolName]
+            if (!tool) {
+              toolResult = { error: `Unknown tool: ${toolName}` }
+              isError = true
+            } else {
+              toolResult = await tool.execute(toolInput)
+              if (toolResult && typeof toolResult === 'object' && 'error' in toolResult)
+                isError = true
+            }
+          } catch (err) {
+            toolResult = { error: err instanceof Error ? err.message : String(err) }
+            isError = true
+          }
+
+          // Send tool result
+          await anthropic.beta.sessions.events.send(sId, {
+            events: [
+              {
+                type: 'user.custom_tool_result',
+                custom_tool_use_id: toolUseId,
+                content: [{ type: 'text', text: JSON.stringify(toolResult) }],
+                is_error: isError,
+              },
+            ],
+          })
+
+          // Poll until session is idle again (agent processes tool result)
+          for (let i = 0; i < 30; i++) {
+            await new Promise((r) => setTimeout(r, 1000))
+            const session = await anthropic.beta.sessions.retrieve(sId)
+            if (session.status === 'idle') break
+          }
+
+          // Fetch events after tool result and emit agent's response
+          const allEvts = await anthropic.beta.sessions.events.list(sId)
+          const evtList = allEvts.data ?? []
+          const trIdx = evtList.findLastIndex(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (ev: any) => ev.type === 'user.custom_tool_result'
+          )
+          if (trIdx >= 0) {
+            emitEvents(evtList.slice(trIdx + 1))
+          }
+        }
+
+        // Finalize
+        writer.write({ type: 'finish', finishReason: 'stop' })
+
+        if (fullText) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (serviceClient as any)
+            .from('conversation_messages')
+            .insert({ conversation_id: convId, role: 'assistant', content: fullText })
+            .then((r: { error?: unknown }) => {
+              if (r?.error) console.error('[chat] Failed to persist:', r.error)
+            })
+        }
+
+        const credits = tokensToCredits(totalTokens)
+        if (credits > 0) {
+          void serviceClient.rpc('increment_ai_credits', { p_team_id: teamId, p_credits: credits })
         }
       },
       onError: (error) => {
@@ -406,17 +468,16 @@ async function provisionAgent(
   const model =
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
-  const mcpBaseUrl =
-    process.env.MCP_SERVER_BASE_URL ?? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}`
+  const { buildCustomToolDefinitions } = await import('@/lib/mcp/custom-tool-definitions')
+  const customTools = buildCustomToolDefinitions({ hasStore: true })
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
       name: 'Snew',
       model,
       system: systemPrompt,
-      mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
-      tools: [{ type: 'mcp_toolset', mcp_server_name: 'snew-tools' }],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: customTools as any,
       description: `Snew assistant for team ${teamName ?? teamId}`,
     }),
     anthropic.beta.environments.create({
