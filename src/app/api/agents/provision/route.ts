@@ -3,6 +3,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 import { getAnthropicClient } from '@/lib/anthropic'
 import { buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
 import { getTeamPlan } from '@/lib/billing/feature-gate'
+import { buildCustomToolDefinitions } from '@/lib/mcp/custom-tool-definitions'
 import { safeError } from '@/lib/safe-error'
 
 /**
@@ -125,6 +126,12 @@ export async function POST() {
         ? 'claude-opus-4-6'
         : 'claude-sonnet-4-6'
 
+    // ── Build custom tools for agent ──────────────────────────────────
+    const customTools = buildCustomToolDefinitions({
+      hasStore: !!store,
+      hasTask: false, // No task at provisioning time — artifact tool added per-session
+    })
+
     // ── Create Managed Agent + Environment ──────────────────────────────
     const anthropic = getAnthropicClient()
 
@@ -133,7 +140,8 @@ export async function POST() {
         name: 'Snew',
         model,
         system: systemPrompt,
-        tools: [{ type: 'agent_toolset_20260401' }],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: customTools as any,
         description: `Snew assistant for team ${team?.name ?? teamId}`,
       }),
       anthropic.beta.environments.create({
