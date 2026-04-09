@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getAnthropicClient } from '@/lib/anthropic'
 import { buildOrchestratorSystemPrompt } from '@/lib/ai/platform-tools'
+import { getTeamPlan } from '@/lib/billing/feature-gate'
 import { safeError } from '@/lib/safe-error'
 
 /**
  * POST /api/agents/provision — Provision a Managed Agent + Environment for a team.
  *
+ * Two-phase provisioning:
+ * - If brand DNA exists → full mode prompt
+ * - If no brand DNA → onboarding mode prompt (guides setup)
+ *
  * Idempotent: if the team already has an agent_id + env_id, returns them directly.
- * Otherwise creates both via the Anthropic Managed Agents API and persists the IDs.
  */
 export async function POST() {
   const supabase = await createServerClient()
@@ -71,6 +75,10 @@ export async function POST() {
         .single(),
     ])
 
+    // ── Determine prompt mode ──────────────────────────────────────────
+    const hasBrandDna = brandDna && brandDna.niche
+    const promptMode = hasBrandDna ? 'full' : 'onboarding'
+
     const hasProducts = store
       ? await serviceClient
           .from('store_products')
@@ -78,6 +86,16 @@ export async function POST() {
           .eq('store_id', store.id)
           .then((r) => (r.count ?? 0) > 0)
       : false
+
+    type BrandDnaType = {
+      niche: string | null
+      tone: string | null
+      audience: string | null
+      positioning: string | null
+      words_to_use: string[] | null
+      words_to_avoid: string[] | null
+      store_name: string | null
+    }
 
     const systemPrompt = buildOrchestratorSystemPrompt(
       team?.name ?? 'Your workspace',
@@ -96,19 +114,16 @@ export async function POST() {
             hasProducts,
           }
         : undefined,
-      brandDna as
-        | {
-            niche: string | null
-            tone: string | null
-            audience: string | null
-            positioning: string | null
-            words_to_use: string[] | null
-            words_to_avoid: string[] | null
-            store_name: string | null
-          }
-        | null
-        | undefined
+      brandDna as BrandDnaType | null | undefined,
+      promptMode
     )
+
+    // ── Determine model from plan ──────────────────────────────────────
+    const plan = await getTeamPlan(teamId)
+    const model =
+      plan.planId === 'pro' || plan.planId === 'enterprise'
+        ? 'claude-opus-4-6'
+        : 'claude-sonnet-4-6'
 
     // ── Create Managed Agent + Environment ──────────────────────────────
     const anthropic = getAnthropicClient()
@@ -116,7 +131,7 @@ export async function POST() {
     const [agent, env] = await Promise.all([
       anthropic.beta.agents.create({
         name: 'Snew',
-        model: 'claude-sonnet-4-6',
+        model,
         system: systemPrompt,
         tools: [{ type: 'agent_toolset_20260401' }],
         description: `Snew assistant for team ${team?.name ?? teamId}`,
@@ -137,7 +152,16 @@ export async function POST() {
       })
       .eq('id', teamId)
 
-    return NextResponse.json({ agentId: agent.id, envId: env.id })
+    return NextResponse.json(
+      {
+        agentId: agent.id,
+        envId: env.id,
+        created: true,
+        mode: promptMode,
+        model,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     return NextResponse.json(
       { error: safeError('provision-agent', error, 'Failed to provision agent') },
