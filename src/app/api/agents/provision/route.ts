@@ -127,8 +127,8 @@ export async function POST() {
 
     // ── Build MCP server URL for the agent ─────────────────────────────
     const mcpBaseUrl =
-      process.env.MCP_SERVER_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const mcpUrl = `${mcpBaseUrl}/api/mcp/snew-tools?team_id=${teamId}&user_id=${user.id}${store ? `&store_id=${store.id}` : ''}`
+      process.env.MCP_SERVER_BASE_URL ?? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+    const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${user.id}${store ? `&store_id=${store.id}` : ''}`
 
     // ── Create Managed Agent + Environment ──────────────────────────────
     const anthropic = getAnthropicClient()

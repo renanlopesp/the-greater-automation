@@ -407,8 +407,8 @@ async function provisionAgent(
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
   const mcpBaseUrl =
-    process.env.MCP_SERVER_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const mcpUrl = `${mcpBaseUrl}/api/mcp/snew-tools?team_id=${teamId}&user_id=${teamId}`
+    process.env.MCP_SERVER_BASE_URL ?? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}`
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
