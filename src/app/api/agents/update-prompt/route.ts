@@ -125,8 +125,14 @@ export async function POST(request: NextRequest) {
     // ── Update agent via Anthropic API ──────────────────────────────────
     const anthropic = getAnthropicClient()
 
+    // Get current agent version (required for optimistic concurrency)
+    const currentAgent = await anthropic.beta.agents.retrieve(team.anthropic_agent_id)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatePayload: any = { system: systemPrompt }
+    const updatePayload: any = {
+      version: currentAgent.version,
+      system: systemPrompt,
+    }
     if (requestedModel) updatePayload.model = requestedModel
 
     await anthropic.beta.agents.update(team.anthropic_agent_id, updatePayload)
