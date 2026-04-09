@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from "react";
-import { createBrowserClient } from '@/lib/supabase/client';
+import { studioSupabase } from '@/lib/supabase/studio-client';
 import { STUDIO_PRODUCT_SEEDS } from "@/config/studioProducts";
 
 export interface CatalogProduct {
@@ -42,7 +42,7 @@ export function useProductCatalog() {
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = useCallback(async () => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     const { data } = await supabase
       .from("product_catalog")
       .select("*")
@@ -55,7 +55,7 @@ export function useProductCatalog() {
   useEffect(() => { void fetchProducts(); }, [fetchProducts]);
 
   const addProduct = useCallback(async (name: string, sku: string) => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     const product_id = `p${Date.now()}`;
     const { data, error } = await supabase
       .from("product_catalog")
@@ -69,7 +69,7 @@ export function useProductCatalog() {
   }, []);
 
   const removeProduct = useCallback(async (product_id: string) => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     const prod = products.find(p => p.product_id === product_id);
     if (prod?.image_url) {
       await supabase.storage.from("product-images").remove([
@@ -81,7 +81,7 @@ export function useProductCatalog() {
   }, [products]);
 
   const updateImageUrl = useCallback(async (product_id: string, image_url: string) => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     const existing = products.find((p) => p.product_id === product_id);
     if (existing?.id.startsWith("seed-")) {
       const { data, error } = await supabase
@@ -103,7 +103,7 @@ export function useProductCatalog() {
   }, [products]);
 
   const uploadProductImage = useCallback(async (product_id: string, file: File): Promise<string | null> => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const path = `${product_id}.${ext}`;
 
@@ -125,7 +125,7 @@ export function useProductCatalog() {
   }, [updateImageUrl]);
 
   const removeProductImage = useCallback(async (product_id: string) => {
-    const supabase = createBrowserClient() as any;
+    const supabase = studioSupabase as any;
     await supabase.storage.from("product-images").remove([
       `${product_id}.jpg`, `${product_id}.jpeg`, `${product_id}.png`, `${product_id}.webp`
     ]);

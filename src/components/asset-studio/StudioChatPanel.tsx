@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle, 
 import { ArrowUp, Loader2, Heart, Zap, LayoutGrid, Sparkles, Image as ImageIcon, Package, RefreshCw, X } from "lucide-react";
 // RULE: Never use emoji characters anywhere in this file. Use lucide-react icons or unicode symbols only.
 // RULE: Never use fontWeight 700 or "bold". Max weight is 600 for headings, 500 for labels, 400 for body.
-import { createBrowserClient } from '@/lib/supabase/client';
+import { studioSupabase } from '@/lib/supabase/studio-client';
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -180,7 +180,7 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
           chatHistory.push({ role: "user", content: text });
         }
 
-        const supabase = createBrowserClient(); const { data, error } = await supabase.functions.invoke("studio-chat", {
+        const supabase = studioSupabase; const { data, error } = await supabase.functions.invoke("studio-chat", {
           body: { messages: chatHistory, creativeState },
         });
 

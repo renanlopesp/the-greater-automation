@@ -22,7 +22,7 @@ import { useProductCatalog } from "@/hooks/useProductCatalog";
 import { StudioChatPanel, type StudioChatPanelRef } from "./StudioChatPanel";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { createBrowserClient } from '@/lib/supabase/client';
+import { studioSupabase } from '@/lib/supabase/studio-client';
 import html2canvas from "html2canvas";
 import { seasonalCalendar } from "@/data/seasonalCalendar";
 import { seasonalL3Content } from "@/data/seasonalL3Content";
@@ -330,7 +330,7 @@ function TextSectionModal({ role, fieldKey, value, onChange, onClose, campaignCo
     setIsGenerating(true);
     setToneOpen(false);
     try {
-      const { data, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "regenerate",
           field: fieldKey,
@@ -463,7 +463,7 @@ function ImageGenTextSubPanel({ fieldKey, value, onChange, onClose, campaignCont
   const handleGenerate = async (toneId: string) => {
     setIsGenerating(true);
     try {
-      const { data, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: { action: "regenerate", field: fieldKey, currentValue: localValue, tone: toneId, campaign: campaignContext },
       });
       if (error) throw error;
@@ -756,7 +756,7 @@ function CopyField({ label, optional, value, onChange, visible, onToggle, multil
     setSparkleOpen(false);
     setIsGenerating(true);
     try {
-      const { data, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "regenerate",
           field: fieldKey,
@@ -778,7 +778,7 @@ function CopyField({ label, optional, value, onChange, visible, onToggle, multil
   const handleVersions = async () => {
     setIsGenerating(true);
     try {
-      const { data, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "versions",
           field: fieldKey,
@@ -1127,7 +1127,7 @@ function PublishModal({ imageUrl, product, campaign, onClose, onSchedule }: {
   const handleGenerate = async (toneId: string) => {
     setIsGenerating(true);
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("generate-legenda", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("generate-legenda", {
         body: { product, campaign, tone: toneId, platform: platformForApi },
       });
       if (error) throw error;
@@ -2726,7 +2726,7 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
     const _productName = _activeProduct?.name?.trim() || "";
     setIsGeneratingAttributes(true);
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "generate-attributes",
           field: "attributes",
@@ -2989,7 +2989,7 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   }): Promise<string> => {
     if (imageBase64) {
       try {
-        const { data: analysisData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+        const { data: analysisData, error } = await studioSupabase.functions.invoke("gemini-generate", {
           body: {
             prompt: `Analyze this product image and respond ONLY with a JSON object. No other text.
 {
@@ -3604,7 +3604,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
       }
 
       // STEP 1: Submit — returns requestId immediately
-      const { data: submitData, error: submitError } = await createBrowserClient().functions.invoke("generate-video", {
+      const { data: submitData, error: submitError } = await studioSupabase.functions.invoke("generate-video", {
         body: {
           prompt: videoPrompt,
           imageBase64,
@@ -3631,7 +3631,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
       for (let i = 0; i < MAX_POLLS; i++) {
         await new Promise(r => setTimeout(r, 5000));
 
-        const { data: pollData, error: pollError } = await createBrowserClient().functions.invoke("check-video-status", {
+        const { data: pollData, error: pollError } = await studioSupabase.functions.invoke("check-video-status", {
           body: { requestId, model, statusUrl, responseUrl },
         });
 
@@ -3821,7 +3821,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
           const styleImageStyle = styleObj?.imageStyle ?? "editorial lifestyle photography, natural light, shallow depth of field, film grain, authentic moment, magazine quality, photorealistic";
 
           // 1. Generate contextualized copy
-          const { data: copyData } = await createBrowserClient().functions.invoke("generate-copy", {
+          const { data: copyData } = await studioSupabase.functions.invoke("generate-copy", {
             body: {
               action: "auto-generate",
               field: "full",
@@ -3886,7 +3886,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
             } catch { /* proceed without reference */ }
           }
 
-          const { data: imgData, error: imgError } = await createBrowserClient().functions.invoke("gemini-generate", { body: imgBody });
+          const { data: imgData, error: imgError } = await studioSupabase.functions.invoke("gemini-generate", { body: imgBody });
           if (imgError) throw imgError;
 
           updateAutoPost(post.id, {
@@ -3912,7 +3912,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
     updateAutoPost(postId, { status: "generating", errorMsg: undefined });
     try {
       // Retry copy
-      const { data: copyData } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data: copyData } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "auto-generate",
           field: "full",
@@ -3930,7 +3930,7 @@ ${brandName ? `Brand: ${brandName}.` : ""}
 
       // Retry image
       const imgPrompt = `${post.productName} product photography for ${post.theme} campaign. ${copyResult.heading}. Commercial quality, clean background. High resolution.`;
-      const { data: imgData, error: imgError } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: imgData, error: imgError } = await studioSupabase.functions.invoke("gemini-generate", {
         body: { prompt: imgPrompt, model: "gemini-2.5-flash-image" },
       });
       if (imgError) throw imgError;
@@ -4402,7 +4402,7 @@ ${p.cta ? `<a href="${p.ctaUrl}" class="snew-banner__cta">${p.cta}</a>` : ""}
     if (!imageUrl || isPlaceholderImage(imageUrl)) return "";
     try {
       const imageBase64 = await imageUrlToBase64(imageUrl);
-      const { data: analysisData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: analysisData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: {
           prompt: `Analyze this product image and respond ONLY with a JSON object, no other text:
 {
@@ -4620,7 +4620,7 @@ The output must feel like a macro photography detail of the exact same product.`
         body.images = allImages;
       }
 
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("gemini-generate", { body });
+      const { data: fnData, error } = await studioSupabase.functions.invoke("gemini-generate", { body });
       if (error) throw error;
       if (fnData?.fallback || fnData?.error) {
         throw new Error(fnData?.error || "Falha ao gerar imagem. Tente novamente.");
@@ -4638,7 +4638,7 @@ The output must feel like a macro photography detail of the exact same product.`
         // Auto-generate contextual heading based on image prompt
         if (!heading || heading === "" || heading === "main-text") {
           try {
-            const { data: copyData } = await createBrowserClient().functions.invoke("generate-copy", {
+            const { data: copyData } = await studioSupabase.functions.invoke("generate-copy", {
               body: {
                 action: "auto-generate",
                 field: "full",
@@ -4780,7 +4780,7 @@ Rules for anchor positions:
 - Alternate labelSide: right for x > 0.5, left for x < 0.5
 - Features should point to distinct parts of the product`;
 
-    const { data: respData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+    const { data: respData, error } = await studioSupabase.functions.invoke("gemini-generate", {
       body: { prompt, model: "gemini-3.1-flash-image-preview", responseType: "text" },
     });
     if (error) throw error;
@@ -4917,7 +4917,7 @@ High resolution, retail-ready, multiple product details visible.`;
         ? currentSrc.split(",")[1]
         : await imageUrlToBase64(currentSrc);
 
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: {
           prompt: `Edit this image: ${editPrompt}.\nKeep everything else exactly the same — only apply the requested change.\nMaintain the same composition, lighting quality, and overall style.\nOutput a high quality image.`,
           model: "gemini-3.1-flash-image-preview",
@@ -4979,7 +4979,7 @@ The original subject must remain exactly as-is in the center.
 Generate realistic, coherent surroundings that match the existing scene perfectly — same lighting, color palette, depth of field, and style. 
 Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
 
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: {
           prompt,
           model: "gemini-3.1-flash-image-preview",
@@ -5047,7 +5047,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
       const imagesArr = [img1Data];
       if (img2Data) imagesArr.push(img2Data);
 
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: { prompt, model: "gemini-3.1-flash-image-preview", images: imagesArr },
       });
       if (error) throw error;
@@ -5087,7 +5087,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
     }
 
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("conversion-scanner", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("conversion-scanner", {
         body: {
           heading, description, cta,
           channel: selectedChannel,
@@ -5214,7 +5214,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
     setIsGeneratingAsset(true);
     setGeneratingLabel("Criando storytelling...");
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("generate-carousel", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("generate-carousel", {
         body: {
           campaignTitle: activeCampaign.title,
           product: activeProductName,
@@ -5250,7 +5250,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
           batch.map(async (sd: any, bIdx: number) => {
             const idx = i + bIdx;
             try {
-              const { data: imgData } = await createBrowserClient().functions.invoke("gemini-generate", {
+              const { data: imgData } = await studioSupabase.functions.invoke("gemini-generate", {
                 body: {
                   prompt: `${sd.imagePrompt}, ${activeProductName}, high quality commercial photography`,
                   model: "gemini-2.5-flash-image",
@@ -5319,7 +5319,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
       prev.map((s, i) => i === activeSlide ? { ...s, image: undefined } : s)
     );
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: {
           prompt: `${slideImagePrompt}, ${activeProductName}, high quality commercial photography`,
           model: currentSlideModel.id,
@@ -5357,7 +5357,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
     try {
       const currentValue = fieldKey === "heading" ? heading : fieldKey === "description" ? description : cta;
       const productName = activeProductName ?? "";
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "regenerate",
           field: fieldKey,
@@ -5390,7 +5390,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
   const handleGenerateVersionsFromToolbar = useCallback(async (fieldKey: string) => {
     setGeneratingFor(fieldKey as any);
     try {
-      const { data: fnData, error } = await createBrowserClient().functions.invoke("generate-copy", {
+      const { data: fnData, error } = await studioSupabase.functions.invoke("generate-copy", {
         body: {
           action: "versions",
           field: fieldKey,
@@ -5442,7 +5442,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
     try {
       const imageBase64 = await imageUrlToBase64(activeImageUrl);
 
-      const { data: analysisData, error } = await createBrowserClient().functions.invoke("gemini-generate", {
+      const { data: analysisData, error } = await studioSupabase.functions.invoke("gemini-generate", {
         body: {
           prompt: `Analyze this image and describe its visual mood in 3-5 keywords in English, focusing on: lighting quality, color temperature, emotional tone, scene type, and style. Examples of keywords: "warm", "lifestyle", "golden hour", "editorial", "dark", "bold", "clean", "aesthetic", "candid", "luxury". Respond with ONLY a JSON object in this exact format: {"mood": ["keyword1", "keyword2", "keyword3"]}. No other text.`,
           model: "gemini-3.1-flash-image-preview",
@@ -8173,7 +8173,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`;
                     onClick={async () => {
                       setIsGeneratingTextBox(genPanelBoxId);
                       try {
-                        const { data: fnData, error: fnError } = await createBrowserClient().functions.invoke("generate-copy", {
+                        const { data: fnData, error: fnError } = await studioSupabase.functions.invoke("generate-copy", {
                           body: {
                             action: "freetext",
                             prompt: `Crie uma frase curta e impactante para um post de e-commerce.\nContexto da imagem: ${imagePrompt?.slice(0, 150) || "criativo de e-commerce"}\nProduto: ${activeProductName ?? "produto"}\nTom: ${t.id}\nTexto atual: "${genPanelText}"\n${visualContextRef.current ? `Contexto visual: ${visualContextRef.current}\n` : ""}Máximo: 10 palavras. Responda APENAS com o texto, sem aspas, sem explicações.`,
