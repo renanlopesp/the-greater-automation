@@ -270,17 +270,120 @@ export async function POST(request: NextRequest) {
         let fullText = ''
         let totalTokens = 0
         let currentTextId = 0
-        let continueStreaming = true
+        let pendingToolUseId: string | null = null
 
-        while (continueStreaming) {
-          const eventStream = await anthropic.beta.sessions.events.stream(sId)
+        // First round: real-time stream
+        const eventStream = await anthropic.beta.sessions.events.stream(sId)
 
-          for await (const event of eventStream) {
-            switch (event.type) {
-              case 'agent.message': {
-                const textBlocks = (
-                  event as { content?: Array<{ type: string; text: string }> }
-                ).content?.filter((b) => b.type === 'text')
+        for await (const event of eventStream) {
+          switch (event.type) {
+            case 'agent.message': {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const textBlocks = (event as any).content?.filter((b: any) => b.type === 'text')
+              if (textBlocks) {
+                for (const block of textBlocks) {
+                  const partId = `text-${currentTextId++}`
+                  writer.write({ type: 'text-start', id: partId })
+                  writer.write({ type: 'text-delta', delta: block.text, id: partId })
+                  writer.write({ type: 'text-end', id: partId })
+                  fullText += block.text
+                }
+              }
+              break
+            }
+
+            case 'agent.thinking': {
+              const reasonId = `reasoning-${currentTextId++}`
+              writer.write({ type: 'reasoning-start', id: reasonId })
+              writer.write({ type: 'reasoning-delta', id: reasonId, delta: '(thinking...)' })
+              writer.write({ type: 'reasoning-end', id: reasonId })
+              break
+            }
+
+            case 'agent.custom_tool_use': {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const te = event as any
+              console.error(`[chat] Tool call: ${te.name}`, JSON.stringify(te.input).slice(0, 200))
+              pendingToolUseId = te.id
+
+              let toolResult: unknown
+              let isError = false
+              try {
+                const tool = allTools[te.name]
+                if (!tool) {
+                  toolResult = { error: `Unknown tool: ${te.name}` }
+                  isError = true
+                } else {
+                  toolResult = await tool.execute(te.input)
+                  if (toolResult && typeof toolResult === 'object' && 'error' in toolResult)
+                    isError = true
+                }
+              } catch (err) {
+                toolResult = { error: err instanceof Error ? err.message : String(err) }
+                isError = true
+              }
+
+              await anthropic.beta.sessions.events.send(sId, {
+                events: [
+                  {
+                    type: 'user.custom_tool_result',
+                    custom_tool_use_id: te.id,
+                    content: [{ type: 'text', text: JSON.stringify(toolResult) }],
+                    is_error: isError,
+                  },
+                ],
+              })
+              break
+            }
+
+            case 'span.model_request_end': {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const usage = (event as any).model_usage
+              if (usage) {
+                totalTokens +=
+                  (usage.input_tokens ?? 0) +
+                  (usage.output_tokens ?? 0) +
+                  (usage.cache_read_input_tokens ?? 0) +
+                  (usage.cache_creation_input_tokens ?? 0)
+              }
+              break
+            }
+
+            case 'session.status_idle':
+            case 'session.status_terminated':
+            case 'session.error':
+              // Stream ended — break out
+              break
+
+            default:
+              break
+          }
+        }
+
+        // After first stream ends: check if we had a tool call
+        // If so, poll for agent to finish processing, then fetch remaining events
+        if (pendingToolUseId) {
+          // Poll until session is idle (agent processed tool result and responded)
+          for (let poll = 0; poll < 30; poll++) {
+            await new Promise((r) => setTimeout(r, 1000))
+            const session = await anthropic.beta.sessions.retrieve(sId)
+            if (session.status === 'idle') break
+          }
+
+          // Fetch all events and find the agent's response after the tool result
+          const allEvts = await anthropic.beta.sessions.events.list(sId)
+          const evtList = allEvts.data ?? []
+          const toolResultIdx = evtList.findLastIndex(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (e: any) => e.type === 'user.custom_tool_result'
+          )
+
+          if (toolResultIdx >= 0) {
+            for (let i = toolResultIdx + 1; i < evtList.length; i++) {
+              const evt = evtList[i]
+              if (evt.type === 'agent.message') {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const textBlocks = (evt as any).content?.filter((b: any) => b.type === 'text')
                 if (textBlocks) {
                   for (const block of textBlocks) {
                     const partId = `text-${currentTextId++}`
@@ -290,78 +393,9 @@ export async function POST(request: NextRequest) {
                     fullText += block.text
                   }
                 }
-                break
-              }
-
-              case 'agent.thinking': {
-                const reasonId = `reasoning-${currentTextId++}`
-                writer.write({ type: 'reasoning-start', id: reasonId })
-                writer.write({ type: 'reasoning-delta', id: reasonId, delta: '(thinking...)' })
-                writer.write({ type: 'reasoning-end', id: reasonId })
-                break
-              }
-
-              case 'agent.custom_tool_use': {
-                // Agent wants to call a custom tool — execute locally
-                const toolEvent = event as {
-                  id: string
-                  name: string
-                  input: Record<string, unknown>
-                }
-                const toolName = toolEvent.name
-                const toolInput = toolEvent.input
-                const toolUseId = toolEvent.id
-
-                console.error(
-                  `[chat] Tool call: ${toolName}`,
-                  JSON.stringify(toolInput).slice(0, 200)
-                )
-
-                let toolResult: unknown
-                let isError = false
-
-                try {
-                  const tool = allTools[toolName]
-                  if (!tool) {
-                    toolResult = { error: `Unknown tool: ${toolName}` }
-                    isError = true
-                  } else {
-                    toolResult = await tool.execute(toolInput)
-                    if (toolResult && typeof toolResult === 'object' && 'error' in toolResult) {
-                      isError = true
-                    }
-                  }
-                } catch (err) {
-                  toolResult = { error: err instanceof Error ? err.message : String(err) }
-                  isError = true
-                }
-
-                // Send tool result back to the session
-                await anthropic.beta.sessions.events.send(sId, {
-                  events: [
-                    {
-                      type: 'user.custom_tool_result',
-                      custom_tool_use_id: toolUseId,
-                      content: [{ type: 'text', text: JSON.stringify(toolResult) }],
-                      is_error: isError,
-                    },
-                  ],
-                })
-                // After sending result, we need to stream again (agent will continue)
-                break
-              }
-
-              case 'span.model_request_end': {
-                const usage = (
-                  event as {
-                    model_usage?: {
-                      input_tokens: number
-                      output_tokens: number
-                      cache_read_input_tokens: number
-                      cache_creation_input_tokens: number
-                    }
-                  }
-                ).model_usage
+              } else if (evt.type === 'span.model_request_end') {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const usage = (evt as any).model_usage
                 if (usage) {
                   totalTokens +=
                     (usage.input_tokens ?? 0) +
@@ -369,85 +403,27 @@ export async function POST(request: NextRequest) {
                     (usage.cache_read_input_tokens ?? 0) +
                     (usage.cache_creation_input_tokens ?? 0)
                 }
-                break
               }
-
-              case 'session.status_idle': {
-                // Check if idle because of tool use (need to re-stream) or end_turn (done)
-                const idleEvent = event as {
-                  stop_reason?: { type: string; event_ids?: string[] }
-                }
-                if (idleEvent.stop_reason?.type === 'custom_tool_use') {
-                  // Tool results already sent above — break inner loop to re-stream
-                  break
-                }
-
-                // Agent turn is done — finalize
-                continueStreaming = false
-                writer.write({ type: 'finish', finishReason: 'stop' })
-
-                // Persist assistant message
-                if (fullText) {
-                  await (
-                    serviceClient as unknown as {
-                      from: (t: string) => {
-                        insert: (d: unknown) => Promise<{ error?: unknown }>
-                      }
-                    }
-                  )
-                    .from('conversation_messages')
-                    .insert({
-                      conversation_id: convId,
-                      role: 'assistant',
-                      content: fullText,
-                    })
-                    .then((r: { error?: unknown }) => {
-                      if (r?.error)
-                        console.error('[chat] Failed to persist assistant message:', r.error)
-                    })
-                }
-
-                // Deduct credits
-                const credits = tokensToCredits(totalTokens)
-                if (credits > 0) {
-                  void serviceClient.rpc('increment_ai_credits', {
-                    p_team_id: teamId,
-                    p_credits: credits,
-                  })
-                }
-                return // Break out of both for-await and while loops
-              }
-
-              case 'session.status_terminated': {
-                if (!fullText) {
-                  writer.write({ type: 'text-start', id: 'error-0' })
-                  writer.write({
-                    type: 'text-delta',
-                    delta: 'The session ended unexpectedly. Please try again.',
-                    id: 'error-0',
-                  })
-                  writer.write({ type: 'text-end', id: 'error-0' })
-                }
-                writer.write({ type: 'finish', finishReason: 'stop' })
-                return
-              }
-
-              case 'session.error': {
-                const errEvent = event as { error?: { message?: string } }
-                writer.write({
-                  type: 'error',
-                  errorText: errEvent.error?.message ?? 'An error occurred',
-                })
-                return
-              }
-
-              default:
-                break
             }
           }
+        }
 
-          // If we got here and continueStreaming is still true, it means we need another stream iteration
-          // (tool result was sent, agent is processing again)
+        // Finalize
+        writer.write({ type: 'finish', finishReason: 'stop' })
+
+        if (fullText) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (serviceClient as any)
+            .from('conversation_messages')
+            .insert({ conversation_id: convId, role: 'assistant', content: fullText })
+            .then((r: { error?: unknown }) => {
+              if (r?.error) console.error('[chat] Failed to persist:', r.error)
+            })
+        }
+
+        const credits = tokensToCredits(totalTokens)
+        if (credits > 0) {
+          void serviceClient.rpc('increment_ai_credits', { p_team_id: teamId, p_credits: credits })
         }
       },
       onError: (error) => {
