@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + `@anthropic-ai/sdk` (Managed Agents API), `@supabase/ssr`, `@supabase/supabase-js` (059-agent-provisioning)
+- Supabase PostgreSQL — new columns on `teams` table (059-agent-provisioning)
+
 - TypeScript 5 (strict mode) + `@modelcontextprotocol/sdk` (McpServer, StdioServerTransport), `zod/v4`, `@supabase/supabase-js` (058-mcp-tools-server)
 - Supabase PostgreSQL (existing — no schema changes) (058-mcp-tools-server)
 
