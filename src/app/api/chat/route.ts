@@ -163,6 +163,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 
+  // Link conversation to task (so messages persist across page reloads)
+  if (taskId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    void (serviceClient as any)
+      .from('tasks')
+      .update({ conversation_id: conversationId })
+      .eq('id', taskId)
+      .then((r: { error?: unknown }) => {
+        if (r?.error) console.error('[chat] Failed to link task to conversation:', r.error)
+      })
+  }
+
   // Create Anthropic session if we don't have one
   if (!sessionId) {
     try {
@@ -366,7 +378,7 @@ export async function POST(request: NextRequest) {
                   stop_reason?: { type: string; event_ids?: string[] }
                 }
                 if (idleEvent.stop_reason?.type === 'custom_tool_use') {
-                  // Tool results already sent above — continue the while loop to re-stream
+                  // Tool results already sent above — break inner loop to re-stream
                   break
                 }
 
@@ -374,10 +386,13 @@ export async function POST(request: NextRequest) {
                 continueStreaming = false
                 writer.write({ type: 'finish', finishReason: 'stop' })
 
+                // Persist assistant message
                 if (fullText) {
-                  void (
+                  await (
                     serviceClient as unknown as {
-                      from: (t: string) => { insert: (d: unknown) => Promise<unknown> }
+                      from: (t: string) => {
+                        insert: (d: unknown) => Promise<{ error?: unknown }>
+                      }
                     }
                   )
                     .from('conversation_messages')
@@ -386,8 +401,13 @@ export async function POST(request: NextRequest) {
                       role: 'assistant',
                       content: fullText,
                     })
+                    .then((r: { error?: unknown }) => {
+                      if (r?.error)
+                        console.error('[chat] Failed to persist assistant message:', r.error)
+                    })
                 }
 
+                // Deduct credits
                 const credits = tokensToCredits(totalTokens)
                 if (credits > 0) {
                   void serviceClient.rpc('increment_ai_credits', {
@@ -395,11 +415,10 @@ export async function POST(request: NextRequest) {
                     p_credits: credits,
                   })
                 }
-                break
+                return // Break out of both for-await and while loops
               }
 
               case 'session.status_terminated': {
-                continueStreaming = false
                 if (!fullText) {
                   writer.write({ type: 'text-start', id: 'error-0' })
                   writer.write({
@@ -410,17 +429,16 @@ export async function POST(request: NextRequest) {
                   writer.write({ type: 'text-end', id: 'error-0' })
                 }
                 writer.write({ type: 'finish', finishReason: 'stop' })
-                break
+                return
               }
 
               case 'session.error': {
-                continueStreaming = false
                 const errEvent = event as { error?: { message?: string } }
                 writer.write({
                   type: 'error',
                   errorText: errEvent.error?.message ?? 'An error occurred',
                 })
-                break
+                return
               }
 
               default:
