@@ -213,6 +213,166 @@ Deno.serve(async (req: Request) => {
     }
   )
 
+  // ── Composio tools (app connections) ────────────────────────────────
+
+  const composioApiKey = Deno.env.get('COMPOSIO_API_KEY')
+
+  if (composioApiKey) {
+    const composioFetch = async (path: string, options?: RequestInit) => {
+      const r = await fetch(`https://backend.composio.dev/api/v2${path}`, {
+        ...options,
+        headers: {
+          'x-api-key': composioApiKey,
+          'Content-Type': 'application/json',
+          ...(options?.headers ?? {}),
+        },
+      })
+      if (!r.ok) throw new Error(`Composio API ${r.status}`)
+      return r.json()
+    }
+
+    server.registerTool(
+      'SNEW_LIST_AVAILABLE_APPS',
+      {
+        description: 'List all apps available for connection, with status of which are connected.',
+        inputSchema: z.object({}),
+      },
+      async () => {
+        try {
+          const [connected, apps] = await Promise.all([
+            composioFetch(`/connectedAccounts?user_id=${userId}&status=ACTIVE`),
+            supabase.from('app_connections').select('app_id').eq('user_id', userId),
+          ])
+          const connectedIds = new Set(
+            (connected.items ?? []).map((a: any) => a.toolkit?.slug?.toLowerCase())
+          )
+          const available = [
+            'instagram',
+            'gmail',
+            'google-calendar',
+            'meta-ads',
+            'shopify',
+            'slack',
+            'whatsapp',
+            'telegram',
+            'tiktok',
+            'youtube',
+            'linkedin',
+            'twitter',
+            'pinterest',
+            'discord',
+            'notion',
+            'trello',
+          ]
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({
+                  apps: available.map((a) => ({ app_id: a, connected: connectedIds.has(a) })),
+                  connected_count: connectedIds.size,
+                }),
+              },
+            ],
+          }
+        } catch (e) {
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ error: (e as Error).message }) },
+            ],
+            isError: true,
+          }
+        }
+      }
+    )
+
+    server.registerTool(
+      'SNEW_CONNECT_APP',
+      {
+        description:
+          'Generate an OAuth connection URL for a third-party app. Returns a URL the user must click to authorize. ALWAYS include this URL in your response as a clickable link.',
+        inputSchema: z.object({
+          app_id: z.string().describe('App to connect (e.g. "instagram", "gmail", "meta-ads")'),
+        }),
+      },
+      async ({ app_id }) => {
+        try {
+          // Get auth config for this app
+          const configs = await composioFetch('/authConfigs')
+          const items = configs.items ?? []
+          let authConfigId: string | null = null
+          for (const item of items) {
+            if (item.toolkit?.slug?.toLowerCase() === app_id.toLowerCase()) {
+              // Prefer OAUTH2 over API_KEY
+              if (!authConfigId || item.authScheme === 'OAUTH2') {
+                authConfigId = item.id
+              }
+            }
+          }
+          if (!authConfigId)
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({
+                    error: `No auth config for ${app_id}. Set up in Composio dashboard first.`,
+                  }),
+                },
+              ],
+              isError: true,
+            }
+
+          // Initiate connection
+          const siteUrl = Deno.env.get('SITE_URL') ?? 'https://app.snew.com.br'
+          const connection = await composioFetch('/connectedAccounts', {
+            method: 'POST',
+            body: JSON.stringify({
+              auth_config: { id: authConfigId },
+              connection: {
+                callback_url: `${siteUrl}/api/apps/callback`,
+                user_id: userId,
+                allow_multiple: true,
+              },
+            }),
+          })
+          const redirectUrl =
+            connection.connectionData?.val?.redirectUrl ?? connection.redirectUrl ?? connection.url
+          if (!redirectUrl)
+            return {
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({ error: 'Failed to get OAuth URL' }),
+                },
+              ],
+              isError: true,
+            }
+
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({
+                  success: true,
+                  app_id,
+                  redirect_url: redirectUrl,
+                  message: `Click the link to connect ${app_id}: ${redirectUrl}`,
+                }),
+              },
+            ],
+          }
+        } catch (e) {
+          return {
+            content: [
+              { type: 'text' as const, text: JSON.stringify({ error: (e as Error).message }) },
+            ],
+            isError: true,
+          }
+        }
+      }
+    )
+  }
+
   // Retail tools (only if store connected)
   if (storeId) {
     const getStore = async () => {
