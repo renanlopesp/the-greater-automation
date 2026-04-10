@@ -500,7 +500,21 @@ REGRAS: Para PERGUNTAS sobre o calendário, responda usando o contexto acima. Pa
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function generateCalendarInBackground(serviceClient: any, taskId: string, teamId: string) {
+  // Helper to update progress steps visible in the artifact loading state
+  const updateProgress = async (steps: Array<{ label: string; done: boolean }>) => {
+    await serviceClient
+      .from('tasks')
+      .update({ artifact_data: { steps }, updated_at: new Date().toISOString() })
+      .eq('id', taskId)
+  }
+
   try {
+    await updateProgress([
+      { label: 'Buscando dados da marca...', done: false },
+      { label: 'Carregando produtos do catálogo', done: false },
+      { label: 'Gerando calendário com IA', done: false },
+    ])
+
     const [{ data: bd }, { data: store }] = await Promise.all([
       serviceClient
         .from('brand_dna')
@@ -513,6 +527,12 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         .eq('team_id', teamId)
         .limit(1)
         .single(),
+    ])
+
+    await updateProgress([
+      { label: 'Dados da marca carregados', done: true },
+      { label: 'Carregando produtos do catálogo...', done: false },
+      { label: 'Gerando calendário com IA', done: false },
     ])
 
     let calendarProducts: Array<{ name: string; price: number }> = []
@@ -532,7 +552,6 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
           price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
         }))
       } catch {
-        // Fallback to DB products if Nuvemshop API fails (e.g. expired token)
         console.warn('[generateCalendarInBackground] Nuvemshop API failed, using DB products')
         const { data: prods } = await serviceClient
           .from('store_products')
@@ -549,6 +568,12 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         .limit(50)
       calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
     }
+
+    await updateProgress([
+      { label: 'Dados da marca carregados', done: true },
+      { label: `${calendarProducts.length} produtos carregados`, done: true },
+      { label: 'Gerando calendário com IA...', done: false },
+    ])
 
     const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
     const calendarData = await generateCalendar(

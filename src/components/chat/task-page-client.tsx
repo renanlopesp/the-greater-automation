@@ -56,7 +56,11 @@ function TaskContentWithLayout({
 
   let artifactInner: React.ReactNode
   if (task.skill_status === 'running') {
-    artifactInner = <ArtifactLoadingState skillName={task.active_skill} />
+    const progress = task.artifact_data as {
+      steps: Array<{ label: string; done: boolean }>
+      current?: string
+    } | null
+    artifactInner = <ArtifactLoadingState skillName={task.active_skill} progress={progress} />
   } else if (task.skill_status === 'failed') {
     artifactInner = <ArtifactErrorState />
   } else if (task.skill_status === 'completed' && task.artifact_data) {

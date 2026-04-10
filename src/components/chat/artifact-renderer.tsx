@@ -26,14 +26,65 @@ export function ArtifactEmptyState() {
 }
 
 // ── Loading State ──────────────────────────────────────────────────────
-export function ArtifactLoadingState({ skillName }: { skillName: string | null }) {
+export function ArtifactLoadingState({
+  skillName,
+  progress,
+}: {
+  skillName: string | null
+  progress?: { steps: Array<{ label: string; done: boolean }>; current?: string } | null
+}) {
   return (
     <ArtifactPanelShell loading>
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--muted-foreground)' }} />
-        <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+      <div className="flex flex-col gap-3">
+        <p className="font-medium" style={{ fontSize: 14, color: 'var(--foreground)' }}>
           {skillName ? `Gerando ${skillName}...` : 'Processando...'}
         </p>
+        {progress?.steps && progress.steps.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {progress.steps.map((step, i) => (
+              <div key={i} className="flex items-center gap-2">
+                {step.done ? (
+                  <div
+                    className="flex h-4 w-4 items-center justify-center rounded-full"
+                    style={{ background: 'color-mix(in srgb, var(--foreground) 15%, transparent)' }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path
+                        d="M2 5L4 7L8 3"
+                        stroke="var(--foreground)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                ) : (
+                  <Loader2
+                    className="h-4 w-4 animate-spin"
+                    style={{ color: 'var(--muted-foreground)' }}
+                  />
+                )}
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: step.done ? 'var(--muted-foreground)' : 'var(--foreground)',
+                  }}
+                >
+                  {step.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {!progress?.steps?.length && (
+          <div className="flex items-center gap-2">
+            <Loader2
+              className="h-4 w-4 animate-spin"
+              style={{ color: 'var(--muted-foreground)' }}
+            />
+            <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>Preparando...</p>
+          </div>
+        )}
       </div>
     </ArtifactPanelShell>
   )
