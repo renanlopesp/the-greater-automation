@@ -1,6 +1,5 @@
-import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOpenAIProvider } from '@/lib/ai/providers'
+import { askAgentJSON } from '@/lib/ai/agent-client'
 import type { CampaignProduct } from '@/data/campaign-data'
 
 const EmailTemplateSchema = z.object({
@@ -11,19 +10,21 @@ const EmailTemplateSchema = z.object({
 
 export type EmailTemplateResult = z.infer<typeof EmailTemplateSchema>
 
-export async function generateEmailTemplate(params: {
-  campaignSlogan: string
-  campaignIntro: string
-  dateName: string
-  products: CampaignProduct[]
-  brandDna: {
-    niche: string
-    tone: string
-    audience: string
-    positioning: string
+export async function generateEmailTemplate(
+  teamId: string,
+  params: {
+    campaignSlogan: string
+    campaignIntro: string
+    dateName: string
+    products: CampaignProduct[]
+    brandDna: {
+      niche: string
+      tone: string
+      audience: string
+      positioning: string
+    }
   }
-}): Promise<EmailTemplateResult> {
-  const openai = getOpenAIProvider()
+): Promise<EmailTemplateResult> {
   const { campaignSlogan, campaignIntro, dateName, products, brandDna } = params
 
   const productRows = products
@@ -71,17 +72,12 @@ PREVIEW: 80-100 chars, complementa o assunto (aparece ao lado no inbox)
 
 Toda a saída em Português do Brasil.`
 
-  const { object } = await generateObject({
-    model: openai.chat('gpt-4o'),
-    schema: EmailTemplateSchema,
-    system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Gere o email marketing completo para a campanha "${dateName}" com slogan "${campaignSlogan}".`,
-      },
-    ],
-  })
+  const result = await askAgentJSON(
+    teamId,
+    `${systemPrompt}\n\nGere o email marketing completo para a campanha "${dateName}" com slogan "${campaignSlogan}".`,
+    EmailTemplateSchema,
+    { timeout: 180_000 }
+  )
 
-  return object
+  return result
 }

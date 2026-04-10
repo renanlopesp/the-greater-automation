@@ -1,6 +1,5 @@
-import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOpenAIProvider } from '@/lib/ai/providers'
+import { askAgentJSON } from '@/lib/ai/agent-client'
 import type { CampaignProduct } from '@/data/campaign-data'
 
 interface AssetConfig {
@@ -44,17 +43,19 @@ const AssetTemplateSchema = z.object({
  * Generate campaign visual assets — full-bleed product image with modern overlay.
  * Each product gets its own asset per format.
  */
-export async function generateAssets(params: {
-  campaignSlogan: string
-  dateName: string
-  products: CampaignProduct[]
-  brandDna: {
-    niche: string
-    tone: string
-    positioning: string
+export async function generateAssets(
+  teamId: string,
+  params: {
+    campaignSlogan: string
+    dateName: string
+    products: CampaignProduct[]
+    brandDna: {
+      niche: string
+      tone: string
+      positioning: string
+    }
   }
-}): Promise<GeneratedAsset[]> {
-  const openai = getOpenAIProvider()
+): Promise<GeneratedAsset[]> {
   const { campaignSlogan, dateName, products, brandDna } = params
 
   const productsWithImages = products.filter((p) => p.image_url)
@@ -64,15 +65,9 @@ export async function generateAssets(params: {
 
   const formatResults = await Promise.all(
     ASSET_FORMATS.map(async (format) => {
-      const { object: textContent } = await generateObject({
-        model: openai.chat('gpt-4o'),
-        schema: z.object({
-          assets: z
-            .array(AssetTemplateSchema)
-            .min(1)
-            .describe(`Gere exatamente ${productsWithImages.length} itens, um para cada produto`),
-        }),
-        system: `Você é um designer de social media premium para e-commerce brasileiro. Crie textos para ${productsWithImages.length} assets de CAMPANHA no formato "${format.label}" (${format.ratio}).
+      const textContent = await askAgentJSON(
+        teamId,
+        `Você é um designer de social media premium para e-commerce brasileiro. Crie textos para ${productsWithImages.length} assets de CAMPANHA no formato "${format.label}" (${format.ratio}).
 
 CAMPANHA: ${dateName}
 SLOGAN: "${campaignSlogan}"
@@ -94,14 +89,17 @@ ESTILO: Asset de CAMPANHA promocional (NÃO é página de produto).
   - Tech: rgba(20,20,40,0.85)
 - accentColor: cor vibrante para o botão CTA
 
-Retorne exatamente ${productsWithImages.length} itens. Português do Brasil.`,
-        messages: [
-          {
-            role: 'user',
-            content: `Gere os textos para ${productsWithImages.length} assets "${format.label}" da campanha "${dateName}".`,
-          },
-        ],
-      })
+Retorne exatamente ${productsWithImages.length} itens. Português do Brasil.
+
+Gere os textos para ${productsWithImages.length} assets "${format.label}" da campanha "${dateName}".`,
+        z.object({
+          assets: z
+            .array(AssetTemplateSchema)
+            .min(1)
+            .describe(`Gere exatamente ${productsWithImages.length} itens, um para cada produto`),
+        }),
+        { timeout: 180_000 }
+      )
 
       const assets: GeneratedAsset[] = []
       for (let i = 0; i < productsWithImages.length; i++) {

@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     if (sectionType === 'email') {
       // Use dedicated email template generator for branded HTML
       const { generateEmailTemplate } = await import('@/lib/ai/email-template-generator')
-      const emailResult = await generateEmailTemplate({
+      const emailResult = await generateEmailTemplate(teamId, {
         campaignSlogan: campaign.concept.slogan,
         campaignIntro: campaign.intro,
         dateName: campaign.concept.description,
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     } else if (sectionType === 'assets') {
       // Use dedicated asset generator for AI images
       const { generateAssets } = await import('@/lib/ai/asset-generator')
-      const assets = await generateAssets({
+      const assets = await generateAssets(teamId, {
         campaignSlogan: campaign.concept.slogan,
         dateName: campaign.concept.description,
         products,

@@ -1,13 +1,11 @@
 'use server'
 
-import { generateObject } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
-import { z } from 'zod'
+import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from '@/lib/supabase/server'
 
 /**
  * Generates contextual follow-up suggestions based on the last assistant message.
- * Uses gpt-4o-mini for fast, cheap generation (~200 tokens).
+ * Uses claude-haiku for fast, cheap generation.
  */
 export async function generateFollowUps(lastMessage: string, agentName: string): Promise<string[]> {
   // Auth check — prevent unauthenticated API credit consumption
@@ -17,17 +15,18 @@ export async function generateFollowUps(lastMessage: string, agentName: string):
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const apiKey = process.env.OPEN_AI_API_KEY
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return []
 
   try {
-    const openai = createOpenAI({ apiKey })
-    const { object } = await generateObject({
-      model: openai.chat('gpt-4o-mini'),
-      schema: z.object({
-        suggestions: z.array(z.string()).min(3).max(4),
-      }),
-      prompt: `You help generate follow-up suggestions for a chat with "${agentName}", an e-commerce specialist agent.
+    const anthropic = new Anthropic({ apiKey })
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      messages: [
+        {
+          role: 'user',
+          content: `You help generate follow-up suggestions for a chat with "${agentName}", an e-commerce specialist agent.
 
 Based on the assistant's last response, generate 3-4 short follow-up questions or actions the user might want next.
 
@@ -36,13 +35,23 @@ Rules:
 - Max 40 characters each
 - Specific to what was discussed (not generic)
 - Actionable
+- Respond ONLY with a JSON array of strings, nothing else. Example: ["Sugestão 1", "Sugestão 2", "Sugestão 3"]
 
 Last response:
 ${lastMessage.slice(0, 1500)}`,
-      maxOutputTokens: 200,
+        },
+      ],
     })
 
-    return object.suggestions
+    const text = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+
+    const parsed = JSON.parse(text.trim())
+    if (Array.isArray(parsed)) return parsed.map(String).slice(0, 4)
+    if (parsed?.suggestions) return parsed.suggestions.map(String).slice(0, 4)
+    return []
   } catch {
     return []
   }

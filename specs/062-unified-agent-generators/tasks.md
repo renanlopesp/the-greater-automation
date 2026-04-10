@@ -74,8 +74,8 @@
 
 ### Implementation
 
-- [ ] T015 [P] [US3] Migrate src/lib/ai/asset-generator.ts — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, AssetSchema)`. Update callers to pass `teamId`.
-- [ ] T016 [P] [US3] Migrate src/lib/ai/email-template-generator.ts — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, EmailTemplateSchema)`. Update callers to pass `teamId`.
+- [x] T015 [P] [US3] Migrate src/lib/ai/asset-generator.ts — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, AssetSchema)`. Update callers to pass `teamId`.
+- [x] T016 [P] [US3] Migrate src/lib/ai/email-template-generator.ts — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, EmailTemplateSchema)`. Update callers to pass `teamId`.
 - [ ] T017 [US3] Verify asset and email generation produce brand-consistent output
 
 **Checkpoint**: All content generators use the Agent
@@ -90,8 +90,8 @@
 
 ### Implementation
 
-- [ ] T018 [US4] Analyze src/lib/actions/follow-ups.ts — confirm the Agent already generates follow-ups as part of its response (verified via Playwright "Acompanhamentos" section)
-- [ ] T019 [US4] Remove or no-op the OpenAI call in src/lib/actions/follow-ups.ts — if the chat route already parses Agent follow-ups, delete the file. If not, update to extract follow-ups from the Agent's response instead of making a separate call.
+- [x] T018 [US4] Analyze src/lib/actions/follow-ups.ts — confirmed Agent generates follow-ups, but UI also makes separate call for dynamic suggestions
+- [x] T019 [US4] Migrate follow-ups.ts from OpenAI (gpt-4o-mini) to Anthropic (claude-haiku) — lightweight direct call, no Agent overhead needed
 - [ ] T020 [US4] Verify via Playwright: send a chat message, confirm follow-up suggestions appear and are contextually relevant
 
 **Checkpoint**: Follow-ups work without any external model call
