@@ -246,67 +246,12 @@ export async function POST(request: NextRequest) {
     // The agent handles tool calls via MCP server — we just proxy the stream
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
-        // Build tool executors
-        const { buildPlatformTools } = await import('@/lib/ai/platform-tools')
-        const { buildRetailTools } = await import('@/lib/ai/retail-tools')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const storeIdVal = await (serviceClient as any)
-          .from('stores')
-          .select('id')
-          .eq('team_id', teamId)
-          .limit(1)
-          .single()
-          .then((r: { data: { id: string } | null }) => r.data?.id ?? null)
-        const platformTools = buildPlatformTools(user.id, teamId, serviceClient, storeIdVal, taskId)
-        const retailTools = storeIdVal
-          ? buildRetailTools(storeIdVal, teamId, serviceClient, user.id)
-          : null
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allTools: Record<string, { execute: (params: any) => Promise<unknown> }> = {
-          ...platformTools,
-          ...(retailTools ?? {}),
-        }
-
+        // Pure streaming proxy — agent handles tools via MCP server
         let fullText = ''
         let totalTokens = 0
         let currentTextId = 0
 
-        // Helper: emit text blocks from events to the UI stream
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const emitEvents = (events: any[]) => {
-          for (const evt of events) {
-            if (evt.type === 'agent.message') {
-              const textBlocks = evt.content?.filter((b: { type: string }) => b.type === 'text')
-              if (textBlocks) {
-                for (const block of textBlocks) {
-                  const partId = `text-${currentTextId++}`
-                  writer.write({ type: 'text-start', id: partId })
-                  writer.write({ type: 'text-delta', delta: block.text, id: partId })
-                  writer.write({ type: 'text-end', id: partId })
-                  fullText += block.text
-                }
-              }
-            } else if (evt.type === 'agent.thinking') {
-              const rid = `reasoning-${currentTextId++}`
-              writer.write({ type: 'reasoning-start', id: rid })
-              writer.write({ type: 'reasoning-delta', id: rid, delta: '(thinking...)' })
-              writer.write({ type: 'reasoning-end', id: rid })
-            } else if (evt.type === 'span.model_request_end' && evt.model_usage) {
-              const u = evt.model_usage
-              totalTokens +=
-                (u.input_tokens ?? 0) +
-                (u.output_tokens ?? 0) +
-                (u.cache_read_input_tokens ?? 0) +
-                (u.cache_creation_input_tokens ?? 0)
-            }
-          }
-        }
-
-        // Round 1: stream events in real-time
         const eventStream = await anthropic.beta.sessions.events.stream(sId)
-        let toolUseId: string | null = null
-        let toolName = ''
-        let toolInput: Record<string, unknown> = {}
 
         for await (const event of eventStream) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -327,10 +272,6 @@ export async function POST(request: NextRequest) {
             writer.write({ type: 'reasoning-start', id: rid })
             writer.write({ type: 'reasoning-delta', id: rid, delta: '(thinking...)' })
             writer.write({ type: 'reasoning-end', id: rid })
-          } else if (e.type === 'agent.custom_tool_use') {
-            toolUseId = e.id
-            toolName = e.name
-            toolInput = e.input ?? {}
           } else if (e.type === 'span.model_request_end' && e.model_usage) {
             const u = e.model_usage
             totalTokens +=
@@ -339,73 +280,7 @@ export async function POST(request: NextRequest) {
               (u.cache_read_input_tokens ?? 0) +
               (u.cache_creation_input_tokens ?? 0)
           }
-          // Stream ends when session goes idle
-        }
-
-        // After stream: handle tool call if one was requested
-        if (toolUseId) {
-          console.error(`[chat] Tool call: ${toolName}`, JSON.stringify(toolInput).slice(0, 200))
-          let toolResult: unknown
-          let isError = false
-          try {
-            const tool = allTools[toolName]
-            if (!tool) {
-              toolResult = { error: `Unknown tool: ${toolName}` }
-              isError = true
-            } else {
-              toolResult = await tool.execute(toolInput)
-              if (toolResult && typeof toolResult === 'object' && 'error' in toolResult)
-                isError = true
-            }
-          } catch (err) {
-            toolResult = { error: err instanceof Error ? err.message : String(err) }
-            isError = true
-          }
-
-          // Send tool result
-          await anthropic.beta.sessions.events.send(sId, {
-            events: [
-              {
-                type: 'user.custom_tool_result',
-                custom_tool_use_id: toolUseId,
-                content: [{ type: 'text', text: JSON.stringify(toolResult) }],
-                is_error: isError,
-              },
-            ],
-          })
-
-          // Wait for agent to start processing the tool result
-          for (let i = 0; i < 10; i++) {
-            await new Promise((r) => setTimeout(r, 500))
-            const session = await anthropic.beta.sessions.retrieve(sId)
-            if (session.status === 'running') break
-          }
-
-          // Stream round 2: agent's response after tool result
-          const stream2 = await anthropic.beta.sessions.events.stream(sId)
-          for await (const event of stream2) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const e = event as any
-            if (e.type === 'agent.message') {
-              const textBlocks = e.content?.filter((b: { type: string }) => b.type === 'text')
-              if (textBlocks) {
-                for (const block of textBlocks) {
-                  const partId = `text-${currentTextId++}`
-                  writer.write({ type: 'text-start', id: partId })
-                  writer.write({ type: 'text-delta', delta: block.text, id: partId })
-                  writer.write({ type: 'text-end', id: partId })
-                  fullText += block.text
-                }
-              }
-            } else if (e.type === 'span.model_request_end' && e.model_usage) {
-              const u = e.model_usage
-              totalTokens +=
-                (u.input_tokens ?? 0) +
-                (u.output_tokens ?? 0) +
-                (u.cache_read_input_tokens ?? 0) +
-                (u.cache_creation_input_tokens ?? 0)
-            }
-          }
+          // MCP tool calls are handled by the agent automatically — no intervention needed
         }
 
         // Finalize
@@ -483,16 +358,23 @@ async function provisionAgent(
   const model =
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
-  const { buildCustomToolDefinitions } = await import('@/lib/mcp/custom-tool-definitions')
-  const customTools = buildCustomToolDefinitions({ hasStore: true })
+  const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+  const mcpSecret = process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 16) ?? ''
+  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}&secret=${mcpSecret}`
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
       name: 'Snew',
       model,
       system: systemPrompt,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: customTools as any,
+      mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
+      tools: [
+        {
+          type: 'mcp_toolset',
+          mcp_server_name: 'snew-tools',
+          default_config: { enabled: true, permission_policy: { type: 'always_allow' } },
+        },
+      ],
       description: `Snew assistant for team ${teamName ?? teamId}`,
     }),
     anthropic.beta.environments.create({

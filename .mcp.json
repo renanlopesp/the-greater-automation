@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "snew-tools": {
+      "type": "http",
+      "url": "https://apsfeutbqvgfgznmaesg.supabase.co/functions/v1/mcp-tools?team_id=15fe71a9-03a1-4732-8c41-8383c887c6ed&user_id=15fe71a9-03a1-4732-8c41-8383c887c6ed"
+    }
+  }
+}

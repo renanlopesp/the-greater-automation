@@ -125,9 +125,10 @@ export async function POST() {
         ? 'claude-opus-4-6'
         : 'claude-sonnet-4-6'
 
-    // ── Build custom tools for agent ──────────────────────────────────
-    const { buildCustomToolDefinitions } = await import('@/lib/mcp/custom-tool-definitions')
-    const customTools = buildCustomToolDefinitions({ hasStore: !!store })
+    // ── Build MCP server URL for the agent ─────────────────────────────
+    const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+    const mcpSecret = process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 16) ?? ''
+    const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${user.id}${store ? `&store_id=${store.id}` : ''}&secret=${mcpSecret}`
 
     // ── Create Managed Agent + Environment ──────────────────────────────
     const anthropic = getAnthropicClient()
@@ -137,8 +138,14 @@ export async function POST() {
         name: 'Snew',
         model,
         system: systemPrompt,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tools: customTools as any,
+        mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
+        tools: [
+          {
+            type: 'mcp_toolset',
+            mcp_server_name: 'snew-tools',
+            default_config: { enabled: true, permission_policy: { type: 'always_allow' } },
+          },
+        ],
         description: `Snew assistant for team ${team?.name ?? teamId}`,
       }),
       anthropic.beta.environments.create({
