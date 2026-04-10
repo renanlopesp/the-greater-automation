@@ -27,10 +27,10 @@ Deno.serve(async (req: Request) => {
     return new Response('Missing team_id or user_id', { status: 400 })
   }
 
-  // Security: validate secret token (uses first 16 chars of service role key)
+  // Security: validate MCP auth token
   const secret = url.searchParams.get('secret')
-  const expectedSecret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.slice(0, 16)
-  if (!secret || secret !== expectedSecret) {
+  const expectedSecret = Deno.env.get('MCP_AUTH_TOKEN')
+  if (!expectedSecret || !secret || secret !== expectedSecret) {
     return new Response('Unauthorized', { status: 401 })
   }
 

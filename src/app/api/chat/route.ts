@@ -359,11 +359,7 @@ async function provisionAgent(
     plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
 
   const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-  const mcpSecret = (
-    process.env.SUPABASE_SECRET_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    ''
-  ).slice(0, 16)
+  const mcpSecret = process.env.MCP_AUTH_TOKEN ?? ''
   const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}&secret=${mcpSecret}`
 
   const [agent, env] = await Promise.all([
