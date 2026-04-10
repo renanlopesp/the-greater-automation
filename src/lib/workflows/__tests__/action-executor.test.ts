@@ -15,8 +15,8 @@ vi.mock('ai', () => ({
   generateText: vi.fn(),
 }))
 
-vi.mock('@ai-sdk/openai', () => ({
-  createOpenAI: vi.fn(),
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(),
 }))
 
 vi.mock('@/lib/composio/composio-session', () => ({

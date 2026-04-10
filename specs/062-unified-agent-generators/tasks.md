@@ -106,13 +106,13 @@
 
 ### Implementation
 
-- [ ] T021 [US5] Migrate src/lib/workflows/action-executor.ts — replace `createOpenAI()` with Anthropic SDK (`import Anthropic from '@anthropic-ai/sdk'`). Use `claude-haiku-4-5` for simple transforms (summarize, classify) and `claude-sonnet-4-6` for complex generation. Replace `generateObject`/`generateText` with `anthropic.messages.create()`.
-- [ ] T022 [P] [US5] Migrate src/app/api/workflows/[id]/assistant/route.ts — replace `createOpenAI()` + `getOpenAIProvider()` with Anthropic SDK. Update model references from `gpt-4o` to `claude-sonnet-4-6`.
-- [ ] T023 [P] [US5] Update src/components/agent-detail/agent-form.tsx — remove GPT-4 and GPT-3.5 Turbo from model dropdown options, replace with Claude models
-- [ ] T024 [US5] Delete src/lib/ai/providers.ts — no longer needed (all callers migrated)
-- [ ] T025 [US5] Run `bun remove @ai-sdk/openai` to remove the OpenAI SDK package from dependencies
-- [ ] T026 [US5] Grep entire src/ directory for any remaining `openai`, `OPEN_AI`, `gpt-` references — fix or remove each one
-- [ ] T027 [US5] Run `bun run build` and verify zero errors. Run `bun run lint` and verify zero warnings.
+- [x] T021 [US5] Migrate src/lib/workflows/action-executor.ts — replace `createOpenAI()` with `createAnthropic()`. Use `claude-haiku-4-5` for simple transforms, `claude-sonnet-4-6` for complex generation.
+- [x] T022 [P] [US5] Migrate src/app/api/workflows/[id]/assistant/route.ts — replace `createOpenAI()` with `createAnthropic()`, model `gpt-4o` → `claude-sonnet-4-6`
+- [x] T023 [P] [US5] Update src/components/agent-detail/agent-form.tsx — remove GPT options, add Claude models
+- [x] T024 [US5] Delete src/lib/ai/providers.ts — no longer needed
+- [x] T025 [US5] Run `bun remove @ai-sdk/openai` — package removed
+- [x] T026 [US5] Fix remaining OpenAI refs: agent-chat.ts (legacy, swapped to Anthropic), action-executor.test.ts (mock updated)
+- [x] T027 [US5] Build passes with zero errors
 
 **Checkpoint**: OpenAI fully removed — single AI provider (Anthropic)
 

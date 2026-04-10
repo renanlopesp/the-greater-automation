@@ -1,5 +1,5 @@
 import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { createServerClient } from '@/lib/supabase/server'
 import { createLogger } from '@/lib/logger'
 
@@ -10,12 +10,12 @@ import {
   type WorkflowAssistantContext,
 } from '@/lib/ai/workflow-assistant'
 
-function getOpenAIProvider() {
-  const apiKey = process.env.OPEN_AI_API_KEY
+function getAnthropicProvider() {
+  const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    throw new Error('OPEN_AI_API_KEY environment variable is required')
+    throw new Error('ANTHROPIC_API_KEY environment variable is required')
   }
-  return createOpenAI({ apiKey })
+  return createAnthropic({ apiKey })
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -59,13 +59,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const systemPrompt = buildWorkflowAssistantPrompt(context)
-    const provider = getOpenAIProvider()
+    const provider = getAnthropicProvider()
 
     // Convert UIMessage[] to model messages (same pattern as agent chat)
     const modelMessages = await convertToModelMessages(messages)
 
     const result = streamText({
-      model: provider.chat('gpt-4o'),
+      model: provider('claude-sonnet-4-6'),
       system: systemPrompt,
       messages: modelMessages,
       tools: {

@@ -1,5 +1,5 @@
 import { generateText } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createLogger } from '@/lib/logger'
 
@@ -181,15 +181,16 @@ async function executeAiTransform(
   const startTime = Date.now()
 
   try {
-    const openai = createOpenAI({
-      apiKey: process.env.OPEN_AI_API_KEY,
+    const anthropic = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
-    const model = config.model && config.model !== 'default' ? config.model : 'gpt-4o-mini'
+    const model =
+      config.model && config.model !== 'default' ? config.model : 'claude-haiku-4-5-20251001'
     const resolvedPrompt = resolveTemplate(config.prompt, triggerData, previousOutputs)
 
     const { text } = await generateText({
-      model: openai(model),
+      model: anthropic(model),
       prompt: resolvedPrompt,
     })
 
@@ -262,11 +263,11 @@ async function executeClaudeAgentStep(
   const startTime = Date.now()
 
   try {
-    const openai = createOpenAI({
-      apiKey: process.env.OPEN_AI_API_KEY,
+    const anthropic = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
-    const model = config.model && config.model !== 'default' ? config.model : 'gpt-4o'
+    const model = config.model && config.model !== 'default' ? config.model : 'claude-sonnet-4-6'
     const resolvedPrompt = resolveTemplate(config.prompt, triggerData, previousOutputs)
     const timeoutMs = config.timeout_ms ?? 300_000
 
@@ -304,7 +305,7 @@ async function executeClaudeAgentStep(
 ${config.output_format === 'json' ? 'IMPORTANT: Your final response MUST be valid JSON. Do not include markdown code fences or any text outside the JSON object.' : ''}`
 
     const { text } = await generateText({
-      model: openai(model),
+      model: anthropic(model),
       system: systemPrompt,
       prompt: resolvedPrompt,
       ...(tools

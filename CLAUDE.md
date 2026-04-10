@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + `@anthropic-ai/sdk` (Sessions API), `zod` (schema validation), `@supabase/supabase-js` (062-unified-agent-generators)
+- Supabase PostgreSQL (existing `teams` table — `anthropic_agent_id`, `anthropic_env_id`) (062-unified-agent-generators)
+
 - TypeScript 5 (strict mode) + `@anthropic-ai/sdk` (Sessions API), `ai` (createUIMessageStream), `@supabase/ssr` (060-chat-engine-replacement)
 - Supabase PostgreSQL — conversations table (anthropic_session_id column) (060-chat-engine-replacement)
 

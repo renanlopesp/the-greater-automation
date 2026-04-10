@@ -1,5 +1,4 @@
 import { streamText, generateText, stepCountIs, type ToolSet } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { getComposioSession } from '@/lib/composio/composio-session'
 import { createLogger } from '@/lib/logger'
@@ -391,19 +390,14 @@ export function buildAgentSystemPrompt(
 }
 
 // ---------------------------------------------------------------------------
-// OpenAI provider for agent chat (supports function calling)
+// Anthropic provider for legacy agent chat
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL = 'gpt-4o'
+const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
-/** Reasoning models don't support temperature and require the Responses API for reasoning summaries */
+/** Reasoning models don't support temperature */
 function isReasoningModel(modelId: string): boolean {
-  return (
-    modelId.startsWith('o1') ||
-    modelId.startsWith('o3') ||
-    modelId.startsWith('o4') ||
-    modelId.startsWith('gpt-5')
-  )
+  return modelId.includes('opus')
 }
 
 /** Check if a model ID belongs to Anthropic (Claude) */
@@ -412,16 +406,11 @@ export function isAnthropicModel(modelId: string): boolean {
 }
 
 /**
- * Get the OpenAI provider for agent chat.
- * Uses OPEN_AI_API_KEY for function calling support.
- * Kiro is kept for other features but doesn't support tool use.
+ * @deprecated Use askAgent from agent-client.ts instead.
+ * Legacy provider kept for telegram-processor compatibility.
  */
 export function getOpenAIProvider() {
-  const apiKey = process.env.OPEN_AI_API_KEY
-  if (!apiKey) {
-    throw new Error('OPEN_AI_API_KEY environment variable is required for agent chat')
-  }
-  return createOpenAI({ apiKey })
+  return getAnthropicProvider()
 }
 
 /**
@@ -439,12 +428,8 @@ export function getAnthropicProvider() {
  * Get the correct model instance for a given model ID.
  * Routes to the appropriate provider based on model prefix.
  */
-function getModel(provider: ReturnType<typeof getOpenAIProvider>, modelId: string) {
-  if (isAnthropicModel(modelId)) {
-    const anthropic = getAnthropicProvider()
-    return anthropic(modelId)
-  }
-  return isReasoningModel(modelId) ? provider.responses(modelId) : provider.chat(modelId)
+function getModel(provider: ReturnType<typeof getAnthropicProvider>, modelId: string) {
+  return provider(modelId.startsWith('claude-') ? modelId : DEFAULT_MODEL)
 }
 
 // ---------------------------------------------------------------------------
@@ -610,11 +595,6 @@ export async function runAgentChat(options: AgentChatOptions) {
   const modelId = agent.model && agent.model !== 'default' ? agent.model : DEFAULT_MODEL
   const anthropic = isAnthropicModel(modelId)
 
-  // Add OpenAI web search for grounded responses (not available for Anthropic)
-  if (!anthropic) {
-    allTools['web_search'] = provider.tools.webSearch({ searchContextSize: 'medium' })
-  }
-
   // Stream with native tool calling + multi-step loop
   const reasoning = !anthropic && isReasoningModel(modelId)
   const result = streamText({
@@ -624,9 +604,7 @@ export async function runAgentChat(options: AgentChatOptions) {
     tools: allTools as unknown as ToolSet,
     stopWhen: stepCountIs(10),
     ...(!reasoning && !anthropic ? { temperature: agent.temperature ?? 0.7 } : {}),
-    ...(reasoning
-      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' } } }
-      : {}),
+    ...(reasoning ? {} : {}),
     ...(anthropic
       ? { providerOptions: { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } } }
       : {}),
@@ -705,7 +683,7 @@ export async function runAgentChatSync(
       ...(reasoning
         ? {
             providerOptions: {
-              openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' },
+              // reasoning options removed (OpenAI-specific)
             },
           }
         : {}),
@@ -753,9 +731,7 @@ export async function runAgentChatSync(
       ? { tools: allTools as Parameters<typeof generateText>[0]['tools'], maxSteps: 10 }
       : {}),
     ...(!reasoning ? { temperature: agent.temperature ?? 0.7 } : {}),
-    ...(reasoning
-      ? { providerOptions: { openai: { reasoningEffort: 'medium', reasoningSummary: 'detailed' } } }
-      : {}),
+    ...(reasoning ? {} : {}),
     maxOutputTokens: agent.max_tokens ?? 4096,
   })
 
@@ -808,7 +784,7 @@ function extractToolSummaries(steps: any[]): string[] {
  * didn't produce a final text response after tool execution.
  */
 async function generateFollowUp(
-  provider: ReturnType<typeof getOpenAIProvider>,
+  provider: ReturnType<typeof getAnthropicProvider>,
   modelId: string,
   systemPrompt: string,
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
