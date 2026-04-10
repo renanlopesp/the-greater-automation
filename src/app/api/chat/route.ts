@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   // Auto-provision if needed
   if (!agentId || !envId) {
     try {
-      const ids = await provisionAgent(anthropic, serviceClient, teamId, team?.name)
+      const ids = await provisionAgent(anthropic, serviceClient, teamId, team?.name, taskId)
       agentId = ids.agentId
       envId = ids.envId
     } catch (error) {
@@ -343,7 +343,8 @@ async function provisionAgent(
   anthropic: ReturnType<typeof getAnthropicClient>,
   serviceClient: ReturnType<typeof createServiceRoleClient>,
   teamId: string,
-  teamName?: string
+  teamName?: string,
+  taskId?: string
 ): Promise<{ agentId: string; envId: string }> {
   // Use the same logic as the provision route: import directly
   const { buildOrchestratorSystemPrompt } = await import('@/lib/ai/platform-tools')
@@ -385,7 +386,7 @@ async function provisionAgent(
 
   const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
   const mcpSecret = process.env.MCP_AUTH_TOKEN ?? ''
-  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}${storeId ? `&store_id=${storeId}` : ''}&secret=${mcpSecret}`
+  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}${storeId ? `&store_id=${storeId}` : ''}${taskId ? `&task_id=${taskId}` : ''}&secret=${mcpSecret}`
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
