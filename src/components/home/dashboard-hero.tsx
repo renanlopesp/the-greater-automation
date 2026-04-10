@@ -21,14 +21,15 @@ function getSkillIcon(iconName: string) {
 }
 
 const MODEL_OPTIONS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'gpt-5.2', label: 'GPT-5.2' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
 ] as const
 
+const DEFAULT_MODEL = MODEL_OPTIONS[0].id
+
 function getStoredModel(): string {
-  if (typeof window === 'undefined') return 'gpt-5.2'
-  return localStorage.getItem('snew-chat-model') || 'gpt-5.2'
+  if (typeof window === 'undefined') return DEFAULT_MODEL
+  return localStorage.getItem('snew-chat-model') || DEFAULT_MODEL
 }
 
 export default function DashboardHero() {

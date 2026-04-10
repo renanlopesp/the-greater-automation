@@ -49,7 +49,7 @@ export async function installAgent(
       name: definition.name,
       description: definition.description,
       palette: 'blue',
-      model: 'gpt-5.2',
+      model: 'claude-opus-4-6',
     })
     .select('id')
     .single()

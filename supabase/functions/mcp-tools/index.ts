@@ -219,7 +219,7 @@ Deno.serve(async (req: Request) => {
 
   if (composioApiKey) {
     const composioFetch = async (path: string, options?: RequestInit) => {
-      const r = await fetch(`https://backend.composio.dev/api/v2${path}`, {
+      const r = await fetch(`https://backend.composio.dev/api/v3${path}`, {
         ...options,
         headers: {
           'x-api-key': composioApiKey,
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request) => {
           ...(options?.headers ?? {}),
         },
       })
-      if (!r.ok) throw new Error(`Composio API ${r.status}`)
+      if (!r.ok) throw new Error(`Composio API ${r.status}: ${await r.text().catch(() => '')}`)
       return r.json()
     }
 
@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
       async () => {
         try {
           const [connected, apps] = await Promise.all([
-            composioFetch(`/connectedAccounts?user_id=${userId}&status=ACTIVE`),
+            composioFetch(`/connected_accounts?user_id=${userId}&status=ACTIVE`),
             supabase.from('app_connections').select('app_id').eq('user_id', userId),
           ])
           const connectedIds = new Set(
@@ -298,7 +298,7 @@ Deno.serve(async (req: Request) => {
       async ({ app_id }) => {
         try {
           // Get auth config for this app
-          const configs = await composioFetch('/authConfigs')
+          const configs = await composioFetch('/auth_configs')
           const items = configs.items ?? []
           let authConfigId: string | null = null
           for (const item of items) {
@@ -324,7 +324,7 @@ Deno.serve(async (req: Request) => {
 
           // Initiate connection
           const siteUrl = Deno.env.get('SITE_URL') ?? 'https://app.snew.com.br'
-          const connection = await composioFetch('/connectedAccounts', {
+          const connection = await composioFetch('/connected_accounts', {
             method: 'POST',
             body: JSON.stringify({
               auth_config: { id: authConfigId },

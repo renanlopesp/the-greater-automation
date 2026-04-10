@@ -1,7 +1,7 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import { type CatalogSummary, formatCatalogForLLM } from '@/lib/retail/catalog-summarizer'
-import { getOpenAIProvider } from '@/lib/ai/agent-chat'
+import { getOpenAIProvider } from '@/lib/ai/providers'
 
 export interface StoreInfo {
   name: string

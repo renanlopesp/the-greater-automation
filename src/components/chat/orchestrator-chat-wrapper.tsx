@@ -78,9 +78,8 @@ function extractConnectionUrls(parts: any[]): Array<{ app: string; url: string }
 }
 
 const MODEL_OPTIONS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', short: 'Opus' },
-  { id: 'gpt-5.2', label: 'GPT-5.2', short: 'GPT' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
 ] as const
 
 export default function OrchestratorChatWrapper({

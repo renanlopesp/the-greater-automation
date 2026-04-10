@@ -1,6 +1,6 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOpenAIProvider } from '@/lib/ai/agent-chat'
+import { getOpenAIProvider } from '@/lib/ai/providers'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('ai/store-visual-analyzer')
