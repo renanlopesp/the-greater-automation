@@ -33,24 +33,27 @@ export function ArtifactLoadingState({
   skillName: string | null
   progress?: { steps: Array<{ label: string; done: boolean }>; current?: string } | null
 }) {
-  return (
-    <ArtifactPanelShell loading>
-      <div className="flex flex-col gap-3">
-        <p className="font-medium" style={{ fontSize: 14, color: 'var(--foreground)' }}>
-          {skillName ? `Gerando ${skillName}...` : 'Processando...'}
-        </p>
-        {progress?.steps && progress.steps.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {progress.steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-2">
+  const hasSteps = progress?.steps && progress.steps.length > 0
+
+  // Show progress steps without skeleton when available
+  if (hasSteps) {
+    return (
+      <ArtifactPanelShell>
+        <div className="flex flex-col gap-4">
+          <p className="font-medium" style={{ fontSize: 15, color: 'var(--foreground)' }}>
+            {skillName ? `Gerando ${skillName}...` : 'Processando...'}
+          </p>
+          <div className="flex flex-col gap-3">
+            {progress!.steps.map((step, i) => (
+              <div key={i} className="flex items-center gap-2.5">
                 {step.done ? (
                   <div
-                    className="flex h-4 w-4 items-center justify-center rounded-full"
-                    style={{ background: 'color-mix(in srgb, var(--foreground) 15%, transparent)' }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: 'color-mix(in srgb, var(--foreground) 12%, transparent)' }}
                   >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                       <path
-                        d="M2 5L4 7L8 3"
+                        d="M2.5 6L5 8.5L9.5 3.5"
                         stroke="var(--foreground)"
                         strokeWidth="1.5"
                         strokeLinecap="round"
@@ -60,7 +63,7 @@ export function ArtifactLoadingState({
                   </div>
                 ) : (
                   <Loader2
-                    className="h-4 w-4 animate-spin"
+                    className="h-5 w-5 shrink-0 animate-spin"
                     style={{ color: 'var(--muted-foreground)' }}
                   />
                 )}
@@ -75,16 +78,19 @@ export function ArtifactLoadingState({
               </div>
             ))}
           </div>
-        )}
-        {!progress?.steps?.length && (
-          <div className="flex items-center gap-2">
-            <Loader2
-              className="h-4 w-4 animate-spin"
-              style={{ color: 'var(--muted-foreground)' }}
-            />
-            <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>Preparando...</p>
-          </div>
-        )}
+        </div>
+      </ArtifactPanelShell>
+    )
+  }
+
+  // Fallback: skeleton loading
+  return (
+    <ArtifactPanelShell loading>
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--muted-foreground)' }} />
+        <p style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>
+          {skillName ? `Gerando ${skillName}...` : 'Processando...'}
+        </p>
       </div>
     </ArtifactPanelShell>
   )
