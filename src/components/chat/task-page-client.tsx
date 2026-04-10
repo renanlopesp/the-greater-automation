@@ -1,5 +1,7 @@
 'use client'
 
+// Module-level cache for progress steps (survives artifact_data overwrite)
+const stepsCache = new Map<string, ProgressStep[]>()
 import { ChatContextProvider } from '@/contexts/chat-context'
 import ChatHeader from '@/components/chat/chat-header'
 import ChatLayout from '@/components/chat/chat-layout'
@@ -30,6 +32,8 @@ interface TaskPageClientProps {
   initialQuery?: string
 }
 
+type ProgressStep = { label: string; done: boolean }
+
 function TaskContentWithLayout({
   task: initialTask,
   initialConversationId,
@@ -40,6 +44,27 @@ function TaskContentWithLayout({
   const { data: liveTask } = useTask(initialTask.id)
   const task = liveTask ?? initialTask
 
+  // Cache progress steps so they survive artifact_data overwrite
+  if (task.skill_status === 'running' && task.artifact_data) {
+    const steps = (task.artifact_data as { steps?: ProgressStep[] })?.steps
+    if (steps && steps.length > 0) stepsCache.set(initialTask.id, steps)
+  }
+  const cachedSteps = stepsCache.get(initialTask.id) ?? []
+
+  // Build skill progress: running shows live steps, completed shows last steps all checked
+  let skillProgress: { skillName: string | null; steps: ProgressStep[]; done?: boolean } | undefined
+  if (task.skill_status === 'running' && cachedSteps.length > 0) {
+    skillProgress = { skillName: task.active_skill, steps: cachedSteps }
+  } else if (task.skill_status === 'completed' && task.active_skill && cachedSteps.length > 0) {
+    skillProgress = {
+      skillName: task.active_skill,
+      steps: cachedSteps.map((s) => ({ ...s, done: true })),
+      done: true,
+    }
+  } else if (task.skill_status === 'completed' && task.active_skill) {
+    skillProgress = { skillName: task.active_skill, steps: [], done: true }
+  }
+
   const chatContent = (
     <div className="flex h-full flex-col overflow-hidden">
       <ChatHeader />
@@ -49,19 +74,7 @@ function TaskContentWithLayout({
           initialMessages={initialMessages}
           initialQuery={initialQuery}
           taskId={initialTask.id}
-          skillProgress={
-            task.skill_status === 'running' && task.artifact_data
-              ? {
-                  skillName: task.active_skill,
-                  steps:
-                    (task.artifact_data as { steps?: Array<{ label: string; done: boolean }> })
-                      ?.steps ?? [],
-                  done: false,
-                }
-              : task.skill_status === 'completed' && task.active_skill
-                ? { skillName: task.active_skill, steps: [], done: true }
-                : undefined
-          }
+          skillProgress={skillProgress}
         />
       </div>
     </div>
