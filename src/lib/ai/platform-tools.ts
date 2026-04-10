@@ -188,7 +188,7 @@ export function buildPlatformTools(
               }))
             }
 
-            const calendarResult = await generateCalendar({
+            const calendarResult = await generateCalendar(teamId, {
               brandDna: {
                 niche: (brandDna?.niche as string) ?? 'varejo',
                 audience: (brandDna?.audience as string) ?? 'consumidores gerais',
@@ -1252,7 +1252,7 @@ export function buildPlatformTools(
 
                 const { generateConcept: genConcept } =
                   await import('@/lib/ai/seasonal-campaign-generator')
-                const conceptResult = await genConcept({
+                const conceptResult = await genConcept(teamId, {
                   date: {
                     id: dateId,
                     name: dateObj.name,

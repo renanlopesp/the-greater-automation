@@ -1,6 +1,5 @@
-import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOpenAIProvider } from '@/lib/ai/providers'
+import { getAnthropicClient } from '@/lib/anthropic'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('ai/store-visual-analyzer')
@@ -137,20 +136,11 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
     return null
   }
 
-  // Step 2: Analyze screenshot with GPT vision
+  // Step 2: Analyze screenshot with Claude vision
   try {
-    const openai = getOpenAIProvider()
+    const anthropic = getAnthropicClient()
 
-    const { object } = await generateObject({
-      model: openai.responses('gpt-5.2'),
-      schema: VisualAnalysisSchema,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Analise este screenshot da homepage de uma loja virtual brasileira (${storeUrl}).
+    const textPrompt = `Analise este screenshot da homepage de uma loja virtual brasileira (${storeUrl}).
 
 Extraia:
 1. As cores EXATAS predominantes do layout — header, botoes, backgrounds, textos, logo, banners. Use os codigos hex reais que voce observa, nao invente cores.
@@ -160,18 +150,42 @@ Extraia:
 5. FONTES: ${extractedFonts.length > 0 ? `As seguintes fontes foram detectadas no HTML/CSS do site: ${extractedFonts.join(', ')}. Use EXATAMENTE esses nomes. Determine qual e usada para headings e qual para corpo/UI baseado no screenshot.` : 'Identifique as fontes usadas no site (heading, corpo, UI). Se nao conseguir identificar o nome exato, de o melhor palpite baseado no estilo visual.'}
 6. TEXTOS DE MARCA: Extraia APENAS textos de destaque da marca — slogan, tagline, frase de impacto, proposta de valor. NAO inclua itens de menu (Inicio, Produtos, Contato), nomes de categorias, precos ou textos genéricos de navegacao. Foque em frases que expressam a identidade e posicionamento da marca. Se nao houver textos de marca claros, retorne array vazio.
 
-IMPORTANTE: Extraia as cores REAIS e fontes REAIS que voce ve no screenshot. Nao use valores genericos ou padrao.`,
-            },
-            {
-              type: 'image',
-              image: screenshotUrl,
-            },
+IMPORTANTE: Extraia as cores REAIS e fontes REAIS que voce ve no screenshot. Nao use valores genericos ou padrao.
+
+Responda APENAS com JSON válido seguindo este formato:
+{"color_palette":[{"hex":"#xxx","label":"Nome cor"}],"palette_description":"...","visual_style":"...","logo_description":"...ou null","fonts":[{"name":"...","usage":"...","category":"serif|sans-serif|..."}],"brand_texts":[{"type":"slogan|bio|tagline","label":"LABEL","content":"..."}]}`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: textPrompt },
+            { type: 'image', source: { type: 'url', url: screenshotUrl } },
           ],
         },
       ],
     })
 
-    return object
+    const text = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => (b as { type: 'text'; text: string }).text)
+      .join('')
+
+    // Parse and validate
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      log.warn('No JSON found in vision response')
+      return null
+    }
+    const parsed = VisualAnalysisSchema.safeParse(JSON.parse(jsonMatch[0]))
+    if (!parsed.success) {
+      log.warn({ errors: parsed.error.issues }, 'Vision response validation failed')
+      return null
+    }
+    return parsed.data
   } catch (err) {
     log.warn({ err }, 'Vision analysis error')
     return null

@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 7. Generate calendar
-    const calendar = await generateCalendar({
+    const calendar = await generateCalendar(teamId, {
       brandDna,
       products,
       currentDate: new Date(),

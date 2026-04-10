@@ -1,6 +1,5 @@
-import { generateObject } from 'ai'
 import { z } from 'zod'
-import { getOpenAIProvider } from '@/lib/ai/providers'
+import { askAgentJSON } from '@/lib/ai/agent-client'
 import type {
   FullCampaign,
   ProductTag,
@@ -154,24 +153,26 @@ const FullCampaignSchema = z.object({
 // generateCalendar
 // ---------------------------------------------------------------------------
 
-export async function generateCalendar(params: {
-  brandDna: {
-    niche: string
-    audience: string
-    positioning: string
-    tone: string
-    average_ticket: number
-    opportunities: Array<{
-      title: string
-      description: string
-      estimated_revenue: number
-    }>
+export async function generateCalendar(
+  teamId: string,
+  params: {
+    brandDna: {
+      niche: string
+      audience: string
+      positioning: string
+      tone: string
+      average_ticket: number
+      opportunities: Array<{
+        title: string
+        description: string
+        estimated_revenue: number
+      }>
+    }
+    products: Array<{ name: string; category?: string; price: number }>
+    currentDate: Date
+    year: number
   }
-  products: Array<{ name: string; category?: string; price: number }>
-  currentDate: Date
-  year: number
-}): Promise<PersonalizedCalendar> {
-  const openai = getOpenAIProvider()
+): Promise<PersonalizedCalendar> {
   const { brandDna, products, currentDate, year } = params
 
   const currentDateISO = currentDate.toISOString().split('T')[0]
@@ -236,16 +237,9 @@ INSTRUÇÕES:
 
 Toda a saída deve estar em Português do Brasil.`
 
-  const { object } = await generateObject({
-    model: openai.chat('gpt-4o'),
-    schema: PersonalizedCalendarSchema,
-    system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Gere o calendário sazonal personalizado para o ano ${year} com base no perfil da loja descrito no prompt de sistema. Data atual: ${currentDateISO}.`,
-      },
-    ],
+  const fullPrompt = `${systemPrompt}\n\nGere o calendário sazonal personalizado para o ano ${year} com base no perfil da loja descrito acima. Data atual: ${currentDateISO}.`
+  const object = await askAgentJSON(teamId, fullPrompt, PersonalizedCalendarSchema, {
+    timeout: 180_000,
   })
 
   // Post-generation fix: bump past dates to next year
@@ -272,37 +266,39 @@ Toda a saída deve estar em Português do Brasil.`
 // generateCampaign
 // ---------------------------------------------------------------------------
 
-export async function generateCampaign(params: {
-  date: {
-    id: string
-    name: string
-    emoji: string
-    displayDate: string
+export async function generateCampaign(
+  teamId: string,
+  params: {
+    date: {
+      id: string
+      name: string
+      emoji: string
+      displayDate: string
+    }
+    brandDna: {
+      niche: string
+      tone: string
+      audience: string
+      positioning: string
+      words_to_use: string[]
+      words_to_avoid: string[]
+      average_ticket: number
+    }
+    products: Array<{
+      product_id?: string
+      name: string
+      price: number
+      image_url?: string
+      category?: string
+      description?: string
+      cost_price?: number
+      stock_quantity?: number
+      sales_count?: number
+      margin_pct?: number
+      suggested_tag?: string
+    }>
   }
-  brandDna: {
-    niche: string
-    tone: string
-    audience: string
-    positioning: string
-    words_to_use: string[]
-    words_to_avoid: string[]
-    average_ticket: number
-  }
-  products: Array<{
-    product_id?: string
-    name: string
-    price: number
-    image_url?: string
-    category?: string
-    description?: string
-    cost_price?: number
-    stock_quantity?: number
-    sales_count?: number
-    margin_pct?: number
-    suggested_tag?: string
-  }>
-}): Promise<FullCampaign> {
-  const openai = getOpenAIProvider()
+): Promise<FullCampaign> {
   const { date, brandDna, products } = params
 
   const productsContext =
@@ -390,19 +386,10 @@ IMPORTANTE:
 - OBRIGATÓRIO: Para cada produto, retorne o campo product_id EXATAMENTE como fornecido na lista (ex: "12345"). Isso é crítico para vincular imagens e dados. NÃO invente IDs.
 - Use as tags sugeridas (best-seller, alta-margem, etc.) quando fornecidas — elas são baseadas em dados reais de vendas e margem da loja.`
 
-  const { object } = await generateObject({
-    model: openai.chat('gpt-4o'),
-    schema: FullCampaignSchema,
-    system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Gere a campanha completa para "${date.name}" (${date.displayDate}) personalizada para essa loja.`,
-      },
-    ],
-  })
-
-  return object as FullCampaign
+  const fullPrompt = `${systemPrompt}\n\nGere a campanha completa para "${date.name}" (${date.displayDate}) personalizada para essa loja.`
+  return askAgentJSON(teamId, fullPrompt, FullCampaignSchema, {
+    timeout: 180_000,
+  }) as Promise<FullCampaign>
 }
 
 // ---------------------------------------------------------------------------
@@ -433,19 +420,21 @@ const SectionSchemas = {
 
 type SectionType = keyof typeof SectionSchemas
 
-export async function regenerateSection(params: {
-  sectionType: SectionType
-  existingCampaign: FullCampaign
-  brandDna: {
-    niche: string
-    tone: string
-    audience: string
-    positioning: string
-    words_to_use: string[]
-    words_to_avoid: string[]
+export async function regenerateSection(
+  teamId: string,
+  params: {
+    sectionType: SectionType
+    existingCampaign: FullCampaign
+    brandDna: {
+      niche: string
+      tone: string
+      audience: string
+      positioning: string
+      words_to_use: string[]
+      words_to_avoid: string[]
+    }
   }
-}): Promise<Partial<FullCampaign>> {
-  const openai = getOpenAIProvider()
+): Promise<Partial<FullCampaign>> {
   const { sectionType, existingCampaign, brandDna } = params
 
   const sectionLabels: Record<SectionType, string> = {
@@ -482,9 +471,6 @@ INSTRUÇÕES:
 
   const schema = SectionSchemas[sectionType]
 
-  // Use gpt-5.2 for video scripts (better reasoning for structure/format)
-  const modelId = sectionType === 'video' ? 'gpt-5.2' : 'gpt-4o'
-
   // Extra instructions for video scripts
   const videoExtra =
     sectionType === 'video'
@@ -498,19 +484,10 @@ INSTRUÇÕES:
 - IMPORTANTE: respeitar as durações — não ultrapassar os timestamps.`
       : ''
 
-  const { object } = await generateObject({
-    model: openai.chat(modelId),
-    schema,
-    system: systemPrompt + videoExtra,
-    messages: [
-      {
-        role: 'user',
-        content: `Regenere a seção "${sectionLabels[sectionType]}" com uma nova abordagem criativa, mantendo coerência com o conceito "${existingCampaign.concept.slogan}".`,
-      },
-    ],
-  })
-
-  return object as Partial<FullCampaign>
+  const fullPrompt = `${systemPrompt}${videoExtra}\n\nRegeneré a seção "${sectionLabels[sectionType]}" com uma nova abordagem criativa, mantendo coerência com o conceito "${existingCampaign.concept.slogan}".`
+  return askAgentJSON(teamId, fullPrompt, schema as z.ZodType<unknown>, {
+    timeout: 180_000,
+  }) as Promise<Partial<FullCampaign>>
 }
 
 // ---------------------------------------------------------------------------
@@ -528,36 +505,38 @@ const ConceptOnlySchema = z.object({
     ),
 })
 
-export async function generateConcept(params: {
-  date: {
-    id: string
-    name: string
-    emoji: string
-    displayDate: string
+export async function generateConcept(
+  teamId: string,
+  params: {
+    date: {
+      id: string
+      name: string
+      emoji: string
+      displayDate: string
+    }
+    brandDna: {
+      niche: string
+      tone: string
+      audience: string
+      positioning: string
+      words_to_use: string[]
+      words_to_avoid: string[]
+      average_ticket: number
+    }
+    products: Array<{
+      product_id?: string
+      name: string
+      price: number
+      image_url?: string
+      category?: string
+      description?: string
+      stock_quantity?: number
+      sales_count?: number
+      margin_pct?: number
+      suggested_tag?: string
+    }>
   }
-  brandDna: {
-    niche: string
-    tone: string
-    audience: string
-    positioning: string
-    words_to_use: string[]
-    words_to_avoid: string[]
-    average_ticket: number
-  }
-  products: Array<{
-    product_id?: string
-    name: string
-    price: number
-    image_url?: string
-    category?: string
-    description?: string
-    stock_quantity?: number
-    sales_count?: number
-    margin_pct?: number
-    suggested_tag?: string
-  }>
-}): Promise<{ intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }> {
-  const openai = getOpenAIProvider()
+): Promise<{ intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }> {
   const { date, brandDna, products } = params
 
   const productsContext =
@@ -611,17 +590,10 @@ IMPORTANTE:
 - Use as tags sugeridas quando fornecidas — são baseadas em dados reais.
 - Toda a saída em Português do Brasil.`
 
-  const { object } = await generateObject({
-    model: openai.chat('gpt-4o'),
-    schema: ConceptOnlySchema,
-    system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Gere o conceito e seleção de produtos para "${date.name}" (${date.displayDate}).`,
-      },
-    ],
-  })
-
-  return object as { intro: string; concept: CampaignConcept; selectedProducts: CampaignProduct[] }
+  const fullPrompt = `${systemPrompt}\n\nGere o conceito e seleção de produtos para "${date.name}" (${date.displayDate}).`
+  return askAgentJSON(teamId, fullPrompt, ConceptOnlySchema, { timeout: 180_000 }) as Promise<{
+    intro: string
+    concept: CampaignConcept
+    selectedProducts: CampaignProduct[]
+  }>
 }

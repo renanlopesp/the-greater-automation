@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Regenerate: full regen for 'concept', section-only otherwise
     if (sectionType === 'concept') {
-      const fresh = await generateCampaign({
+      const fresh = await generateCampaign(teamId, {
         date: {
           id: dateId,
           name: existingCampaign.concept.slogan,
@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
       })
       updatedCampaign = { ...existingCampaign, ...fresh }
     } else {
-      const partial = await regenerateSection({
-        sectionType: sectionType as Parameters<typeof regenerateSection>[0]['sectionType'],
+      const partial = await regenerateSection(teamId, {
+        sectionType: sectionType as Parameters<typeof regenerateSection>[1]['sectionType'],
         existingCampaign,
         brandDna,
       })

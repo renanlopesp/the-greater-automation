@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // 7. Generate concept only (no copies, email, assets, video, timeline)
-    const conceptResult = await generateConcept({
+    const conceptResult = await generateConcept(teamId, {
       date: {
         id: dateId,
         name: dateName,

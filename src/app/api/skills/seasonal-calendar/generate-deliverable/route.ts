@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Use existing regenerateSection for copies, video, timeline
       const regenType = sectionType as 'copies' | 'video' | 'timeline' | 'products'
-      result = await regenerateSection({
+      result = await regenerateSection(teamId, {
         sectionType: regenType,
         existingCampaign: campaign,
         brandDna: brandDna as {

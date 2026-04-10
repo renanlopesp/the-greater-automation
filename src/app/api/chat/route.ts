@@ -534,7 +534,7 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
     }
 
     const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
-    const calendarData = await generateCalendar({
+    const calendarData = await generateCalendar(teamId, {
       brandDna: {
         niche: bd?.niche ?? 'varejo',
         audience: bd?.audience ?? 'consumidores gerais',

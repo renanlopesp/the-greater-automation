@@ -54,12 +54,12 @@
 
 ### Implementation
 
-- [ ] T008 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateConcept()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, ConceptSchema)`. Remove manual brand DNA injection from prompt.
-- [ ] T009 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateCopies()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, CopiesSchema)`
-- [ ] T010 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateDeliverables()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, DeliverablesSchema)`
-- [ ] T011 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateVideoScript()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, VideoScriptSchema)`
-- [ ] T012 [P] [US2] Migrate src/lib/ai/store-visual-analyzer.ts — replace `generateObject(openai.responses('gpt-5.2'))` with `askAgentJSON(teamId, prompt, VisualAnalysisSchema)`
-- [ ] T013 [US2] Update all callers of seasonal-campaign-generator and store-visual-analyzer to pass `teamId` parameter
+- [x] T008 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateConcept()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, ConceptSchema)`. Remove manual brand DNA injection from prompt.
+- [x] T009 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateCopies()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, CopiesSchema)`
+- [x] T010 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateDeliverables()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, DeliverablesSchema)`
+- [x] T011 [US2] Migrate src/lib/ai/seasonal-campaign-generator.ts `generateVideoScript()` — replace `generateObject(openai)` with `askAgentJSON(teamId, prompt, VideoScriptSchema)`
+- [x] T012 [P] [US2] Migrate src/lib/ai/store-visual-analyzer.ts — replace with Anthropic SDK vision (runs pre-Agent during onboarding)
+- [x] T013 [US2] Update all callers of seasonal-campaign-generator and store-visual-analyzer to pass `teamId` parameter
 - [ ] T014 [US2] Verify via Playwright: generate a seasonal campaign for a store with brand DNA, confirm content reflects brand tone and mentions real products
 
 **Checkpoint**: Campaign generation fully Agent-mediated
