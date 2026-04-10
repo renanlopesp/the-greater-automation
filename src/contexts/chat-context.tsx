@@ -1,6 +1,13 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 
 interface ChatContextState {
   chatTitle: string
@@ -15,23 +22,39 @@ const ChatContext = createContext<ChatContextState | null>(null)
 
 const CHAT_WIDTH_KEY = 'snew-chat-width'
 
-function getStoredWidth(): number | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const stored = localStorage.getItem(CHAT_WIDTH_KEY)
-    return stored ? parseInt(stored, 10) : null
-  } catch {
-    return null
-  }
+// External store for localStorage-backed chat width
+const widthStore = {
+  subscribe(callback: () => void) {
+    window.addEventListener('storage', callback)
+    return () => window.removeEventListener('storage', callback)
+  },
+  getSnapshot(): number {
+    try {
+      const stored = localStorage.getItem(CHAT_WIDTH_KEY)
+      return stored ? parseInt(stored, 10) : 0
+    } catch {
+      return 0
+    }
+  },
+  getServerSnapshot(): number {
+    return 0
+  },
 }
 
 export function ChatContextProvider({ children }: { children: ReactNode }) {
   const [chatTitle, setChatTitle] = useState('')
   const [artifactOpen, setArtifactOpen] = useState(true)
-  const [chatWidthPx, setChatWidthPxState] = useState(() => getStoredWidth() ?? 0)
+
+  const storedWidth = useSyncExternalStore(
+    widthStore.subscribe,
+    widthStore.getSnapshot,
+    widthStore.getServerSnapshot
+  )
+  const [dragWidth, setDragWidth] = useState(0)
+  const chatWidthPx = dragWidth > 0 ? dragWidth : storedWidth
 
   const setChatWidthPx = useCallback((px: number) => {
-    setChatWidthPxState(px)
+    setDragWidth(px)
     try {
       localStorage.setItem(CHAT_WIDTH_KEY, String(px))
     } catch {
