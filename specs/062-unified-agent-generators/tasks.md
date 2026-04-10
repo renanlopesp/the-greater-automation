@@ -38,8 +38,8 @@
 
 ### Implementation
 
-- [ ] T005 [US1] Migrate src/lib/ai/brand-dna-analyzer.ts — replace `getOpenAIProvider()` + `generateObject()` calls with `askAgentJSON(teamId, prompt, BrandDnaSchema)`. Remove manual context fetching (store info, products) from the prompt since the Agent already has this via system prompt and MCP tools. Keep the Zod schemas for response validation.
-- [ ] T006 [US1] Update src/app/api/onboarding/analyze/route.ts (or wherever brand-dna-analyzer is called) to pass `teamId` to the analyzer function
+- [x] T005 [US1] Migrate src/lib/ai/brand-dna-analyzer.ts — replace `getOpenAIProvider()` + `generateObject()` calls with `askAgentJSON(teamId, prompt, BrandDnaSchema)`. Remove manual context fetching (store info, products) from the prompt since the Agent already has this via system prompt and MCP tools. Keep the Zod schemas for response validation.
+- [x] T006 [US1] Update src/lib/onboarding/analysis-pipeline.ts to pass `teamId` to the analyzeBrandDna function
 - [ ] T007 [US1] Verify via Playwright: trigger onboarding brand DNA analysis for a test store, confirm the output includes store-specific details (product references, segment, visual palette)
 
 **Checkpoint**: Brand DNA analysis works through the Agent — MVP validated
