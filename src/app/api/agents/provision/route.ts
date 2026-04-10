@@ -127,7 +127,11 @@ export async function POST() {
 
     // ── Build MCP server URL for the agent ─────────────────────────────
     const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-    const mcpSecret = process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 16) ?? ''
+    const mcpSecret = (
+      process.env.SUPABASE_SECRET_KEY ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY ??
+      ''
+    ).slice(0, 16)
     const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${user.id}${store ? `&store_id=${store.id}` : ''}&secret=${mcpSecret}`
 
     // ── Create Managed Agent + Environment ──────────────────────────────
