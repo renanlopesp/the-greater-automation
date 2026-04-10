@@ -188,24 +188,28 @@ export function buildPlatformTools(
               }))
             }
 
-            const calendarResult = await generateCalendar(teamId, {
-              brandDna: {
-                niche: (brandDna?.niche as string) ?? 'varejo',
-                audience: (brandDna?.audience as string) ?? 'consumidores gerais',
-                positioning: (brandDna?.positioning as string) ?? '',
-                tone: (brandDna?.tone as string) ?? 'profissional',
-                average_ticket: (brandDna?.average_ticket as number) ?? 100,
-                opportunities:
-                  (brandDna?.opportunities as Array<{
-                    title: string
-                    description: string
-                    estimated_revenue: number
-                  }>) ?? [],
+            const calendarResult = await generateCalendar(
+              teamId,
+              {
+                brandDna: {
+                  niche: (brandDna?.niche as string) ?? 'varejo',
+                  audience: (brandDna?.audience as string) ?? 'consumidores gerais',
+                  positioning: (brandDna?.positioning as string) ?? '',
+                  tone: (brandDna?.tone as string) ?? 'profissional',
+                  average_ticket: (brandDna?.average_ticket as number) ?? 100,
+                  opportunities:
+                    (brandDna?.opportunities as Array<{
+                      title: string
+                      description: string
+                      estimated_revenue: number
+                    }>) ?? [],
+                },
+                products: calendarProducts,
+                currentDate: new Date(),
+                year: new Date().getFullYear(),
               },
-              products: calendarProducts,
-              currentDate: new Date(),
-              year: new Date().getFullYear(),
-            })
+              'direct'
+            )
 
             // Save real calendar data to task
             await (

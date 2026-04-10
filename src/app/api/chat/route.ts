@@ -289,6 +289,7 @@ export async function POST(request: NextRequest) {
           // Detect skill execution via MCP and run in background on Next.js
           if (e.type === 'agent.mcp_tool_use' && e.name === 'SNEW_RUN_SKILL' && taskId) {
             const args = typeof e.input === 'string' ? JSON.parse(e.input) : e.input
+            console.log('[chat] SNEW_RUN_SKILL detected:', args?.skill_slug, 'taskId:', taskId)
             if (args?.skill_slug === 'seasonal-calendar') {
               void generateCalendarInBackground(serviceClient, taskId, teamId)
             }
@@ -516,19 +517,30 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
 
     let calendarProducts: Array<{ name: string; price: number }> = []
     if (store?.platform === 'nuvemshop' && store.platform_store_id && store.platform_access_token) {
-      const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
-      const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
-      const liveProducts = await client.getProducts(1, 200)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      calendarProducts = liveProducts.map((p: any) => ({
-        name:
-          typeof p.name === 'object'
-            ? ((p.name as Record<string, string>).pt ??
-              Object.values(p.name as Record<string, string>)[0] ??
-              '')
-            : String(p.name),
-        price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
-      }))
+      try {
+        const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
+        const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
+        const liveProducts = await client.getProducts(1, 200)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        calendarProducts = liveProducts.map((p: any) => ({
+          name:
+            typeof p.name === 'object'
+              ? ((p.name as Record<string, string>).pt ??
+                Object.values(p.name as Record<string, string>)[0] ??
+                '')
+              : String(p.name),
+          price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
+        }))
+      } catch {
+        // Fallback to DB products if Nuvemshop API fails (e.g. expired token)
+        console.warn('[generateCalendarInBackground] Nuvemshop API failed, using DB products')
+        const { data: prods } = await serviceClient
+          .from('store_products')
+          .select('name, price')
+          .eq('store_id', store.id)
+          .limit(200)
+        calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
+      }
     } else if (store) {
       const { data: prods } = await serviceClient
         .from('store_products')
@@ -539,19 +551,23 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
     }
 
     const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
-    const calendarData = await generateCalendar(teamId, {
-      brandDna: {
-        niche: bd?.niche ?? 'varejo',
-        audience: bd?.audience ?? 'consumidores gerais',
-        positioning: bd?.positioning ?? '',
-        tone: bd?.tone ?? 'profissional',
-        average_ticket: bd?.average_ticket ?? 100,
-        opportunities: bd?.opportunities ?? [],
+    const calendarData = await generateCalendar(
+      teamId,
+      {
+        brandDna: {
+          niche: bd?.niche ?? 'varejo',
+          audience: bd?.audience ?? 'consumidores gerais',
+          positioning: bd?.positioning ?? '',
+          tone: bd?.tone ?? 'profissional',
+          average_ticket: bd?.average_ticket ?? 100,
+          opportunities: bd?.opportunities ?? [],
+        },
+        products: calendarProducts,
+        currentDate: new Date(),
+        year: new Date().getFullYear(),
       },
-      products: calendarProducts,
-      currentDate: new Date(),
-      year: new Date().getFullYear(),
-    })
+      'direct'
+    )
 
     await serviceClient
       .from('tasks')
@@ -563,7 +579,8 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
-  } catch {
+  } catch (err) {
+    console.error('[generateCalendarInBackground] FAILED:', err)
     await serviceClient
       .from('tasks')
       .update({ skill_status: 'failed', updated_at: new Date().toISOString() })

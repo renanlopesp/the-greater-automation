@@ -393,6 +393,8 @@ Deno.serve(async (req: Request) => {
 
   // Retail tools (only if store connected)
   if (storeId) {
+    let _storeTokenValid: boolean | null = null
+
     const getStore = async () => {
       const { data } = await supabase
         .from('stores')
@@ -401,6 +403,42 @@ Deno.serve(async (req: Request) => {
         .single()
       return data
     }
+
+    /** Check if the store token is valid (cached per request) */
+    const checkStoreConnection = async (): Promise<{ valid: boolean; store: any }> => {
+      const store = await getStore()
+      if (!store?.platform_store_id || !store?.platform_access_token) {
+        return { valid: false, store: null }
+      }
+      if (_storeTokenValid !== null) return { valid: _storeTokenValid, store }
+      try {
+        const r = await fetch(`https://api.nuvemshop.com.br/v1/${store.platform_store_id}/store`, {
+          headers: {
+            Authentication: `bearer ${store.platform_access_token}`,
+            'User-Agent': 'Snew/1.0',
+          },
+        })
+        _storeTokenValid = r.ok
+        return { valid: r.ok, store }
+      } catch {
+        _storeTokenValid = false
+        return { valid: false, store }
+      }
+    }
+
+    const storeDisconnectedError = () => ({
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error:
+              'A conexão com a Nuvemshop expirou. O usuário precisa reconectar a loja em Configurações > Integrações para continuar usando as ferramentas de loja.',
+            action_required: 'reconnect_store',
+          }),
+        },
+      ],
+      isError: true,
+    })
 
     const nuvemFetch = async (
       sid: string,
@@ -428,14 +466,9 @@ Deno.serve(async (req: Request) => {
         }),
       },
       async ({ period, start_date, end_date }) => {
-        const s = await getStore()
-        if (!s?.platform_store_id || !s?.platform_access_token)
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ error: 'Store not connected' }) },
-            ],
-            isError: true,
-          }
+        const { valid, store: s } = await checkStoreConnection()
+        if (!valid || !s?.platform_store_id || !s?.platform_access_token)
+          return storeDisconnectedError()
         const now = new Date()
         let sd: Date
         let ed: Date = now
@@ -509,14 +542,9 @@ Deno.serve(async (req: Request) => {
         }),
       },
       async ({ search, low_stock_only, limit }) => {
-        const s = await getStore()
-        if (!s?.platform_store_id || !s?.platform_access_token)
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ error: 'Store not connected' }) },
-            ],
-            isError: true,
-          }
+        const { valid, store: s } = await checkStoreConnection()
+        if (!valid || !s?.platform_store_id || !s?.platform_access_token)
+          return storeDisconnectedError()
         try {
           const p = await nuvemFetch(s.platform_store_id, s.platform_access_token, '/products', {
             per_page: String(limit ?? 20),
@@ -555,14 +583,9 @@ Deno.serve(async (req: Request) => {
         }),
       },
       async ({ status, limit }) => {
-        const s = await getStore()
-        if (!s?.platform_store_id || !s?.platform_access_token)
-          return {
-            content: [
-              { type: 'text' as const, text: JSON.stringify({ error: 'Store not connected' }) },
-            ],
-            isError: true,
-          }
+        const { valid, store: s } = await checkStoreConnection()
+        if (!valid || !s?.platform_store_id || !s?.platform_access_token)
+          return storeDisconnectedError()
         try {
           const pr: Record<string, string> = { per_page: String(limit ?? 10) }
           if (status) pr.status = status

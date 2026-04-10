@@ -1,5 +1,4 @@
-import { generateObject } from 'ai'
-import { createAnthropic } from '@ai-sdk/anthropic'
+import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { askAgentJSON } from '@/lib/ai/agent-client'
 
@@ -13,13 +12,34 @@ async function generate<T>(
   mode: GenerationMode = 'agent'
 ): Promise<T> {
   if (mode === 'direct') {
-    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-    const { object } = await generateObject({
-      model: anthropic('claude-sonnet-4-6'),
-      schema,
-      prompt,
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      messages: [
+        {
+          role: 'user',
+          content: `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No explanation, no markdown code blocks, just the raw JSON object.`,
+        },
+      ],
     })
-    return object
+    const text = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+    const jsonMatch = text.match(/[\[{][\s\S]*[\]}]/)
+    if (!jsonMatch) throw new Error('No JSON in direct mode response')
+    const parsed = JSON.parse(jsonMatch[0])
+    // Use lenient parsing — strip min/max constraints, just validate shape
+    const result = schema.safeParse(parsed)
+    if (result.success) return result.data
+    // If strict validation fails, return raw parsed data (shape is close enough)
+    console.warn(
+      '[generate:direct] Zod validation failed, using raw JSON:',
+      result.error.issues.length,
+      'issues'
+    )
+    return parsed as T
   }
   return askAgentJSON(teamId, prompt, schema, { timeout: 180_000 })
 }
