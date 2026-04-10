@@ -93,7 +93,8 @@ export async function POST(request: NextRequest) {
   // Auto-provision if needed
   if (!agentId || !envId) {
     try {
-      const ids = await provisionAgent(anthropic, serviceClient, teamId, team?.name, taskId)
+      const { provisionAgent: sharedProvision } = await import('@/lib/ai/agent-provisioning')
+      const ids = await sharedProvision(teamId, user.id)
       agentId = ids.agentId
       envId = ids.envId
     } catch (error) {
@@ -339,87 +340,7 @@ export async function POST(request: NextRequest) {
  * Auto-provision a Managed Agent + Environment for a team.
  * Delegates to the dedicated provision route handler.
  */
-async function provisionAgent(
-  anthropic: ReturnType<typeof getAnthropicClient>,
-  serviceClient: ReturnType<typeof createServiceRoleClient>,
-  teamId: string,
-  teamName?: string,
-  taskId?: string
-): Promise<{ agentId: string; envId: string }> {
-  // Use the same logic as the provision route: import directly
-  const { buildOrchestratorSystemPrompt } = await import('@/lib/ai/platform-tools')
-  const { getTeamPlan } = await import('@/lib/billing/feature-gate')
-
-  const sc = serviceClient as unknown as {
-    from: (t: string) => {
-      select: (s: string) => {
-        eq: (
-          k: string,
-          v: string
-        ) => {
-          single: () => Promise<{ data: Record<string, unknown> | null }>
-          limit: (n: number) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
-        }
-      }
-    }
-  }
-  const [{ data: brandDna }, { data: storeData }] = await Promise.all([
-    sc.from('brand_dna').select('niche').eq('team_id', teamId).single(),
-    sc.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
-  ])
-
-  const hasBrandDna = brandDna && brandDna.niche
-  const mode = hasBrandDna ? 'full' : 'onboarding'
-  const storeId = storeData?.id ?? null
-
-  const systemPrompt = buildOrchestratorSystemPrompt(
-    teamName ?? 'Your workspace',
-    [],
-    undefined,
-    null,
-    mode
-  )
-
-  const plan = await getTeamPlan(teamId)
-  const model =
-    plan.planId === 'pro' || plan.planId === 'enterprise' ? 'claude-opus-4-6' : 'claude-sonnet-4-6'
-
-  const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-  const mcpSecret = process.env.MCP_AUTH_TOKEN ?? ''
-  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}${storeId ? `&store_id=${storeId}` : ''}${taskId ? `&task_id=${taskId}` : ''}&secret=${mcpSecret}`
-
-  const [agent, env] = await Promise.all([
-    anthropic.beta.agents.create({
-      name: 'Snew',
-      model,
-      system: systemPrompt,
-      mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
-      tools: [
-        {
-          type: 'mcp_toolset',
-          mcp_server_name: 'snew-tools',
-          default_config: { enabled: true, permission_policy: { type: 'always_allow' } },
-        },
-      ],
-      description: `Snew assistant for team ${teamName ?? teamId}`,
-    }),
-    anthropic.beta.environments.create({
-      name: `snew-env-${teamId}`,
-      description: `Environment for team ${teamName ?? teamId}`,
-    }),
-  ])
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (serviceClient as any)
-    .from('teams')
-    .update({
-      anthropic_agent_id: agent.id,
-      anthropic_env_id: env.id,
-    })
-    .eq('id', teamId)
-
-  return { agentId: agent.id, envId: env.id }
-}
+// provisionAgent is now in src/lib/ai/agent-provisioning.ts (shared)
 
 /**
  * Build skill context string for task-scoped messages.

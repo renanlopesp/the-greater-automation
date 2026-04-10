@@ -114,7 +114,7 @@ export async function provisionAgent(
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
-      name: 'Snew',
+      name: store?.name ? `Snew — ${store.name}` : `Snew — ${team?.name ?? 'Workspace'}`,
       model,
       system: systemPrompt,
       mcp_servers: [{ type: 'url', name: 'snew-tools', url: mcpUrl }],
@@ -125,7 +125,14 @@ export async function provisionAgent(
           default_config: { enabled: true, permission_policy: { type: 'always_allow' } },
         },
       ],
-      description: `Snew assistant for team ${team?.name ?? teamId}`,
+      description: [
+        `CMO de IA para ${store?.name ?? team?.name ?? 'workspace'}`,
+        store?.segment ? `Segmento: ${store.segment}` : null,
+        store?.platform ? `Plataforma: ${store.platform}` : null,
+        hasBrandDna ? `Brand DNA: ${brandDna.niche}` : 'Brand DNA pendente',
+      ]
+        .filter(Boolean)
+        .join(' | '),
     }),
     anthropic.beta.environments.create({
       name: `snew-env-${teamId}`,
