@@ -37,8 +37,10 @@ export function useTask(taskId: string) {
       const task = query.state.data?.task
       if (!task) return 2000
       if (task.skill_status === 'running') return 2000
-      if (task.skill_status === 'idle') return 5000
-      return false // chat wrapper invalidates via queryClient when AI finishes
+      if (task.skill_status === 'completed' && task.artifact_data) return false
+      if (task.skill_status === 'failed') return false
+      // Keep polling while waiting for skill to start or artifact to appear
+      return 3000
     },
     retry: 3,
   })
