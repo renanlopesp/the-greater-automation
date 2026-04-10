@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Linkedin } from 'lucide-react'
+import { Link } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { ComposioApp } from '@/lib/composio/actions/get-composio-apps'
@@ -49,7 +49,7 @@ export default function AppIntegrationRow({
           </div>
         ) : app.iconSlug === 'linkedin' ? (
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-1 dark:bg-white/90">
-            <Linkedin className="h-6 w-6 text-black" />
+            <Link className="h-6 w-6 text-black" />
           </div>
         ) : (
           <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium">

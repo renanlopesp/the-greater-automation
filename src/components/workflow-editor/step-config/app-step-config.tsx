@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Check,
   ChevronsUpDown,
-  Linkedin,
+  Link,
   Loader2,
   Pencil,
   Plus,
@@ -484,7 +484,7 @@ export default function AppStepConfigForm({
                   </div>
                 ) : app.iconSlug === 'linkedin' ? (
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
-                    <Linkedin className="h-[18px] w-[18px] text-black" />
+                    <Link className="h-[18px] w-[18px] text-black" />
                   </div>
                 ) : (
                   <div className="bg-muted flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-medium">

@@ -45,7 +45,7 @@
     "framer-motion": "^12.33.0",
     "geist": "^1.7.0",
     "html2canvas": "^1.4.1",
-    "lucide-react": "^0.564.0",
+    "lucide-react": "^1.8.0",
     "motion": "^12.34.0",
     "nanoid": "^5.1.6",
     "next": "16.1.6",

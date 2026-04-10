@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
-import { Check, ChevronsUpDown, Linkedin, Loader2, Plus, Trash2, Zap } from 'lucide-react'
+import { Check, ChevronsUpDown, Link, Loader2, Plus, Trash2, Zap } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -276,7 +276,7 @@ export function AppTriggerConfigForm({
                   </div>
                 ) : app.iconSlug === 'linkedin' ? (
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white p-0.5 dark:bg-white/90">
-                    <Linkedin className="h-[18px] w-[18px] text-black" />
+                    <Link className="h-[18px] w-[18px] text-black" />
                   </div>
                 ) : (
                   <div className="bg-muted flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-medium">
