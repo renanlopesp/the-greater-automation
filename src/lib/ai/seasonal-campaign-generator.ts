@@ -1,5 +1,28 @@
+import { generateObject } from 'ai'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { askAgentJSON } from '@/lib/ai/agent-client'
+
+/** When 'direct', uses Anthropic SDK directly (for MCP calls — avoids recursive Agent loop) */
+export type GenerationMode = 'agent' | 'direct'
+
+async function generate<T>(
+  teamId: string,
+  prompt: string,
+  schema: z.ZodSchema<T>,
+  mode: GenerationMode = 'agent'
+): Promise<T> {
+  if (mode === 'direct') {
+    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const { object } = await generateObject({
+      model: anthropic('claude-sonnet-4-6'),
+      schema,
+      prompt,
+    })
+    return object
+  }
+  return askAgentJSON(teamId, prompt, schema, { timeout: 180_000 })
+}
 import type {
   FullCampaign,
   ProductTag,
@@ -171,7 +194,8 @@ export async function generateCalendar(
     products: Array<{ name: string; category?: string; price: number }>
     currentDate: Date
     year: number
-  }
+  },
+  mode: GenerationMode = 'agent'
 ): Promise<PersonalizedCalendar> {
   const { brandDna, products, currentDate, year } = params
 
@@ -238,9 +262,7 @@ INSTRUÇÕES:
 Toda a saída deve estar em Português do Brasil.`
 
   const fullPrompt = `${systemPrompt}\n\nGere o calendário sazonal personalizado para o ano ${year} com base no perfil da loja descrito acima. Data atual: ${currentDateISO}.`
-  const object = await askAgentJSON(teamId, fullPrompt, PersonalizedCalendarSchema, {
-    timeout: 180_000,
-  })
+  const object = await generate(teamId, fullPrompt, PersonalizedCalendarSchema, mode)
 
   // Post-generation fix: bump past dates to next year
   const now = new Date()

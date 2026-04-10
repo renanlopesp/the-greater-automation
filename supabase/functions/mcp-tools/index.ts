@@ -72,9 +72,10 @@ Deno.serve(async (req: Request) => {
   server.registerTool(
     'SNEW_RUN_SKILL',
     {
-      description: 'Execute a skill with optional input data.',
+      description:
+        'Execute a skill. The skill will be generated in the background and the result will appear in the artifact panel on the right side. Tell the user the skill is being generated.',
       inputSchema: z.object({
-        skill_slug: z.string(),
+        skill_slug: z.string().describe('The skill slug to execute (e.g. "seasonal-calendar")'),
         input: z.record(z.string(), z.unknown()).optional(),
       }),
     },
@@ -95,11 +96,28 @@ Deno.serve(async (req: Request) => {
           content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Skill not active' }) }],
           isError: true,
         }
+
+      // Mark task as running (if task context available)
+      if (taskId) {
+        await supabase
+          .from('tasks')
+          .update({
+            skill_status: 'running',
+            active_skill: skill_slug,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', taskId)
+      }
+
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ status: 'executed', skill: skill.name }),
+            text: JSON.stringify({
+              status: 'generating',
+              skill: skill.name,
+              message: `${skill.name} está sendo gerada e aparecerá no painel ao lado. Informe o usuário.`,
+            }),
           },
         ],
       }

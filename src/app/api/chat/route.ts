@@ -286,8 +286,13 @@ export async function POST(request: NextRequest) {
           } else if (e.type === 'session.status_terminated' || e.type === 'session.error') {
             break
           }
-          // MCP tool calls (agent.mcp_tool_use, agent.mcp_tool_result) pass through
-          // — the agent handles them automatically via the MCP server
+          // Detect skill execution via MCP and run in background on Next.js
+          if (e.type === 'agent.mcp_tool_use' && e.name === 'SNEW_RUN_SKILL' && taskId) {
+            const args = typeof e.input === 'string' ? JSON.parse(e.input) : e.input
+            if (args?.skill_slug === 'seasonal-calendar') {
+              void generateCalendarInBackground(serviceClient, taskId, teamId)
+            }
+          }
         }
 
         // Finalize
