@@ -49,6 +49,16 @@ function TaskContentWithLayout({
           initialMessages={initialMessages}
           initialQuery={initialQuery}
           taskId={initialTask.id}
+          skillProgress={
+            task.skill_status === 'running' && task.artifact_data
+              ? {
+                  skillName: task.active_skill,
+                  steps:
+                    (task.artifact_data as { steps?: Array<{ label: string; done: boolean }> })
+                      ?.steps ?? [],
+                }
+              : undefined
+          }
         />
       </div>
     </div>
@@ -56,11 +66,7 @@ function TaskContentWithLayout({
 
   let artifactInner: React.ReactNode
   if (task.skill_status === 'running') {
-    const progress = task.artifact_data as {
-      steps: Array<{ label: string; done: boolean }>
-      current?: string
-    } | null
-    artifactInner = <ArtifactLoadingState skillName={task.active_skill} progress={progress} />
+    artifactInner = <ArtifactLoadingState skillName={task.active_skill} />
   } else if (task.skill_status === 'failed') {
     artifactInner = <ArtifactErrorState />
   } else if (task.skill_status === 'completed' && task.artifact_data) {

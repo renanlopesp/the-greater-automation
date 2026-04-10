@@ -33,6 +33,7 @@ import { uploadChatFileAction } from '@/lib/actions/chat-upload'
 import { generateFollowUps } from '@/lib/actions/follow-ups'
 import SnewAvatar from './snew-avatar'
 import OrchestratorEmptyState from './orchestrator-empty-state'
+import { SkillProgressQueue } from './skill-progress-queue'
 
 const ORCHESTRATOR_STARTERS = [
   'Quais carrinhos têm maior chance de conversão?',
@@ -48,11 +49,17 @@ export function triggerOrchestratorNewChat() {
   _newChatState.handler?.()
 }
 
+interface SkillProgress {
+  skillName: string | null
+  steps: Array<{ label: string; done: boolean }>
+}
+
 interface OrchestratorChatWrapperProps {
   initialConversationId: string | null
   initialMessages: { id: string; role: string; content: string }[]
   initialQuery?: string
   taskId?: string
+  skillProgress?: SkillProgress
 }
 
 /** Extract Composio connection URLs from tool-result parts */
@@ -87,6 +94,7 @@ export default function OrchestratorChatWrapper({
   initialMessages,
   initialQuery,
   taskId,
+  skillProgress,
 }: OrchestratorChatWrapperProps) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -481,6 +489,9 @@ export default function OrchestratorChatWrapper({
                 </Message>
               )}
             </>
+          )}
+          {skillProgress && skillProgress.steps.length > 0 && (
+            <SkillProgressQueue skillName={skillProgress.skillName} steps={skillProgress.steps} />
           )}
         </ConversationContent>
         <ConversationScrollButton />
