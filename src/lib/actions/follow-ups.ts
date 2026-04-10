@@ -1,6 +1,6 @@
 'use server'
 
-import Anthropic from '@anthropic-ai/sdk'
+import { getAnthropicClient } from '@/lib/anthropic'
 import { createServerClient } from '@/lib/supabase/server'
 
 /**
@@ -8,37 +8,27 @@ import { createServerClient } from '@/lib/supabase/server'
  * Uses claude-haiku for fast, cheap generation.
  */
 export async function generateFollowUps(lastMessage: string, agentName: string): Promise<string[]> {
-  // Auth check — prevent unauthenticated API credit consumption
+  // Quick auth check
   const supabase = await createServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return []
+  if (!lastMessage || lastMessage.length < 10) return []
 
   try {
-    const anthropic = new Anthropic({ apiKey })
+    const anthropic = getAnthropicClient()
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
+      max_tokens: 150,
       messages: [
         {
           role: 'user',
-          content: `You help generate follow-up suggestions for a chat with "${agentName}", an e-commerce specialist agent.
+          content: `Gere 3-4 sugestões curtas de follow-up para uma conversa com "${agentName}" (assistente de e-commerce). Baseie-se na última resposta. Regras: PT-BR, max 40 chars cada, específicas, acionáveis. Responda APENAS com JSON array: ["sugestão1","sugestão2","sugestão3"]
 
-Based on the assistant's last response, generate 3-4 short follow-up questions or actions the user might want next.
-
-Rules:
-- In Portuguese (pt-BR)
-- Max 40 characters each
-- Specific to what was discussed (not generic)
-- Actionable
-- Respond ONLY with a JSON array of strings, nothing else. Example: ["Sugestão 1", "Sugestão 2", "Sugestão 3"]
-
-Last response:
-${lastMessage.slice(0, 1500)}`,
+Resposta:
+${lastMessage.slice(0, 800)}`,
         },
       ],
     })
@@ -50,7 +40,6 @@ ${lastMessage.slice(0, 1500)}`,
 
     const parsed = JSON.parse(text.trim())
     if (Array.isArray(parsed)) return parsed.map(String).slice(0, 4)
-    if (parsed?.suggestions) return parsed.suggestions.map(String).slice(0, 4)
     return []
   } catch {
     return []
