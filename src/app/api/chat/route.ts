@@ -279,8 +279,15 @@ export async function POST(request: NextRequest) {
               (u.output_tokens ?? 0) +
               (u.cache_read_input_tokens ?? 0) +
               (u.cache_creation_input_tokens ?? 0)
+          } else if (e.type === 'session.status_idle') {
+            // Session went idle — could be end_turn or waiting for MCP tool result
+            // MCP tools are handled by the agent, so we just check if it's end_turn
+            if (e.stop_reason?.type === 'end_turn') break
+          } else if (e.type === 'session.status_terminated' || e.type === 'session.error') {
+            break
           }
-          // MCP tool calls are handled by the agent automatically — no intervention needed
+          // MCP tool calls (agent.mcp_tool_use, agent.mcp_tool_result) pass through
+          // — the agent handles them automatically via the MCP server
         }
 
         // Finalize
@@ -336,15 +343,27 @@ async function provisionAgent(
   const { buildOrchestratorSystemPrompt } = await import('@/lib/ai/platform-tools')
   const { getTeamPlan } = await import('@/lib/billing/feature-gate')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: brandDna } = await (serviceClient as any)
-    .from('brand_dna')
-    .select('niche')
-    .eq('team_id', teamId)
-    .single()
+  const sc = serviceClient as unknown as {
+    from: (t: string) => {
+      select: (s: string) => {
+        eq: (
+          k: string,
+          v: string
+        ) => {
+          single: () => Promise<{ data: Record<string, unknown> | null }>
+          limit: (n: number) => { single: () => Promise<{ data: Record<string, unknown> | null }> }
+        }
+      }
+    }
+  }
+  const [{ data: brandDna }, { data: storeData }] = await Promise.all([
+    sc.from('brand_dna').select('niche').eq('team_id', teamId).single(),
+    sc.from('stores').select('id').eq('team_id', teamId).limit(1).single(),
+  ])
 
   const hasBrandDna = brandDna && brandDna.niche
   const mode = hasBrandDna ? 'full' : 'onboarding'
+  const storeId = storeData?.id ?? null
 
   const systemPrompt = buildOrchestratorSystemPrompt(
     teamName ?? 'Your workspace',
@@ -360,7 +379,7 @@ async function provisionAgent(
 
   const mcpBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
   const mcpSecret = process.env.MCP_AUTH_TOKEN ?? ''
-  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}&secret=${mcpSecret}`
+  const mcpUrl = `${mcpBaseUrl}/mcp-tools?team_id=${teamId}&user_id=${teamId}${storeId ? `&store_id=${storeId}` : ''}&secret=${mcpSecret}`
 
   const [agent, env] = await Promise.all([
     anthropic.beta.agents.create({
