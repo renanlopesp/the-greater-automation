@@ -9,7 +9,7 @@ export interface AIExecutionResult {
 }
 
 /**
- * Execute an AI step using the Kiro Chat API (OpenAI-compatible)
+ * Execute an AI step using the Kiro Chat API
  * Server-side only - uses process.env for credentials
  */
 export async function executeAIStep(
@@ -130,7 +130,7 @@ export async function executeAIStep(
 
     const data = await response.json()
 
-    // Parse OpenAI-compatible response
+    // Parse chat API response
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       return {
         success: false,

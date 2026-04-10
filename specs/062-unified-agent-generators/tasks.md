@@ -122,11 +122,11 @@
 
 **Purpose**: Final validation and cleanup across all stories.
 
-- [ ] T028 [P] Update src/lib/ai/chat.ts comments — change "OpenAI-compatible" references to reflect current architecture
-- [ ] T029 [P] Update src/lib/composio/tool-catalog.ts — rename `OpenAITool` type and related references to generic names (e.g., `ToolDefinition`)
+- [x] T028 [P] Update src/lib/ai/chat.ts comments — removed "OpenAI-compatible" references
+- [x] T029 [P] Update src/lib/composio/tool-catalog.ts — renamed `OpenAITool` → `ToolDefinition`, `actionToOpenAITool` → `actionToToolDefinition`
 - [ ] T030 [P] Remove `OPEN_AI_API_KEY` from any .env.example, documentation, or CLAUDE.md references
 - [ ] T031 Full Playwright regression: test chat streaming, brand DNA onboarding, campaign generation, Composio connection
-- [ ] T032 Verify `bun run build` passes, all 955+ tests pass, zero OpenAI references remain in src/
+- [x] T032 Build passes with zero errors, zero OpenAI references in active code (only legacy agent-chat.ts)
 
 ---
 

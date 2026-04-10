@@ -1,7 +1,7 @@
 import { getAppActions, type ActionParam, type ComposioAppAction } from './actions/get-app-actions'
 import type { AppConnection } from './actions/get-app-connections'
 
-export interface OpenAITool {
+export interface ToolDefinition {
   type: 'function'
   function: {
     name: string
@@ -21,7 +21,7 @@ export interface OpenAITool {
 }
 
 export interface ToolCatalogResult {
-  tools: OpenAITool[]
+  tools: ToolDefinition[]
   actionMap: Map<string, { appId: string; connectionId: string }>
 }
 
@@ -112,7 +112,7 @@ function mapParamTypeToJsonSchema(paramType: ActionParam['type']): string {
 /**
  * Convert a ComposioAppAction to an OpenAI function definition
  */
-function actionToOpenAITool(action: ComposioAppAction, appId: string): OpenAITool {
+function actionToToolDefinition(action: ComposioAppAction, appId: string): ToolDefinition {
   const properties: Record<string, { type: string; description?: string }> = {}
   const required: string[] = []
 
@@ -150,7 +150,7 @@ function actionToOpenAITool(action: ComposioAppAction, appId: string): OpenAIToo
 export async function buildToolCatalog(
   appConnections: AppConnection[]
 ): Promise<ToolCatalogResult> {
-  const tools: OpenAITool[] = []
+  const tools: ToolDefinition[] = []
   const actionMap = new Map<string, { appId: string; connectionId: string }>()
 
   // Fetch actions for all connected apps in parallel
@@ -169,7 +169,7 @@ export async function buildToolCatalog(
       .slice(0, MAX_ACTIONS_PER_APP)
 
     for (const { action } of scored) {
-      const tool = actionToOpenAITool(action, connection.app_id)
+      const tool = actionToToolDefinition(action, connection.app_id)
       tools.push(tool)
 
       // Store mapping for later execution (use Composio connection ID for execution)
