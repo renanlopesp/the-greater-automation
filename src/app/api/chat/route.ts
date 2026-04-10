@@ -510,11 +510,7 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
   }
 
   try {
-    await updateProgress([
-      { label: 'Buscando dados da marca...', done: false },
-      { label: 'Carregando produtos do catálogo', done: false },
-      { label: 'Gerando calendário com IA', done: false },
-    ])
+    await updateProgress([{ label: 'Analisando Brand DNA da loja...', done: false }])
 
     const [{ data: bd }, { data: store }] = await Promise.all([
       serviceClient
@@ -530,13 +526,17 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         .single(),
     ])
 
+    const brandLabel = bd?.niche
+      ? `Brand DNA: ${bd.niche} · ${bd.tone ?? 'sem tom definido'}`
+      : 'Brand DNA não encontrado — usando padrões'
+
     await updateProgress([
-      { label: 'Dados da marca carregados', done: true },
-      { label: 'Carregando produtos do catálogo...', done: false },
-      { label: 'Gerando calendário com IA', done: false },
+      { label: brandLabel, done: true },
+      { label: 'Verificando conexão com a loja...', done: false },
     ])
 
     let calendarProducts: Array<{ name: string; price: number }> = []
+    let productSource = ''
     if (store?.platform === 'nuvemshop' && store.platform_store_id && store.platform_access_token) {
       try {
         const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
@@ -552,6 +552,7 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
               : String(p.name),
           price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
         }))
+        productSource = `${calendarProducts.length} produtos via Nuvemshop`
       } catch {
         console.warn('[generateCalendarInBackground] Nuvemshop API failed, using DB products')
         const { data: prods } = await serviceClient
@@ -560,6 +561,10 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
           .eq('store_id', store.id)
           .limit(200)
         calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
+        productSource =
+          calendarProducts.length > 0
+            ? `${calendarProducts.length} produtos do catálogo local (Nuvemshop desconectada)`
+            : 'Nenhum produto encontrado — calendário genérico'
       }
     } else if (store) {
       const { data: prods } = await serviceClient
@@ -568,12 +573,23 @@ async function generateCalendarInBackground(serviceClient: any, taskId: string, 
         .eq('store_id', store.id)
         .limit(50)
       calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
+      productSource =
+        calendarProducts.length > 0
+          ? `${calendarProducts.length} produtos do catálogo`
+          : 'Nenhum produto encontrado'
+    } else {
+      productSource = 'Loja não conectada — calendário genérico'
     }
 
+    const opCount = (bd?.opportunities as unknown[])?.length ?? 0
+
     await updateProgress([
-      { label: 'Dados da marca carregados', done: true },
-      { label: `${calendarProducts.length} produtos carregados`, done: true },
-      { label: 'Gerando calendário com IA...', done: false },
+      { label: brandLabel, done: true },
+      { label: productSource, done: true },
+      ...(opCount > 0
+        ? [{ label: `${opCount} oportunidades sazonais identificadas`, done: true }]
+        : []),
+      { label: 'Gerando calendário personalizado com IA...', done: false },
     ])
 
     const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')

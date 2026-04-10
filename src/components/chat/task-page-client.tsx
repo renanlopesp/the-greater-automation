@@ -56,16 +56,10 @@ function TaskContentWithLayout({
                   steps:
                     (task.artifact_data as { steps?: Array<{ label: string; done: boolean }> })
                       ?.steps ?? [],
+                  done: false,
                 }
               : task.skill_status === 'completed' && task.active_skill
-                ? {
-                    skillName: task.active_skill,
-                    steps: [
-                      { label: 'Dados da marca carregados', done: true },
-                      { label: 'Produtos carregados', done: true },
-                      { label: 'Calendário gerado com IA', done: true },
-                    ],
-                  }
+                ? { skillName: task.active_skill, steps: [], done: true }
                 : undefined
           }
         />

@@ -52,6 +52,7 @@ export function triggerOrchestratorNewChat() {
 interface SkillProgress {
   skillName: string | null
   steps: Array<{ label: string; done: boolean }>
+  done?: boolean
 }
 
 interface OrchestratorChatWrapperProps {
@@ -490,8 +491,12 @@ export default function OrchestratorChatWrapper({
               )}
             </>
           )}
-          {skillProgress && skillProgress.steps.length > 0 && (
-            <SkillProgressQueue skillName={skillProgress.skillName} steps={skillProgress.steps} />
+          {skillProgress && (skillProgress.steps.length > 0 || skillProgress.done) && (
+            <SkillProgressQueue
+              skillName={skillProgress.skillName}
+              steps={skillProgress.steps}
+              done={skillProgress.done}
+            />
           )}
         </ConversationContent>
         <ConversationScrollButton />
