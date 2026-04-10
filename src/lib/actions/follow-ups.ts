@@ -38,9 +38,13 @@ ${lastMessage.slice(0, 800)}`,
       .map((b) => b.text)
       .join('')
 
-    const parsed = JSON.parse(text.trim())
-    if (Array.isArray(parsed)) return parsed.map(String).slice(0, 4)
-    return []
+    // Strip markdown fences if present (Haiku often wraps in ```json)
+    const cleaned = text
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim()
+    const parsed = JSON.parse(cleaned)
+    return Array.isArray(parsed) ? parsed.map(String).slice(0, 4) : []
   } catch {
     return []
   }
