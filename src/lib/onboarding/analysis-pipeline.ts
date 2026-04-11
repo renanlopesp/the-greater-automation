@@ -312,5 +312,71 @@ export async function runAnalysisPipeline(
     count: opportunityCount,
   })
 
+  // If agent already exists, update its system prompt with the new brand DNA
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: team } = await (supabase as any)
+      .from('teams')
+      .select('anthropic_agent_id')
+      .eq('id', teamId)
+      .single()
+    if (team?.anthropic_agent_id) {
+      const { getAnthropicClient } = await import('@/lib/anthropic')
+      const { buildOrchestratorSystemPrompt } = await import('@/lib/ai/platform-tools')
+      const anthropic = getAnthropicClient()
+      const currentAgent = await anthropic.beta.agents.retrieve(team.anthropic_agent_id)
+
+      // Rebuild prompt with fresh brand DNA
+      const [{ data: skills }, { data: store }] = await Promise.all([
+        supabase
+          .from('skills' as never)
+          .select('slug, name, description, category, status')
+          .eq('team_id' as never, teamId)
+          .order('name' as never),
+        supabase
+          .from('stores')
+          .select('name, segment, platform')
+          .eq('team_id', teamId)
+          .limit(1)
+          .single(),
+      ])
+      const prompt = buildOrchestratorSystemPrompt(
+        store?.name ?? 'Workspace',
+        (skills as Array<{
+          slug: string
+          name: string
+          description: string | null
+          category: string
+          status: string
+        }>) ?? [],
+        store
+          ? {
+              storeName: store.name,
+              segment: store.segment,
+              platform: store.platform,
+              hasProducts: true,
+            }
+          : undefined,
+        brandDnaResult as unknown as {
+          niche: string
+          tone: string
+          audience: string
+          positioning: string
+          words_to_use: string[]
+          words_to_avoid: string[]
+          store_name: string | null
+        },
+        'full'
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await anthropic.beta.agents.update(team.anthropic_agent_id, {
+        version: (currentAgent as any).version,
+        system: prompt,
+      })
+    }
+  } catch {
+    // Non-blocking — agent prompt will be stale until next provision
+  }
+
   return { brandDnaId }
 }
