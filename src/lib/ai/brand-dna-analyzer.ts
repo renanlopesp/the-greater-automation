@@ -1,6 +1,6 @@
+import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { type CatalogSummary, formatCatalogForLLM } from '@/lib/retail/catalog-summarizer'
-import { askAgentJSON } from '@/lib/ai/agent-client'
 
 export interface StoreInfo {
   name: string
@@ -109,7 +109,6 @@ const BrandDnaSchema = z.object({
  * All output text is in Portuguese (PT-BR).
  */
 export async function analyzeBrandDna(
-  teamId: string,
   summary: CatalogSummary,
   storeInfo: StoreInfo
 ): Promise<BrandDnaResult> {
@@ -155,5 +154,29 @@ GERE UMA ANÁLISE ESTRATÉGICA COMPLETA incluindo:
 
 Toda a saída em Português do Brasil. Seja específico e use dados reais do catálogo.`
 
-  return askAgentJSON(teamId, prompt, BrandDnaSchema, { timeout: 180_000 })
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8192,
+    messages: [
+      {
+        role: 'user',
+        content: `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No explanation, no markdown code blocks, just the raw JSON object.`,
+      },
+    ],
+  })
+
+  const text = response.content
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
+
+  const jsonMatch = text.match(/[\[{][\s\S]*[\]}]/)
+  if (!jsonMatch) throw new Error('No JSON in brand DNA response')
+
+  const parsed = JSON.parse(jsonMatch[0])
+  const result = BrandDnaSchema.safeParse(parsed)
+  if (result.success) return result.data
+  // Lenient: return raw parsed if close enough
+  return parsed as BrandDnaResult
 }

@@ -200,7 +200,7 @@ export async function runAnalysisPipeline(
       }))
     )
 
-    brandDnaResult = await analyzeBrandDna(teamId, summary, {
+    brandDnaResult = await analyzeBrandDna(summary, {
       name: storeName,
       segment: storeInfo?.segment ?? '',
       platform: storePlatform,
