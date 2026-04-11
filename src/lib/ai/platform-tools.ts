@@ -2,7 +2,6 @@ import { jsonSchema } from 'ai'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
-import type { Json } from '@/lib/supabase/database.types'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
 import { fetchTeamSkills, fetchSkillBySlug, fetchSkillExecutions } from '@/lib/queries/skills'
 import { executeSkill } from '@/lib/ai/skill-executor'
@@ -310,56 +309,6 @@ export function buildPlatformTools(
       },
     },
 
-    SNEW_LIST_WORKFLOWS: {
-      description:
-        'List workflows. If agent_id is provided, lists workflows for that agent. Otherwise lists all workflows in the workspace.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          agent_id: { type: 'string', description: 'Optional: filter by agent ID' },
-        },
-      }),
-      execute: async (params: { agent_id?: string }) => {
-        const supabase = await getClient()
-        let query = supabase
-          .from('agent_workflows')
-          .select(
-            'id, name, description, agent_id, is_enabled, execution_mode, last_run_at, run_count, trigger_config'
-          )
-          .order('created_at', { ascending: true })
-
-        if (params.agent_id) {
-          query = query.eq('agent_id', params.agent_id)
-        } else {
-          // Get all agents for this team, then filter workflows
-          const { data: agents } = await supabase.from('agents').select('id').eq('team_id', teamId)
-          if (!agents || agents.length === 0) {
-            return { workflows: [], count: 0 }
-          }
-          query = query.in(
-            'agent_id',
-            agents.map((a) => a.id)
-          )
-        }
-
-        const { data, error } = await query
-        if (error) return { error: error.message }
-
-        // Enrich with agent names
-        const agentIds = [...new Set((data ?? []).map((w) => w.agent_id))]
-        const { data: agents } = await supabase.from('agents').select('id, name').in('id', agentIds)
-        const agentMap = Object.fromEntries((agents ?? []).map((a) => [a.id, a.name]))
-
-        return {
-          workflows: (data ?? []).map((w) => ({
-            ...w,
-            agent_name: agentMap[w.agent_id] ?? 'Unknown',
-          })),
-          count: data?.length ?? 0,
-        }
-      },
-    },
-
     SNEW_LIST_APP_CAPABILITIES: {
       description:
         'List available Composio actions AND triggers for an app (e.g. github, slack, discord). Call this before creating a workflow with composio_action steps.',
@@ -532,59 +481,6 @@ export function buildPlatformTools(
           return { error: error.message }
         }
         return { success: true, skill_id: data.id, name: data.name, type: data.type }
-      },
-    },
-
-    SNEW_RUN_WORKFLOW: {
-      description: 'Trigger a manual workflow run.',
-      inputSchema: jsonSchema({
-        type: 'object',
-        properties: {
-          workflow_id: { type: 'string', description: 'The agent_workflow ID to run' },
-          input_data: {
-            type: 'object',
-            additionalProperties: true,
-            description: 'Optional input data for the workflow',
-          },
-        },
-        required: ['workflow_id'],
-      }),
-      execute: async (params: { workflow_id: string; input_data?: Record<string, unknown> }) => {
-        const supabase = await getClient()
-
-        // Verify the workflow belongs to this team via its agent
-        const { data: workflow } = await supabase
-          .from('agent_workflows')
-          .select(
-            'id, name, agent_id, is_enabled, trigger_config, conditions, actions, agents!inner(team_id)'
-          )
-          .eq('id', params.workflow_id)
-          .eq('agents.team_id', teamId)
-          .single()
-
-        if (!workflow) return { error: 'Workflow not found or does not belong to this workspace' }
-        if (!workflow.is_enabled) return { error: 'Workflow is disabled' }
-
-        // Create a run record
-        const { data: run, error } = await supabase
-          .from('agent_workflow_runs')
-          .insert({
-            workflow_id: workflow.id,
-            agent_id: workflow.agent_id,
-            status: 'pending',
-            trigger_data: (params.input_data ?? {}) as unknown as Json,
-          })
-          .select('id')
-          .single()
-
-        if (error) return { error: error.message }
-
-        return {
-          success: true,
-          run_id: run.id,
-          workflow_name: workflow.name,
-          message: `Workflow "${workflow.name}" triggered. Run ID: ${run.id}`,
-        }
       },
     },
 

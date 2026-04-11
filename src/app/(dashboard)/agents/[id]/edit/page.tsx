@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { fetchAgent, fetchTeamWorkflows } from '@/lib/queries/agents'
+import { fetchAgent } from '@/lib/queries/agents'
 import AgentForm from '@/components/agent-detail/agent-form'
 
 export default async function EditAgentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,16 +15,6 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
   const agent = await fetchAgent(supabase, id)
   if (!agent) notFound()
 
-  // Fetch agent workflows + team workflows in parallel (both depend on agent, independent of each other)
-  const [{ data: workflows }, teamWorkflows] = await Promise.all([
-    supabase.from('agent_workflows').select('workflow_id').eq('agent_id', id),
-    fetchTeamWorkflows(supabase, agent.team_id),
-  ])
-
-  const workflowIds = (workflows ?? [])
-    .map((w) => w.workflow_id)
-    .filter((wid): wid is string => wid !== null)
-
   return (
     <div className="mx-auto max-w-5xl p-6">
       <AgentForm
@@ -38,9 +28,9 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
           temperature: agent.temperature,
           max_tokens: agent.max_tokens,
           conversation_starters: agent.conversation_starters,
-          skillWorkflowIds: workflowIds,
+          skillWorkflowIds: [],
         }}
-        workflows={teamWorkflows}
+        workflows={[]}
         teamId={agent.team_id}
         userId={user.id}
       />

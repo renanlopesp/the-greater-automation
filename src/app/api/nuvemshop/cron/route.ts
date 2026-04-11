@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { syncProducts, syncOrders } from '@/lib/nuvemshop/sync'
 import { checkAbandonedCarts, checkRecoveredCarts } from '@/lib/retail/abandoned-cart'
-import { createLogger } from '@/lib/logger'
-
-const log = createLogger('api/nuvemshop/cron')
-
 // Vercel Cron or external cron hits this endpoint every 15 minutes
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -53,21 +49,12 @@ export async function GET(request: NextRequest) {
       let abandonedNotified = 0
       let cartRecovered = 0
       try {
-        // Create an agent_workflow_run record for the abandoned-cart module workflow.
-        // Returns a run ID if the module-based agent is installed, null otherwise.
-        const agentRunId = await createAbandonedCartAgentRun(supabase, store.team_id)
-
         const [abandoned, recovered] = await Promise.all([
-          checkAbandonedCarts(store.id, agentRunId ?? undefined),
-          checkRecoveredCarts(store.id, agentRunId ?? undefined),
+          checkAbandonedCarts(store.id),
+          checkRecoveredCarts(store.id),
         ])
         abandonedNotified = abandoned.notified
         cartRecovered = recovered.recovered
-
-        // Mark the run as completed
-        if (agentRunId) {
-          await finishAgentWorkflowRun(supabase, agentRunId, 'completed')
-        }
       } catch {
         // Non-critical — don't fail the sync cycle
       }
@@ -95,121 +82,4 @@ export async function GET(request: NextRequest) {
   )
 
   return NextResponse.json({ synced: results.length, results })
-}
-
-/**
- * Finds the abandoned-cart module workflow for this team's carrinho-conversao agent,
- * creates an agent_workflow_run record, and returns the run ID.
- * Returns null if no module-based agent is installed (non-fatal, graceful degradation).
- */
-async function createAbandonedCartAgentRun(
-  supabase: ReturnType<typeof createServiceRoleClient>,
-  teamId: string
-): Promise<string | null> {
-  try {
-    // Find agent with agent_type='carrinho-conversao' for this team
-    const { data: agent } = await supabase
-      .from('agents')
-      .select('id')
-      .eq('team_id', teamId)
-      .eq('agent_type' as never, 'carrinho-conversao')
-      .maybeSingle()
-
-    if (!agent) return null
-
-    // Find the abandoned-cart module's workflow (first cron workflow)
-    const { data: workflow } = await (
-      supabase as never as {
-        from: (t: string) => {
-          select: (s: string) => {
-            eq: (
-              k: string,
-              v: unknown
-            ) => {
-              eq: (
-                k: string,
-                v: unknown
-              ) => {
-                limit: (n: number) => {
-                  maybeSingle: () => Promise<{ data: { id: string } | null }>
-                }
-              }
-            }
-          }
-        }
-      }
-    )
-      .from('agent_workflows')
-      .select('id')
-      .eq('agent_id', agent.id)
-      .eq('module_id' as never, await getAbandonedCartModuleId(supabase, agent.id))
-      .limit(1)
-      .maybeSingle()
-
-    if (!workflow) return null
-
-    // Create an agent_workflow_run record
-    const { data: run } = await supabase
-      .from('agent_workflow_runs')
-      .insert({
-        agent_id: agent.id,
-        workflow_id: workflow.id,
-        status: 'running',
-        started_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single()
-
-    return run?.id ?? null
-  } catch (err) {
-    log.warn({ err }, 'Failed to create abandoned-cart agent workflow run')
-    return null
-  }
-}
-
-async function getAbandonedCartModuleId(
-  supabase: ReturnType<typeof createServiceRoleClient>,
-  agentId: string
-): Promise<string> {
-  const { data } = await (
-    supabase as never as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (
-            k: string,
-            v: unknown
-          ) => {
-            eq: (
-              k: string,
-              v: unknown
-            ) => {
-              maybeSingle: () => Promise<{ data: { id: string } | null }>
-            }
-          }
-        }
-      }
-    }
-  )
-    .from('agent_modules')
-    .select('id')
-    .eq('agent_id', agentId)
-    .eq('module_type', 'abandoned-cart')
-    .maybeSingle()
-
-  return (data as { id: string } | null)?.id ?? ''
-}
-
-async function finishAgentWorkflowRun(
-  supabase: ReturnType<typeof createServiceRoleClient>,
-  runId: string,
-  status: 'completed' | 'failed'
-): Promise<void> {
-  try {
-    await supabase
-      .from('agent_workflow_runs')
-      .update({ status, completed_at: new Date().toISOString() })
-      .eq('id', runId)
-  } catch {
-    // Non-fatal
-  }
 }

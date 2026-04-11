@@ -15,17 +15,12 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import WorkflowsList from '@/components/agent-detail/workflows-list'
 import SkillsList from '@/components/agent-detail/skills-list'
 import ConnectionIndicators from '@/components/agent-detail/connection-indicators'
 import RunHistory, { type Run } from '@/components/agent-detail/run-history'
-import { useAgentWorkflows } from '@/hooks/use-agent-workflows'
-import type { AgentWorkflowData } from '@/lib/actions/agent-workflows'
 
 interface AgentSidebarProps {
   agentId: string
-  teamId: string
-  initialWorkflows: AgentWorkflowData[]
   skills: Array<{
     id: string
     name: string
@@ -42,28 +37,14 @@ interface AgentSidebarProps {
     account_label: string | null
   }>
   allRuns: Run[]
-  triggerSubscriptions?: Array<{
-    id: string
-    agent_workflow_id: string
-    trigger_slug: string
-    app_id: string
-    is_enabled: boolean
-    last_event_at: string | null
-    event_count: number
-  }>
 }
 
 export default function AgentSidebar({
   agentId,
-  teamId,
-  initialWorkflows,
   skills,
   connectedApps,
   allRuns,
-  triggerSubscriptions,
 }: AgentSidebarProps) {
-  const { data: workflows = initialWorkflows } = useAgentWorkflows(agentId, initialWorkflows)
-
   return (
     <Sheet>
       <Tooltip>
@@ -104,27 +85,10 @@ export default function AgentSidebar({
         </SheetHeader>
         <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:!overflow-x-hidden [&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:!min-w-0">
           <div className="space-y-6 p-6">
-            <Tabs defaultValue="workflows" className="space-y-3">
-              <TabsList className="h-8">
-                <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
-                  Automações
-                </TabsTrigger>
-                <TabsTrigger value="skills" className="h-7 px-3 text-xs">
-                  Skills
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="workflows" className="mt-0">
-                <WorkflowsList
-                  workflows={workflows}
-                  agentId={agentId}
-                  teamId={teamId}
-                  triggerSubscriptions={triggerSubscriptions}
-                />
-              </TabsContent>
-              <TabsContent value="skills" className="mt-0">
-                <SkillsList skills={skills} agentId={agentId} />
-              </TabsContent>
-            </Tabs>
+            <section className="space-y-3">
+              <h2 className="text-foreground text-[15px] font-semibold">Skills</h2>
+              <SkillsList skills={skills} agentId={agentId} />
+            </section>
 
             <section className="space-y-3">
               <h2 className="text-foreground text-[15px] font-semibold">Aplicativos conectados</h2>

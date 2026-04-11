@@ -1,4 +1,10 @@
-import type { AIStepConfig } from '@/lib/workflow-editor/step-defaults'
+interface AIStepConfig {
+  ai_action: 'summarize' | 'classify' | 'extract' | 'generate' | 'transform'
+  prompt_template: string
+  output_format: 'text' | 'json' | 'markdown'
+  temperature: number
+  max_tokens: number
+}
 
 export interface AIExecutionResult {
   success: boolean

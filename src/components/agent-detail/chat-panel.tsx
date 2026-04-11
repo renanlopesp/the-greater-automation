@@ -37,7 +37,6 @@ import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-e
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAgentChat } from '@/hooks/use-agent-chat'
-import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
 import { useMessageFeedback } from '@/hooks/use-message-feedback'
 import { cn } from '@/lib/utils'
 import { getAgentPalette } from '@/lib/agent-palettes'
@@ -338,10 +337,8 @@ export default function ChatPanel({
   renderEmptyState,
   renderAvatar,
 }: ChatPanelProps) {
-  const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const { messages, status, isLoading, isStreaming, error, sendMessage, startNewChat, stop } =
     useAgentChat(agentId, currentUserId, {
-      onSkillMutation: invalidateWorkflows,
       initialConversationId,
       initialMessages,
       initialQuery,

@@ -1,14 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { FolderPlus, Network } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import SplitButton from '@/components/workspace/split-button'
-import { TemplateDialog } from '@/components/workspace/template-dialog'
 import { CreateFolderDialog } from '@/components/workspace/create-folder-dialog'
-import { createWorkflow } from '@/lib/actions/workspace'
 
 interface WorkspaceHeaderProps {
   teamId: string
@@ -16,30 +11,8 @@ interface WorkspaceHeaderProps {
   currentFolderId?: string | null
 }
 
-export default function WorkspaceHeader({ teamId, userId, currentFolderId }: WorkspaceHeaderProps) {
-  const router = useRouter()
-  const [isCreating, setIsCreating] = useState(false)
-  const [templateOpen, setTemplateOpen] = useState(false)
+export default function WorkspaceHeader({ teamId, currentFolderId }: WorkspaceHeaderProps) {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false)
-
-  async function handleNewBlank() {
-    if (isCreating) return
-    setIsCreating(true)
-    try {
-      const result = await createWorkflow(teamId, userId)
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      if (result.id) {
-        router.push(`/workflows/${result.id}/edit`)
-      }
-    } catch {
-      toast.error('Falha ao criar automação')
-    } finally {
-      setIsCreating(false)
-    }
-  }
 
   return (
     <>
@@ -58,18 +31,8 @@ export default function WorkspaceHeader({ teamId, userId, currentFolderId }: Wor
             <FolderPlus className="h-4 w-4" />
             Nova pasta
           </Button>
-          <SplitButton
-            onNewBlank={handleNewBlank}
-            onNewFromTemplate={() => setTemplateOpen(true)}
-          />
         </div>
       </div>
-      <TemplateDialog
-        open={templateOpen}
-        onOpenChange={setTemplateOpen}
-        teamId={teamId}
-        userId={userId}
-      />
       <CreateFolderDialog
         open={folderDialogOpen}
         onOpenChange={setFolderDialogOpen}

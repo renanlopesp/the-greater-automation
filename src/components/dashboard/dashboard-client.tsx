@@ -3,14 +3,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Bot, GitBranch, MessageCircle, Play, Star } from 'lucide-react'
+import { Bot, MessageCircle, Play } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import AgentsGrid from '@/components/dashboard/agents-grid'
-import WorkflowsSection from '@/components/dashboard/workflows-section'
 import type { AgentCardProps } from '@/components/dashboard/agent-card'
-import type { fetchWorkflows } from '@/lib/queries/dashboard'
-
-type Workflow = Awaited<ReturnType<typeof fetchWorkflows>>[number]
 
 interface OrchestratorData {
   id: string
@@ -23,26 +19,20 @@ interface DashboardClientProps {
   team: { name: string; avatar_url: string | null }
   orchestrator: OrchestratorData | null
   initialAgents: AgentCardProps[]
-  initialWorkflows: Workflow[]
   runsToday: number
-  teamId: string
   connectedApp?: string
   connectionError?: string
 }
 
 const stats = [
   { label: 'Agentes', icon: Bot, value: 0 },
-  { label: 'Automações', icon: GitBranch, value: 0 },
   { label: 'Execuções hoje', icon: Play, value: 0 },
-  { label: 'Favoritos', icon: Star, value: 0 },
 ]
 
 export default function DashboardClient({
   orchestrator,
   initialAgents,
-  initialWorkflows,
   runsToday,
-  teamId,
   connectedApp,
   connectionError,
 }: DashboardClientProps) {
@@ -64,11 +54,9 @@ export default function DashboardClient({
   const computedStats = useMemo(
     () => [
       { ...stats[0], value: initialAgents.length },
-      { ...stats[1], value: initialWorkflows.length },
-      { ...stats[2], value: runsToday },
-      { ...stats[3], value: initialWorkflows.filter((w) => w.is_starred).length },
+      { ...stats[1], value: runsToday },
     ],
-    [initialAgents.length, initialWorkflows, runsToday]
+    [initialAgents.length, runsToday]
   )
 
   return (
@@ -82,7 +70,7 @@ export default function DashboardClient({
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4">
         {computedStats.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="flex items-center gap-3 pt-0">
@@ -125,9 +113,6 @@ export default function DashboardClient({
 
       {/* Agents */}
       <AgentsGrid agents={initialAgents} />
-
-      {/* Workflows */}
-      <WorkflowsSection initialWorkflows={initialWorkflows} teamId={teamId} />
     </div>
   )
 }

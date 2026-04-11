@@ -29,23 +29,6 @@ export async function toggleModule(moduleId: string, enabled: boolean): Promise<
     }
   }
 
-  // Update associated workflows: enable if enabling, disable if disabling
-  const { error: workflowError } = await supabase
-    .from('agent_workflows' as never)
-    .update({ is_enabled: enabled } as never)
-    .eq('module_id' as never, moduleId)
-
-  if (workflowError) {
-    return {
-      success: false,
-      error: safeDbError(
-        'modules/toggle-workflows',
-        workflowError,
-        'Failed to update module workflows'
-      ),
-    }
-  }
-
   return { success: true }
 }
 

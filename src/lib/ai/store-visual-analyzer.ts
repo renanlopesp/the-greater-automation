@@ -113,14 +113,19 @@ export async function analyzeStoreVisuals(storeUrl: string): Promise<VisualAnaly
   let screenshotUrl: string
   let extractedFonts: string[] = []
   try {
-    const { createFirecrawlClient } = await import('@/lib/workflow-editor/web-scraping-executor')
-    const firecrawl = createFirecrawlClient()
-    const result = await firecrawl.scrapeUrl(storeUrl, {
+    const Firecrawl = (await import('@mendable/firecrawl-js')).default
+    const firecrawl = new Firecrawl({ apiKey: process.env.FIRECRAWL_API_KEY! })
+    const result = await (
+      firecrawl.scrape as (
+        url: string,
+        opts: Record<string, unknown>
+      ) => Promise<{ success?: boolean; screenshot?: string; rawHtml?: string }>
+    )(storeUrl, {
       formats: ['screenshot', 'rawHtml'],
       waitFor: 3000,
     })
 
-    if (!result.success || !result.screenshot) {
+    if (!result.screenshot) {
       log.warn({ storeUrl }, 'Screenshot capture failed')
       return null
     }

@@ -12,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import WorkflowRow from '@/components/workspace/workflow-row'
 import type { WorkspaceAgent } from '@/lib/queries/workspace'
 
 interface AgentRowProps {
@@ -21,8 +20,6 @@ interface AgentRowProps {
   onToggle: () => void
   isSelected: boolean
   onSelect: (id: string) => void
-  selectedWorkflowIds: Set<string>
-  onSelectWorkflow: (id: string) => void
   userId: string
   memberNameById: Map<string, string | null>
 }
@@ -33,8 +30,6 @@ export default function AgentRow({
   onToggle,
   isSelected,
   onSelect,
-  selectedWorkflowIds,
-  onSelectWorkflow,
   userId,
   memberNameById,
 }: AgentRowProps) {
@@ -96,15 +91,23 @@ export default function AgentRow({
           </TableRow>
         ) : (
           agent.workflows.map((w) => (
-            <WorkflowRow
-              key={w.id}
-              workflow={w}
-              isSelected={selectedWorkflowIds.has(w.id)}
-              onSelect={onSelectWorkflow}
-              isNested
-              userId={userId}
-              memberNameById={memberNameById}
-            />
+            <TableRow key={w.id}>
+              <TableCell />
+              <TableCell className="pl-12">
+                <span className="text-sm">
+                  {w.emoji ?? '📋'} {w.name}
+                </span>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">{w.status}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {w.created_by === userId ? 'You' : (memberNameById.get(w.created_by) ?? '--')}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">--</TableCell>
+              <TableCell className="text-muted-foreground text-sm">--</TableCell>
+              <TableCell className="text-muted-foreground text-sm">--</TableCell>
+              <TableCell className="text-muted-foreground text-sm">--</TableCell>
+              <TableCell />
+            </TableRow>
           ))
         ))}
     </>

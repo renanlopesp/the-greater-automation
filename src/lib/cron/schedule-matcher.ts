@@ -1,5 +1,13 @@
 import { CronExpressionParser } from 'cron-parser'
-import type { ScheduledTriggerConfig } from '@/lib/workflow-editor/trigger-defaults'
+interface ScheduledTriggerConfig {
+  schedule_type: 'cron' | 'interval'
+  cron_expression?: string
+  interval_value?: number
+  interval_unit?: 'minutes' | 'hours' | 'days' | 'weeks'
+  timezone: string
+  starts_at?: string
+  ends_at?: string
+}
 
 const INTERVAL_MS: Record<NonNullable<ScheduledTriggerConfig['interval_unit']>, number> = {
   minutes: 60_000,

@@ -2,7 +2,7 @@
 
 import type { UIMessage } from 'ai'
 import { isTextUIPart, isReasoningUIPart, isToolUIPart } from 'ai'
-import { Link2, Mic, PaperclipIcon, Plus, X, XIcon, FileIcon } from 'lucide-react'
+import { Link2, Mic, Plus, X, XIcon, FileIcon } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -25,16 +25,12 @@ import {
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import WorkflowsList from '@/components/agent-detail/workflows-list'
 import SkillsList from '@/components/agent-detail/skills-list'
 import { useAgentChat } from '@/hooks/use-agent-chat'
-import { useInvalidateAgentWorkflows } from '@/hooks/use-agent-workflows'
 import { useMessageFeedback } from '@/hooks/use-message-feedback'
 import { cn } from '@/lib/utils'
 import { getAgentModalData } from '@/lib/actions/agent-modal-data'
-import { getAgentWorkflows } from '@/lib/actions/agent-workflows'
 import { getAgentSkills } from '@/lib/actions/agent-skills'
 
 interface AgentItem {
@@ -90,7 +86,7 @@ function formatToolName(name: string): string {
 
 export default function AgentDetailModal({
   agent,
-  teamId,
+  teamId: _teamId,
   open,
   onOpenChange,
 }: AgentDetailModalProps) {
@@ -101,12 +97,6 @@ export default function AgentDetailModal({
     queryFn: () => getAgentModalData(agentId),
     enabled: open && !!agentId,
     gcTime: 0,
-  })
-
-  const { data: workflows = [] } = useQuery({
-    queryKey: ['agent-workflows', agentId],
-    queryFn: () => getAgentWorkflows(agentId),
-    enabled: open && !!agentId,
   })
 
   const { data: skills = [] } = useQuery({
@@ -222,28 +212,11 @@ export default function AgentDetailModal({
                   </div>
                 </div>
 
-                {/* Automações / Skills Tabs */}
-                <Tabs defaultValue="workflows" className="space-y-3">
-                  <TabsList className="h-8">
-                    <TabsTrigger value="workflows" className="h-7 px-3 text-xs">
-                      Automações
-                    </TabsTrigger>
-                    <TabsTrigger value="skills" className="h-7 px-3 text-xs">
-                      Skills
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="workflows" className="modal-workflows mt-0 overflow-hidden">
-                    <WorkflowsList
-                      workflows={workflows}
-                      agentId={agentId}
-                      teamId={teamId}
-                      triggerSubscriptions={modalData?.triggerSubscriptions}
-                    />
-                  </TabsContent>
-                  <TabsContent value="skills" className="mt-0 overflow-hidden">
-                    <SkillsList skills={skills} agentId={agentId} />
-                  </TabsContent>
-                </Tabs>
+                {/* Skills */}
+                <div className="space-y-3">
+                  <h2 className="text-xs font-semibold tracking-wider uppercase">Skills</h2>
+                  <SkillsList skills={skills} agentId={agentId} />
+                </div>
               </div>
             </div>
           </aside>
@@ -442,12 +415,10 @@ function ModalChatPanel({
     sender_avatar: string | null
   }[]
 }) {
-  const invalidateWorkflows = useInvalidateAgentWorkflows(agentId)
   const { messages, status, isLoading, isStreaming, error, sendMessage, stop } = useAgentChat(
     agentId,
     currentUserId,
     {
-      onSkillMutation: invalidateWorkflows,
       initialConversationId,
       initialMessages,
     }

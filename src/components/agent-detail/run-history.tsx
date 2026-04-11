@@ -162,20 +162,8 @@ export default function RunHistory({ runs }: RunHistoryProps) {
     })
   }
 
-  async function handleRetry(runId: string) {
-    setRetryingRuns((prev) => new Set(prev).add(runId))
-    try {
-      const { retryWorkflowRun } = await import('@/lib/actions/trigger-subscriptions')
-      await retryWorkflowRun(runId)
-    } catch {
-      // Ignore - UI will show the result
-    } finally {
-      setRetryingRuns((prev) => {
-        const next = new Set(prev)
-        next.delete(runId)
-        return next
-      })
-    }
+  async function handleRetry(_runId: string) {
+    // retry functionality removed (workflow system deleted)
   }
 
   // Filter runs

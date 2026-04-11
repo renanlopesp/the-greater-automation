@@ -6,7 +6,6 @@ import { useTheme } from 'next-themes'
 import { ReactFlow, Controls, MiniMap, type NodeMouseHandler, type ColorMode } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import GraphNodeAgent from '@/components/workspace/graph-node-agent'
-import GraphNodeWorkflow from '@/components/workspace/graph-node-workflow'
 import { GraphEmptyState } from '@/components/workspace/graph-empty-state'
 import { transformToGraphData } from '@/lib/workspace/transform-graph-data'
 import { layoutGraph } from '@/lib/workspace/layout-graph'
@@ -14,7 +13,6 @@ import type { WorkspaceItem } from '@/lib/queries/workspace'
 
 const nodeTypes = {
   agent: GraphNodeAgent,
-  workflow: GraphNodeWorkflow,
 }
 
 interface GraphViewProps {

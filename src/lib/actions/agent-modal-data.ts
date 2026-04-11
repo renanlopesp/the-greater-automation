@@ -46,11 +46,10 @@ export async function getAgentModalData(agentId: string): Promise<AgentModalData
 
   if (!agent) return null
 
-  // Parallel fetch: conversation, workflows (for deriving connected apps), connections, trigger subs, store
-  const [activeConversation, workflowsResult, connectionsResult, triggerSubsResult, storeResult] =
-    await Promise.all([
+  // Parallel fetch: conversation, connections, trigger subs, store
+  const [activeConversation, connectionsResult, triggerSubsResult, storeResult] = await Promise.all(
+    [
       getActiveConversation(supabase, agentId, user.id),
-      supabase.from('agent_workflows').select('trigger_config, actions').eq('agent_id', agentId),
       supabase.from('app_connections').select('id, app_id, account_label').eq('user_id', user.id),
       supabase
         .from('trigger_subscriptions')
@@ -64,23 +63,11 @@ export async function getAgentModalData(agentId: string): Promise<AgentModalData
         .eq('team_id', agent.team_id)
         .limit(1)
         .maybeSingle(),
-    ])
+    ]
+  )
 
-  // Derive which app_ids this agent uses (from workflows + store platform + trigger subs)
+  // Derive which app_ids this agent uses (from trigger subs + store platform)
   const usedAppIds = new Set<string>()
-  for (const w of workflowsResult.data ?? []) {
-    const tc = w.trigger_config as Record<string, unknown> | null
-    if (tc?.type === 'app_event' && typeof tc.app_id === 'string') {
-      usedAppIds.add(tc.app_id)
-    }
-    if (Array.isArray(w.actions)) {
-      for (const a of w.actions as Array<Record<string, unknown>>) {
-        if (a.type === 'composio_action' && typeof a.app_id === 'string') {
-          usedAppIds.add(a.app_id)
-        }
-      }
-    }
-  }
   for (const ts of triggerSubsResult.data ?? []) {
     if (ts.app_id) usedAppIds.add(ts.app_id)
   }

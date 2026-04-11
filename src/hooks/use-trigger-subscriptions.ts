@@ -2,27 +2,10 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect } from 'react'
-import { getTriggerSubscriptions } from '@/lib/actions/trigger-subscriptions'
 import { createBrowserClient } from '@/lib/supabase/client'
 
-// ---------------------------------------------------------------------------
-// Query key factory
-// ---------------------------------------------------------------------------
-
-export const triggerSubscriptionsKey = (agentId: string) =>
-  ['trigger-subscriptions', agentId] as const
-
-// ---------------------------------------------------------------------------
-// Hook 1: useTriggerSubscriptions(agentId)
-// ---------------------------------------------------------------------------
-
-export function useTriggerSubscriptions(agentId: string) {
-  return useQuery({
-    queryKey: triggerSubscriptionsKey(agentId),
-    queryFn: () => getTriggerSubscriptions(agentId),
-    staleTime: 30_000,
-    enabled: !!agentId,
-  })
+function triggerSubscriptionsKey(agentId: string) {
+  return ['trigger-subscriptions', agentId]
 }
 
 // ---------------------------------------------------------------------------

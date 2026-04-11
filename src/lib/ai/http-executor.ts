@@ -1,4 +1,13 @@
-import type { HTTPStepConfig } from '@/lib/workflow-editor/step-defaults'
+interface HTTPStepConfig {
+  request_type: 'custom'
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  url: string
+  headers?: Record<string, string>
+  body?: string
+  auth?: { type: 'none' | 'bearer' | 'basic' | 'api_key'; value: string }
+  timeout_seconds: number
+  retry_count: number
+}
 
 export interface HTTPExecutionResult {
   success: boolean
