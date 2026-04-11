@@ -4,7 +4,6 @@ import { SkillWorkspace } from '@/components/skill-workspace/skill-workspace'
 import { CalendarHeroCard } from './calendar-hero-card'
 import CalendarArtifact from './calendar-artifact'
 import { useSeasonalCalendar } from '@/hooks/use-seasonal-calendar'
-import { useSkillChat } from '@/hooks/use-skill-chat'
 
 const QUICK_ACTIONS = [
   { label: 'Qual a próxima data importante?', message: 'Qual a próxima data importante?' },
@@ -24,8 +23,6 @@ export function SeasonalCalendarWorkspace() {
     isGeneratingCampaign,
     isRegenerating,
   } = useSeasonalCalendar()
-
-  const chat = useSkillChat('seasonal-calendar')
 
   return (
     <SkillWorkspace
@@ -52,11 +49,11 @@ export function SeasonalCalendarWorkspace() {
         />
       }
       inputPlaceholder="Pergunte sobre datas sazonais..."
-      chatMessages={chat.messages}
-      chatIsLoading={chat.isLoading}
-      chatIsStreaming={chat.isStreaming}
-      onChatSendMessage={(text) => chat.sendMessage(text)}
-      onChatStop={chat.stop}
+      chatMessages={[]}
+      chatIsLoading={false}
+      chatIsStreaming={false}
+      onChatSendMessage={() => {}}
+      onChatStop={() => {}}
     />
   )
 }
