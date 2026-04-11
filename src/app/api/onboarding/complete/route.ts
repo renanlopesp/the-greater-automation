@@ -68,5 +68,15 @@ export async function POST(request: NextRequest) {
     log.error({ err: e }, 'Failed to seed Seasonal Calendar')
   }
 
+  // Provision the Managed Agent now that brand DNA + skills are ready
+  try {
+    const { provisionAgent } = await import('@/lib/ai/agent-provisioning')
+    await provisionAgent(membership.team_id, user.id)
+    log.info({ teamId: membership.team_id }, 'Agent provisioned during onboarding')
+  } catch (e) {
+    log.error({ err: e }, 'Failed to provision agent during onboarding')
+    // Non-blocking — agent will auto-provision on first chat message if this fails
+  }
+
   return NextResponse.json({ success: true, activatedSkills: selectedSkillSlugs.length })
 }
