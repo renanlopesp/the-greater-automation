@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface ServerMessage {
   id: string
@@ -16,6 +17,7 @@ interface UseOrchestratorChatOptions {
   initialQuery?: string
   taskId?: string
   model?: string
+  skillSlug?: string
 }
 
 /**
@@ -23,6 +25,8 @@ interface UseOrchestratorChatOptions {
  * The orchestrator is not an agent — it has its own conversations table.
  */
 export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
+  const router = useRouter()
+
   // Transform server messages to UIMessage format
   const [serverMessages] = useState<UIMessage[] | undefined>(() => {
     if (!options?.initialMessages?.length) return undefined
@@ -46,6 +50,7 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
 
   const taskIdRef = useRef<string | undefined>(options?.taskId)
   const modelRef = useRef<string | undefined>(options?.model)
+  const skillSlugRef = useRef<string | undefined>(options?.skillSlug)
 
   const transport = useMemo(
     () =>
@@ -55,14 +60,27 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
           conversationId: conversationIdRef.current,
           taskId: taskIdRef.current,
           ...(modelRef.current ? { model: modelRef.current } : {}),
+          ...(skillSlugRef.current ? { skill_slug: skillSlugRef.current } : {}),
         }),
         fetch: async (url, fetchOptions) => {
           const response = await globalThis.fetch(url as string, fetchOptions as RequestInit)
+          const contentType = response.headers.get('Content-Type')
+          if (contentType?.includes('application/json')) {
+            // Skill path: backend returns { ok: true, taskId, skill } — navigate immediately
+            const cloned = response.clone()
+            const json = await cloned.json()
+            if (json?.ok === true && json?.taskId) {
+              router.push(`/chat/task/${json.taskId}`)
+            }
+            return response
+          }
+          // SSE path (default): extract conversation id from header
           const newConvId = response.headers.get('X-Conversation-Id')
           if (newConvId) setConversationId(newConvId)
           return response
         },
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
@@ -106,6 +124,10 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     modelRef.current = model
   }, [])
 
+  const setSkillSlug = useCallback((slug: string | undefined) => {
+    skillSlugRef.current = slug
+  }, [])
+
   const isStreaming = status === 'streaming'
   const isLoading = status === 'submitted' || isStreaming
 
@@ -122,5 +144,6 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     setMessages,
     model: modelRef.current,
     setModel,
+    setSkillSlug,
   }
 }

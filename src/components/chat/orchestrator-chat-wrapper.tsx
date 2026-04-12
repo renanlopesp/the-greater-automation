@@ -51,6 +51,13 @@ export function triggerOrchestratorNewChat() {
   _newChatState.handler?.()
 }
 
+// Module-level event bus for skill pill selection.
+// Call selectOrchestratorSkill(slug) from the hero pill UI to set the active skill slug.
+const _skillState: { handler: ((slug: string | undefined) => void) | null } = { handler: null }
+export function selectOrchestratorSkill(slug: string | undefined) {
+  _skillState.handler?.(slug)
+}
+
 interface SkillProgress {
   skillName: string | null
   steps: Array<{ label: string; done: boolean }>
@@ -106,6 +113,7 @@ export default function OrchestratorChatWrapper({
     return localStorage.getItem('snew-chat-model') || MODEL_OPTIONS[0].id
   })
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const [selectedSkill, setSelectedSkill] = useState<string | undefined>(undefined)
 
   const {
     messages,
@@ -117,18 +125,25 @@ export default function OrchestratorChatWrapper({
     startNewChat,
     stop,
     setModel,
+    setSkillSlug,
   } = useOrchestratorChat({
     initialConversationId,
     initialMessages,
     initialQuery,
     taskId,
     model: selectedModel,
+    skillSlug: selectedSkill,
   })
 
   // Keep hook model ref in sync
   useEffect(() => {
     setModel(selectedModel)
   }, [selectedModel, setModel])
+
+  // Keep hook skillSlug ref in sync
+  useEffect(() => {
+    setSkillSlug(selectedSkill)
+  }, [selectedSkill, setSkillSlug])
 
   // Refetch task data when AI finishes responding (catches SNEW_MODIFY_ARTIFACT changes).
   // This is intentionally event-driven (streaming→ready transition), not derived state.
@@ -176,6 +191,14 @@ export default function OrchestratorChatWrapper({
       _newChatState.handler = null
     }
   }, [startNewChat])
+
+  // Register skill selection handler
+  useEffect(() => {
+    _skillState.handler = setSelectedSkill
+    return () => {
+      _skillState.handler = null
+    }
+  }, [setSelectedSkill])
 
   const handleSuggestion = useCallback((text: string) => sendMessage(text), [sendMessage])
 
@@ -287,23 +310,31 @@ export default function OrchestratorChatWrapper({
                         </>
                       ) : (
                         <>
-                          {/* Managed Agents API doesn't expose reasoning content,
-                              so we don't render a thinking indicator here.
-                              The 3-dots spinner on the assistant message already
-                              conveys that the model is working. */}
-                          {reasoningParts.length > 0 && reasoningText.trim().length > 0 && (
-                            <Reasoning
-                              isStreaming={
-                                isStreaming &&
-                                isLast &&
-                                parts[parts.length - 1]?.type === 'reasoning'
-                              }
-                              defaultOpen={false}
-                            >
-                              <ReasoningTrigger />
-                              <ReasoningContent>{reasoningText}</ReasoningContent>
-                            </Reasoning>
-                          )}
+                          {reasoningParts.length > 0 &&
+                            (reasoningText.trim().length > 0 ? (
+                              <Reasoning
+                                isStreaming={
+                                  isStreaming &&
+                                  isLast &&
+                                  parts[parts.length - 1]?.type === 'reasoning'
+                                }
+                                defaultOpen={false}
+                              >
+                                <ReasoningTrigger />
+                                <ReasoningContent>{reasoningText}</ReasoningContent>
+                              </Reasoning>
+                            ) : (
+                              <Reasoning
+                                isStreaming={
+                                  isStreaming &&
+                                  isLast &&
+                                  parts[parts.length - 1]?.type === 'reasoning'
+                                }
+                                defaultOpen={false}
+                              >
+                                <ReasoningTrigger />
+                              </Reasoning>
+                            ))}
                           {(() => {
                             // Extract Composio connection links from markdown and render as buttons
                             const composioLinkRegex =
