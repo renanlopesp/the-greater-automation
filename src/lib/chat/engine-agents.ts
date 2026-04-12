@@ -253,14 +253,6 @@ export async function runAgentsEngine(ctx: AgentsEngineContext): Promise<Respons
           } else if (e.type === 'session.status_terminated' || e.type === 'session.error') {
             break
           }
-          // Detect skill execution via MCP and run in background on Next.js
-          if (e.type === 'agent.mcp_tool_use' && e.name === 'SNEW_RUN_SKILL' && taskId) {
-            const args = typeof e.input === 'string' ? JSON.parse(e.input) : e.input
-            console.log('[chat] SNEW_RUN_SKILL detected:', args?.skill_slug, 'taskId:', taskId)
-            if (args?.skill_slug === 'seasonal-calendar') {
-              void generateCalendarInBackground(serviceClient, taskId, teamId)
-            }
-          }
           // Extract artifact from MCP tool result (if present).
           if (e.type === 'agent.mcp_tool_result' && taskId && !e.is_error) {
             const firstText = e.content?.find((b: { type: string }) => b.type === 'text')
@@ -369,164 +361,7 @@ REGRAS: Para PERGUNTAS sobre o calendário, responda usando o contexto acima. Pa
     context += `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
   }
 
-  const isCalendarBySkill =
-    taskMeta.selected_skill === 'seasonal-calendar' &&
-    !taskMeta.artifact_type &&
-    taskMeta.skill_status !== 'running' &&
-    taskMeta.skill_status !== 'completed'
-  if (isCalendarBySkill) {
-    await serviceClient
-      .from('tasks')
-      .update({
-        skill_status: 'running',
-        active_skill: 'seasonal-calendar',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
-
-    void generateCalendarInBackground(serviceClient, taskId, teamId)
-
-    context +=
-      '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega. Informe o usuário brevemente (2-3 frases).]'
-  }
-
   return context || null
-}
-
-/**
- * Background calendar generation (fire-and-forget).
- */
-async function generateCalendarInBackground(
-  serviceClient: ServiceClient,
-  taskId: string,
-  teamId: string
-) {
-  const updateProgress = async (steps: Array<{ label: string; done: boolean }>) => {
-    await serviceClient
-      .from('tasks')
-      .update({ artifact_data: { steps }, updated_at: new Date().toISOString() })
-      .eq('id', taskId)
-  }
-
-  try {
-    await updateProgress([{ label: 'Analisando Brand DNA da loja...', done: false }])
-
-    const [{ data: bd }, { data: store }] = await Promise.all([
-      serviceClient
-        .from('brand_dna')
-        .select('niche, audience, positioning, tone, average_ticket, opportunities')
-        .eq('team_id', teamId)
-        .single(),
-      serviceClient
-        .from('stores')
-        .select('id, platform, platform_store_id, platform_access_token')
-        .eq('team_id', teamId)
-        .limit(1)
-        .single(),
-    ])
-
-    const brandLabel = bd?.niche
-      ? `Brand DNA: ${bd.niche} · ${bd.tone ?? 'sem tom definido'}`
-      : 'Brand DNA não encontrado — usando padrões'
-
-    await updateProgress([
-      { label: brandLabel, done: true },
-      { label: 'Verificando conexão com a loja...', done: false },
-    ])
-
-    let calendarProducts: Array<{ name: string; price: number }> = []
-    let productSource = ''
-    if (store?.platform === 'nuvemshop' && store.platform_store_id && store.platform_access_token) {
-      try {
-        const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
-        const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
-        const liveProducts = await client.getProducts(1, 200)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        calendarProducts = liveProducts.map((p: any) => ({
-          name:
-            typeof p.name === 'object'
-              ? ((p.name as Record<string, string>).pt ??
-                Object.values(p.name as Record<string, string>)[0] ??
-                '')
-              : String(p.name),
-          price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
-        }))
-        productSource = `${calendarProducts.length} produtos via Nuvemshop`
-      } catch {
-        console.warn('[generateCalendarInBackground] Nuvemshop API failed, using DB products')
-        const { data: prods } = await serviceClient
-          .from('store_products')
-          .select('name, price')
-          .eq('store_id', store.id)
-          .limit(200)
-        calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
-        productSource =
-          calendarProducts.length > 0
-            ? `${calendarProducts.length} produtos do catálogo local (Nuvemshop desconectada)`
-            : 'Nenhum produto encontrado — calendário genérico'
-      }
-    } else if (store) {
-      const { data: prods } = await serviceClient
-        .from('store_products')
-        .select('name, price')
-        .eq('store_id', store.id)
-        .limit(50)
-      calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
-      productSource =
-        calendarProducts.length > 0
-          ? `${calendarProducts.length} produtos do catálogo`
-          : 'Nenhum produto encontrado'
-    } else {
-      productSource = 'Loja não conectada — calendário genérico'
-    }
-
-    const opCount = (bd?.opportunities as unknown[])?.length ?? 0
-
-    await updateProgress([
-      { label: brandLabel, done: true },
-      { label: productSource, done: true },
-      ...(opCount > 0
-        ? [{ label: `${opCount} oportunidades sazonais identificadas`, done: true }]
-        : []),
-      { label: 'Gerando calendário personalizado com IA...', done: false },
-    ])
-
-    const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
-    const calendarData = await generateCalendar(
-      teamId,
-      {
-        brandDna: {
-          niche: bd?.niche ?? 'varejo',
-          audience: bd?.audience ?? 'consumidores gerais',
-          positioning: bd?.positioning ?? '',
-          tone: bd?.tone ?? 'profissional',
-          average_ticket: bd?.average_ticket ?? 100,
-          opportunities: bd?.opportunities ?? [],
-        },
-        products: calendarProducts,
-        currentDate: new Date(),
-        year: new Date().getFullYear(),
-      },
-      'direct'
-    )
-
-    await serviceClient
-      .from('tasks')
-      .update({
-        artifact_data: calendarData,
-        artifact_type: 'seasonal-calendar',
-        skill_status: 'completed',
-        active_skill: 'seasonal-calendar',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
-  } catch (err) {
-    console.error('[generateCalendarInBackground] FAILED:', err)
-    await serviceClient
-      .from('tasks')
-      .update({ skill_status: 'failed', updated_at: new Date().toISOString() })
-      .eq('id', taskId)
-  }
 }
 
 // ── Background skill runner (T022) ──────────────────────────────────────
@@ -544,8 +379,27 @@ const FOLLOWUPS_MARKER_RE = /<!--\s*snew:followups\s+[\s\S]*?-->/g
 const ARTIFACT_BLOB_RE = /__artifact["']?\s*:\s*(\{[\s\S]*?\})\s*[,}]/
 
 /**
+ * Skills that have a dedicated Supabase Edge Function generator.
+ * When the slug matches, the Edge Function is dispatched directly and owns
+ * the task status transition (running → completed/failed).
+ * The Next.js background only fires askAgent to produce a human-readable reply.
+ */
+const EDGE_FUNCTION_SKILLS: Record<string, string> = {
+  'seasonal-calendar': 'generate-seasonal-calendar',
+}
+
+/**
  * Run the Managed Agent for a skill AFTER the HTTP response has been sent.
  * Uses a fresh service-role Supabase client (request client may be torn down).
+ *
+ * For skills in EDGE_FUNCTION_SKILLS:
+ *   - The Edge Function is dispatched directly (fire-and-forget) and owns
+ *     the skill_status transition.
+ *   - askAgent still runs to give the user a text reply in chat.
+ *   - This function does NOT mark the task completed — the Edge Function does.
+ *
+ * For all other skills:
+ *   - askAgent runs and this function marks the task completed/failed.
  */
 export async function runAgentsEngineBackground(ctx: AgentsEngineBackgroundContext): Promise<void> {
   const { user, teamId, taskId, conversationId, userMessage, skillSlug } = ctx
@@ -561,12 +415,29 @@ export async function runAgentsEngineBackground(ctx: AgentsEngineBackgroundConte
       })
       .eq('id', taskId)
 
-    // Dispatch to the dedicated generator for skills that have one.
-    // generateCalendarInBackground already writes artifact_data + artifact_type +
-    // skill_status='completed', so we return immediately after the call.
-    if (skillSlug === 'seasonal-calendar') {
-      await generateCalendarInBackground(client, taskId, teamId)
-      return
+    // If this skill has a dedicated Edge Function, dispatch it directly.
+    // The Edge Function writes artifact_data and marks task completed/failed on its own.
+    const edgeEndpoint = EDGE_FUNCTION_SKILLS[skillSlug]
+    if (edgeEndpoint) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const secret = process.env.MCP_AUTH_TOKEN ?? ''
+      const dispatchUrl = `${supabaseUrl}/functions/v1/${edgeEndpoint}?secret=${secret}`
+      void fetch(dispatchUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_id: teamId, task_id: taskId, user_id: user.id }),
+      })
+        .then(async (r) => {
+          if (!r.ok) {
+            const body = await r.text().catch(() => '')
+            console.error('[chat] Edge Function dispatch failed', {
+              skillSlug,
+              status: r.status,
+              body: body.slice(0, 200),
+            })
+          }
+        })
+        .catch((err) => console.error('[chat] Edge Function dispatch threw', err))
     }
 
     const result = await askAgent(teamId, userMessage, {
@@ -599,13 +470,17 @@ export async function runAgentsEngineBackground(ctx: AgentsEngineBackgroundConte
       },
     })
 
-    await client
-      .from('tasks')
-      .update({
-        skill_status: 'completed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
+    // Only mark completed here if there is no Edge Function handling the transition.
+    // Edge Function skills own their own skill_status transition.
+    if (!edgeEndpoint) {
+      await client
+        .from('tasks')
+        .update({
+          skill_status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', taskId)
+    }
 
     const totalTokens = result.usage.inputTokens + result.usage.outputTokens
     const credits = tokensToCredits(totalTokens)

@@ -4,7 +4,32 @@ import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useArtifactNav } from '@/components/skill-workspace/artifact-nav-context'
 import type { FullCampaign, SeasonalDate } from '@/data/campaign-data'
-import type { PersonalizedCalendar, PersonalizedDate } from '@/lib/ai/seasonal-campaign-generator'
+// Inlined from deleted seasonal-campaign-generator.ts (spec 064 T016)
+type PersonalizedDate = {
+  id: string
+  name: string
+  emoji: string
+  date: string
+  displayDate: string
+  month: string
+  day: string
+  type: 'universal' | 'niche'
+  relevanceReason: string
+  estimatedRevenue: number
+  potentialValue: string
+  priority: 'high' | 'medium' | 'low'
+}
+type PersonalizedCalendar = {
+  year: number
+  generatedAt: string
+  dates: PersonalizedDate[]
+  summary: {
+    totalDates: number
+    totalPotentialRevenue: number
+    nextActionableDate: string | null
+  }
+  nextYearSuggested: boolean
+}
 import type { UseMutationResult } from '@tanstack/react-query'
 import { CalendarLevel1 } from './calendar-level1'
 

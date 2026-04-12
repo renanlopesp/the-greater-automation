@@ -26,7 +26,32 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { PersonalizedCalendar, PersonalizedDate } from '@/lib/ai/seasonal-campaign-generator'
+// Inlined from deleted seasonal-campaign-generator.ts (spec 064 T016)
+export type PersonalizedDate = {
+  id: string
+  name: string
+  emoji: string
+  date: string
+  displayDate: string
+  month: string
+  day: string
+  type: 'universal' | 'niche'
+  relevanceReason: string
+  estimatedRevenue: number
+  potentialValue: string
+  priority: 'high' | 'medium' | 'low'
+}
+export type PersonalizedCalendar = {
+  year: number
+  generatedAt: string
+  dates: PersonalizedDate[]
+  summary: {
+    totalDates: number
+    totalPotentialRevenue: number
+    nextActionableDate: string | null
+  }
+  nextYearSuggested: boolean
+}
 import type {
   FullCampaign,
   ProductTag,

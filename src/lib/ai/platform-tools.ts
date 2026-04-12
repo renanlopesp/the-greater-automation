@@ -1,12 +1,39 @@
 import { jsonSchema } from 'ai'
+import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
 import { buildRetailTools } from '@/lib/ai/retail-tools'
 import { fetchTeamSkills, fetchSkillBySlug, fetchSkillExecutions } from '@/lib/queries/skills'
 import { executeSkill } from '@/lib/ai/skill-executor'
-import { generateCalendar } from '@/lib/ai/seasonal-campaign-generator'
+import { askAgentJSON } from '@/lib/ai/agent-client'
 import { skills as skillCatalog } from '@/data/skills'
+
+// ---------------------------------------------------------------------------
+// Inlined concept-generation schema (from deleted seasonal-campaign-generator.ts)
+// ---------------------------------------------------------------------------
+const _CampaignProductSchema = z.object({
+  product_id: z.string(),
+  name: z.string(),
+  price: z.number(),
+  tag: z.enum(['best-seller', 'liberar-estoque', 'cross-sell', 'lancamento', 'alta-margem']),
+  stock: z.number().nullable(),
+  image_url: z.string().nullable(),
+})
+const _CampaignConceptSchema = z.object({
+  slogan: z.string(),
+  description: z.string(),
+  products: z.array(_CampaignProductSchema).min(1),
+  alternates: z
+    .array(z.object({ slogan: z.string(), description: z.string() }))
+    .min(2)
+    .max(3),
+})
+const _ConceptOnlySchema = z.object({
+  intro: z.string(),
+  concept: _CampaignConceptSchema,
+  selectedProducts: z.array(_CampaignProductSchema).min(1),
+})
 
 type SupabaseClient =
   | Awaited<ReturnType<typeof createServerClient>>
@@ -187,52 +214,26 @@ export function buildPlatformTools(
               }))
             }
 
-            const calendarResult = await generateCalendar(
-              teamId,
-              {
-                brandDna: {
-                  niche: (brandDna?.niche as string) ?? 'varejo',
-                  audience: (brandDna?.audience as string) ?? 'consumidores gerais',
-                  positioning: (brandDna?.positioning as string) ?? '',
-                  tone: (brandDna?.tone as string) ?? 'profissional',
-                  average_ticket: (brandDna?.average_ticket as number) ?? 100,
-                  opportunities:
-                    (brandDna?.opportunities as Array<{
-                      title: string
-                      description: string
-                      estimated_revenue: number
-                    }>) ?? [],
-                },
-                products: calendarProducts,
-                currentDate: new Date(),
-                year: new Date().getFullYear(),
-              },
-              'direct'
-            )
-
-            // Save real calendar data to task
-            await (
-              supabase as unknown as {
-                from: (t: string) => {
-                  update: (d: unknown) => {
-                    eq: (k: string, v: string) => Promise<{ error: unknown }>
-                  }
-                }
-              }
-            )
-              .from('tasks')
-              .update({
-                artifact_data: calendarResult,
-                artifact_type: 'seasonal-calendar',
-                skill_status: 'completed',
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', taskId)
-
+            // Calendar generation is handled by the Edge Function generate-seasonal-calendar.
+            // Dispatch to it and return immediately — the Edge Function writes to the task row.
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+            const authToken = process.env.MCP_AUTH_TOKEN
+            if (!supabaseUrl || !authToken) {
+              return { error: 'Missing NEXT_PUBLIC_SUPABASE_URL or MCP_AUTH_TOKEN env vars' }
+            }
+            const edgeFnUrl = `${supabaseUrl}/functions/v1/generate-seasonal-calendar?secret=${authToken}`
+            const edgeRes = await fetch(edgeFnUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ team_id: teamId, task_id: taskId, user_id: userId }),
+            })
+            if (!edgeRes.ok) {
+              const errBody = await edgeRes.text().catch(() => '')
+              return { error: `Edge Function error ${edgeRes.status}: ${errBody.slice(0, 200)}` }
+            }
             return {
               status: 'completed',
-              summary: `Calendário sazonal ${calendarResult.year} gerado com ${calendarResult.dates?.length ?? 0} datas.`,
-              data: calendarResult,
+              summary: 'Calendário sazonal sendo gerado. O painel será atualizado automaticamente.',
             }
           } catch (err) {
             if (taskId) {
@@ -1150,19 +1151,50 @@ export function buildPlatformTools(
                   campaignProducts = await analyzeProductsSafe(client)
                 }
 
-                const { generateConcept: genConcept } =
-                  await import('@/lib/ai/seasonal-campaign-generator')
-                const conceptResult = await genConcept(teamId, {
-                  date: {
-                    id: dateId,
-                    name: dateObj.name,
-                    emoji: dateObj.emoji ?? '',
-                    displayDate: dateObj.displayDate ?? '',
-                  },
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  brandDna: brandDna as any,
-                  products: campaignProducts,
-                })
+                // Inlined concept generation (seasonal-campaign-generator.ts deleted in spec 064)
+                const productsCtx =
+                  campaignProducts.length > 0
+                    ? `\nPRODUTOS DISPONÍVEIS:\n${campaignProducts
+                        .slice(0, 30)
+                        .map((p) => {
+                          const parts = [
+                            `- [ID: ${p.product_id ?? 'unknown'}] ${p.name}: R$ ${p.price.toLocaleString('pt-BR')}`,
+                          ]
+                          if (p.stock_quantity != null) parts.push(`estoque: ${p.stock_quantity}`)
+                          if (p.sales_count != null && p.sales_count > 0)
+                            parts.push(`vendas: ${p.sales_count}`)
+                          if (p.margin_pct != null)
+                            parts.push(`margem: ${p.margin_pct.toFixed(0)}%`)
+                          if (p.suggested_tag) parts.push(`tag: ${p.suggested_tag}`)
+                          return (
+                            parts[0] + (parts.length > 1 ? ` (${parts.slice(1).join(', ')})` : '')
+                          )
+                        })
+                        .join('\n')}`
+                    : '\nNenhum produto — crie produtos representativos para o nicho.'
+                const conceptPrompt = `Você é o Snew, CMO de IA para e-commerce brasileiro. Gere o CONCEITO e SELEÇÃO DE PRODUTOS para a campanha.
+
+DATA: ${dateObj.emoji ?? ''} ${dateObj.name} — ${dateObj.displayDate ?? ''}
+
+PERFIL:
+- Nicho: ${(brandDna as Record<string, unknown>).niche ?? 'varejo'}
+- Público: ${(brandDna as Record<string, unknown>).audience ?? 'consumidores gerais'}
+- Posicionamento: ${(brandDna as Record<string, unknown>).positioning ?? ''}
+- Tom: ${(brandDna as Record<string, unknown>).tone ?? 'profissional'}
+${productsCtx}
+
+Retorne JSON com: intro (string), concept (slogan, description, products[], alternates[]), selectedProducts[].
+Toda a saída em Português do Brasil. product_id EXATAMENTE como fornecido.
+
+Gere o conceito para "${dateObj.name}" (${dateObj.displayDate ?? ''}).`
+                const conceptResult = await askAgentJSON(
+                  teamId,
+                  conceptPrompt,
+                  _ConceptOnlySchema,
+                  {
+                    timeout: 180_000,
+                  }
+                )
 
                 // Inject image_url from original products by product_id (reliable match)
                 const productMap = new Map(

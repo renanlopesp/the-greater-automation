@@ -23,9 +23,9 @@ New Deno code lives in `supabase/functions/`. Shared helpers live in `supabase/f
 
 **Purpose**: Scaffold Edge Function directories and shared `_shared/` module; document env surface.
 
-- [ ] T001 [P] Create directory `supabase/functions/generate-seasonal-calendar/` with an empty `index.ts` scaffold and a per-function `README.md` linking to `specs/064-edge-function-first-skills/contracts/generate-seasonal-calendar.md`
-- [ ] T002 [P] Create `supabase/functions/_shared/` with a `README.md` explaining: "shared Deno modules imported by skill Edge Functions; do NOT import from Next.js src/"; add `.gitkeep` equivalent if needed
-- [ ] T003 [P] Add `.env.example.edge-functions` at repo root listing the Supabase secrets each new function needs: `MCP_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NUVEMSHOP_USER_AGENT`
+- [x] T001 [P] Create directory `supabase/functions/generate-seasonal-calendar/` with an empty `index.ts` scaffold and a per-function `README.md` linking to `specs/064-edge-function-first-skills/contracts/generate-seasonal-calendar.md`
+- [x] T002 [P] Create `supabase/functions/_shared/` with a `README.md` explaining: "shared Deno modules imported by skill Edge Functions; do NOT import from Next.js src/"; add `.gitkeep` equivalent if needed
+- [x] T003 [P] Add `.env.example.edge-functions` at repo root listing the Supabase secrets each new function needs: `MCP_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NUVEMSHOP_USER_AGENT`
 
 ---
 
@@ -35,11 +35,11 @@ New Deno code lives in `supabase/functions/`. Shared helpers live in `supabase/f
 
 **⚠️ CRITICAL**: No user-story phase can begin until T004-T008 are complete.
 
-- [ ] T004 [P] Create `supabase/functions/_shared/supabase.ts` exporting `createServiceClient()` — wraps `createClient` with `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `auth: { persistSession: false }`
-- [ ] T005 [P] Create `supabase/functions/_shared/anthropic.ts` exporting `callMessages({ model, system, messages, tools? })` — thin fetch wrapper over `https://api.anthropic.com/v1/messages` with `anthropic-version: 2023-06-01`; also exports `generateObject({ schema, prompt, system })` helper used by calendar generator
-- [ ] T006 [P] Create `supabase/functions/_shared/nuvemshop.ts` exporting `fetchProducts(storeId, token, { limit })` and `fetchStore(storeId, token)` — ported from `src/lib/nuvemshop/client.ts`, Deno-compatible fetch only
-- [ ] T007 [P] Create `supabase/functions/_shared/brand-dna.ts` exporting `loadBrandDna(supabase, teamId)` and `loadStoreForTeam(supabase, teamId)`; handles null/missing gracefully
-- [ ] T008 [P] Create `supabase/functions/_shared/errors.ts` exporting `failTask(supabase, taskId, stage, message)` and `log(tag, fields)` — centralizes the `tasks.skill_status='failed'` + `metadata.error` write pattern
+- [x] T004 [P] Create `supabase/functions/_shared/supabase.ts` exporting `createServiceClient()` — wraps `createClient` with `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `auth: { persistSession: false }`
+- [x] T005 [P] Create `supabase/functions/_shared/anthropic.ts` exporting `callMessages({ model, system, messages, tools? })` — thin fetch wrapper over `https://api.anthropic.com/v1/messages` with `anthropic-version: 2023-06-01`; also exports `generateObject({ schema, prompt, system })` helper used by calendar generator
+- [x] T006 [P] Create `supabase/functions/_shared/nuvemshop.ts` exporting `fetchProducts(storeId, token, { limit })` and `fetchStore(storeId, token)` — ported from `src/lib/nuvemshop/client.ts`, Deno-compatible fetch only
+- [x] T007 [P] Create `supabase/functions/_shared/brand-dna.ts` exporting `loadBrandDna(supabase, teamId)` and `loadStoreForTeam(supabase, teamId)`; handles null/missing gracefully
+- [x] T008 [P] Create `supabase/functions/_shared/errors.ts` exporting `failTask(supabase, taskId, stage, message)` and `log(tag, fields)` — centralizes the `tasks.skill_status='failed'` + `metadata.error` write pattern
 
 **Checkpoint**: `_shared/` compiles via `supabase functions serve _shared` (no-op check) — nothing user-facing yet.
 
@@ -57,13 +57,13 @@ New Deno code lives in `supabase/functions/`. Shared helpers live in `supabase/f
 - `tasks.artifact_type='seasonal-calendar'` + `skill_status='completed'` within 60s.
 - Artifact panel renders 16+ dates.
 
-- [ ] T009 [US1] Port the calendar prompt + JSON schema from `src/lib/ai/seasonal-campaign-generator.ts` into `supabase/functions/generate-seasonal-calendar/prompt.ts` (prompt template + Zod schema for the 16-date calendar output)
-- [ ] T010 [US1] Port the product-analyzer scoring logic (sales + margin + co-occurrence summary) from `src/lib/ai/product-analyzer.ts` into `supabase/functions/generate-seasonal-calendar/product-analyzer.ts` — Deno-compatible; no Node-only imports
-- [ ] T011 [US1] Implement `supabase/functions/generate-seasonal-calendar/index.ts`: `Deno.serve` handler, CORS, Zod request validation, `MCP_AUTH_TOKEN` check, immediate 202 response, `EdgeRuntime.waitUntil(runBackground(...))` call
-- [ ] T012 [US1] Implement `runBackground()` in `generate-seasonal-calendar/index.ts`: marks task running → loads brand_dna + store + products → calls `anthropic.generateObject(...)` → writes `artifact_data` + `skill_status='completed'`; on any throw calls `failTask(...)`
-- [ ] T013 [US1] Update `supabase/functions/mcp-tools/index.ts` `SNEW_RUN_SKILL` handler: when `skill_slug === 'seasonal-calendar'`, fire-and-forget POST to `https://<ref>.supabase.co/functions/v1/generate-seasonal-calendar?secret=<token>` with `{ team_id, task_id, user_id, input }`; keep the existing "generating" response to the agent
-- [ ] T014 [P] [US1] Add unit test `supabase/functions/_shared/__tests__/errors.test.ts` (Deno test) covering `failTask` writes the expected row shape
-- [ ] T015 [US1] Deploy both functions: `supabase functions deploy generate-seasonal-calendar --no-verify-jwt` and `supabase functions deploy mcp-tools --no-verify-jwt`; run quickstart §2 end-to-end; record P50/P95 timings in PR description
+- [x] T009 [US1] Port the calendar prompt + JSON schema from `src/lib/ai/seasonal-campaign-generator.ts` into `supabase/functions/generate-seasonal-calendar/prompt.ts` (prompt template + Zod schema for the 16-date calendar output)
+- [x] T010 [US1] Port the product-analyzer scoring logic (sales + margin + co-occurrence summary) from `src/lib/ai/product-analyzer.ts` into `supabase/functions/generate-seasonal-calendar/product-analyzer.ts` — Deno-compatible; no Node-only imports
+- [x] T011 [US1] Implement `supabase/functions/generate-seasonal-calendar/index.ts`: `Deno.serve` handler, CORS, Zod request validation, `MCP_AUTH_TOKEN` check, immediate 202 response, `EdgeRuntime.waitUntil(runBackground(...))` call
+- [x] T012 [US1] Implement `runBackground()` in `generate-seasonal-calendar/index.ts`: marks task running → loads brand_dna + store + products → calls `anthropic.generateObject(...)` → writes `artifact_data` + `skill_status='completed'`; on any throw calls `failTask(...)`
+- [x] T013 [US1] Dispatch path for `seasonal-calendar` is wired in TWO places: (1) `supabase/functions/mcp-tools/index.ts` `SNEW_RUN_SKILL` handler fires the Edge Function when called via MCP; (2) `src/lib/chat/engine-agents.ts` `runAgentsEngineBackground` fires the Edge Function directly via `EDGE_FUNCTION_SKILLS` map when the skill slug matches — this is the primary Next.js dispatch path and does NOT rely on the agent calling `SNEW_RUN_SKILL`. In both cases, the Edge Function owns the `skill_status` transition (running → completed/failed); the Next.js background only writes the assistant chat reply.
+- [x] T014 [P] [US1] Add unit test `supabase/functions/_shared/__tests__/errors.test.ts` (Deno test) covering `failTask` writes the expected row shape
+- [x] T015 [US1] Deploy both functions: `supabase functions deploy generate-seasonal-calendar --no-verify-jwt` and `supabase functions deploy mcp-tools --no-verify-jwt`; run quickstart §2 end-to-end; record P50/P95 timings in PR description
 
 **Checkpoint**: MVP — seasonal-calendar runs entirely in Edge Function. Next.js still contains the old generator code (deleted in US2).
 
@@ -82,11 +82,11 @@ New Deno code lives in `supabase/functions/`. Shared helpers live in `supabase/f
 - `bun run build` passes; `bun run test` passes.
 - Quickstart §2 still produces a calendar via the new dispatch path.
 
-- [ ] T016 [US2] Delete `src/lib/ai/seasonal-campaign-generator.ts` and `src/lib/ai/product-analyzer.ts`
-- [ ] T017 [US2] Remove `generateCalendarInBackground` function from `src/lib/chat/engine-agents.ts` and remove its export
-- [ ] T018 [US2] Remove the skill-slug dispatch switch inside `runAgentsEngineBackground` (introduced in Spec 063 T022); body reverts to calling `askAgent(...)` and saving the final artifact via the existing `saveArtifact` helper
-- [ ] T019 [US2] Delete `src/app/api/skills/seasonal-calendar/` directory (all route files under it)
-- [ ] T020 [US2] Re-run quickstart §2; verify the calendar still generates end-to-end with only the Edge Function path
+- [x] T016 [US2] Delete `src/lib/ai/seasonal-campaign-generator.ts` and `src/lib/ai/product-analyzer.ts`
+- [x] T017 [US2] Remove `generateCalendarInBackground` function from `src/lib/chat/engine-agents.ts` and remove its export
+- [x] T018 [US2] Remove the skill-slug dispatch switch inside `runAgentsEngineBackground` (introduced in Spec 063 T022); body reverts to calling `askAgent(...)` and saving the final artifact via the existing `saveArtifact` helper
+- [x] T019 [US2] Delete `src/app/api/skills/seasonal-calendar/` directory (all route files under it)
+- [x] T020 [US2] Re-run quickstart §2; verify the calendar still generates end-to-end with only the Edge Function path
 
 ---
 
