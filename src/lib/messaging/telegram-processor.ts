@@ -75,7 +75,9 @@ export async function processMessage(
     timeout: 120_000,
   })
 
-  const assistantText = result.text || 'Não consegui gerar uma resposta. Tente novamente.'
+  // Strip internal UI markers (<!-- snew:followups ... -->, <!-- snew:artifact ... -->, etc.)
+  const rawText = result.text || 'Não consegui gerar uma resposta. Tente novamente.'
+  const assistantText = rawText.replace(/<!--\s*snew:\w+\s+[\s\S]*?-->/g, '').trim()
 
   // Persist assistant response
   if (conversationId) {
@@ -97,6 +99,27 @@ export async function processMessage(
     })
   }
 
-  // Send response back to Telegram
-  await sendMessage(chatId, assistantText, 'Markdown')
+  // Send response back to Telegram (sanitized for Telegram Markdown)
+  const telegramText = sanitizeForTelegram(assistantText)
+  await sendMessage(chatId, telegramText, 'Markdown')
+}
+
+/**
+ * Sanitize AI-generated Markdown for Telegram's limited Markdown parser.
+ * Telegram Markdown only supports: *bold*, _italic_, `code`, [link](url).
+ * Everything else (headings, HR, tables, etc.) must be stripped or converted.
+ */
+function sanitizeForTelegram(text: string): string {
+  return (
+    text
+      // Convert headings to bold text (## Title → *Title*)
+      .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
+      // Remove horizontal rules
+      .replace(/^---+$/gm, '')
+      // Remove HTML tags
+      .replace(/<[^>]+>/g, '')
+      // Collapse 3+ consecutive newlines to 2
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }

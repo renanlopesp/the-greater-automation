@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage, sendChatAction, type TelegramUpdate } from '@/lib/messaging/telegram'
+import { processMessage } from '@/lib/messaging/telegram-processor'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('api/messaging/telegram/webhook')
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET
 
+// Allow up to 120s for AI + tool execution
+export const maxDuration = 120
+
 /**
  * Telegram Bot webhook handler.
  * Handles /start and /link commands inline (fast, no AI).
- * All other messages are queued for async processing via pg_net trigger.
+ * All other messages are processed inline via Managed Agent.
  */
 export async function POST(request: NextRequest) {
   // 1. Verify webhook secret — fail closed when not configured
@@ -157,16 +161,41 @@ export async function POST(request: NextRequest) {
   // 5. Send typing indicator (fire-and-forget)
   sendChatAction(chatId).catch(() => {})
 
-  // 6. Insert into queue — pg_net trigger fires processing automatically
-  const { error: insertError } = await supabase.from('telegram_message_queue').insert({
-    chat_id: chatId,
-    message_text: text,
-    username,
-    link_id: link.id,
-  })
+  // 6. Insert into queue for tracking
+  const { data: queueMsg } = await supabase
+    .from('telegram_message_queue')
+    .insert({
+      chat_id: chatId,
+      message_text: text,
+      username,
+      link_id: link.id,
+      status: 'processing',
+      attempts: 1,
+    })
+    .select('id')
+    .single()
 
-  if (insertError) {
-    log.error({ err: insertError }, 'Failed to queue message')
+  // 7. Process message inline via Managed Agent
+  try {
+    await processMessage(supabase, link, chatId, text, username)
+
+    if (queueMsg) {
+      await supabase
+        .from('telegram_message_queue')
+        .update({ status: 'completed', processed_at: new Date().toISOString() })
+        .eq('id', queueMsg.id)
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    log.error({ err: errMsg, chatId }, 'Failed to process message')
+
+    if (queueMsg) {
+      await supabase
+        .from('telegram_message_queue')
+        .update({ status: 'failed', error: errMsg.slice(0, 500) })
+        .eq('id', queueMsg.id)
+    }
+
     await sendMessage(chatId, 'Sorry, failed to process your message. Please try again.').catch(
       () => {}
     )
