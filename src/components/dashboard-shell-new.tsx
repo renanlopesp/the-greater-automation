@@ -81,7 +81,17 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
         {/* Sidebar — desktop */}
         <div className="relative hidden shrink-0 md:block">
-          <AppSidebarNew collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
+          <AppSidebarNew
+            collapsed={collapsed}
+            onToggleCollapse={handleToggleCollapse}
+            onOpenSettings={() => {
+              setSettingsEverOpened(true)
+              setSettingsOpen(true)
+            }}
+            userInitials={getInitials(user.fullName, user.email)}
+            userName={user.fullName ?? undefined}
+            userEmail={user.email}
+          />
         </div>
 
         {/* Sidebar — mobile overlay */}
@@ -94,6 +104,14 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
             collapsed={false}
             onToggleCollapse={() => setMobileOpen(false)}
             onClose={() => setMobileOpen(false)}
+            onOpenSettings={() => {
+              setMobileOpen(false)
+              setSettingsEverOpened(true)
+              setSettingsOpen(true)
+            }}
+            userInitials={getInitials(user.fullName, user.email)}
+            userName={user.fullName ?? undefined}
+            userEmail={user.email}
           />
         </div>
 
