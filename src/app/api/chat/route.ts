@@ -269,10 +269,9 @@ export async function POST(request: NextRequest) {
               }
             }
           } else if (e.type === 'agent.thinking') {
-            const rid = `reasoning-${currentTextId++}`
-            writer.write({ type: 'reasoning-start', id: rid })
-            writer.write({ type: 'reasoning-delta', id: rid, delta: '(thinking...)' })
-            writer.write({ type: 'reasoning-end', id: rid })
+            // Managed Agents API does not expose extended thinking text,
+            // so we skip emitting reasoning events to avoid an empty placeholder
+            // message that would duplicate the assistant spinner.
           } else if (e.type === 'span.model_request_end' && e.model_usage) {
             const u = e.model_usage
             totalTokens +=
@@ -293,6 +292,21 @@ export async function POST(request: NextRequest) {
             console.log('[chat] SNEW_RUN_SKILL detected:', args?.skill_slug, 'taskId:', taskId)
             if (args?.skill_slug === 'seasonal-calendar') {
               void generateCalendarInBackground(serviceClient, taskId, teamId)
+            }
+          }
+          // Extract artifact from MCP tool result (if present).
+          // Fire-and-forget: do not block the streaming loop on the DB write.
+          if (e.type === 'agent.mcp_tool_result' && taskId && !e.is_error) {
+            const firstText = e.content?.find((b: { type: string }) => b.type === 'text')
+            if (firstText?.text) {
+              try {
+                const parsed = JSON.parse(firstText.text) as { __artifact?: unknown }
+                if (parsed.__artifact) {
+                  void saveArtifact(serviceClient, taskId, parsed.__artifact)
+                }
+              } catch {
+                // tool returned non-JSON text, ignore
+              }
             }
           }
         }
@@ -335,6 +349,57 @@ export async function POST(request: NextRequest) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Save artifact from MCP tool result to tasks.artifact_data.
+ * Existing artifact becomes history entry; new artifact replaces current.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveArtifact(serviceClient: any, taskId: string, artifact: unknown) {
+  try {
+    const a = artifact as { type?: string; title?: string; html?: string; data?: unknown }
+    if (!a || typeof a !== 'object') return
+
+    // Fetch current artifact to append to history
+    const { data: current } = await serviceClient
+      .from('tasks')
+      .select('artifact_data')
+      .eq('id', taskId)
+      .single()
+
+    type HistoryEntry = { title: string; html: string; timestamp: string }
+    type ArtifactData = {
+      type?: string
+      title?: string
+      html?: string
+      data?: unknown
+      history?: HistoryEntry[]
+    }
+
+    const currentData = (current?.artifact_data ?? null) as ArtifactData | null
+    const history: HistoryEntry[] = currentData?.history ?? []
+
+    if (currentData?.html && currentData?.title) {
+      history.unshift({
+        title: currentData.title,
+        html: currentData.html,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    await serviceClient
+      .from('tasks')
+      .update({
+        artifact_type: 'chat-data',
+        artifact_data: { ...a, history: history.slice(0, 10) },
+        skill_status: 'completed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', taskId)
+  } catch (err) {
+    console.error('[chat] saveArtifact failed:', err)
+  }
+}
 
 /**
  * Auto-provision a Managed Agent + Environment for a team.

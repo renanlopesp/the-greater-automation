@@ -185,52 +185,6 @@ Deno.serve(async (req: Request) => {
     }
   )
 
-  server.registerTool(
-    'SNEW_MODIFY_ARTIFACT',
-    {
-      description:
-        "Modify the artifact panel. Use operation='replace' with artifact_data containing {type:'html', title:'...', html:'<your HTML>'}.",
-      inputSchema: z.object({
-        operation: z.enum(['replace', 'filter_dates', 'remove_dates', 'clear_campaigns']),
-        artifact_data: z.record(z.string(), z.unknown()).optional(),
-        date_ids: z.array(z.string()).optional(),
-      }),
-    },
-    async ({ operation, artifact_data }) => {
-      if (!taskId)
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No task context' }) }],
-          isError: true,
-        }
-      if (operation === 'replace' && artifact_data) {
-        const t = (artifact_data as Record<string, unknown>)?.type as string | undefined
-        const cd = ['sales_summary', 'product_table', 'order_list', 'metric_card', 'html'].includes(
-          t ?? ''
-        )
-        const { error } = await supabase
-          .from('tasks')
-          .update({
-            artifact_data,
-            ...(cd ? { artifact_type: 'chat-data', skill_status: 'completed' } : {}),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', taskId)
-        if (error)
-          return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: error.message }) }],
-            isError: true,
-          }
-        return { content: [{ type: 'text' as const, text: JSON.stringify({ success: true }) }] }
-      }
-      return {
-        content: [
-          { type: 'text' as const, text: JSON.stringify({ error: 'Unsupported operation' }) },
-        ],
-        isError: true,
-      }
-    }
-  )
-
   // ── Composio tools (app connections) ────────────────────────────────
 
   const composioApiKey = Deno.env.get('COMPOSIO_API_KEY')
@@ -507,6 +461,35 @@ Deno.serve(async (req: Request) => {
             (a: number, x: { total: string }) => a + parseFloat(x.total ?? '0'),
             0
           )
+          const avgTicket = o.length > 0 ? tr / o.length : 0
+          const periodLabel =
+            period === 'today' || !period
+              ? 'Hoje'
+              : period === 'yesterday'
+                ? 'Ontem'
+                : period === 'this_week'
+                  ? 'Esta semana'
+                  : period === 'this_month'
+                    ? 'Este mês'
+                    : 'Período'
+          const html = `
+            <div class="section">
+              <div class="h1 mb-4">Resumo de vendas — ${periodLabel}</div>
+              <div class="grid-3">
+                <div class="card-elevated stat">
+                  <span class="value tabular">R$ ${tr.toFixed(2)}</span>
+                  <span class="label">Receita</span>
+                </div>
+                <div class="card-elevated stat">
+                  <span class="value tabular">${o.length}</span>
+                  <span class="label">Pedidos pagos</span>
+                </div>
+                <div class="card-elevated stat">
+                  <span class="value tabular">R$ ${avgTicket.toFixed(2)}</span>
+                  <span class="label">Ticket médio</span>
+                </div>
+              </div>
+            </div>`
           return {
             content: [
               {
@@ -515,7 +498,18 @@ Deno.serve(async (req: Request) => {
                   period: period ?? 'today',
                   order_count: o.length,
                   total_revenue: `R$ ${tr.toFixed(2)}`,
-                  average_ticket: `R$ ${(o.length > 0 ? tr / o.length : 0).toFixed(2)}`,
+                  average_ticket: `R$ ${avgTicket.toFixed(2)}`,
+                  __artifact: {
+                    type: 'chat-data',
+                    title: `Vendas — ${periodLabel}`,
+                    html,
+                    data: {
+                      period: period ?? 'today',
+                      order_count: o.length,
+                      total_revenue: tr,
+                      average_ticket: avgTicket,
+                    },
+                  },
                 }),
               },
             ],
@@ -557,9 +551,55 @@ Deno.serve(async (req: Request) => {
           }))
           if (search) m = m.filter((x: any) => x.name.toLowerCase().includes(search.toLowerCase()))
           if (low_stock_only) m = m.filter((x: any) => x.stock <= 5)
+          const titleSuffix = low_stock_only ? ' com estoque baixo' : search ? ` · "${search}"` : ''
+          const rowsHtml = m
+            .map(
+              (p: any) => `
+              <tr>
+                <td>${p.name}</td>
+                <td class="number bold">${p.stock}</td>
+                <td class="number">${p.price ? `R$ ${parseFloat(p.price).toFixed(2)}` : '—'}</td>
+                <td>${p.stock <= 5 ? `<span class="badge badge-red">Baixo</span>` : p.stock <= 20 ? `<span class="badge badge-amber">Médio</span>` : `<span class="badge badge-green">OK</span>`}</td>
+              </tr>`
+            )
+            .join('')
+          const html = `
+            <div class="section">
+              <div class="flex items-baseline justify-between mb-4">
+                <div>
+                  <div class="h1">Estoque${titleSuffix}</div>
+                  <div class="small mt-1">${m.length} produto${m.length === 1 ? '' : 's'}</div>
+                </div>
+              </div>
+              <div class="card-elevated" style="padding: 0; overflow: hidden;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produto</th>
+                      <th class="number">Estoque</th>
+                      <th class="number">Preço</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rowsHtml}</tbody>
+                </table>
+              </div>
+            </div>`
           return {
             content: [
-              { type: 'text' as const, text: JSON.stringify({ products: m, total: m.length }) },
+              {
+                type: 'text' as const,
+                text: JSON.stringify({
+                  products: m,
+                  total: m.length,
+                  __artifact: {
+                    type: 'chat-data',
+                    title: `Estoque${titleSuffix}`,
+                    html,
+                    data: { products: m, total: m.length },
+                  },
+                }),
+              },
             ],
           }
         } catch (e) {
@@ -590,19 +630,64 @@ Deno.serve(async (req: Request) => {
           const pr: Record<string, string> = { per_page: String(limit ?? 10) }
           if (status) pr.status = status
           const o = await nuvemFetch(s.platform_store_id, s.platform_access_token, '/orders', pr)
+          const orders = o.map((x: any) => ({
+            number: x.number ?? x.id,
+            status: x.status,
+            total_value: parseFloat(x.total ?? '0'),
+            total: `R$ ${parseFloat(x.total ?? '0').toFixed(2)}`,
+            customer: x.customer?.name ?? 'Anônimo',
+            date: x.created_at,
+          }))
+          const statusLabel = status ? ` (${status})` : ''
+          const totalRevenue = orders.reduce((a: number, o: any) => a + (o.total_value || 0), 0)
+          const rowsHtml = orders
+            .map(
+              (o: any) => `
+              <tr>
+                <td class="mono">#${o.number}</td>
+                <td>${o.customer}</td>
+                <td><span class="badge badge-${o.status === 'open' ? 'blue' : o.status === 'closed' ? 'green' : 'gray'}">${o.status}</span></td>
+                <td class="number bold">${o.total}</td>
+                <td class="small text-muted">${new Date(o.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+              </tr>`
+            )
+            .join('')
+          const html = `
+            <div class="section">
+              <div class="flex items-baseline justify-between mb-4">
+                <div>
+                  <div class="h1">Pedidos recentes${statusLabel}</div>
+                  <div class="small mt-1">${orders.length} pedido${orders.length === 1 ? '' : 's'} · Total R$ ${totalRevenue.toFixed(2)}</div>
+                </div>
+              </div>
+              <div class="card-elevated" style="padding: 0; overflow: hidden;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pedido</th>
+                      <th>Cliente</th>
+                      <th>Status</th>
+                      <th class="number">Valor</th>
+                      <th>Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rowsHtml}</tbody>
+                </table>
+              </div>
+            </div>`
           return {
             content: [
               {
                 type: 'text' as const,
                 text: JSON.stringify({
-                  orders: o.map((x: any) => ({
-                    number: x.number ?? x.id,
-                    status: x.status,
-                    total: `R$ ${parseFloat(x.total ?? '0').toFixed(2)}`,
-                    customer: x.customer?.name ?? 'Anônimo',
-                    date: x.created_at,
-                  })),
+                  orders,
                   count: o.length,
+                  __artifact: {
+                    type: 'chat-data',
+                    title: `Pedidos recentes${statusLabel}`,
+                    html,
+                    data: { orders, count: o.length, total_revenue: totalRevenue },
+                  },
                 }),
               },
             ],

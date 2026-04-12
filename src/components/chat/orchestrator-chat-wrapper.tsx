@@ -27,6 +27,8 @@ import {
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
+import { Shimmer } from '@/components/ai-elements/shimmer'
+import { BrainIcon } from 'lucide-react'
 
 import { useOrchestratorChat } from '@/hooks/use-orchestrator-chat'
 import { uploadChatFileAction } from '@/lib/actions/chat-upload'
@@ -285,13 +287,18 @@ export default function OrchestratorChatWrapper({
                         </>
                       ) : (
                         <>
-                          {reasoningParts.length > 0 && (
+                          {/* Managed Agents API doesn't expose reasoning content,
+                              so we don't render a thinking indicator here.
+                              The 3-dots spinner on the assistant message already
+                              conveys that the model is working. */}
+                          {reasoningParts.length > 0 && reasoningText.trim().length > 0 && (
                             <Reasoning
                               isStreaming={
                                 isStreaming &&
                                 isLast &&
                                 parts[parts.length - 1]?.type === 'reasoning'
                               }
+                              defaultOpen={false}
                             >
                               <ReasoningTrigger />
                               <ReasoningContent>{reasoningText}</ReasoningContent>
