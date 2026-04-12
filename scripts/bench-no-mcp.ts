@@ -31,7 +31,9 @@ async function main() {
     console.log(`Run ${i + 1}: first msg at +${firstMsg}ms`)
   }
 
-  await anthropic.beta.agents.delete(agent.id)
-  await anthropic.beta.environments.delete(env.id)
+  // Managed Agents SDK does not expose delete for agents/environments
+  // (created resources remain until cleaned up server-side). Intentionally no-op.
+  void agent
+  void env
 }
 main().catch(console.error)
