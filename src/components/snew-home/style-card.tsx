@@ -106,8 +106,8 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
             src={layerSrc[0]}
             alt=""
             fill
-            sizes="216px"
-            quality={85}
+            sizes="432px"
+            quality={92}
             style={{
               objectFit: 'cover',
               display: 'block',
@@ -124,8 +124,8 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
             src={layerSrc[1]}
             alt=""
             fill
-            sizes="216px"
-            quality={85}
+            sizes="432px"
+            quality={92}
             style={{
               objectFit: 'cover',
               display: 'block',

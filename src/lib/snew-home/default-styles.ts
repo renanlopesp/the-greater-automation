@@ -30,7 +30,7 @@ export const DEFAULT_STYLES: HomeStyleTemplate[] = [
     category: 'Produto isolado',
     description: 'Produto limpo, fundo neutro, luz uniforme',
     thumbnailUrl: thumb('ecommerce-photography'),
-    hoverImages: [],
+    hoverImages: [thumb('ecommerce-photography', 1), thumb('ecommerce-photography', 2)],
     prompt:
       'Professional e-commerce product photography. Clean neutral background, uniform soft lighting, product centered and sharp, white or light gray backdrop, high-end commercial quality',
   },
@@ -40,7 +40,7 @@ export const DEFAULT_STYLES: HomeStyleTemplate[] = [
     category: 'Produto isolado',
     description: 'Props de ingredientes, fundo dominante, luz dramática e composição editorial',
     thumbnailUrl: thumb('advertising-product'),
-    hoverImages: [],
+    hoverImages: [thumb('advertising-product', 1)],
     prompt:
       'Commercial advertising product photography with editorial storytelling. Single dominant warm color background harmonizing with product palette. Strong directional key light casting intentional hard shadows. Organic props referencing product ingredients — citrus, stones, botanicals, wood. Product as absolute hero, slight 3/4 overhead angle. Rich saturated cinematic color grade, magazine cover worthy',
   },
@@ -60,7 +60,11 @@ export const DEFAULT_STYLES: HomeStyleTemplate[] = [
     category: 'Com pessoa',
     description: 'Pessoa com expressão forte, produto integrado à cena',
     thumbnailUrl: thumb('advertising-portrait'),
-    hoverImages: [],
+    hoverImages: [
+      thumb('advertising-portrait', 1),
+      thumb('advertising-portrait', 2),
+      thumb('advertising-portrait', 3),
+    ],
     prompt:
       'High-end advertising portrait. Model with strong confident expression, product naturally integrated into the scene, dramatic studio lighting, editorial quality, high contrast',
   },

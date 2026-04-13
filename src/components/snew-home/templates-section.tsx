@@ -183,7 +183,6 @@ export function TemplatesSection() {
             {DEFAULT_STYLES.map((tpl, idx) => (
               <div
                 key={tpl.id}
-                className="style-card-wrapper"
                 style={{
                   flexShrink: 0,
                   width: 216,
@@ -198,40 +197,6 @@ export function TemplatesSection() {
                   hoverImages={tpl.hoverImages}
                   onClick={() => openStyle(tpl.id, tpl.name, tpl.description, tpl.prompt)}
                 />
-                <div
-                  className="style-card-caption"
-                  style={{
-                    padding: '10px 2px 0',
-                    opacity: 0,
-                    transform: 'translateY(4px)',
-                    transition: 'opacity 0.18s ease, transform 0.18s ease',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: '#1A1A1A',
-                      fontSize: 12,
-                      fontWeight: 400,
-                      margin: '0 0 3px',
-                      letterSpacing: '-0.01em',
-                      lineHeight: 1.3,
-                    }}
-                    className="dark:text-foreground"
-                  >
-                    {tpl.name}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 11,
-                      color: '#999',
-                      margin: 0,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {tpl.description}
-                  </p>
-                </div>
               </div>
             ))}
           </div>
