@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { SVGFilters } from '@/config/design-system'
-import { AppSidebarNew } from '@/components/layout/app-sidebar-new'
+import { AppSidebarSnew } from '@/components/snew-layout/app-sidebar-snew'
 import { TopBar } from '@/components/layout/top-bar'
 import { LanguageProvider } from '@/contexts/language-context'
 import { switchWorkspaceAction } from '@/lib/actions/workspace'
@@ -81,7 +81,7 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
         {/* Sidebar — desktop */}
         <div className="relative hidden shrink-0 md:block">
-          <AppSidebarNew
+          <AppSidebarSnew
             collapsed={collapsed}
             onToggleCollapse={handleToggleCollapse}
             onOpenSettings={() => {
@@ -100,7 +100,7 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <AppSidebarNew
+          <AppSidebarSnew
             collapsed={false}
             onToggleCollapse={() => setMobileOpen(false)}
             onClose={() => setMobileOpen(false)}
