@@ -1,28 +1,43 @@
-import DashboardHero from '@/components/home/dashboard-hero'
-import ActivityCards from '@/components/home/activity-cards'
-import SkillActionsGrid from '@/components/home/skill-actions-grid'
+import { createServerClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
+import { loadStoreContext } from '@/lib/snew-home/load-store-context'
+import { HeroPrompt } from '@/components/snew-home/hero-prompt'
+import { FeatureCards } from '@/components/snew-home/feature-cards'
+import { TemplatesSection } from '@/components/snew-home/templates-section'
+import { CapabilitiesSection } from '@/components/snew-home/capabilities-section'
+import { RecentsEmpty } from '@/components/snew-home/recents-empty'
+import { SvgFilters } from '@/components/snew-layout/svg-filters'
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let storeCtx = null
+  if (user) {
+    const teamId = await getActiveTeamId(supabase, user.id)
+    if (teamId) {
+      storeCtx = await loadStoreContext(supabase, teamId)
+    }
+  }
+
+  const storeName = storeCtx?.name ?? undefined
+  const niche = storeCtx?.niche ?? null
+  const tone = storeCtx?.tone ?? null
+  const firstProduct = storeCtx?.productTypes?.[0] ?? undefined
+
   return (
-    <div className="bg-background min-h-full">
-      <div
-        className="mx-auto flex flex-col items-center"
-        style={{ maxWidth: 880, padding: '64px 32px 48px', gap: 64 }}
-      >
-        {/* Hero: rotating title + skill selector + ask bar + suggestions */}
-        <DashboardHero />
-
-        {/* Divider */}
-        <div className="w-full" style={{ height: 1, background: 'var(--border)' }} />
-
-        {/* Activity cards */}
-        <ActivityCards />
-
-        {/* Divider */}
-        <div className="w-full" style={{ height: 1, background: 'var(--border)' }} />
-
-        {/* Skill actions grid */}
-        <SkillActionsGrid />
+    <div className="min-h-full" style={{ background: 'hsl(40, 7%, 96%)' }}>
+      <SvgFilters />
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '52px 40px 80px' }}>
+        <HeroPrompt storeName={storeName} />
+        <FeatureCards storeName={storeName} niche={niche} tone={tone} firstProduct={firstProduct} />
+        <div style={{ marginTop: 40 }}>
+          <TemplatesSection />
+          <CapabilitiesSection storeCtx={storeCtx} />
+          <RecentsEmpty />
+        </div>
       </div>
     </div>
   )
