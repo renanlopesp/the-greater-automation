@@ -20,9 +20,6 @@ vi.mock('@/lib/queries/skills', () => ({
 vi.mock('@/lib/ai/skill-executor', () => ({
   executeSkill: vi.fn(),
 }))
-vi.mock('@/lib/ai/seasonal-campaign-generator', () => ({
-  generateCalendar: vi.fn(),
-}))
 vi.mock('@/data/skills', () => ({
   skills: [],
 }))

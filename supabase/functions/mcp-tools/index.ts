@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
         input: z.record(z.string(), z.unknown()).optional(),
       }),
     },
-    async ({ skill_slug }) => {
+    async ({ skill_slug, input }) => {
       const { data: skill } = await supabase
         .from('skills')
         .select('id, slug, name, status')
@@ -107,6 +107,41 @@ Deno.serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', taskId)
+      }
+
+      // Map skill_slug → dedicated Edge Function path.
+      // Only skills with a dedicated Edge Function get dispatched; others fall through.
+      const DEDICATED_SKILL_ENDPOINTS: Record<string, string> = {
+        'seasonal-calendar': 'generate-seasonal-calendar',
+      }
+
+      const endpointSlug = DEDICATED_SKILL_ENDPOINTS[skill_slug]
+      if (endpointSlug && taskId) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const secretToken = Deno.env.get('MCP_AUTH_TOKEN')!
+        const dispatchUrl = `${supabaseUrl}/functions/v1/${endpointSlug}?secret=${secretToken}`
+
+        const dispatchPayload = {
+          team_id: teamId,
+          task_id: taskId,
+          user_id: userId,
+          input: input ?? undefined,
+        }
+
+        // Fire-and-forget: return to the caller immediately.
+        const dispatchPromise = fetch(dispatchUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dispatchPayload),
+        }).catch((err) =>
+          console.error(`[SNEW_RUN_SKILL] dispatch failed for ${endpointSlug}:`, err)
+        )
+
+        // @ts-expect-error EdgeRuntime provided by Supabase runtime
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+          // @ts-expect-error EdgeRuntime provided by Supabase runtime
+          EdgeRuntime.waitUntil(dispatchPromise)
+        }
       }
 
       return {

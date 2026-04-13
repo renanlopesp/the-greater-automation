@@ -2,7 +2,32 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadCalendar, loadTeamCampaigns } from '@/lib/actions/seasonal-calendar'
-import type { PersonalizedCalendar } from '@/lib/ai/seasonal-campaign-generator'
+// Inlined from deleted seasonal-campaign-generator.ts (spec 064 T016)
+type PersonalizedDate = {
+  id: string
+  name: string
+  emoji: string
+  date: string
+  displayDate: string
+  month: string
+  day: string
+  type: 'universal' | 'niche'
+  relevanceReason: string
+  estimatedRevenue: number
+  potentialValue: string
+  priority: 'high' | 'medium' | 'low'
+}
+type PersonalizedCalendar = {
+  year: number
+  generatedAt: string
+  dates: PersonalizedDate[]
+  summary: {
+    totalDates: number
+    totalPotentialRevenue: number
+    nextActionableDate: string | null
+  }
+  nextYearSuggested: boolean
+}
 import type { FullCampaign } from '@/data/campaign-data'
 
 export function useSeasonalCalendar() {

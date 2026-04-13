@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode), Next.js 16.1.6 (App Router), React 19.2.3 + `@anthropic-ai/sdk` (Messages API + beta Managed Agents), `@supabase/ssr`, `@supabase/supabase-js`, `ai` (UIMessage streaming helpers), `zod/v4` (063-hybrid-chat-api)
+- Supabase PostgreSQL — `conversations` (existing), `conversation_messages` (existing), `tasks` (existing, `artifact_type`/`artifact_data`/`skill_status` columns). No schema changes expected. (063-hybrid-chat-api)
+
 - TypeScript 5 (strict mode) + `@anthropic-ai/sdk` (Sessions API), `zod` (schema validation), `@supabase/supabase-js` (062-unified-agent-generators)
 - Supabase PostgreSQL (existing `teams` table — `anthropic_agent_id`, `anthropic_env_id`) (062-unified-agent-generators)
 

@@ -1,23 +1,24 @@
 export const maxDuration = 120
 
 import { NextRequest, NextResponse } from 'next/server'
-import { type UIMessage, createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
-import { getAnthropicClient } from '@/lib/anthropic'
-import { safeError } from '@/lib/safe-error'
-import { tokensToCredits } from '@/lib/billing/credits'
 import { checkUsageLimits } from '@/lib/billing/usage-check'
+import { runAgentsEngine, runAgentsEngineBackground } from '@/lib/chat/engine-agents'
+import { runMessagesEngine } from '@/lib/chat/engine-messages'
+import { detectMode } from '@/lib/chat/skill-detector'
+import { resolveModel } from '@/lib/chat/model-whitelist'
+import { isHybridChatEnabled } from '@/lib/chat/feature-flags'
 
 /**
- * POST /api/chat — Orchestrator chat via Anthropic Managed Agents API.
+ * POST /api/chat — Hybrid chat router.
  *
  * Flow:
  * 1. Auth + team lookup
- * 2. Parse user message
- * 3. Auto-provision Managed Agent if team lacks one
- * 4. Find or create conversation + Anthropic session
- * 5. Send user message event
- * 6. Stream session events → translate to UIMessageChunk SSE for useChat
+ * 2. Credit check
+ * 3. Parse request body
+ * 4. Load active skills
+ * 5. Detect mode (skill | chat)
+ * 6. Route to the appropriate engine
  */
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const teamId = membership.team_id
 
-  // ── 1b. Pre-chat credit check ─────────────────────────────────────────
+  // ── 2. Pre-chat credit check ──────────────────────────────────────────
   const usage = await checkUsageLimits(teamId)
   if (!usage.allowed) {
     return NextResponse.json(
@@ -56,89 +57,66 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── 2. Parse user message ─────────────────────────────────────────────
-  let userMessage: string
-  const existingConvId = body.conversationId as string | undefined
-  const taskId = body.taskId as string | undefined
-
-  if (body.messages && Array.isArray(body.messages)) {
-    const msgs = body.messages as UIMessage[]
-    const lastUser = [...msgs].reverse().find((m) => m.role === 'user')
-    if (!lastUser) {
-      return NextResponse.json({ error: 'No user message found' }, { status: 400 })
-    }
-    const textPart = lastUser.parts?.find((p) => p.type === 'text')
-    userMessage = textPart ? (textPart as { type: 'text'; text: string }).text : ''
-  } else {
-    userMessage = body.message as string
-  }
-
-  if (!userMessage?.trim()) {
-    return NextResponse.json({ error: 'Message is required' }, { status: 400 })
-  }
-
-  // ── 3. Load team + check Managed Agent provisioning ───────────────────
+  // ── 3. Load active skills for routing decision ────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: team } = await (serviceClient as any)
-    .from('teams')
-    .select('name, anthropic_agent_id, anthropic_env_id')
-    .eq('id', teamId)
-    .single()
+  const { data: teamSkills } = await (serviceClient as any)
+    .from('skills')
+    .select('slug, status')
+    .eq('team_id', teamId)
 
-  let agentId: string = team?.anthropic_agent_id ?? ''
-  let envId: string = team?.anthropic_env_id ?? ''
+  // ── 4. Detect mode ────────────────────────────────────────────────────
+  const decision = detectMode(body, teamSkills ?? [])
+  const model = resolveModel(decision.mode === 'chat' ? decision.model : undefined)
 
-  const anthropic = getAnthropicClient()
+  const hybridEnabled = isHybridChatEnabled(teamId)
 
-  // Auto-provision if needed
-  if (!agentId || !envId) {
-    try {
-      const { provisionAgent: sharedProvision } = await import('@/lib/ai/agent-provisioning')
-      const ids = await sharedProvision(teamId, user.id)
-      agentId = ids.agentId
-      envId = ids.envId
-    } catch (error) {
-      return NextResponse.json(
-        { error: safeError('auto-provision', error, 'Failed to provision agent') },
-        { status: 500 }
-      )
+  let engine: string
+  let response: Response
+
+  if (decision.mode === 'skill') {
+    // Skill path: get/create task + conversation, respond immediately, fire-and-forget
+    engine = 'managed-agents'
+    const slug = decision.slug
+
+    // ── Parse user message text ───────────────────────────────────────────
+    let userMessage: string = body.message ?? ''
+    if (!userMessage && Array.isArray(body.messages)) {
+      const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === 'user')
+      const textPart = lastUser?.parts?.find((p: { type: string }) => p.type === 'text')
+      userMessage = textPart ? (textPart as { type: string; text: string }).text : ''
     }
-  }
 
-  // ── 4. Find or create conversation + Anthropic session ────────────────
-  let conversationId = existingConvId ?? null
-  let sessionId: string | null = null
-
-  if (conversationId) {
-    // Load existing session ID
+    // ── Get or create task ────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conv } = await (serviceClient as any)
-      .from('conversations')
-      .select('id, anthropic_session_id')
-      .eq('id', conversationId)
-      .single()
-    sessionId = conv?.anthropic_session_id ?? null
-  }
+    let taskId: string = (body as any).taskId ?? ''
+    if (!taskId) {
+      const { data: newTask } = await (
+        serviceClient as unknown as {
+          from: (t: string) => {
+            insert: (d: unknown) => {
+              select: (s: string) => { single: () => Promise<{ data: { id: string } | null }> }
+            }
+          }
+        }
+      )
+        .from('tasks')
+        .insert({
+          team_id: teamId,
+          user_id: user.id,
+          active_skill: slug,
+          skill_status: 'idle',
+          title: userMessage.slice(0, 60) || 'New task',
+        })
+        .select('id')
+        .single()
+      taskId = newTask?.id ?? ''
+    }
 
-  if (!conversationId) {
-    // Find active conversation or create new one
-    const { data: activeConv } = await serviceClient
-      .from('conversations' as never)
-      .select('id, anthropic_session_id')
-      .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (activeConv) {
-      conversationId = (activeConv as { id: string; anthropic_session_id?: string }).id
-      sessionId =
-        (activeConv as { id: string; anthropic_session_id?: string }).anthropic_session_id ?? null
-    } else {
-      // Create new conversation
-      const { data: conv } = await (
+    // ── Get or create conversation ────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let conversationId: string = (body as any).conversationId ?? ''
+    if (!conversationId) {
+      const { data: newConv } = await (
         serviceClient as unknown as {
           from: (t: string) => {
             insert: (d: unknown) => {
@@ -151,467 +129,111 @@ export async function POST(request: NextRequest) {
         .insert({
           team_id: teamId,
           user_id: user.id,
-          title: userMessage.slice(0, 100),
+          title: userMessage.slice(0, 100) || 'New conversation',
           is_active: true,
         })
         .select('id')
         .single()
-      conversationId = conv?.id ?? null
+      conversationId = newConv?.id ?? ''
     }
-  }
 
-  if (!conversationId) {
-    return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
-  }
-
-  // Link conversation to task (so messages persist across page reloads)
-  if (taskId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    void (serviceClient as any)
-      .from('tasks')
-      .update({ conversation_id: conversationId })
-      .eq('id', taskId)
-      .then((r: { error?: unknown }) => {
-        if (r?.error) console.error('[chat] Failed to link task to conversation:', r.error)
-      })
-  }
-
-  // Create Anthropic session if we don't have one
-  if (!sessionId) {
-    try {
-      const session = await anthropic.beta.sessions.create({
-        agent: agentId,
-        environment_id: envId,
-        metadata: {
-          team_id: teamId,
-          conversation_id: conversationId,
-        },
-      })
-      sessionId = session.id
-
-      // Persist session ID to conversation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (serviceClient as any)
-        .from('conversations')
-        .update({ anthropic_session_id: sessionId })
-        .eq('id', conversationId)
-    } catch (error) {
-      return NextResponse.json(
-        { error: safeError('create-session', error, 'Failed to create session') },
-        { status: 500 }
+    // Link conversation to task if column exists (best-effort)
+    if (taskId && conversationId) {
+      void (
+        serviceClient as unknown as {
+          from: (t: string) => { update: (d: unknown) => { eq: (c: string, v: string) => unknown } }
+        }
       )
+        .from('tasks')
+        .update({ conversation_id: conversationId })
+        .eq('id', taskId)
     }
-  }
 
-  // ── 5. Store user message (fire-and-forget) ───────────────────────────
-  void (
-    serviceClient as unknown as {
-      from: (t: string) => { insert: (d: unknown) => Promise<{ error?: unknown }> }
-    }
-  )
-    .from('conversation_messages')
-    .insert({
-      conversation_id: conversationId,
-      role: 'user',
-      content: userMessage,
-    })
-    .then((result: { error?: unknown }) => {
-      if (result?.error) console.error('[chat] Failed to store user message:', result.error)
-    })
-
-  // ── 6. Inject skill/task context into message if applicable ───────────
-  let enrichedMessage = userMessage
-  if (taskId) {
-    const skillContext = await buildSkillContext(serviceClient, taskId, teamId)
-    if (skillContext) {
-      enrichedMessage = `${userMessage}\n\n${skillContext}`
-    }
-  }
-
-  // ── 7. Send message + stream response ─────────────────────────────────
-  const convId = conversationId
-  const sId = sessionId
-
-  try {
-    // Send user message event
-    await anthropic.beta.sessions.events.send(sId, {
-      events: [
-        {
-          type: 'user.message',
-          content: [{ type: 'text', text: enrichedMessage }],
-        },
-      ],
-    })
-
-    // Stream session events and translate to UIMessageStream
-    // The agent handles tool calls via MCP server — we just proxy the stream
-    const stream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        // Pure streaming proxy — agent handles tools via MCP server
-        let fullText = ''
-        let totalTokens = 0
-        let currentTextId = 0
-
-        const eventStream = await anthropic.beta.sessions.events.stream(sId)
-
-        for await (const event of eventStream) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const e = event as any
-          if (e.type === 'agent.message') {
-            const textBlocks = e.content?.filter((b: { type: string }) => b.type === 'text')
-            if (textBlocks) {
-              for (const block of textBlocks) {
-                const partId = `text-${currentTextId++}`
-                writer.write({ type: 'text-start', id: partId })
-                writer.write({ type: 'text-delta', delta: block.text, id: partId })
-                writer.write({ type: 'text-end', id: partId })
-                fullText += block.text
-              }
-            }
-          } else if (e.type === 'agent.thinking') {
-            // Managed Agents API does not expose extended thinking text,
-            // so we skip emitting reasoning events to avoid an empty placeholder
-            // message that would duplicate the assistant spinner.
-          } else if (e.type === 'span.model_request_end' && e.model_usage) {
-            const u = e.model_usage
-            totalTokens +=
-              (u.input_tokens ?? 0) +
-              (u.output_tokens ?? 0) +
-              (u.cache_read_input_tokens ?? 0) +
-              (u.cache_creation_input_tokens ?? 0)
-          } else if (e.type === 'session.status_idle') {
-            // Session went idle — could be end_turn or waiting for MCP tool result
-            // MCP tools are handled by the agent, so we just check if it's end_turn
-            if (e.stop_reason?.type === 'end_turn') break
-          } else if (e.type === 'session.status_terminated' || e.type === 'session.error') {
-            break
-          }
-          // Detect skill execution via MCP and run in background on Next.js
-          if (e.type === 'agent.mcp_tool_use' && e.name === 'SNEW_RUN_SKILL' && taskId) {
-            const args = typeof e.input === 'string' ? JSON.parse(e.input) : e.input
-            console.log('[chat] SNEW_RUN_SKILL detected:', args?.skill_slug, 'taskId:', taskId)
-            if (args?.skill_slug === 'seasonal-calendar') {
-              void generateCalendarInBackground(serviceClient, taskId, teamId)
-            }
-          }
-          // Extract artifact from MCP tool result (if present).
-          // Fire-and-forget: do not block the streaming loop on the DB write.
-          if (e.type === 'agent.mcp_tool_result' && taskId && !e.is_error) {
-            const firstText = e.content?.find((b: { type: string }) => b.type === 'text')
-            if (firstText?.text) {
-              try {
-                const parsed = JSON.parse(firstText.text) as { __artifact?: unknown }
-                if (parsed.__artifact) {
-                  void saveArtifact(serviceClient, taskId, parsed.__artifact)
-                }
-              } catch {
-                // tool returned non-JSON text, ignore
-              }
-            }
-          }
+    // ── Persist user message ──────────────────────────────────────────────
+    if (conversationId && userMessage) {
+      void (
+        serviceClient as unknown as {
+          from: (t: string) => { insert: (d: unknown) => Promise<{ error?: unknown }> }
         }
-
-        // Finalize
-        writer.write({ type: 'finish', finishReason: 'stop' })
-
-        if (fullText) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (serviceClient as any)
-            .from('conversation_messages')
-            .insert({ conversation_id: convId, role: 'assistant', content: fullText })
-            .then((r: { error?: unknown }) => {
-              if (r?.error) console.error('[chat] Failed to persist:', r.error)
-            })
-        }
-
-        const credits = tokensToCredits(totalTokens)
-        if (credits > 0) {
-          void serviceClient.rpc('increment_ai_credits', { p_team_id: teamId, p_credits: credits })
-        }
-      },
-      onError: (error) => {
-        console.error('[chat] Stream error:', error)
-        return error instanceof Error ? error.message : 'Stream error'
-      },
-    })
-
-    const response = createUIMessageStreamResponse({ stream })
-    const headers = new Headers(response.headers)
-    headers.set('X-Conversation-Id', convId)
-
-    return new Response(response.body, { status: response.status, headers })
-  } catch (error) {
-    return NextResponse.json(
-      { error: safeError('managed-agent-chat', error, 'Chat failed') },
-      { status: 500 }
-    )
-  }
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-/**
- * Save artifact from MCP tool result to tasks.artifact_data.
- * Existing artifact becomes history entry; new artifact replaces current.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function saveArtifact(serviceClient: any, taskId: string, artifact: unknown) {
-  try {
-    const a = artifact as { type?: string; title?: string; html?: string; data?: unknown }
-    if (!a || typeof a !== 'object') return
-
-    // Fetch current artifact to append to history
-    const { data: current } = await serviceClient
-      .from('tasks')
-      .select('artifact_data')
-      .eq('id', taskId)
-      .single()
-
-    type HistoryEntry = { title: string; html: string; timestamp: string }
-    type ArtifactData = {
-      type?: string
-      title?: string
-      html?: string
-      data?: unknown
-      history?: HistoryEntry[]
+      )
+        .from('conversation_messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: userMessage,
+          metadata: { channel: 'web', engine: 'managed-agents', skill: slug },
+        })
+        .then((r: { error?: unknown }) => {
+          if (r?.error) console.error('[chat] Failed to store skill user message:', r.error)
+        })
     }
 
-    const currentData = (current?.artifact_data ?? null) as ArtifactData | null
-    const history: HistoryEntry[] = currentData?.history ?? []
-
-    if (currentData?.html && currentData?.title) {
-      history.unshift({
-        title: currentData.title,
-        html: currentData.html,
-        timestamp: new Date().toISOString(),
-      })
-    }
-
-    await serviceClient
-      .from('tasks')
-      .update({
-        artifact_type: 'chat-data',
-        artifact_data: { ...a, history: history.slice(0, 10) },
-        skill_status: 'completed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
-  } catch (err) {
-    console.error('[chat] saveArtifact failed:', err)
-  }
-}
-
-/**
- * Auto-provision a Managed Agent + Environment for a team.
- * Delegates to the dedicated provision route handler.
- */
-// provisionAgent is now in src/lib/ai/agent-provisioning.ts (shared)
-
-/**
- * Build skill context string for task-scoped messages.
- * Lightweight version — injects artifact context and skill hints.
- */
-async function buildSkillContext(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  serviceClient: any,
-  taskId: string,
-  teamId: string
-): Promise<string | null> {
-  const { data: taskMeta } = await serviceClient
-    .from('tasks')
-    .select('selected_skill, artifact_type, artifact_data')
-    .eq('id', taskId)
-    .single()
-
-  if (!taskMeta) return null
-
-  const { getSkillConfig } = await import('@/lib/skills/skill-registry')
-  const config = getSkillConfig(taskMeta.selected_skill)
-  let context = ''
-
-  if (config.promptAdditions) {
-    context += config.promptAdditions
-  }
-
-  // Inject calendar artifact context
-  if (taskMeta.artifact_type === 'seasonal-calendar' && taskMeta.artifact_data) {
-    const cal = taskMeta.artifact_data as {
-      dates?: Array<{ id: string; name: string; displayDate?: string }>
-      year?: number
-      campaigns?: Record<string, unknown>
-    }
-    const campaigns = cal.campaigns ?? {}
-    const dateList = (cal.dates ?? [])
-      .map((d) => {
-        const hasCampaign = !!campaigns[d.id]
-        return `- ${d.id} → "${d.name}" (${d.displayDate ?? ''}) [${hasCampaign ? 'GERADA' : 'PENDENTE'}]`
-      })
-      .join('\n')
-    const campaignCount = Object.keys(campaigns).length
-
-    context += `\n\n[ARTIFACT — Calendário Sazonal ${cal.year} no painel lateral]
-Datas (${(cal.dates ?? []).length} total, ${campaignCount} com campanha gerada):
-${dateList}
-
-REGRAS: Para PERGUNTAS sobre o calendário, responda usando o contexto acima. Para MODIFICAÇÕES, informe o usuário que essa funcionalidade está sendo migrada.`
-  } else if (taskMeta.artifact_type) {
-    context += `\n\n[ARTIFACT — Tipo: ${taskMeta.artifact_type}. Dados disponíveis no painel lateral.]`
-  }
-
-  // Check if seasonal-calendar skill should auto-generate
-  const isCalendarBySkill =
-    taskMeta.selected_skill === 'seasonal-calendar' && !taskMeta.artifact_type
-  if (isCalendarBySkill) {
-    // Mark task as running
-    await serviceClient
-      .from('tasks')
-      .update({
-        skill_status: 'running',
-        active_skill: 'seasonal-calendar',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
-
-    // Generate calendar in background
-    void generateCalendarInBackground(serviceClient, taskId, teamId)
-
-    context +=
-      '\n\n[SKILL RUNNING — O Calendário Sazonal está sendo gerado em segundo plano e aparecerá no painel de entrega. Informe o usuário brevemente (2-3 frases).]'
-  }
-
-  return context || null
-}
-
-/**
- * Background calendar generation (fire-and-forget).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function generateCalendarInBackground(serviceClient: any, taskId: string, teamId: string) {
-  // Helper to update progress steps visible in the artifact loading state
-  const updateProgress = async (steps: Array<{ label: string; done: boolean }>) => {
-    await serviceClient
-      .from('tasks')
-      .update({ artifact_data: { steps }, updated_at: new Date().toISOString() })
-      .eq('id', taskId)
-  }
-
-  try {
-    await updateProgress([{ label: 'Analisando Brand DNA da loja...', done: false }])
-
-    const [{ data: bd }, { data: store }] = await Promise.all([
-      serviceClient
-        .from('brand_dna')
-        .select('niche, audience, positioning, tone, average_ticket, opportunities')
-        .eq('team_id', teamId)
-        .single(),
-      serviceClient
-        .from('stores')
-        .select('id, platform, platform_store_id, platform_access_token')
-        .eq('team_id', teamId)
-        .limit(1)
-        .single(),
-    ])
-
-    const brandLabel = bd?.niche
-      ? `Brand DNA: ${bd.niche} · ${bd.tone ?? 'sem tom definido'}`
-      : 'Brand DNA não encontrado — usando padrões'
-
-    await updateProgress([
-      { label: brandLabel, done: true },
-      { label: 'Verificando conexão com a loja...', done: false },
-    ])
-
-    let calendarProducts: Array<{ name: string; price: number }> = []
-    let productSource = ''
-    if (store?.platform === 'nuvemshop' && store.platform_store_id && store.platform_access_token) {
-      try {
-        const { NuvemshopClient } = await import('@/lib/nuvemshop/client')
-        const client = new NuvemshopClient(store.platform_store_id, store.platform_access_token)
-        const liveProducts = await client.getProducts(1, 200)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        calendarProducts = liveProducts.map((p: any) => ({
-          name:
-            typeof p.name === 'object'
-              ? ((p.name as Record<string, string>).pt ??
-                Object.values(p.name as Record<string, string>)[0] ??
-                '')
-              : String(p.name),
-          price: p.variants?.[0]?.price ? Number(p.variants[0].price) : 0,
-        }))
-        productSource = `${calendarProducts.length} produtos via Nuvemshop`
-      } catch {
-        console.warn('[generateCalendarInBackground] Nuvemshop API failed, using DB products')
-        const { data: prods } = await serviceClient
-          .from('store_products')
-          .select('name, price')
-          .eq('store_id', store.id)
-          .limit(200)
-        calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
-        productSource =
-          calendarProducts.length > 0
-            ? `${calendarProducts.length} produtos do catálogo local (Nuvemshop desconectada)`
-            : 'Nenhum produto encontrado — calendário genérico'
-      }
-    } else if (store) {
-      const { data: prods } = await serviceClient
-        .from('store_products')
-        .select('name, price')
-        .eq('store_id', store.id)
-        .limit(50)
-      calendarProducts = (prods ?? []) as Array<{ name: string; price: number }>
-      productSource =
-        calendarProducts.length > 0
-          ? `${calendarProducts.length} produtos do catálogo`
-          : 'Nenhum produto encontrado'
-    } else {
-      productSource = 'Loja não conectada — calendário genérico'
-    }
-
-    const opCount = (bd?.opportunities as unknown[])?.length ?? 0
-
-    await updateProgress([
-      { label: brandLabel, done: true },
-      { label: productSource, done: true },
-      ...(opCount > 0
-        ? [{ label: `${opCount} oportunidades sazonais identificadas`, done: true }]
-        : []),
-      { label: 'Gerando calendário personalizado com IA...', done: false },
-    ])
-
-    const { generateCalendar } = await import('@/lib/ai/seasonal-campaign-generator')
-    const calendarData = await generateCalendar(
+    // ── Fire-and-forget background skill run ──────────────────────────────
+    void runAgentsEngineBackground({
+      user: { id: user.id, email: user.email ?? '' },
       teamId,
-      {
-        brandDna: {
-          niche: bd?.niche ?? 'varejo',
-          audience: bd?.audience ?? 'consumidores gerais',
-          positioning: bd?.positioning ?? '',
-          tone: bd?.tone ?? 'profissional',
-          average_ticket: bd?.average_ticket ?? 100,
-          opportunities: bd?.opportunities ?? [],
-        },
-        products: calendarProducts,
-        currentDate: new Date(),
-        year: new Date().getFullYear(),
-      },
-      'direct'
-    )
+      taskId,
+      conversationId,
+      userMessage,
+      skillSlug: slug,
+    })
 
-    await serviceClient
-      .from('tasks')
-      .update({
-        artifact_data: calendarData,
-        artifact_type: 'seasonal-calendar',
-        skill_status: 'completed',
-        active_skill: 'seasonal-calendar',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', taskId)
-  } catch (err) {
-    console.error('[generateCalendarInBackground] FAILED:', err)
-    await serviceClient
-      .from('tasks')
-      .update({ skill_status: 'failed', updated_at: new Date().toISOString() })
-      .eq('id', taskId)
+    // ── Respond immediately ───────────────────────────────────────────────
+    const skillName = slug
+      .split('-')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+
+    console.log('[chat]', {
+      engine,
+      skill: slug,
+      conversationId,
+      taskId,
+      userId: user.id,
+      teamId,
+    })
+
+    return NextResponse.json(
+      { ok: true, taskId, conversationId, skill: slug, message: `Gerando ${skillName}...` },
+      {
+        status: 200,
+        headers: { 'X-Chat-Engine': 'managed-agents' },
+      }
+    )
+  } else if (hybridEnabled) {
+    // Chat path with hybrid flag on: use fast Messages API engine
+    engine = 'messages-api'
+    console.log('[chat]', {
+      engine,
+      skill: undefined,
+      conversationId: body.conversationId,
+      taskId: body.taskId,
+      userId: user.id,
+      teamId,
+    })
+    response = await runMessagesEngine({
+      user: { id: user.id, email: user.email ?? '' },
+      teamId,
+      body,
+      serviceClient,
+      model,
+    })
+  } else {
+    // Legacy path: Managed Agents engine
+    engine = 'managed-agents'
+    console.log('[chat]', {
+      engine,
+      skill: undefined,
+      conversationId: body.conversationId,
+      taskId: body.taskId,
+      userId: user.id,
+      teamId,
+    })
+    const agentResponse = await runAgentsEngine({ user, teamId, body, serviceClient })
+    const headers = new Headers(agentResponse.headers)
+    headers.set('X-Chat-Engine', 'managed-agents')
+    response = new Response(agentResponse.body, { status: agentResponse.status, headers })
   }
+
+  return response
 }
