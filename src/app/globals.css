@@ -3777,9 +3777,3 @@ summary {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
-/* Style card hover caption reveal (sibling hover trick) */
-.style-card-wrapper:hover .style-card-caption {
-  opacity: 1;
-  transform: translateY(0);
-}

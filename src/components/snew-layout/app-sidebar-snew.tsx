@@ -160,7 +160,7 @@ export function AppSidebarSnew({
           {/* Navigation */}
           <nav
             className={cn(
-              'flex-1 overflow-y-auto pt-3 pb-1 transition-[padding] duration-300',
+              'flex-1 pt-3 pb-1 transition-[padding] duration-300',
               collapsed ? 'px-1.5' : 'px-2'
             )}
           >
