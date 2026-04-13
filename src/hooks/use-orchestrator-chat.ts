@@ -91,7 +91,12 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
     sendMessage: aiSendMessage,
     setMessages,
     stop,
-  } = useChat({ transport, messages: serverMessages })
+  } = useChat({
+    transport,
+    messages: serverMessages,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...({ experimental_throttle: 50 } as any),
+  })
 
   // Auto-send initial query from dashboard (fires once)
   const sentInitialRef = useRef(false)

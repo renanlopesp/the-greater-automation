@@ -339,7 +339,7 @@ function Level2({
       )}
 
       {/* Empty state */}
-      {!campaign && !isGenerating && !generationError && (
+      {!campaign?.concept && !isGenerating && !generationError && (
         <div className="flex flex-col items-center px-6 py-16 text-center">
           <div
             className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -364,7 +364,7 @@ function Level2({
       )}
 
       {/* Campaign content */}
-      {campaign && !isGenerating && (
+      {campaign?.concept && !isGenerating && (
         <div className="flex flex-col gap-6 px-6 pt-5 pb-8">
           {/* Concept */}
           <div>
@@ -388,10 +388,10 @@ function Level2({
             ) : (
               <div className="border-border rounded-xl border p-4">
                 <p className="text-foreground text-sm leading-relaxed font-medium italic">
-                  &ldquo;{campaign.concept.slogan}&rdquo;
+                  &ldquo;{campaign.concept?.slogan ?? '—'}&rdquo;
                 </p>
                 <p className="text-muted-foreground mt-2 text-[13px] leading-relaxed">
-                  {campaign.concept.description}
+                  {campaign.concept?.description ?? '—'}
                 </p>
               </div>
             )}
@@ -410,7 +410,7 @@ function Level2({
               </button>
             </div>
             <div className="flex flex-col gap-1.5">
-              {(campaign.curatedProducts ?? campaign.selectedProducts)
+              {(campaign?.curatedProducts ?? campaign?.selectedProducts ?? [])
                 .slice(0, 5)
                 .map((product) => (
                   <div
@@ -443,9 +443,10 @@ function Level2({
                     <ProductTagBadge tag={product.tag} />
                   </div>
                 ))}
-              {(campaign.curatedProducts ?? campaign.selectedProducts).length > 5 && (
+              {(campaign?.curatedProducts ?? campaign?.selectedProducts ?? []).length > 5 && (
                 <p className="text-muted-foreground px-3 text-xs">
-                  +{(campaign.curatedProducts ?? campaign.selectedProducts).length - 5} produtos
+                  +{(campaign?.curatedProducts ?? campaign?.selectedProducts ?? []).length - 5}{' '}
+                  produtos
                 </p>
               )}
             </div>
@@ -1335,17 +1336,30 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
       const res = await fetch('/api/skills/seasonal-calendar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dateId, dateName }),
+        body: JSON.stringify({ dateId, dateName, taskId }),
       })
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
         throw new Error(errBody.error ?? 'generation failed')
       }
       const body = await res.json()
-      const campaign = (body.campaign ?? body) as FullCampaign
-      const updated = { ...campaigns, [dateId]: campaign }
-      await saveCampaignsToTask(updated)
+      // Route returns { ok, dateId, executionId } (async).
+      // The Edge Function updates task.artifact_data.campaigns directly.
+      if (!body.ok) throw new Error(body.error ?? 'generation failed')
       if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      // Poll for up to 180s until the campaign appears in task data
+      const start = Date.now()
+      while (Date.now() - start < 180_000) {
+        await new Promise((r) => setTimeout(r, 3000))
+        await queryClient.refetchQueries({ queryKey: ['task', taskId] })
+        const state = queryClient.getQueryState(['task', taskId])
+        // queryFn returns { task }, so artifact_data lives under .task
+        const raw = state?.data as { task?: { artifact_data?: unknown } } | undefined
+        const artifact = raw?.task?.artifact_data as
+          | { campaigns?: Record<string, { concept?: { slogan?: string } }> }
+          | undefined
+        if (artifact?.campaigns?.[dateId]?.concept?.slogan) break
+      }
     } catch {
       setGenerationError((prev) => ({ ...prev, [dateId]: true }))
     } finally {
@@ -1380,25 +1394,7 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
 
   // --- Regenerate section (uses generate-deliverable to regenerate + update status) ---
   async function regenerateSection(dateId: string, sectionType: string) {
-    const key = `${dateId}:${sectionType}`
-    setRegeneratingSection((prev) => ({ ...prev, [key]: true }))
-    try {
-      // Use the same endpoint as generateDeliverable — it handles status updates
-      const res = await fetch('/api/skills/seasonal-calendar/generate-deliverable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, dateId, sectionType }),
-      })
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}))
-        throw new Error(errBody.error ?? 'regeneration failed')
-      }
-      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
-    } catch {
-      toast.error('Erro ao regenerar. Tente novamente.')
-    } finally {
-      setRegeneratingSection((prev) => ({ ...prev, [key]: false }))
-    }
+    await generateDeliverable(dateId, sectionType)
   }
 
   // --- Save curated products ---
@@ -1439,7 +1435,21 @@ export function SeasonalCalendarArtifact({ data, taskId }: SeasonalCalendarArtif
         const errBody = await res.json().catch(() => ({}))
         throw new Error(errBody.error ?? 'generation failed')
       }
-      if (taskId) queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      if (!taskId) return
+      // Poll task until deliverable status flips to generated (or 120s timeout)
+      const start = Date.now()
+      while (Date.now() - start < 120_000) {
+        await new Promise((r) => setTimeout(r, 3000))
+        await queryClient.refetchQueries({ queryKey: ['task', taskId] })
+        const state = queryClient.getQueryState(['task', taskId])
+        const raw = state?.data as { task?: { artifact_data?: unknown } } | undefined
+        const artifact = raw?.task?.artifact_data as
+          | { campaigns?: Record<string, { deliverables?: Record<string, { status?: string }> }> }
+          | undefined
+        const status = artifact?.campaigns?.[dateId]?.deliverables?.[sectionType]?.status
+        if (status === 'generated') break
+        if (status === 'failed') throw new Error('generation failed')
+      }
     } catch {
       toast.error('Erro ao gerar seção. Tente novamente.')
     } finally {

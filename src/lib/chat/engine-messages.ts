@@ -199,14 +199,6 @@ export async function runMessagesEngine(ctx: MessagesEngineContext): Promise<Res
       let tokensOut = 0
       let textPartCounter = 0
       let toolCallCounter = 0
-      let reasoningIdCounter = 0
-
-      // Emit a single reasoning part upfront so the "Pensando..." shimmer
-      // appears immediately while the first API round-trip completes.
-      const reasoningId = `reasoning-${reasoningIdCounter++}`
-      writer.write({ type: 'reasoning-start', id: reasoningId })
-      writer.write({ type: 'reasoning-delta', id: reasoningId, delta: '' })
-      writer.write({ type: 'reasoning-end', id: reasoningId })
 
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
         const partId = `text-${textPartCounter++}`
