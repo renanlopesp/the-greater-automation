@@ -4,22 +4,18 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
-interface HeroPromptProps {
-  storeName?: string
-}
-
 /**
  * Home hero — h1 title + chatbox with textarea + submit button.
  * 1:1 port from snew-ai-core SnewStudioHomePage.tsx lines 521-593.
+ *
+ * Strings are fixed to match the prototype (no store-name interpolation).
  */
-export function HeroPrompt({ storeName }: HeroPromptProps) {
+export function HeroPrompt() {
   const router = useRouter()
   const [value, setValue] = useState('')
 
-  const title = storeName ? `O que criar para ${storeName} hoje?` : 'O que você quer criar hoje?'
-  const placeholder = storeName
-    ? `Descreva o criativo para ${storeName}...`
-    : 'Descreva a imagem, vídeo ou carrossel...'
+  const title = 'O que você quer criar hoje?'
+  const placeholder = 'Descreva a imagem, vídeo ou carrossel...'
 
   const submit = () => {
     const text = value.trim()
@@ -35,6 +31,7 @@ export function HeroPrompt({ storeName }: HeroPromptProps) {
           margin: '0 0 24px',
           fontSize: 26,
           fontWeight: 500,
+          lineHeight: 1.23,
           letterSpacing: '-0.02em',
         }}
         className="dark:text-foreground"
@@ -83,7 +80,7 @@ export function HeroPrompt({ storeName }: HeroPromptProps) {
             verticalAlign: 'top',
             display: 'block',
           }}
-          className="dark:text-foreground placeholder:text-muted-foreground"
+          className="hero-textarea dark:text-foreground"
         />
         <button
           type="button"

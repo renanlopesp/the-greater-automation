@@ -33,10 +33,8 @@ export function CapabilityCardView({ card }: CapabilityCardProps) {
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.18 }}
       onClick={handleClick}
       style={{

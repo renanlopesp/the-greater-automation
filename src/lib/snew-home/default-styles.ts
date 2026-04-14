@@ -19,8 +19,14 @@ export interface HomeStyleTemplate {
 const BUCKET_BASE =
   'https://apsfeutbqvgfgznmaesg.supabase.co/storage/v1/object/public/snew-assets/style-thumbs'
 
+/**
+ * All style-thumbs are .png except product-infographic (.jpg).
+ * We upload the original source files and let Next.js do the image optimization
+ * (resize + WebP conversion) at request time, so quality stays at the source.
+ */
 function thumb(id: string, n = 0): string {
-  return `${BUCKET_BASE}/${id}-${n}.webp`
+  const ext = id === 'product-infographic' ? 'jpg' : 'png'
+  return `${BUCKET_BASE}/${id}-${n}.${ext}`
 }
 
 export const DEFAULT_STYLES: HomeStyleTemplate[] = [
