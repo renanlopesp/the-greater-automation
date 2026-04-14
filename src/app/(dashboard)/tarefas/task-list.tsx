@@ -112,7 +112,7 @@ export default function TaskList() {
         {tasks.map((task) => (
           <Link
             key={task.id}
-            href={`/chat/task/${task.id}`}
+            href={`/studio/create/${task.id}`}
             className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-all hover:bg-[var(--accent)]"
             style={{
               opacity: deletingId === task.id ? 0.4 : 1,

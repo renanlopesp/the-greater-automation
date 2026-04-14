@@ -21,7 +21,7 @@ export default function AskBar({ orchestratorId }: AskBarProps) {
   const sendMessage = (message: string) => {
     const trimmed = message.trim()
     if (!trimmed) return
-    const target = `/chat?q=${encodeURIComponent(trimmed)}`
+    const target = `/studio/create?autoPrompt=${encodeURIComponent(trimmed)}`
     router.push(target)
   }
 

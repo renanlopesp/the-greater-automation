@@ -184,7 +184,9 @@ export default function SkillActionsGrid() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.18 }}
-                onClick={() => router.push(`/chat?q=${encodeURIComponent(card.title)}`)}
+                onClick={() =>
+                  router.push(`/studio/create?autoPrompt=${encodeURIComponent(card.title)}`)
+                }
                 style={{
                   borderRadius: 20,
                   overflow: 'hidden',

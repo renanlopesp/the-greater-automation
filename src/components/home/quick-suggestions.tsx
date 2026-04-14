@@ -19,7 +19,7 @@ export default function QuickSuggestions({ onSelect }: QuickSuggestionsProps) {
     if (onSelect) {
       onSelect(pill)
     } else {
-      router.push(`/chat?q=${encodeURIComponent(pill)}`)
+      router.push(`/studio/create?autoPrompt=${encodeURIComponent(pill)}`)
     }
   }
 

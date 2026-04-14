@@ -73,7 +73,7 @@ export default function DashboardHero() {
         }
         const { taskId } = await res.json()
         setValue('')
-        router.push(`/chat/task/${taskId}`)
+        router.push(`/studio/create/${taskId}`)
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Erro ao criar tarefa.')
         setIsCreating(false)

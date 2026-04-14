@@ -46,7 +46,7 @@ export default function AppSidebarNew({
     {
       labelKey: 'nav.newChat',
       icon: Plus,
-      path: '/chat',
+      path: '/studio/create',
     },
     { labelKey: 'nav.coworkers', icon: Bot, path: '/agents' },
     { labelKey: 'nav.apps', icon: LayoutGrid, path: '/apps' },
@@ -55,7 +55,8 @@ export default function AppSidebarNew({
 
   const isActive = (path: string) => {
     if (path === '/dashboard') return pathname === '/dashboard' || pathname === '/'
-    if (path === '/chat') return pathname === '/chat'
+    if (path === '/studio/create')
+      return pathname === '/studio/create' || pathname.startsWith('/studio/create/')
     if (path.startsWith('/agents/')) return pathname === path
     if (path === '/agents') return pathname === '/agents' || pathname.startsWith('/agents/')
     if (path === '/history') return pathname === '/history' || pathname.startsWith('/chat/')

@@ -35,7 +35,8 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
   const pathname = usePathname()
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
   const isSnewHome = pathname === '/' || pathname === '/dashboard'
-  const hideTopBar = isChatRoute || isSnewHome
+  const isStudioRoute = pathname === '/studio' || pathname.startsWith('/studio/')
+  const hideTopBar = isChatRoute || isSnewHome || isStudioRoute
   const { data: shellData } = useShellData()
 
   const [collapsed, setCollapsed] = useState(() => {

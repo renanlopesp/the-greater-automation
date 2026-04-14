@@ -50,7 +50,8 @@ interface AppSidebarNewProps {
 function isActive(pathname: string, path: string, label: string): boolean {
   if (label === 'New Task') return false // New Task is a shortcut, never active
   if (path === '/dashboard') return pathname === '/' || pathname === '/dashboard'
-  if (path === '/chat') return pathname === '/chat'
+  if (path === '/studio/create')
+    return pathname === '/studio/create' || pathname.startsWith('/studio/create/')
   if (path === '/skills') return pathname === '/skills' || pathname.startsWith('/skills/')
   if (path === '/tarefas') return pathname === '/tarefas' || pathname.startsWith('/tarefas/')
   if (path === '/studio') return pathname === '/studio' || pathname.startsWith('/studio/')
