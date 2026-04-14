@@ -3777,3 +3777,13 @@ summary {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+.style-card-wrapper:hover .style-card-caption {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+.hero-textarea::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}

@@ -162,7 +162,7 @@ export function AppSidebarNew({
         </nav>
 
         {/* Footer section */}
-        <div className="border-border shrink-0 space-y-2 border-t px-[14px] py-3">
+        <div className="border-border shrink-0 space-y-2 px-[14px] py-3">
           {/* Credits */}
           <div
             className={cn(

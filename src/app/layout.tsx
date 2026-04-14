@@ -33,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${dmSerif.variable} ${ibmMono.variable} ${inter.className} antialiased`}
+        className={`${inter.variable} ${dmSerif.variable} ${ibmMono.variable} ${inter.className}`}
       >
         <ThemeProvider
           attribute="class"

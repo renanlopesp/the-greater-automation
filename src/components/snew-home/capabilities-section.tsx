@@ -1,6 +1,5 @@
 'use client'
 
-import { AnimatePresence } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import {
   buildCapCards,
@@ -8,24 +7,20 @@ import {
   INITIAL_VISIBLE,
   type FilterTab,
 } from '@/lib/snew-home/default-capabilities'
-import type { StoreContext } from '@/lib/snew-home/load-store-context'
 import { CapabilityCardView } from './capability-card'
-
-interface CapabilitiesSectionProps {
-  storeCtx: StoreContext | null
-}
 
 /**
  * "What Snew can do for you" — filterable capabilities grid.
  *
  * 1:1 port from snew-ai-core SnewStudioHomePage.tsx CapabilitiesSection
- * (lines 276-381).
+ * (lines 276-381). Uses generic placeholders (no store-name injection)
+ * to match the prototype.
  */
-export function CapabilitiesSection({ storeCtx }: CapabilitiesSectionProps) {
+export function CapabilitiesSection() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
   const [showAll, setShowAll] = useState(false)
 
-  const cards = useMemo(() => buildCapCards(storeCtx), [storeCtx])
+  const cards = useMemo(() => buildCapCards(null), [])
   const filtered = cards.filter((c) => activeFilter === 'all' || c.category.includes(activeFilter))
   const visible = showAll ? filtered : filtered.slice(0, INITIAL_VISIBLE)
   const hasMore = filtered.length > INITIAL_VISIBLE && !showAll
@@ -89,11 +84,9 @@ export function CapabilitiesSection({ storeCtx }: CapabilitiesSectionProps) {
           gap: 16,
         }}
       >
-        <AnimatePresence mode="popLayout">
-          {visible.map((card) => (
-            <CapabilityCardView key={card.id} card={card} />
-          ))}
-        </AnimatePresence>
+        {visible.map((card) => (
+          <CapabilityCardView key={card.id} card={card} />
+        ))}
       </div>
 
       {hasMore && (

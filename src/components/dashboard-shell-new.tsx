@@ -34,6 +34,8 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
   const router = useRouter()
   const pathname = usePathname()
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
+  const isSnewHome = pathname === '/' || pathname === '/dashboard'
+  const hideTopBar = isChatRoute || isSnewHome
   const { data: shellData } = useShellData()
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -117,7 +119,7 @@ export default function DashboardShellNew({ children }: DashboardShellNewProps) 
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {!isChatRoute && (
+          {!hideTopBar && (
             <TopBar
               userInitials={getInitials(user.fullName, user.email)}
               userName={user.fullName ?? undefined}

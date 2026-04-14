@@ -26,13 +26,15 @@ export const INITIAL_VISIBLE = 6
  * Titles + autoPrompts interpolated with store context. If no store context,
  * sensible defaults are used.
  */
-export function buildCapCards(ctx: StoreContext | null): CapabilityCard[] {
-  const store = ctx?.name ?? 'sua loja'
-  const niche = ctx?.niche ?? 'e-commerce'
-  const tone = ctx?.tone ?? ''
-  const product = ctx?.productTypes?.[0] ?? 'produto'
-  const kw1 = ctx?.keywords?.[0] ?? 'qualidade'
-  const kw2 = ctx?.keywords?.[1] ?? 'exclusividade'
+export function buildCapCards(_ctx: StoreContext | null): CapabilityCard[] {
+  // Match prototype 1:1 — always use generic placeholders on card titles.
+  // (Prototype doesn't inject brand context even when it exists.)
+  const store = 'sua loja'
+  const niche = 'e-commerce'
+  const tone = ''
+  const product = 'produto'
+  const kw1 = 'qualidade'
+  const kw2 = 'exclusividade'
 
   return [
     {
@@ -113,7 +115,7 @@ export function buildCapCards(ctx: StoreContext | null): CapabilityCard[] {
       skill: 'Brand DNA',
       category: ['analytics'],
       route: '/settings/brand-dna',
-      autoPrompt: `Revisar e documentar o Brand DNA de ${store}: tom de voz, vocabulário da marca, arquétipo, mensagem central, o que nunca dizer e exemplos de copy on-brand vs off-brand. Nicho: ${niche}. Palavras-chave da marca: ${ctx?.keywords?.join(', ') ?? 'qualidade, autenticidade'}.`,
+      autoPrompt: `Revisar e documentar o Brand DNA de ${store}: tom de voz, vocabulário da marca, arquétipo, mensagem central, o que nunca dizer e exemplos de copy on-brand vs off-brand. Nicho: ${niche}. Palavras-chave da marca: qualidade, autenticidade.`,
     },
     {
       id: 'c11',

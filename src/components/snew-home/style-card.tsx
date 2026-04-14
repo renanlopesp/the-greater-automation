@@ -1,6 +1,7 @@
 'use client'
 
-import Image from 'next/image'
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useRef, useState } from 'react'
 
 interface StyleCardProps {
@@ -12,7 +13,12 @@ interface StyleCardProps {
 
 /**
  * Style template card with hover slideshow (dual-layer crossfade).
- * Uses Next.js <Image> with fill + sizes="216px" for optimal loading.
+ *
+ * Uses a raw <img> tag (not next/image) on purpose: Next.js would downsample
+ * and recompress the source PNGs to 256–640w WebP, and the extra compression
+ * pass visibly softens the detail. The source files are already sized for
+ * this card (≤ 1080w), so we rely on the browser's native downsample which
+ * matches the snew-ai-core prototype pixel-for-pixel.
  *
  * 1:1 port from snew-ai-core SnewStudioHomePage.tsx StyleCard (lines 16-138).
  * - Cycles slides every 650ms while hovered
@@ -28,7 +34,6 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isFirstRender = useRef(true)
 
-  // Init both layers with first slide
   useEffect(() => {
     if (slides.length > 0) {
       setLayerSrc([slides[0], slides[0]])
@@ -36,7 +41,6 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // When slideIndex changes, load new src on the back layer and flip
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false
@@ -54,12 +58,11 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideIndex])
 
-  // Interval control
   useEffect(() => {
     if (isHovered && slides.length > 1) {
       intervalRef.current = setInterval(() => {
         setSlideIndex((i) => (i + 1) % slides.length)
-      }, 650)
+      }, 1100)
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (!isHovered) {
@@ -100,40 +103,59 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
           position: 'relative',
         }}
       >
-        {/* Layer 0 */}
+        {/* Preload — mounts every hover slide in the DOM so the browser fetches
+            them eagerly. Hidden via opacity + zero dimensions; browsers still
+            download <img src> elements even at 0×0. */}
+        {slides.slice(1).map((src) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            aria-hidden
+            decoding="async"
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
         {layerSrc[0] && (
-          <Image
+          <img
             src={layerSrc[0]}
             alt=""
-            fill
-            sizes="432px"
-            quality={92}
+            decoding="async"
             style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
               objectFit: 'cover',
               display: 'block',
               opacity: activeLayer === 0 ? 1 : 0,
               transition: 'opacity 0.25s ease',
               willChange: 'opacity',
             }}
-            priority={false}
           />
         )}
-        {/* Layer 1 */}
         {layerSrc[1] && (
-          <Image
+          <img
             src={layerSrc[1]}
             alt=""
-            fill
-            sizes="432px"
-            quality={92}
+            decoding="async"
             style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
               objectFit: 'cover',
               display: 'block',
               opacity: activeLayer === 1 ? 1 : 0,
               transition: 'opacity 0.25s ease',
               willChange: 'opacity',
             }}
-            priority={false}
           />
         )}
         {slides.length === 0 && (
@@ -155,7 +177,6 @@ export function StyleCard({ name, thumbnailUrl, hoverImages, onClick }: StyleCar
           </div>
         )}
 
-        {/* Dot indicators */}
         {isHovered && slides.length > 1 && (
           <div
             style={{

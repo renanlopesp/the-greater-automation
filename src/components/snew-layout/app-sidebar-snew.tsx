@@ -126,44 +126,33 @@ export function AppSidebarSnew({
           }}
           className="dark:bg-card"
         >
-          {/* Logo row */}
+          {/* Logo row — single layout; text collapses via max-width/opacity */}
           <button
             type="button"
             onClick={onToggleCollapse}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={cn(
-              'group flex h-[48px] shrink-0 cursor-pointer items-center select-none',
-              collapsed ? 'justify-center px-3' : 'px-4'
-            )}
+            className="group flex h-[48px] shrink-0 cursor-pointer items-center px-4 select-none"
           >
-            {collapsed ? (
-              <div className="relative h-6 w-6">
-                <div className="bg-foreground text-background absolute inset-0 flex items-center justify-center rounded-md text-[11px] font-medium transition-opacity duration-150 group-hover:opacity-0">
-                  S
-                </div>
-                <div className="text-muted-foreground absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                  <SidebarToggleIcon />
-                </div>
+            <div className="relative h-6 w-6 shrink-0">
+              <div className="bg-foreground text-background absolute inset-0 flex items-center justify-center rounded-md transition-opacity duration-150 group-hover:opacity-0">
+                <SnewLogoIcon />
               </div>
-            ) : (
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="text-foreground flex-1 text-left text-sm font-medium whitespace-nowrap">
-                  Snew
-                </span>
-                <div className="text-muted-foreground hover:text-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                  <SidebarToggleIcon />
-                </div>
+              <div className="text-muted-foreground absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <SidebarToggleIcon />
               </div>
-            )}
+            </div>
+            <span
+              className={cn(
+                'text-foreground overflow-hidden text-sm font-medium whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-in-out',
+                collapsed ? 'ml-0 max-w-0 opacity-0' : 'ml-2 max-w-[160px] opacity-100'
+              )}
+            >
+              Snew
+            </span>
           </button>
 
-          {/* Navigation */}
-          <nav
-            className={cn(
-              'flex-1 pt-3 pb-1 transition-[padding] duration-300',
-              collapsed ? 'px-1.5' : 'px-2'
-            )}
-          >
+          {/* Navigation — single layout; label collapses via max-width/margin */}
+          <nav className="flex-1 px-2 pt-3 pb-1">
             {NAV_ITEMS.map((item) => {
               const active = hydrated && isActive(item)
               const Icon = item.icon
@@ -178,27 +167,22 @@ export function AppSidebarSnew({
                         handleNav(item)
                       }}
                       className={cn(
-                        'relative mb-0.5 flex w-full items-center rounded-md transition-colors',
-                        collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2',
+                        'relative mb-0.5 flex w-full items-center rounded-md px-3 py-2 transition-colors',
                         active
                           ? 'bg-accent text-foreground font-medium'
                           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
-                      <div
+                      <span
                         className={cn(
-                          'flex min-w-0 flex-1 items-center overflow-hidden transition-[opacity,max-width] duration-300 ease-in-out',
-                          collapsed ? 'max-w-0 opacity-0' : 'max-w-full opacity-100'
+                          'overflow-hidden text-left whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-in-out',
+                          collapsed ? 'ml-0 max-w-0 opacity-0' : 'ml-2.5 max-w-[160px] opacity-100'
                         )}
+                        style={{ fontSize: 13, fontWeight: 400 }}
                       >
-                        <span
-                          className="flex-1 text-left whitespace-nowrap"
-                          style={{ fontSize: 13, fontWeight: 400 }}
-                        >
-                          {item.label}
-                        </span>
-                      </div>
+                        {item.label}
+                      </span>
                     </Link>
                   </TooltipTrigger>
                   {collapsed && (
@@ -215,13 +199,8 @@ export function AppSidebarSnew({
             })}
           </nav>
 
-          {/* Footer: credits + user dropdown */}
-          <div
-            className={cn(
-              'border-border shrink-0 space-y-2 border-t py-3',
-              collapsed ? 'px-1.5' : 'px-[14px]'
-            )}
-          >
+          {/* Footer: credits + user dropdown — constant padding to avoid flicker */}
+          <div className="border-border shrink-0 space-y-2 px-[14px] py-3">
             <div
               className={cn(
                 'w-full overflow-hidden transition-[opacity,max-height] duration-300 ease-in-out',
@@ -246,10 +225,7 @@ export function AppSidebarSnew({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className={cn(
-                    'hover:bg-accent flex w-full items-center rounded-md py-1.5 transition-colors',
-                    collapsed ? 'justify-center' : 'px-2'
-                  )}
+                  className="hover:bg-accent flex w-full items-center rounded-md py-1.5 transition-colors"
                   aria-label="User menu"
                 >
                   <div
@@ -327,6 +303,15 @@ function useHydrated(): boolean {
     () => () => {},
     () => true,
     () => false
+  )
+}
+
+function SnewLogoIcon() {
+  return (
+    <svg width="14" height="9" viewBox="0 0 535 323" fill="currentColor" aria-hidden>
+      <path d="M400.165 220.285L354.779 323H0L94.3887 143.841L400.165 220.285Z" />
+      <path d="M446.979 159.642L131.339 158.637L217.867 0H534.057L446.979 159.642Z" />
+    </svg>
   )
 }
 
