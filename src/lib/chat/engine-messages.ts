@@ -212,12 +212,10 @@ export async function runMessagesEngine(ctx: MessagesEngineContext): Promise<Res
           messages,
         })
 
-        // Track tool_use blocks by index; inputJson accumulates per block.
-        const toolInputJson = new Map<number, string>()
-
-        // Token-by-token handler — highest granularity, no backpressure from
-        // async iteration. BetaMessageStream types don't include 'inputJson' in
-        // overloads, so we cast to any only for the .on() registration.
+        // Token-by-token text streaming. We rely on `finalMessage` below to
+        // get the fully assembled tool_use blocks, so we don't need a
+        // separate `inputJson` handler — that handler's signature varies
+        // across SDK versions and crashed when `event` was undefined.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(mStream as any).on('text', (delta: string) => {
           if (!started) {
@@ -227,15 +225,6 @@ export async function runMessagesEngine(ctx: MessagesEngineContext): Promise<Res
           writer.write({ type: 'text-delta', id: partId, delta })
           fullText += delta
         })
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(mStream as any).on(
-          'inputJson',
-          (partialJson: string, _snapshot: unknown, event: { index: number }) => {
-            const prev = toolInputJson.get(event.index) ?? ''
-            toolInputJson.set(event.index, prev + partialJson)
-          }
-        )
 
         // Wait for the model to finish the current turn.
         const finalMessage = await mStream.finalMessage()
