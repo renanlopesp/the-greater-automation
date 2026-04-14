@@ -72,19 +72,34 @@ interface OrchestratorChatWrapperProps {
   skillProgress?: SkillProgress
 }
 
-/** Extract Composio connection URLs from tool-result parts */
+/** Extract Composio connection URLs from tool parts (supports AI SDK v5 UIMessage shape). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractConnectionUrls(parts: any[]): Array<{ app: string; url: string }> {
   const results: Array<{ app: string; url: string }> = []
   for (const part of parts) {
-    if (part.type !== 'tool-result') continue
+    // AI SDK v5 emits one of:
+    //   { type: "tool-SNEW_CONNECT_APP", state: "output-available", output: <string|object> }
+    //   { type: "dynamic-tool", toolName: "SNEW_CONNECT_APP", state: "output-available", output }
+    //   { type: "tool-result", result } (legacy)
+    const isToolPart =
+      part.type === 'tool-result' ||
+      part.type === 'dynamic-tool' ||
+      (typeof part.type === 'string' && part.type.startsWith('tool-'))
+    if (!isToolPart) continue
+
+    const raw = part.output ?? part.result
+    if (raw == null) continue
     try {
-      const result = typeof part.result === 'string' ? JSON.parse(part.result) : part.result
-      // Composio MANAGE_CONNECTIONS returns redirectUrl or url
-      const url = result?.redirectUrl ?? result?.url ?? result?.data?.redirectUrl
+      const result = typeof raw === 'string' ? JSON.parse(raw) : raw
+      const url =
+        result?.redirect_url ?? result?.redirectUrl ?? result?.url ?? result?.data?.redirectUrl
       if (typeof url === 'string' && url.includes('composio.dev')) {
         const app =
-          result?.app ?? result?.toolkit ?? part.toolName?.replace('COMPOSIO_', '') ?? 'App'
+          result?.app_id ??
+          result?.app ??
+          result?.toolkit ??
+          part.toolName?.replace('SNEW_CONNECT_APP', 'App').replace('COMPOSIO_', '') ??
+          'App'
         results.push({ app: String(app), url })
       }
     } catch {
@@ -359,27 +374,12 @@ export default function OrchestratorChatWrapper({
                                 .replace(/\n{3,}/g, '\n\n')
                                 .trim()
                             }
-                            return (
-                              <>
-                                <MessageResponse>{cleanedText}</MessageResponse>
-                                {composioLinks.length > 0 && (
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {composioLinks.map((link, i) => (
-                                      <a
-                                        key={i}
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="bg-foreground/90 text-background hover:bg-foreground inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all active:scale-[0.98]"
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                        {link.label}
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                              </>
-                            )
+                            // The actual Composio button is rendered by the
+                            // extractConnectionUrls block below (which reads
+                            // the tool output, not the model's markdown). Here
+                            // we only care about stripping the URL out of the
+                            // assistant's text so we don't show a duplicate.
+                            return <MessageResponse>{cleanedText}</MessageResponse>
                           })()}
                           {/* Composio connection buttons from tool results */}
                           {(() => {

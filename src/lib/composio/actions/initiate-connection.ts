@@ -46,9 +46,8 @@ export async function initiateAppConnection(
     let connectionId: string
 
     if (connectionData) {
-      // Use lower-level client to pass connection.data for app-specific required fields
-      // (e.g. Shopify store subdomain). The SDK's initiate() only supports connection.state
-      // which requires authScheme — connection.data is for arbitrary integration fields.
+      // App-specific required fields (e.g. Shopify subdomain) → use lower-level
+      // create() which does NOT go through the hosted Magic Link UI.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawClient = (composio as any).client
       const response = await rawClient.connectedAccounts.create({
@@ -63,13 +62,17 @@ export async function initiateAppConnection(
       connectionId = response.id
       redirectUrl = response.connectionData?.val?.redirectUrl ?? null
     } else {
-      const connectionRequest = await composio.connectedAccounts.initiate(user.id, authConfigId, {
-        callbackUrl,
-        allowMultiple: true,
+      // Standard OAuth flow → use the hosted Magic Link UI so the user sees
+      // the branded "Snew wants to connect to your <App>" screen first.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawClient = (composio as any).client
+      const link = await rawClient.link.create({
+        auth_config_id: authConfigId,
+        user_id: user.id,
+        callback_url: callbackUrl,
       })
-      connectionId = connectionRequest.id
-      const req = connectionRequest as unknown as Record<string, unknown>
-      redirectUrl = (req.redirectUrl ?? req.url) as string | null
+      connectionId = link.connected_account_id
+      redirectUrl = link.redirect_url
     }
 
     // Store pending connection in cookie for the callback route

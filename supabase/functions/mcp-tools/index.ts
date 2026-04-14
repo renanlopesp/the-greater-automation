@@ -297,63 +297,56 @@ Deno.serve(async (req: Request) => {
       'SNEW_CONNECT_APP',
       {
         description:
-          'Generate an OAuth connection URL for a third-party app. Returns a URL the user must click to authorize. ALWAYS include this URL in your response as a clickable link.',
+          'Create a Composio hosted Magic Link so the user can connect a third-party app (Instagram, Gmail, Meta Ads, TikTok, Slack, etc.). The Snew UI renders a "Conectar <App>" button automatically from this tool output — DO NOT include the URL as a markdown link in your response, and DO NOT type the URL out either. Just write 1-2 short sentences telling the user what is about to happen (e.g. "Vou gerar o link de conexão. Clique no botão abaixo para conectar sua conta do Instagram.") and let the UI do the rest.',
         inputSchema: z.object({
           app_id: z.string().describe('App to connect (e.g. "instagram", "gmail", "meta-ads")'),
         }),
       },
       async ({ app_id }) => {
         try {
-          // Get auth config for this app
+          // 1. Find the auth_config_id for this app
           const configs = await composioFetch('/auth_configs')
-          const items = configs.items ?? []
           let authConfigId: string | null = null
-          for (const item of items) {
+          for (const item of configs.items ?? []) {
             if (item.toolkit?.slug?.toLowerCase() === app_id.toLowerCase()) {
-              // Prefer OAUTH2 over API_KEY
-              if (!authConfigId || item.authScheme === 'OAUTH2') {
-                authConfigId = item.id
-              }
+              if (!authConfigId || item.authScheme === 'OAUTH2') authConfigId = item.id
             }
           }
-          if (!authConfigId)
+          if (!authConfigId) {
             return {
               content: [
                 {
                   type: 'text' as const,
-                  text: JSON.stringify({
-                    error: `No auth config for ${app_id}. Set up in Composio dashboard first.`,
-                  }),
+                  text: JSON.stringify({ error: `No auth config for ${app_id}` }),
                 },
               ],
               isError: true,
             }
+          }
 
-          // Initiate connection
-          const siteUrl = Deno.env.get('SITE_URL') ?? 'https://app.snew.com.br'
-          const connection = await composioFetch('/connected_accounts', {
+          // 2. Create a Magic Link — Composio's hosted "Snew wants to connect to your X" page
+          // Endpoint: POST /api/v3/link — returns { redirect_url: "https://platform.composio.dev/link/lk_xxx", connected_account_id, link_token, expires_at }
+          const siteUrl = Deno.env.get('SITE_URL') ?? 'http://localhost:3000'
+          const link = await composioFetch('/connected_accounts/link', {
             method: 'POST',
             body: JSON.stringify({
-              auth_config: { id: authConfigId },
-              connection: {
-                callback_url: `${siteUrl}/api/apps/callback`,
-                user_id: userId,
-                allow_multiple: true,
-              },
+              auth_config_id: authConfigId,
+              user_id: userId,
+              callback_url: `${siteUrl}/api/apps/callback`,
             }),
           })
-          const redirectUrl =
-            connection.connectionData?.val?.redirectUrl ?? connection.redirectUrl ?? connection.url
-          if (!redirectUrl)
+          const hostedUrl = link.redirect_url
+          if (!hostedUrl) {
             return {
               content: [
                 {
                   type: 'text' as const,
-                  text: JSON.stringify({ error: 'Failed to get OAuth URL' }),
+                  text: JSON.stringify({ error: 'Composio did not return a redirect_url' }),
                 },
               ],
               isError: true,
             }
+          }
 
           return {
             content: [
@@ -362,8 +355,9 @@ Deno.serve(async (req: Request) => {
                 text: JSON.stringify({
                   success: true,
                   app_id,
-                  redirect_url: redirectUrl,
-                  message: `Click the link to connect ${app_id}: ${redirectUrl}`,
+                  redirect_url: hostedUrl,
+                  connected_account_id: link.connected_account_id,
+                  message: `Click the link to connect ${app_id}: ${hostedUrl}`,
                 }),
               },
             ],
