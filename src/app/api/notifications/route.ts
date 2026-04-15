@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 
 export async function GET() {
   const supabase = await createServerClient()
@@ -9,19 +10,13 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Get user's team_id
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) return NextResponse.json({ error: 'No team found' }, { status: 404 })
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 404 })
 
   const { data, error } = await supabase
     .from('notifications')
     .select('id, type, title, message, read, created_at')
-    .eq('team_id', membership.team_id)
+    .eq('team_id', teamId)
     .order('created_at', { ascending: false })
     .limit(50)
 

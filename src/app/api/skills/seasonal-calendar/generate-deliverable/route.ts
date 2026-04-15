@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/skills/seasonal-calendar/generate-deliverable')
 
 const VALID_SECTIONS = ['copies', 'email', 'assets', 'video', 'timeline'] as const
 type SectionType = (typeof VALID_SECTIONS)[number]
@@ -51,11 +54,14 @@ export async function POST(request: NextRequest) {
     .single()
   const executionId = (execRow as { id: string } | null)?.id
 
-  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-deliverable?secret=${process.env.MCP_AUTH_TOKEN}`
+  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-deliverable`
 
   fetch(edgeFnUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.MCP_AUTH_TOKEN}`,
+    },
     body: JSON.stringify({
       team_id: teamId,
       task_id: taskId,
@@ -64,7 +70,7 @@ export async function POST(request: NextRequest) {
       execution_id: executionId,
     }),
   }).catch((err) => {
-    console.error('[generate-deliverable] edge fn dispatch error:', err)
+    log.error({ err }, 'edge fn dispatch error')
   })
 
   return NextResponse.json({ ok: true, executionId, dateId, sectionType })

@@ -25,7 +25,15 @@ export async function POST(request: NextRequest) {
   }
 
   const secretHeader = request.headers.get('x-telegram-bot-api-secret-token')
-  if (!secretHeader || !timingSafeEqual(Buffer.from(secretHeader), Buffer.from(WEBHOOK_SECRET))) {
+  // timingSafeEqual throws on length mismatch — guard first so we return a
+  // clean 403 instead of a 500 when an attacker sends a wrong-sized header.
+  const headerBuf = secretHeader ? Buffer.from(secretHeader) : null
+  const expectedBuf = Buffer.from(WEBHOOK_SECRET)
+  if (
+    !headerBuf ||
+    headerBuf.length !== expectedBuf.length ||
+    !timingSafeEqual(headerBuf, expectedBuf)
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

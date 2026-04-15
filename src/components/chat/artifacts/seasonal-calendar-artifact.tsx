@@ -949,13 +949,16 @@ function AssetsSection({ campaign }: { campaign: FullCampaign }) {
                   >
                     {hasHtml ? (
                       <div className="w-full overflow-hidden" style={{ height: previewHeight }}>
-                        <div
-                          dangerouslySetInnerHTML={{ __html: asset.html! }}
+                        <iframe
+                          title={`asset-preview-${fileName}`}
+                          sandbox=""
+                          srcDoc={asset.html!}
                           style={{
                             transform: `scale(${cardWidth / (asset.width ?? 1080)})`,
                             transformOrigin: 'top left',
                             width: asset.width ?? 1080,
                             height: asset.height ?? 1080,
+                            border: 0,
                           }}
                         />
                       </div>

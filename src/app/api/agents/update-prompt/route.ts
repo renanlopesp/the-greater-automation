@@ -52,11 +52,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Parse optional body ────────────────────────────────────────────
+    // ── Parse optional body (with model allow-list) ────────────────────
+    const ALLOWED_MODELS = [
+      'claude-opus-4-6',
+      'claude-opus-4-6[1m]',
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5-20251001',
+    ] as const
     let requestedModel: string | undefined
     try {
       const body = await request.json()
-      if (body?.model) requestedModel = body.model
+      if (body?.model) {
+        if (!ALLOWED_MODELS.includes(body.model)) {
+          return NextResponse.json(
+            { error: `Invalid model. Allowed: ${ALLOWED_MODELS.join(', ')}` },
+            { status: 400 }
+          )
+        }
+        requestedModel = body.model
+
+        // Only team owners/admins can switch models (cost control)
+        const { data: role } = await supabase
+          .from('team_members')
+          .select('role')
+          .eq('team_id', teamId)
+          .eq('user_id', user.id)
+          .limit(1)
+          .single()
+        if (!role || !['owner', 'admin'].includes(String(role.role))) {
+          return NextResponse.json(
+            { error: 'Only team owners or admins can change the agent model' },
+            { status: 403 }
+          )
+        }
+      }
     } catch {
       // No body or invalid JSON — that's fine, model stays unchanged
     }

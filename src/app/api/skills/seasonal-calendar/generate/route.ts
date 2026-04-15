@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/skills/seasonal-calendar/generate')
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -47,11 +50,14 @@ export async function POST(request: NextRequest) {
   const executionId = (execRow as { id: string } | null)?.id
 
   // Fire-and-forget to Edge Function
-  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-campaign?secret=${process.env.MCP_AUTH_TOKEN}`
+  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-campaign`
 
   fetch(edgeFnUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.MCP_AUTH_TOKEN}`,
+    },
     body: JSON.stringify({
       team_id: teamId,
       execution_id: executionId,
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
       task_id: taskId,
     }),
   }).catch((err) => {
-    console.error('[generate-campaign] edge fn dispatch error:', err)
+    log.error({ err }, 'edge fn dispatch error')
   })
 
   return NextResponse.json({ ok: true, dateId, executionId })

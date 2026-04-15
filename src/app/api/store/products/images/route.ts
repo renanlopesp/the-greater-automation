@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { NuvemshopClient } from '@/lib/nuvemshop/client'
 import { createLogger } from '@/lib/logger'
 
@@ -12,20 +13,14 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
-
-  if (!membership) return NextResponse.json({ error: 'No team found' }, { status: 400 })
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 400 })
 
   const serviceClient = createServiceRoleClient()
   const { data: store } = await serviceClient
     .from('stores')
     .select('name, platform, platform_store_id, platform_access_token')
-    .eq('team_id', membership.team_id)
+    .eq('team_id', teamId)
     .single()
 
   if (!store || !store.platform_access_token || !store.platform_store_id) {
