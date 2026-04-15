@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeError } from '@/lib/safe-error'
 
@@ -12,7 +12,6 @@ import { safeError } from '@/lib/safe-error'
  */
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
-  const serviceClient = createServiceRoleClient()
 
   const [
     {
@@ -46,15 +45,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Verify the conversation belongs to this team (defence in depth beyond RLS)
+    // Verify the conversation belongs to this team via RLS-scoped read.
+    // Using the user-scoped client ensures RLS is enforced in depth — if the
+    // user isn't a member of the team that owns this conversation, the select
+    // returns null.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conv } = await (serviceClient as any)
+    const { data: conv } = await (supabase as any)
       .from('conversations')
       .select('id, team_id')
       .eq('id', conversationId)
+      .eq('team_id', teamId)
       .single()
 
-    if (!conv || conv.team_id !== teamId) {
+    if (!conv) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
     }
 
@@ -80,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (serviceClient as any).from('conversation_messages').insert(rows)
+    const { error } = await (supabase as any).from('conversation_messages').insert(rows)
 
     if (error) {
       return NextResponse.json(
