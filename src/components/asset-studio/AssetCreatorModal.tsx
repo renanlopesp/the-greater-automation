@@ -12645,9 +12645,59 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 if (action.type === 'snew_list_orders' && Array.isArray(json?.orders))
                   return `${json.orders.length} pedido(s) recente(s)`
                 if (action.type === 'snew_nuvemshop_api') {
-                  const resource = (action as { resource?: string }).resource ?? json?.resource
-                  if (Array.isArray(json?.data))
+                  const resource =
+                    (action as { resource?: string; params?: { resource?: string } }).resource ??
+                    (action as { params?: { resource?: string } }).params?.resource ??
+                    json?.resource
+                  if (Array.isArray(json?.data)) {
+                    // Give richer text summaries for the common resources so the
+                    // chat answers "quais produtos" etc. without the user having
+                    // to open the side panel.
+                    if (resource === 'orders') {
+                      const orders = json.data as Array<{
+                        products?: Array<{ name?: string; quantity?: number }>
+                      }>
+                      const prodCounts = new Map<string, number>()
+                      for (const o of orders) {
+                        for (const p of o.products ?? []) {
+                          const name = String(p.name ?? '').trim()
+                          if (!name) continue
+                          prodCounts.set(name, (prodCounts.get(name) ?? 0) + (p.quantity ?? 1))
+                        }
+                      }
+                      const top = [...prodCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+                      const list = top.map(([n, q]) => `${n} (${q})`).join(', ')
+                      return top.length > 0
+                        ? `${orders.length} pedido(s) · produtos: ${list}${prodCounts.size > top.length ? ` · +${prodCounts.size - top.length} outros` : ''}`
+                        : `${orders.length} pedido(s) sem produtos listados`
+                    }
+                    if (resource === 'products') {
+                      const prods = json.data as Array<{
+                        name?: unknown
+                        variants?: Array<{ stock?: number }>
+                      }>
+                      const names = prods
+                        .slice(0, 5)
+                        .map((p) => {
+                          const raw = p.name as string | Record<string, string> | undefined
+                          const n =
+                            typeof raw === 'string'
+                              ? raw
+                              : typeof raw === 'object'
+                                ? (raw?.pt ?? raw?.es ?? Object.values(raw ?? {})[0] ?? '')
+                                : ''
+                          const stock = (p.variants ?? []).reduce(
+                            (s, v) => s + (typeof v.stock === 'number' ? v.stock : 0),
+                            0
+                          )
+                          return `${n} (est. ${stock})`
+                        })
+                        .filter(Boolean)
+                        .join(', ')
+                      return `${prods.length} produto(s): ${names}${prods.length > 5 ? ` · +${prods.length - 5} outros` : ''}`
+                    }
                     return `${json.data.length} ${resource ?? 'item'}(s) carregado(s)`
+                  }
                   if (json?.data) return `${resource ?? 'Recurso'} carregado`
                   return 'Consulta concluída'
                 }
