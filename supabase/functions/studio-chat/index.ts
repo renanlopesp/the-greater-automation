@@ -38,6 +38,8 @@ serve(async (req) => {
     if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured')
     const cs = creativeState ?? {}
 
+    const ecommerceKind: 'nuvemshop' | 'shopify-composio' | null = cs.ecommerceKind ?? null
+
     const systemPrompt = `Voce e o assistente criativo do Snew Studio — CMO senior, direto e pratico.
 
 ESTADO DO CANVAS:
@@ -48,6 +50,7 @@ ESTADO DO CANVAS:
 - Produto: ${cs.product ?? 'nenhum'}
 - Tem imagem no canvas: ${cs.hasImage ?? false}
 - Ultima prompt de geracao: "${cs.lastGeneratedPrompt ?? ''}"
+- E-commerce conectado: ${ecommerceKind ?? 'nenhum'}
 
 Responda APENAS com JSON valido:
 { "message": "pt-BR 1-2 frases curtas", "actions": [], "follow_ups": ["a","b","c"] }
@@ -78,6 +81,7 @@ REGRAS ABSOLUTAS:
 4. CONECTAR: app nao conectado -> snew_check_connections + snew_connect_app.
 5. NUNCA invente dados. Tool falhou, reconheca.
 6. Follow_ups NUNCA pode conter "Conectar X" (e botao separado).
+7. ECOMMERCE EXCLUSIVO: Se "E-commerce conectado" = nuvemshop, voce NUNCA pode emitir snew_connect_app({app:"shopify"}) nem snew_post_to_app({app:"shopify"}). Para perguntas de loja (estoque, vendas, pedidos) use snew_query_stock / snew_query_sales / snew_list_orders — eles ja batem na Nuvemshop. Se o usuario pedir pra "conectar shopify" estando na Nuvemshop, explique que a loja ja esta conectada via Nuvemshop e ofereca os tools de loja em vez disso.
 
 CANAIS: 9:16 1:1 4:5 16:9 2:3 3:4 1:2 3:2 4:3
 ESTILOS CANVAS: brand-dna, minimal, bold, casual, modern, editorial, urgency, warm, dark-luxury, performance
@@ -155,7 +159,10 @@ generate_image prompt DEVE ser em ingles, terminando com: photorealistic, editor
       if (/twitter|\bx\b/.test(msgLower)) return 'twitter'
       if (/linkedin/.test(msgLower)) return 'linkedin'
       if (/tiktok/.test(msgLower)) return 'tiktok'
-      if (/shopify/.test(msgLower)) return 'shopify'
+      // FR-008 (spec 069): never synthesize a Shopify connect/post action when
+      // the team is already on Nuvemshop. Retail data goes through the
+      // snew_query_* tools instead.
+      if (/shopify/.test(msgLower) && ecommerceKind !== 'nuvemshop') return 'shopify'
       if (/gmail/.test(msgLower)) return 'gmail'
       return 'instagram'
     }
@@ -183,7 +190,16 @@ generate_image prompt DEVE ser em ingles, terminando com: photorealistic, editor
       })
     }
     const CONNECT_INTENT = /(conecta(ndo|r)|autoriz)/
-    if (CONNECT_INTENT.test(msgLower) && !types.has('snew_connect_app')) {
+    // If the user explicitly mentions Shopify but the team is on Nuvemshop,
+    // the AI should respond textually (REGRA 7) — do NOT synthesize a
+    // fallback connect action with a different app, that would be confusing.
+    const userMentionsShopifyOnNuvemshop =
+      ecommerceKind === 'nuvemshop' && /shopify/.test(lastUserText)
+    if (
+      CONNECT_INTENT.test(msgLower) &&
+      !types.has('snew_connect_app') &&
+      !userMentionsShopifyOnNuvemshop
+    ) {
       parsed.actions.push({ type: 'snew_connect_app', app: detectApp() })
     }
     const POST_INTENT = /(post(ando|ar|ei|o)|publica(ndo|r|rei|o)|enviand[oa]|compartilh)/
@@ -192,7 +208,8 @@ generate_image prompt DEVE ser em ingles, terminando com: photorealistic, editor
       !types.has('snew_post_to_app') &&
       !types.has('snew_check_connections') &&
       !types.has('snew_connect_app') &&
-      !CONNECT_INTENT.test(msgLower)
+      !CONNECT_INTENT.test(msgLower) &&
+      !userMentionsShopifyOnNuvemshop
     ) {
       parsed.actions.push({ type: 'snew_post_to_app', app: detectApp() })
     }

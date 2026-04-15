@@ -5469,6 +5469,23 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   const kbInline = useMemo(() => buildKBInline(storeCtx), [storeCtx])
   const brandContextBody = useMemo(() => buildBrandContextBody(storeCtx), [storeCtx])
 
+  // E-commerce backend discriminator (spec 069). Forwarded into `creativeState`
+  // on every chat turn so the studio-chat edge function knows whether to allow
+  // Composio Shopify suggestions or to keep them suppressed (Nuvemshop wins).
+  const [ecommerceKind, setEcommerceKind] = useState<'nuvemshop' | 'shopify-composio' | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/studio/ecommerce', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { kind: null }))
+      .then((data: { kind: 'nuvemshop' | 'shopify-composio' | null }) => {
+        if (!cancelled) setEcommerceKind(data?.kind ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const buildAutoPrompt = useCallback(() => {
     const currentProduct = allProducts.find((p) => p.id === selectedProducts[0]) ?? null
     const product = currentProduct?.name ?? activeProductName ?? ''
@@ -12068,6 +12085,10 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       // assetHistory, so we have to persist that too — otherwise the strip
       // disappears on reload until the user manually clicks each thumb in chat.
       assetHistory,
+      // E-commerce backend discriminator (spec 069 FR-008/-010). Sent every
+      // turn so the studio-chat edge function suppresses Composio Shopify
+      // suggestions when Nuvemshop is connected.
+      ecommerceKind,
       storeName: storeCtx?.name ?? '',
       storeNiche: storeCtx?.niche ?? '',
       storeTone: storeCtx?.tone ?? '',
@@ -12105,6 +12126,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       imgGallery,
       activeGalleryId,
       assetHistory,
+      ecommerceKind,
       storeCtx,
     ]
   )

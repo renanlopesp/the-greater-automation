@@ -5,6 +5,8 @@ import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeError } from '@/lib/safe-error'
 import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
+import { getStoreConnection } from '@/lib/studio/ecommerce-connection'
+import { invokeTool } from '@/lib/chat/tools-client'
 
 /**
  * POST /api/studio/tools — Server-side executor for the `snew_*` actions
@@ -29,23 +31,36 @@ export async function POST(request: NextRequest) {
   const action = body.action ?? ''
   const params = body.params ?? {}
 
+  // Resolved once per request — every gating check + retail dispatch reads
+  // from this discriminator (FR-001 of spec 069).
+  const ecommerce = await getStoreConnection(teamId, user.id)
+
   try {
     switch (action) {
       case 'snew_check_connections':
-        return NextResponse.json(await checkConnections(user.id))
+        return NextResponse.json(await checkConnections(user.id, ecommerce))
       case 'snew_list_available_apps':
         return NextResponse.json(await listAvailableApps(user.id))
       case 'snew_connect_app': {
         const app = (params.app as string) ?? ''
         if (!app) return NextResponse.json({ error: 'app is required' }, { status: 400 })
+        if (app.toLowerCase() === 'shopify' && ecommerce.kind === 'nuvemshop') {
+          return NextResponse.json(ecommerceAlreadyConnectedError('connect', app), { status: 409 })
+        }
         return NextResponse.json(await connectApp(user.id, app))
       }
       case 'snew_query_sales':
-        return NextResponse.json(await querySales(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_QUERY_SALES', params)
+        )
       case 'snew_query_stock':
-        return NextResponse.json(await queryStock(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_QUERY_STOCK', params)
+        )
       case 'snew_list_orders':
-        return NextResponse.json(await listOrders(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_LIST_ORDERS', params)
+        )
       case 'snew_run_skill': {
         const slug = (params.slug as string) ?? ''
         if (!slug) return NextResponse.json({ error: 'slug is required' }, { status: 400 })
@@ -57,6 +72,9 @@ export async function POST(request: NextRequest) {
         const caption = (params.caption as string) ?? ''
         if (!app || !imageUrl) {
           return NextResponse.json({ error: 'app and imageUrl are required' }, { status: 400 })
+        }
+        if (app.toLowerCase() === 'shopify' && ecommerce.kind === 'nuvemshop') {
+          return NextResponse.json(ecommerceAlreadyConnectedError('post', app), { status: 409 })
         }
         return NextResponse.json(await postToApp(user.id, app, imageUrl, caption))
       }
@@ -71,7 +89,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function checkConnections(userId: string) {
+async function checkConnections(
+  userId: string,
+  ecommerce?: Awaited<ReturnType<typeof getStoreConnection>>
+) {
   // STRICT Composio-only — no local cache fallback. If a connection doesn't
   // exist in Composio, we can't post/query through it, so surfacing a cached
   // row would be misleading.
@@ -91,7 +112,81 @@ async function checkConnections(userId: string) {
       connected_account_id: acc.id,
       auth_type: acc.state?.authScheme ?? 'unknown',
     }))
-  return { connected_apps: apps, count: apps.length }
+  return {
+    connected_apps: apps,
+    count: apps.length,
+    // FR-011 (spec 069): the AI must know which e-commerce backend is in use
+    // so it doesn't suggest connecting Composio Shopify to a Nuvemshop team.
+    ecommerce: ecommerce ? { kind: ecommerce.kind } : { kind: null },
+  }
+}
+
+function ecommerceAlreadyConnectedError(intent: 'connect' | 'post', app: string) {
+  return {
+    error_code: 'ECOMMERCE_ALREADY_CONNECTED',
+    intent,
+    requested_app: app,
+    active_kind: 'nuvemshop',
+    message:
+      intent === 'connect'
+        ? 'Sua loja já está conectada via Nuvemshop — não é necessário (nem permitido) conectar Shopify pelo Composio. Use as ferramentas de loja (estoque, vendas, pedidos) diretamente.'
+        : 'Publicação de Shopify pelo Composio está bloqueada porque sua loja já é Nuvemshop. Posts são pra redes sociais (Instagram, TikTok, etc.); para a loja, use os tools de produto/estoque.',
+  }
+}
+
+/**
+ * Delegate retail queries (`snew_query_*` / `snew_list_orders`) to the **same
+ * MCP edge function** the OLD chat already uses (`STORE_QUERY_SALES`,
+ * `STORE_QUERY_STOCK`, `STORE_LIST_ORDERS`). No reimplementation — we only
+ * change the transport from `/api/chat` → `/api/studio/tools`.
+ */
+async function runRetailTool(
+  teamId: string,
+  userId: string,
+  ecommerce: Awaited<ReturnType<typeof getStoreConnection>>,
+  toolName: 'STORE_QUERY_SALES' | 'STORE_QUERY_STOCK' | 'STORE_LIST_ORDERS',
+  params: Record<string, unknown>
+) {
+  if (ecommerce.kind !== 'nuvemshop') {
+    return {
+      error_code: 'ECOMMERCE_NOT_CONNECTED',
+      message:
+        'Para responder essa pergunta preciso de uma loja conectada. Conecte a Nuvemshop em Apps para liberar consultas de estoque, vendas e pedidos.',
+    }
+  }
+
+  try {
+    const result = await invokeTool({
+      name: toolName,
+      input: params ?? {},
+      context: {
+        teamId,
+        userId,
+        storeId: ecommerce.storeId,
+      },
+    })
+    const text = result.content[0]?.text ?? '{}'
+    try {
+      return JSON.parse(text)
+    } catch {
+      return { raw: text }
+    }
+  } catch (e) {
+    const msg = (e as Error)?.message ?? 'unknown'
+    if (/401|403|invalid/i.test(msg)) {
+      return {
+        error_code: 'NUVEMSHOP_AUTH_EXPIRED',
+        message:
+          'Sua autorização Nuvemshop expirou. Reconecte em Apps para continuar usando os tools de loja.',
+        reauth_url: '/api/nuvemshop/connect',
+      }
+    }
+    return {
+      error_code: 'RETAIL_TOOL_FAILED',
+      tool: toolName,
+      message: msg,
+    }
+  }
 }
 
 async function listAvailableApps(userId: string) {
@@ -250,43 +345,10 @@ async function connectApp(userId: string, app: string) {
   }
 }
 
-async function querySales(teamId: string, params: Record<string, unknown>) {
-  const period = (params.period as string) ?? 'today'
-  // Minimal stub: call store summary if an endpoint exists, else placeholder.
-  try {
-    const res = await fetch(`/api/store/daily-summary?teamId=${teamId}&period=${period}`, {
-      method: 'GET',
-    }).catch(() => null)
-    if (res?.ok) {
-      const data = await res.json()
-      return { period, ...(data as object) }
-    }
-  } catch {
-    // ignore
-  }
-  return {
-    period,
-    status: 'no_data',
-    message: 'Integração de vendas não configurada. Conecte seu ecommerce para ver dados.',
-  }
-}
-
-async function queryStock(_teamId: string, params: Record<string, unknown>) {
-  return {
-    product: params.product ?? null,
-    status: 'no_data',
-    message: 'Consulta de estoque ainda não implementada no studio.',
-  }
-}
-
-async function listOrders(_teamId: string, params: Record<string, unknown>) {
-  const limit = (params.limit as number) ?? 10
-  return {
-    limit,
-    orders: [],
-    message: 'Consulta de pedidos ainda não implementada no studio.',
-  }
-}
+// Retail stubs (querySales/queryStock/listOrders) were replaced by
+// `runRetailTool` above — see spec 069 FR-002. The OLD chat's MCP tools
+// (STORE_QUERY_SALES / STORE_QUERY_STOCK / STORE_LIST_ORDERS) are reused
+// verbatim through `invokeTool`.
 
 async function uploadImageIfDataUrl(userId: string, imageUrl: string): Promise<string> {
   if (!imageUrl.startsWith('data:')) return imageUrl
