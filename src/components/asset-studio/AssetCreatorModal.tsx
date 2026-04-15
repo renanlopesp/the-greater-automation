@@ -12464,7 +12464,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
         case 'snew_query_sales':
         case 'snew_query_stock':
         case 'snew_list_orders':
-        case 'snew_top_products_sold':
+        case 'snew_nuvemshop_api':
         case 'snew_connect_app':
         case 'snew_run_skill':
         case 'snew_post_to_app': {
@@ -12549,6 +12549,10 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                   product: (action as { product?: string }).product,
                   limit: (action as { limit?: number }).limit,
                   slug: (action as { slug?: string }).slug,
+                  // snew_nuvemshop_api: generic passthrough params
+                  resource: (action as { resource?: string }).resource,
+                  id: (action as { id?: string | number }).id,
+                  query: (action as { query?: Record<string, unknown> }).query,
                   // For snew_post_to_app, attach the canvas image + caption
                   imageUrl:
                     action.type === 'snew_post_to_app'
@@ -12620,7 +12624,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 action.type === 'snew_query_sales' ||
                 action.type === 'snew_query_stock' ||
                 action.type === 'snew_list_orders' ||
-                action.type === 'snew_top_products_sold'
+                action.type === 'snew_nuvemshop_api'
               ) {
                 if (json?.error_code === 'ECOMMERCE_NOT_CONNECTED')
                   return 'Conecte sua loja para responder isso'
@@ -12639,8 +12643,13 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 }
                 if (action.type === 'snew_list_orders' && Array.isArray(json?.orders))
                   return `${json.orders.length} pedido(s) recente(s)`
-                if (action.type === 'snew_top_products_sold' && Array.isArray(json?.top_products))
-                  return `Top ${json.top_products.length} produto(s) vendido(s) · ${json.total_orders ?? '?'} pedido(s) no período`
+                if (action.type === 'snew_nuvemshop_api') {
+                  const resource = (action as { resource?: string }).resource ?? json?.resource
+                  if (Array.isArray(json?.data))
+                    return `${json.data.length} ${resource ?? 'item'}(s) carregado(s)`
+                  if (json?.data) return `${resource ?? 'Recurso'} carregado`
+                  return 'Consulta concluída'
+                }
                 return json?.message ?? 'Consulta concluída'
               }
               if (action.type === 'snew_run_skill')
