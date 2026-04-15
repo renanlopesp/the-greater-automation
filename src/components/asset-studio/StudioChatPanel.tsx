@@ -551,15 +551,25 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
     const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
     const paperclipInputRef = useRef<HTMLInputElement>(null)
 
+    // Keep the latest creativeState in a ref so snapshots read the freshest
+    // value, even when fired synchronously after a setState in the same tick
+    // (e.g. setActiveImageUrl → pushActivity → snapshotNow). Without this,
+    // the first snapshot after an image generation captured a stale state.
+    const creativeStateRef = useRef(creativeState)
+    creativeStateRef.current = creativeState
+
     // Canvas snapshot — fired imperatively from chat response handlers and
     // from pushActivity (image-generated event). NO useEffect — that would
     // serialize the (potentially huge) creativeState on every render.
+    // We no longer early-return on missing taskId: in the autoPrompt flow the
+    // task is lazy-created inside pushActivity, and snapshotCanvas itself
+    // reads taskIdRef.current at the debounce tick — so the 500ms debounce
+    // absorbs the race and writes once the task id is available.
     const snapshotNow = useCallback(() => {
-      if (!studioSession.taskId) return
       requestAnimationFrame(() => {
-        studioSession.snapshotCanvas(creativeState as unknown as Record<string, unknown>)
+        studioSession.snapshotCanvas(creativeStateRef.current as unknown as Record<string, unknown>)
       })
-    }, [studioSession, creativeState])
+    }, [studioSession])
 
     const handleFilePick = useCallback(async (files: FileList | File[]) => {
       const list = Array.from(files)
@@ -640,7 +650,7 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
     }, [messages, isThinking])
 
     const pushActivity = useCallback(
-      (
+      async (
         action: string,
         title: string,
         description: string,
@@ -658,20 +668,31 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
           imageThumb,
         }
         setMessages((prev) => [...prev, msg])
-        // Persist the activity as a single assistant row (no paired user row)
-        // so it restores exactly once on refresh.
-        void fetch('/api/studio/turn/activity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            conversationId: studioSession.conversationId,
-            title,
-            description,
-            action,
-            suggestions: activitySuggestions,
-            imageThumb,
-          }),
-        })
+        // Auto-prompt flows (home → /studio/create?autoPrompt=...) generate
+        // the first image before the user types anything, so taskId/conversationId
+        // may still be null here. Ensure a session exists so this activity,
+        // the canvas snapshot and subsequent turns all land in the same task.
+        let convId = studioSession.conversationId
+        if (!convId) {
+          const ensured = await studioSession.ensureSession(title || description || action)
+          convId = ensured?.conversationId ?? null
+        }
+        if (convId) {
+          // Persist the activity as a single assistant row (no paired user row)
+          // so it restores exactly once on refresh.
+          void fetch('/api/studio/turn/activity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversationId: convId,
+              title,
+              description,
+              action,
+              suggestions: activitySuggestions,
+              imageThumb,
+            }),
+          })
+        }
         // Also snapshot the canvas now — pushActivity is the natural hook for
         // "AI just produced an asset" so the latest activeImageUrl is in state.
         snapshotNow()

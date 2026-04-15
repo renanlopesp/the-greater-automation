@@ -78,6 +78,7 @@ import { ImageUploadPanel } from './ImageUploadPanel'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { studioSupabase as supabase } from '@/lib/supabase/studio-client'
+import { uploadDataUrlToStorage } from '@/lib/studio/upload-data-url'
 import html2canvas from 'html2canvas'
 import { seasonalCalendar } from '@/data/seasonalCalendar'
 import { seasonalL3Content } from '@/data/seasonalL3Content'
@@ -1142,6 +1143,8 @@ export interface AssetCreatorData {
   styleId?: string | null
   styleName?: string | null
   styleDesc?: string | null
+  restoreGallery?: { id: string; url: string }[]
+  restoreActiveGalleryId?: string | null
 }
 
 interface Props {
@@ -5417,8 +5420,12 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 }) // percent
   const [imageScale, setImageScale] = useState(100) // percent
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
-  const [imgGallery, setImgGallery] = useState<{ id: string; url: string }[]>([])
-  const [activeGalleryId, setActiveGalleryId] = useState<string | null>(null)
+  const [imgGallery, setImgGallery] = useState<{ id: string; url: string }[]>(
+    () => data.restoreGallery ?? []
+  )
+  const [activeGalleryId, setActiveGalleryId] = useState<string | null>(
+    () => data.restoreActiveGalleryId ?? null
+  )
   const [canvasVariations, setCanvasVariations] = useState<
     { id: string; url: string; label?: string }[]
   >([])
@@ -8555,7 +8562,11 @@ The output must feel like a macro photography detail of the exact same product.`
         if (fnData?.fallback || fnData?.error) {
           throw new Error(fnData?.error || 'Falha ao gerar imagem. Tente novamente.')
         }
-        const url = fnData?.imageUrl
+        const rawUrl = fnData?.imageUrl
+        // Hoist data:URLs into chat-uploads storage so subsequent canvas
+        // snapshots persist a small public URL instead of a 1–2 MB base64
+        // blob (which made the canvas slow on reload and bloated the row).
+        const url = rawUrl ? await uploadDataUrlToStorage(rawUrl) : rawUrl
         if (url) {
           setGeneratedImageUrl(url)
           setActiveImageUrl(url)
@@ -12048,6 +12059,8 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       lastGeneratedPrompt: imagePrompt ?? '',
       activeImageUrl: activeImageUrl ?? '',
       hasImage: !!activeImageUrl && !isPlaceholderImage(activeImageUrl),
+      imgGallery,
+      activeGalleryId,
       storeName: storeCtx?.name ?? '',
       storeNiche: storeCtx?.niche ?? '',
       storeTone: storeCtx?.tone ?? '',
@@ -12082,6 +12095,8 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       selectedFont,
       imagePrompt,
       activeImageUrl,
+      imgGallery,
+      activeGalleryId,
       storeCtx,
     ]
   )

@@ -89,6 +89,9 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
       styleId: (canvas?.styleId as string | null) ?? (canvas?.style as string | null) ?? null,
       styleName: (canvas?.styleName as string | null) ?? null,
       styleDesc: (canvas?.styleDesc as string | null) ?? null,
+      restoreGallery:
+        (canvas?.imgGallery as { id: string; url: string }[] | undefined) ?? undefined,
+      restoreActiveGalleryId: (canvas?.activeGalleryId as string | null) ?? null,
     }),
     [canvas, task.title, task.initial_message, initialMessages, storeCtx]
   )

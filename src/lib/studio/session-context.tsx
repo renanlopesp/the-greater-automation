@@ -40,6 +40,14 @@ export function StudioSessionProvider({
   const [taskId, setTaskId] = useState<string | null>(initialTaskId)
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId)
 
+  // Mirror ids in refs so async callers (debounced snapshots, activity
+  // persistence) read the freshest value even if their closure captured an
+  // older `taskId`/`conversationId`.
+  const taskIdRef = useRef<string | null>(initialTaskId)
+  const conversationIdRef = useRef<string | null>(initialConversationId)
+  taskIdRef.current = taskId
+  conversationIdRef.current = conversationId
+
   const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSnapshotRef = useRef<Record<string, unknown> | null>(null)
   const creatingRef = useRef<Promise<{
@@ -52,7 +60,9 @@ export function StudioSessionProvider({
       taskId,
       conversationId,
       async ensureSession(initialMessage) {
-        if (taskId && conversationId) return { taskId, conversationId }
+        const currentTask = taskIdRef.current
+        const currentConv = conversationIdRef.current
+        if (currentTask && currentConv) return { taskId: currentTask, conversationId: currentConv }
         if (creatingRef.current) return creatingRef.current
         const title = (initialMessage ?? '').trim().slice(0, 60) || 'Nova conversa'
         creatingRef.current = (async () => {
@@ -64,6 +74,10 @@ export function StudioSessionProvider({
             })
             if (!res.ok) return null
             const data = (await res.json()) as { taskId: string; conversationId: string | null }
+            // Update refs synchronously so concurrent persistTurn/snapshot
+            // calls issued in the same tick see the new ids immediately.
+            taskIdRef.current = data.taskId
+            conversationIdRef.current = data.conversationId
             setTaskId(data.taskId)
             setConversationId(data.conversationId)
             if (replaceUrlOnCreate && typeof window !== 'undefined') {
@@ -86,7 +100,7 @@ export function StudioSessionProvider({
         return creatingRef.current
       },
       async persistTurn({ userMessage, assistantMessage, metadata }) {
-        let convId = conversationId
+        let convId = conversationIdRef.current
         if (!convId) {
           const ensured = await this.ensureSession(userMessage)
           convId = ensured?.conversationId ?? null
@@ -108,16 +122,16 @@ export function StudioSessionProvider({
         }
       },
       snapshotCanvas(artifactData) {
-        if (!taskId) return
         pendingSnapshotRef.current = artifactData
         if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
         snapshotTimerRef.current = setTimeout(async () => {
           const data = pendingSnapshotRef.current
           pendingSnapshotRef.current = null
           snapshotTimerRef.current = null
-          if (!data || !taskId) return
+          const currentTask = taskIdRef.current
+          if (!data || !currentTask) return
           try {
-            await fetch(`/api/tasks/${taskId}`, {
+            await fetch(`/api/tasks/${currentTask}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ artifact_data: data }),
