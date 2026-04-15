@@ -2,9 +2,23 @@
 
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 
+/**
+ * Side-panel artifact pushed by chat tools (e.g., STORE_QUERY_SALES returns a
+ * `__artifact: { type: 'chat-data', html, ... }` block). Coexists with the
+ * canvas snapshot — they live in different fields so the studio canvas state
+ * isn't overwritten by a stock-table card and vice versa.
+ */
+export interface ChatArtifact {
+  type: string
+  title?: string
+  html?: string
+  data?: unknown
+}
+
 export interface StudioSession {
   taskId: string | null
   conversationId: string | null
+  chatArtifact: ChatArtifact | null
   /** Ensures a task + conversation exist. Creates them via POST /api/tasks if missing. */
   ensureSession: (
     initialMessage: string
@@ -17,6 +31,12 @@ export interface StudioSession {
   }) => Promise<void>
   /** Debounced snapshot of the canvas state to `tasks.artifact_data`. No-op if taskId missing. */
   snapshotCanvas: (artifactData: Record<string, unknown>) => void
+  /**
+   * Push a chat tool artifact (e.g., STORE_QUERY_SALES `__artifact`). Updates
+   * the side-panel state immediately and persists it under
+   * `artifact_data.chatArtifact` (JSONB merge, no canvas overwrite).
+   */
+  setChatArtifact: (artifact: ChatArtifact | null) => void
 }
 
 const StudioSessionContext = createContext<StudioSession | null>(null)
@@ -26,6 +46,7 @@ const SNAPSHOT_DEBOUNCE_MS = 500
 interface ProviderProps {
   taskId?: string | null
   conversationId?: string | null
+  initialChatArtifact?: ChatArtifact | null
   /** When true, a `router.replace('/studio/create/[id]')` fires after lazy creation. */
   replaceUrlOnCreate?: boolean
   children: ReactNode
@@ -34,11 +55,13 @@ interface ProviderProps {
 export function StudioSessionProvider({
   taskId: initialTaskId = null,
   conversationId: initialConversationId = null,
+  initialChatArtifact = null,
   replaceUrlOnCreate = false,
   children,
 }: ProviderProps) {
   const [taskId, setTaskId] = useState<string | null>(initialTaskId)
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId)
+  const [chatArtifact, setChatArtifactState] = useState<ChatArtifact | null>(initialChatArtifact)
 
   // Mirror ids in refs so async callers (debounced snapshots, activity
   // persistence) read the freshest value even if their closure captured an
@@ -59,6 +82,19 @@ export function StudioSessionProvider({
     () => ({
       taskId,
       conversationId,
+      chatArtifact,
+      setChatArtifact(artifact) {
+        setChatArtifactState(artifact)
+        // Persist under a sub-key so the canvas snapshot in artifact_data isn't
+        // overwritten. Server merges with existing artifact_data via `merge:true`.
+        const tid = taskIdRef.current
+        if (!tid) return
+        void fetch(`/api/tasks/${tid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ artifact_data: { chatArtifact: artifact }, merge: true }),
+        }).catch(() => {})
+      },
       async ensureSession(initialMessage) {
         const currentTask = taskIdRef.current
         const currentConv = conversationIdRef.current
@@ -134,7 +170,10 @@ export function StudioSessionProvider({
             await fetch(`/api/tasks/${currentTask}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ artifact_data: data }),
+              // merge=true so the chatArtifact (set by setChatArtifact in
+              // a separate code path) isn't wiped by a concurrent canvas
+              // snapshot — they coexist as different keys in artifact_data.
+              body: JSON.stringify({ artifact_data: data, merge: true }),
             })
           } catch {
             // ignore
@@ -142,7 +181,7 @@ export function StudioSessionProvider({
         }, SNAPSHOT_DEBOUNCE_MS)
       },
     }),
-    [taskId, conversationId, replaceUrlOnCreate]
+    [taskId, conversationId, chatArtifact, replaceUrlOnCreate]
   )
 
   return <StudioSessionContext.Provider value={value}>{children}</StudioSessionContext.Provider>
@@ -154,10 +193,12 @@ export function useStudioSession(): StudioSession {
   return {
     taskId: null,
     conversationId: null,
+    chatArtifact: null,
     async ensureSession() {
       return null
     },
     persistTurn: async () => {},
     snapshotCanvas: () => {},
+    setChatArtifact: () => {},
   }
 }

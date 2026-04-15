@@ -21,28 +21,38 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const body = await request.json()
-    const { artifact_data } = body as { artifact_data?: unknown }
+    const { artifact_data, merge } = body as { artifact_data?: unknown; merge?: boolean }
 
     if (!artifact_data) {
       return NextResponse.json({ error: 'artifact_data is required' }, { status: 400 })
     }
 
-    await (
-      serviceClient as unknown as {
-        from: (t: string) => {
-          update: (d: unknown) => {
-            eq: (
-              k: string,
-              v: string
-            ) => {
-              eq: (k: string, v: string) => Promise<{ error: unknown }>
-            }
-          }
-        }
-      }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sc = serviceClient as any
+
+    let nextData = artifact_data
+    if (
+      merge &&
+      typeof artifact_data === 'object' &&
+      artifact_data !== null &&
+      !Array.isArray(artifact_data)
+    ) {
+      const { data: current } = await sc
+        .from('tasks')
+        .select('artifact_data')
+        .eq('id', id)
+        .eq('team_id', teamId)
+        .single()
+      const existing =
+        current?.artifact_data && typeof current.artifact_data === 'object'
+          ? (current.artifact_data as Record<string, unknown>)
+          : {}
+      nextData = { ...existing, ...(artifact_data as Record<string, unknown>) }
+    }
+
+    await sc
       .from('tasks')
-      .update({ artifact_data, updated_at: new Date().toISOString() })
+      .update({ artifact_data: nextData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('team_id', teamId)
 

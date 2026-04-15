@@ -8,6 +8,7 @@ import {
 } from '@/components/asset-studio/AssetCreatorModal'
 import { loadStoreContext } from '@/lib/studio/store-context'
 import { StudioSessionProvider } from '@/lib/studio/session-context'
+import { StudioArtifactSidePanel } from '@/components/asset-studio/StudioArtifactSidePanel'
 
 const RESTORE_ITEM_KEY = 'snew:studio-restore-item'
 
@@ -75,13 +76,16 @@ function StudioCreatePageInner() {
           position: 'relative',
         }}
       >
-        <AssetCreatorModal
-          key={mountKey}
-          data={studioData}
-          onClose={() => router.push('/studio')}
-          embedded
-          initialBoardMode={openBoard}
-        />
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+          <AssetCreatorModal
+            key={mountKey}
+            data={studioData}
+            onClose={() => router.push('/studio')}
+            embedded
+            initialBoardMode={openBoard}
+          />
+        </div>
+        <StudioArtifactSidePanel />
       </div>
     </StudioSessionProvider>
   )

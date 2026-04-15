@@ -79,6 +79,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { studioSupabase as supabase } from '@/lib/supabase/studio-client'
 import { uploadDataUrlToStorage } from '@/lib/studio/upload-data-url'
+import { useStudioSession } from '@/lib/studio/session-context'
 import html2canvas from 'html2canvas'
 import { seasonalCalendar } from '@/data/seasonalCalendar'
 import { seasonalL3Content } from '@/data/seasonalL3Content'
@@ -5472,6 +5473,7 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   // E-commerce backend discriminator (spec 069). Forwarded into `creativeState`
   // on every chat turn so the studio-chat edge function knows whether to allow
   // Composio Shopify suggestions or to keep them suppressed (Nuvemshop wins).
+  const studioSession = useStudioSession()
   const [ecommerceKind, setEcommerceKind] = useState<'nuvemshop' | 'shopify-composio' | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -12656,6 +12658,31 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
               [],
               undefined
             )
+
+            // If the tool returned an artifact (e.g. STORE_QUERY_SALES
+            // attaches an HTML card via `artifact` or `__artifact`), surface
+            // it in the studio side panel. Coexists with the canvas —
+            // persisted under a sub-key so the creativeState snapshot isn't
+            // overwritten.
+            const toolArtifact =
+              (json as { artifact?: unknown; __artifact?: unknown })?.artifact ??
+              (json as { artifact?: unknown; __artifact?: unknown })?.__artifact
+            if (toolArtifact && typeof toolArtifact === 'object') {
+              const a = toolArtifact as {
+                type?: string
+                title?: string
+                html?: string
+                data?: unknown
+              }
+              if (a.type) {
+                studioSession.setChatArtifact({
+                  type: a.type,
+                  title: a.title,
+                  html: a.html,
+                  data: a.data,
+                })
+              }
+            }
 
             // Feed the outcome back to the AI's next turn via a chat assistant
             // message so it stops pretending tools succeeded when they failed.

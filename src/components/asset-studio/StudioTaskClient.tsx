@@ -1,15 +1,14 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   AssetCreatorModal,
   type AssetCreatorData,
 } from '@/components/asset-studio/AssetCreatorModal'
 import { loadStoreContext } from '@/lib/studio/store-context'
-import { StudioSessionProvider } from '@/lib/studio/session-context'
-import ArtifactRenderer from '@/components/chat/artifact-renderer'
-import { X, PanelRight } from 'lucide-react'
+import { StudioSessionProvider, type ChatArtifact } from '@/lib/studio/session-context'
+import { StudioArtifactSidePanel } from '@/components/asset-studio/StudioArtifactSidePanel'
 
 interface StudioTaskClientProps {
   task: {
@@ -38,10 +37,11 @@ interface StudioTaskClientProps {
  *   shape that AssetCreatorModal expects.
  * - When the task has a non-studio artifact (seasonal-calendar, chat-data, …),
  *   renders the chat's ArtifactRenderer in a right-hand panel beside the modal.
+ * - Live chat artifacts (e.g. STORE_QUERY_SALES `__artifact`) flow through the
+ *   StudioSession context and surface in the same side panel without
+ *   overwriting the canvas snapshot.
  */
 export default function StudioTaskClient({ task, initialMessages }: StudioTaskClientProps) {
-  const router = useRouter()
-
   const storeCtx = useMemo(() => loadStoreContext(), [])
 
   // Canvas is whatever snapshot we have. Accept any artifact_data that looks
@@ -50,17 +50,25 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
   const canvas = useMemo(() => {
     const data = task.artifact_data as Record<string, unknown> | null | undefined
     if (!data) return null
-    // Heuristic: if it has any of the studio canvas fields, treat it as canvas.
     const hasStudioField =
       'activeImageUrl' in data || 'channel' in data || 'heading' in data || 'font' in data
     return hasStudioField ? data : null
   }, [task.artifact_data])
 
-  // Non-canvas artifact worth showing in the side panel.
-  const hasSidePanelArtifact =
-    !!task.artifact_type && task.artifact_type !== 'studio-asset' && !!task.artifact_data
+  // Persisted chat artifact (chat-data card from a prior turn). Coexists with
+  // the canvas under `artifact_data.chatArtifact` so they don't clobber each
+  // other.
+  const persistedChatArtifact = useMemo<ChatArtifact | null>(() => {
+    const d = task.artifact_data as Record<string, unknown> | null | undefined
+    const ca = d?.chatArtifact as ChatArtifact | undefined
+    if (ca && typeof ca === 'object' && typeof ca.type === 'string') return ca
+    return null
+  }, [task.artifact_data])
 
-  const [artifactPanelOpen, setArtifactPanelOpen] = useState(false)
+  // Legacy non-canvas artifact (e.g., seasonal-calendar from old chat) —
+  // surfaces if no live/persisted chatArtifact and the task has its own type.
+  const legacySidePanelArtifact =
+    !!task.artifact_type && task.artifact_type !== 'studio-asset' && !canvas && !!task.artifact_data
 
   const studioData: AssetCreatorData = useMemo(
     () => ({
@@ -71,7 +79,6 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
         storeCtx?.name ??
         '',
       product: (canvas?.product as string) ?? storeCtx?.productTypes?.[0] ?? '',
-      // activeImageUrl is written by the studio snapshot; fall back to legacy productImageUrl
       productImageUrl:
         (canvas?.activeImageUrl as string) ?? (canvas?.productImageUrl as string) ?? '',
       copyText: (canvas?.heading as string) ?? (canvas?.copyText as string) ?? '',
@@ -98,107 +105,58 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
   )
 
   return (
-    <StudioSessionProvider taskId={task.id} conversationId={task.conversation_id}>
-      <div
-        style={{
-          display: 'flex',
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-        data-task-id={task.id}
-        data-conversation-id={task.conversation_id ?? ''}
-      >
-        {/* AssetCreatorModal (canvas + chat). Flexes so it shrinks when the side panel opens. */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
-          <AssetCreatorModal
-            key={task.id}
-            data={studioData}
-            onClose={() => router.push('/tarefas')}
-            embedded
-          />
-        </div>
-
-        {/* Side toggle when panel is closed but an artifact is available */}
-        {hasSidePanelArtifact && !artifactPanelOpen && (
-          <button
-            onClick={() => setArtifactPanelOpen(true)}
-            title="Abrir artefato"
-            style={{
-              position: 'absolute',
-              right: 16,
-              top: 16,
-              zIndex: 40,
-              background: '#1A1A1A',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: 10,
-              padding: '8px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 12,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            <PanelRight size={14} />
-            Abrir {task.artifact_type}
-          </button>
-        )}
-
-        {/* Right-hand artifact panel */}
-        {hasSidePanelArtifact && artifactPanelOpen && (
-          <aside
-            data-artifact-panel="open"
-            style={{
-              width: 'min(48%, 680px)',
-              borderLeft: '1px solid var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              background: 'var(--muted)',
-              flexShrink: 0,
-            }}
-          >
-            <header
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderBottom: '1px solid var(--border)',
-                background: 'var(--background)',
-              }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--foreground)' }}>
-                {task.title ?? task.artifact_type}
-              </span>
-              <button
-                onClick={() => setArtifactPanelOpen(false)}
-                title="Fechar artefato"
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  padding: 4,
-                  cursor: 'pointer',
-                  color: 'var(--muted-foreground)',
-                  display: 'flex',
-                }}
-              >
-                <X size={16} />
-              </button>
-            </header>
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <ArtifactRenderer
-                artifactType={task.artifact_type}
-                artifactData={task.artifact_data}
-                taskId={task.id}
-              />
-            </div>
-          </aside>
-        )}
-      </div>
+    <StudioSessionProvider
+      taskId={task.id}
+      conversationId={task.conversation_id}
+      initialChatArtifact={persistedChatArtifact}
+    >
+      <StudioTaskShell
+        task={task}
+        studioData={studioData}
+        legacySidePanelArtifact={legacySidePanelArtifact}
+      />
     </StudioSessionProvider>
+  )
+}
+
+interface ShellProps {
+  task: StudioTaskClientProps['task']
+  studioData: AssetCreatorData
+  legacySidePanelArtifact: boolean
+}
+
+function StudioTaskShell({ task, studioData, legacySidePanelArtifact }: ShellProps) {
+  const router = useRouter()
+
+  const fallback = legacySidePanelArtifact
+    ? {
+        type: task.artifact_type ?? '',
+        data: task.artifact_data,
+        title: task.title ?? task.artifact_type ?? undefined,
+      }
+    : null
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+      data-task-id={task.id}
+      data-conversation-id={task.conversation_id ?? ''}
+    >
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+        <AssetCreatorModal
+          key={task.id}
+          data={studioData}
+          onClose={() => router.push('/tarefas')}
+          embedded
+        />
+      </div>
+      <StudioArtifactSidePanel fallback={fallback} taskId={task.id} />
+    </div>
   )
 }

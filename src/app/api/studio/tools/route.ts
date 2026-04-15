@@ -166,11 +166,25 @@ async function runRetailTool(
       },
     })
     const text = result.content[0]?.text ?? '{}'
+    let parsed: Record<string, unknown> = {}
     try {
-      return JSON.parse(text)
+      parsed = JSON.parse(text) as Record<string, unknown>
     } catch {
       return { raw: text }
     }
+    try {
+      // Synthesize the side-panel artifact when the deployed MCP function
+      // didn't include an artifact field in its response. Use a plain key
+      // (not `__artifact`) — Next.js / JSON.stringify occasionally treats
+      // double-underscore prefixes specially in its runtime.
+      if (!parsed.artifact && !parsed.__artifact) {
+        const synth = synthesizeRetailArtifact(toolName, parsed)
+        if (synth) parsed.artifact = synth
+      }
+    } catch (synthErr) {
+      console.error('[studio/tools] synthesize failed:', synthErr)
+    }
+    return parsed
   } catch (e) {
     const msg = (e as Error)?.message ?? 'unknown'
     if (/401|403|invalid/i.test(msg)) {
@@ -187,6 +201,96 @@ async function runRetailTool(
       message: msg,
     }
   }
+}
+
+function escHtml(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Build the side-panel artifact when the deployed MCP function only returned
+ * the raw fields (older mcp-tools deploy). This is a fallback so the studio
+ * side panel still gets a polished card; once mcp-tools is redeployed with
+ * its own `__artifact` block, this is a no-op (the field is already present).
+ */
+function synthesizeRetailArtifact(
+  toolName: 'STORE_QUERY_SALES' | 'STORE_QUERY_STOCK' | 'STORE_LIST_ORDERS',
+  payload: Record<string, unknown>
+): { type: string; title: string; html: string; data: unknown } | null {
+  if (toolName === 'STORE_QUERY_SALES') {
+    const period = String(payload.period ?? 'today')
+    const periodLabel =
+      period === 'today'
+        ? 'Hoje'
+        : period === 'yesterday'
+          ? 'Ontem'
+          : period === 'this_week'
+            ? 'Esta semana'
+            : period === 'this_month'
+              ? 'Este mês'
+              : 'Período'
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Resumo de vendas — ${escHtml(periodLabel)}</div>
+        <div class="grid-3">
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.total_revenue ?? '—')}</span>
+            <span class="label">Receita</span>
+          </div>
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.order_count ?? 0)}</span>
+            <span class="label">Pedidos pagos</span>
+          </div>
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.average_ticket ?? '—')}</span>
+            <span class="label">Ticket médio</span>
+          </div>
+        </div>
+      </div>`
+    return { type: 'chat-data', title: `Vendas — ${periodLabel}`, html, data: { ...payload } }
+  }
+  if (toolName === 'STORE_QUERY_STOCK') {
+    const items = (payload.products ?? payload.items ?? []) as Array<Record<string, unknown>>
+    const rows = items
+      .slice(0, 50)
+      .map(
+        (it) =>
+          `<tr><td>${escHtml(it.name ?? '—')}</td><td class="tabular">${escHtml(it.stock ?? it.total_stock ?? 0)}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Estoque (${items.length} produto${items.length === 1 ? '' : 's'})</div>
+        <div class="card-elevated"><table class="table"><thead><tr><th>Produto</th><th>Estoque</th></tr></thead><tbody>${rows || '<tr><td colspan="2">Sem itens.</td></tr>'}</tbody></table></div>
+      </div>`
+    return { type: 'chat-data', title: `Estoque (${items.length})`, html, data: { ...payload } }
+  }
+  if (toolName === 'STORE_LIST_ORDERS') {
+    const orders = (payload.orders ?? []) as Array<Record<string, unknown>>
+    const rows = orders
+      .slice(0, 30)
+      .map(
+        (o) =>
+          `<tr><td>#${escHtml(o.number ?? o.id ?? '')}</td><td>${escHtml(o.customer ?? o.customer_name ?? '—')}</td><td class="tabular">${escHtml(o.total ?? 0)}</td><td>${escHtml(o.status ?? '')}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Pedidos recentes (${orders.length})</div>
+        <div class="card-elevated"><table class="table"><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Sem pedidos.</td></tr>'}</tbody></table></div>
+      </div>`
+    return {
+      type: 'chat-data',
+      title: `Pedidos recentes (${orders.length})`,
+      html,
+      data: { ...payload },
+    }
+  }
+  return null
 }
 
 async function listAvailableApps(userId: string) {
