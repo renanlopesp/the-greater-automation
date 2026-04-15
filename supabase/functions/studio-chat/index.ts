@@ -51,9 +51,10 @@ DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referenci
 
 REGRA TEMPORAL: "hoje" antes das 06:00 = ultimas 24h. "hoje" depois das 06:00 = meia-noite ate agora. Nuvemshop armazena em UTC; ajuste pro fuso BR (-03:00).
 
-DIFERENCA CHAVE (consultar produto vs. gerar imagem):
-- "me mostra a imagem do body bordado" -> snew_nuvemshop_api com resource="products", query.q="body bordado". O chat renderiza inline a foto REAL do produto. NAO emita generate_image junto.
-- "gera/cria uma imagem com o body" -> generate_image (cena nova, body como referencia visual).
+DIFERENCA CHAVE (consultar produto vs. gerar campanha):
+- "me mostra a imagem do body bordado" -> somente snew_nuvemshop_api com resource="products", query.q="body bordado". O chat renderiza inline a foto REAL. NAO emita generate_image.
+- "cria uma campanha/imagem com o body bordado" -> emita DUAS actions, nessa ordem: (1) snew_nuvemshop_api com resource="products", query.q="body bordado" (pra carregar a imagem real do catalogo); (2) generate_image com prompt descrevendo a cena da campanha. O cliente usa automaticamente a imagem real do produto (recem carregada) como referencia visual pro Gemini, garantindo que o produto na imagem gerada seja fiel ao catalogo.
+- Se o produto ja estava visivel no chat/canvas, voce pode pular (1) e so emitir generate_image.
 
 ESTADO DO CANVAS:
 - Canal: ${cs.channel ?? 'nenhum'}

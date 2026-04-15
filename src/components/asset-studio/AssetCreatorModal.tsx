@@ -5475,6 +5475,11 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   // Composio Shopify suggestions or to keep them suppressed (Nuvemshop wins).
   const studioSession = useStudioSession()
   const [ecommerceKind, setEcommerceKind] = useState<'nuvemshop' | 'shopify-composio' | null>(null)
+  // Most recent product photo URL surfaced by a snew_nuvemshop_api call.
+  // When the user then asks the studio to generate an image / campaign, we
+  // feed this URL into Gemini as a reference so the generation preserves
+  // the real product (color, print, cut) instead of hallucinating a new one.
+  const [chatProductImageUrl, setChatProductImageUrl] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
     fetch('/api/studio/ecommerce', { credentials: 'include' })
@@ -8507,6 +8512,23 @@ The output must feel like a macro photography detail of the exact same product.`
           }
         }
 
+        // Chat-surfaced product image (user asked Nuvemshop for a product
+        // and is now generating a campaign around it) — use as reference
+        // so Gemini preserves the real product.
+        if (
+          chatProductImageUrl &&
+          !useProductReference &&
+          referenceImages.length === 0 &&
+          (!activeImageUrl || isPlaceholderImage(activeImageUrl))
+        ) {
+          try {
+            const base64 = await imageUrlToBase64(chatProductImageUrl)
+            allImages.push(base64)
+          } catch (e) {
+            console.warn('Could not convert chat product image to base64:', e)
+          }
+        }
+
         // Always include current canvas image as visual reference for regeneration
         if (activeImageUrl && !isPlaceholderImage(activeImageUrl)) {
           try {
@@ -8740,6 +8762,7 @@ The output must feel like a macro photography detail of the exact same product.`
       saveToHistory,
       pushActivity,
       referenceImages,
+      chatProductImageUrl,
       buildCommercialPrompt,
     ]
   )
@@ -12735,6 +12758,18 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 .catch(() => {
                   /* best-effort */
                 })
+            }
+
+            // Remember the first product image URL from any products query —
+            // the next generate_image uses it as a visual reference so the
+            // generated campaign preserves the REAL product (not a hallucinated one).
+            if (action.type === 'snew_nuvemshop_api' && json?.resource === 'products') {
+              const products = Array.isArray(json.data) ? (json.data as unknown[]) : []
+              const firstWithImage = products
+                .map((p) => p as { images?: Array<{ src?: string }> })
+                .find((p) => Array.isArray(p.images) && p.images.some((i) => !!i?.src))
+              const firstSrc = firstWithImage?.images?.find((i) => !!i?.src)?.src
+              if (firstSrc) setChatProductImageUrl(firstSrc)
             }
 
             const toolArtifact =
