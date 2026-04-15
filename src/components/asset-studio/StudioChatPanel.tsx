@@ -537,6 +537,36 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
               imageThumb: activity.imageThumb,
             } as ActivityMessage
           }
+          // Rich messages (style picker / qualification chips) — render in
+          // `answered` state since the original onClick handlers weren't
+          // persisted. The element stays visible so conversation history
+          // reads the same as before the reload.
+          const rich = raw.metadata?.rich as
+            | {
+                kind?: 'style-picker' | 'qualification'
+                question?: string
+                chips?: string[]
+                styles?: StylePickerStyle[]
+              }
+            | undefined
+          if (rich && rich.kind === 'style-picker') {
+            return {
+              role: 'assistant',
+              content: rich.question ?? raw.content ?? '',
+              type: 'style-picker',
+              styles: rich.styles ?? [],
+              answered: true,
+            } as StylePickerMessage
+          }
+          if (rich && rich.kind === 'qualification') {
+            return {
+              role: 'assistant',
+              content: rich.question ?? raw.content ?? '',
+              type: 'qualification',
+              chips: rich.chips,
+              answered: true,
+            } as QualificationMessage
+          }
           if (raw.role === 'user' || raw.role === 'assistant') {
             const meta = raw.metadata ?? {}
             const followUps = Array.isArray((meta as Record<string, unknown>).followUps)
@@ -665,6 +695,31 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       }
     }, [messages, isThinking])
+
+    // Persist a "rich" (style-picker or qualification) chat element so it
+    // survives a reload. Callbacks are not serialised, so on rehydration
+    // these render in answered/read-only state.
+    const persistRich = useCallback(
+      async (rich: {
+        kind: 'style-picker' | 'qualification'
+        question: string
+        chips?: string[]
+        styles?: StylePickerStyle[]
+      }) => {
+        let convId = studioSession.conversationId
+        if (!convId) {
+          const ensured = await studioSession.ensureSession(rich.question || rich.kind)
+          convId = ensured?.conversationId ?? null
+        }
+        if (!convId) return
+        void fetch('/api/studio/turn/activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: convId, rich }),
+        })
+      },
+      [studioSession]
+    )
 
     const pushActivity = useCallback(
       async (
@@ -917,6 +972,13 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
                 },
               } as any
               setMessages((prev) => [...prev, styleMsg])
+              // Persist as a qualification rich message so the chips re-render
+              // in answered state after a reload.
+              void persistRich({
+                kind: 'qualification',
+                question: result.message || 'Escolha o estilo:',
+                chips: imageStyles.map((s) => s.name),
+              })
               setIsThinking(false)
               setCurrentActionLabel('')
               return // skip normal assistant message
@@ -995,6 +1057,7 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
             onSkip,
           }
           setMessages((prev) => [...prev, msg])
+          void persistRich({ kind: 'qualification', question, chips })
         },
         pushAssistantMessage: ({ content, chips, onChipClick }) => {
           // No chips → render as a regular ChatMessage so ReactMarkdown picks
@@ -1058,9 +1121,10 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
             onSkip,
           }
           setMessages((prev) => [...prev, msg])
+          void persistRich({ kind: 'style-picker', question, styles })
         },
       }),
-      [pushActivity, sendMessage, messages, onQualificationAnswer]
+      [pushActivity, persistRich, sendMessage, messages, onQualificationAnswer]
     )
 
     const handleDragOver = (e: React.DragEvent) => {

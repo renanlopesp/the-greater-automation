@@ -4,11 +4,20 @@ import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeError } from '@/lib/safe-error'
 
 /**
- * POST /api/studio/turn/activity — Persist a single studio activity message
- * (image generated, carousel built, etc.) to `conversation_messages`. Inserts
- * ONE row (role='assistant') so it restores exactly once on refresh.
+ * POST /api/studio/turn/activity — Persist a single studio "rich" message
+ * (image generated, carousel built, style picker, qualification chips) to
+ * `conversation_messages`. Inserts ONE row (role='assistant') so it restores
+ * exactly once on refresh.
  *
- * Body: { conversationId, title, description?, action, suggestions?, imageThumb? }
+ * Body shapes supported (mutually exclusive; `rich` takes precedence):
+ *   - Activity card (legacy, still used for image generated / carousel / etc.):
+ *     { conversationId, title, description?, action, suggestions?, imageThumb? }
+ *   - Rich message (style picker / qualification chips):
+ *     { conversationId, rich: { kind: 'style-picker' | 'qualification', ...fields } }
+ *
+ * Rich messages are rendered as "answered" (read-only) after a reload since
+ * the interactive callbacks are not persisted; the historical UI element
+ * stays visible so the conversation reads cleanly.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -26,14 +35,23 @@ export async function POST(request: NextRequest) {
   if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 400 })
 
   const conversationId = body?.conversationId as string | undefined
+  const rich = body?.rich as
+    | { kind: 'style-picker' | 'qualification'; [k: string]: unknown }
+    | undefined
   const title = (body?.title as string) ?? ''
   const description = (body?.description as string) ?? ''
   const action = (body?.action as string) ?? 'activity'
   const suggestions = body?.suggestions ?? []
   const imageThumb = (body?.imageThumb as string | undefined) ?? null
 
-  if (!conversationId || !title) {
-    return NextResponse.json({ error: 'conversationId and title are required' }, { status: 400 })
+  if (!conversationId) {
+    return NextResponse.json({ error: 'conversationId is required' }, { status: 400 })
+  }
+  if (!rich && !title) {
+    return NextResponse.json({ error: 'title is required for activity messages' }, { status: 400 })
+  }
+  if (rich && rich.kind !== 'style-picker' && rich.kind !== 'qualification') {
+    return NextResponse.json({ error: 'unsupported rich.kind' }, { status: 400 })
   }
 
   try {
@@ -49,21 +67,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
     }
 
+    const richQuestion = rich && typeof rich.question === 'string' ? rich.question : ''
+    const content = rich
+      ? richQuestion || (rich.kind === 'style-picker' ? 'Escolha um estilo' : 'Selecione uma opção')
+      : title + (description ? ` — ${description}` : '')
+
+    const metadata = rich
+      ? {
+          engine: 'studio-chat',
+          rich: {
+            kind: rich.kind,
+            question: richQuestion,
+            chips: Array.isArray(rich.chips) ? rich.chips : undefined,
+            styles: Array.isArray(rich.styles) ? rich.styles : undefined,
+          },
+        }
+      : {
+          engine: 'studio-chat',
+          activity: {
+            action,
+            title,
+            description,
+            suggestions,
+            imageThumb,
+          },
+        }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any).from('conversation_messages').insert({
       conversation_id: conversationId,
       role: 'assistant',
-      content: title + (description ? ` — ${description}` : ''),
-      metadata: {
-        engine: 'studio-chat',
-        activity: {
-          action,
-          title,
-          description,
-          suggestions,
-          imageThumb,
-        },
-      },
+      content,
+      metadata,
     })
 
     if (error) {
