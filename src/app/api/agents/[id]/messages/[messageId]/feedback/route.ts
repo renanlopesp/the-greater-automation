@@ -20,16 +20,15 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid feedback value' }, { status: 400 })
   }
 
-  // Check if user already has feedback on this message
+  // In production the column is `rating` (text) carrying 'like' | 'dislike'.
   const { data: existing } = await supabase
     .from('message_feedback')
-    .select('id, feedback')
+    .select('id, rating')
     .eq('message_id', messageId)
     .eq('user_id', user.id)
     .single()
 
-  // Toggle: if same feedback exists, remove it; otherwise upsert
-  if (existing?.feedback === feedback) {
+  if (existing?.rating === feedback) {
     await supabase.from('message_feedback').delete().eq('id', existing.id)
     return NextResponse.json({ feedback: null })
   }
@@ -37,15 +36,15 @@ export async function POST(
   const { data, error } = await supabase
     .from('message_feedback')
     .upsert(
-      { message_id: messageId, user_id: user.id, feedback },
+      { message_id: messageId, user_id: user.id, rating: feedback },
       { onConflict: 'message_id,user_id' }
     )
-    .select('feedback')
+    .select('rating')
     .single()
 
   if (error) {
     return NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 })
   }
 
-  return NextResponse.json({ feedback: data.feedback })
+  return NextResponse.json({ feedback: data.rating })
 }

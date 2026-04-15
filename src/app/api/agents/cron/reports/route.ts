@@ -36,33 +36,33 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
 
-  // Find agents with telegram_enabled=true and report_hour matching current BRT hour.
-  // `report_kind` is cast through `as any` until supabase generated types pick
-  // up the column (migration 20260415000000_add_report_kind_to_agents.sql).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: agents } = (await (supabase as any)
-    .from('agents')
-    .select('id, name, team_id, notification_settings, report_kind')
-    .neq('notification_settings', '{}')
-    .not('report_kind', 'is', null)) as {
-    data: Array<{
-      id: string
-      name: string
-      team_id: string
-      notification_settings: Record<string, unknown>
-      report_kind: string | null
-    }> | null
-  }
+  // Fetch every agent that has a report_kind set AND a matching entry in
+  // `agent_notification_settings` with telegram_enabled=true for the
+  // current BRT hour. The legacy `agents.notification_settings` jsonb
+  // column was replaced by the dedicated table during the 2026-04-15
+  // refactor — see migrations-legacy-20260415/README.md.
+  const { data: settings } = await supabase
+    .from('agent_notification_settings')
+    .select('agent_id, report_hour, telegram_enabled')
+    .eq('telegram_enabled', true)
+    .eq('report_hour', brtHour)
 
-  if (!agents || agents.length === 0) {
+  const agentIds = (settings ?? []).map((s) => s.agent_id).filter(Boolean)
+  if (agentIds.length === 0) {
     return NextResponse.json({ sent: 0, hour: brtHour })
   }
 
-  // Filter agents that should fire this hour
-  const activeAgents = agents.filter((agent) => {
-    const settings = agent.notification_settings as Record<string, unknown>
-    return settings.telegram_enabled && (settings.report_hour as number) === brtHour
-  })
+  const { data: agents } = await supabase
+    .from('agents')
+    .select('id, name, team_id, report_kind')
+    .in('id', agentIds)
+    .not('report_kind', 'is', null)
+
+  if (!agents || agents.length === 0) {
+    return NextResponse.json({ sent: 0, checked: agentIds.length, hour: brtHour })
+  }
+
+  const activeAgents = agents.filter((a): a is typeof a & { team_id: string } => !!a.team_id)
 
   if (activeAgents.length === 0) {
     return NextResponse.json({ sent: 0, checked: agents.length, hour: brtHour })

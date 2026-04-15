@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
-import type { Json } from '@/types/database'
 
 const StoreSettingsPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -73,7 +72,6 @@ export async function PATCH(request: NextRequest) {
           store_id: store.id,
           product_id: null,
           threshold: body.default_threshold,
-          is_enabled: true,
         },
         { onConflict: 'store_id,product_id' }
       )
@@ -83,46 +81,25 @@ export async function PATCH(request: NextRequest) {
   // Update notification settings (merge into existing settings)
   if (body.settings) {
     const currentSettings = (store.settings ?? {}) as Record<string, unknown>
-    const newSettings = { ...currentSettings, ...body.settings }
+    const newSettings = { ...currentSettings, ...body.settings } as Record<string, unknown>
     writes.push(
       serviceClient
         .from('stores')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ settings: newSettings as any })
+        .update({ settings: newSettings as never })
         .eq('id', store.id)
     )
   }
 
   await Promise.all(writes)
 
-  // Update Sales Analyst agent's notification_settings when daily summary settings change
+  // Sales-analyst agent notification sync removed in schema refactor 2026-04-15.
+  // The legacy `agents.notification_settings` jsonb column was replaced by a
+  // dedicated `agent_notification_settings` table. If the daily-summary toggle
+  // gets re-wired, point it at that table via a new writer.
   if (body.agent_notifications) {
-    const { daily_summary_enabled, report_hour } = body.agent_notifications
-
-    // Find the Sales Analyst agent (name contains "Sales" or role is "caixa")
-    const { data: agents } = await serviceClient
-      .from('agents')
-      .select('id, name, notification_settings')
-      .eq('team_id', member.team_id)
-
-    const salesAgent = agents?.find(
-      (a) => a.name.toLowerCase().includes('sales') || a.name.toLowerCase().includes('caixa')
-    )
-
-    if (salesAgent) {
-      const currentNotifSettings =
-        (salesAgent.notification_settings as Record<string, unknown>) ?? {}
-      await serviceClient
-        .from('agents')
-        .update({
-          notification_settings: {
-            ...currentNotifSettings,
-            telegram_enabled: daily_summary_enabled,
-            report_hour,
-          } as unknown as Json,
-        })
-        .eq('id', salesAgent.id)
-    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _drift = body.agent_notifications
+    // TODO(071): rewrite against agent_notification_settings table.
   }
 
   return NextResponse.json({ ok: true })

@@ -37,9 +37,20 @@ export default async function ProductsPage() {
     .eq('is_published', true)
     .order('name')
 
+  const normalised = (products ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    price: p.price,
+    cost_price: p.cost_price,
+    stock_quantity: p.stock_quantity ?? 0,
+    is_published: p.is_published ?? false,
+    images: Array.isArray(p.images) ? (p.images as string[]) : [],
+  }))
+
   return (
     <ProductsClient
-      products={products ?? []}
+      products={normalised}
       storeId={store.id}
       storeName={store.name}
       chatAgentId={orchestrator?.id ?? null}
