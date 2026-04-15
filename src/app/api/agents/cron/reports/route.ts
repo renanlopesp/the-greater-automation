@@ -36,11 +36,23 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
 
-  // Find agents with telegram_enabled=true and report_hour matching current BRT hour
-  const { data: agents } = await supabase
+  // Find agents with telegram_enabled=true and report_hour matching current BRT hour.
+  // `report_kind` is cast through `as any` until supabase generated types pick
+  // up the column (migration 20260415000000_add_report_kind_to_agents.sql).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: agents } = (await (supabase as any)
     .from('agents')
-    .select('id, name, team_id, notification_settings')
+    .select('id, name, team_id, notification_settings, report_kind')
     .neq('notification_settings', '{}')
+    .not('report_kind', 'is', null)) as {
+    data: Array<{
+      id: string
+      name: string
+      team_id: string
+      notification_settings: Record<string, unknown>
+      report_kind: string | null
+    }> | null
+  }
 
   if (!agents || agents.length === 0) {
     return NextResponse.json({ sent: 0, hour: brtHour })
@@ -92,7 +104,7 @@ export async function GET(request: NextRequest) {
       const chatId = chatIdByTeam.get(agent.team_id)
       if (!chatId) return
 
-      const report = await generateAgentReport(agent.name, storeId)
+      const report = await generateAgentReport(agent.report_kind, storeId)
       if (report) {
         await sendMessage(chatId, report, 'Markdown')
         return true
@@ -120,22 +132,21 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Dispatch report generation based on agent name.
+ * Dispatch report generation based on the explicit report_kind column. Unknown
+ * values return null so the cron silently skips misconfigured agents.
  */
-async function generateAgentReport(agentName: string, storeId: string): Promise<string | null> {
-  const name = agentName.toLowerCase()
-
-  if (name.includes('stock') || name.includes('estoquista') || name.includes('inventory')) {
-    return generateStockReport(storeId)
+async function generateAgentReport(
+  reportKind: string | null,
+  storeId: string
+): Promise<string | null> {
+  switch (reportKind) {
+    case 'stock':
+      return generateStockReport(storeId)
+    case 'price':
+      return generatePriceReport(storeId)
+    case 'sales':
+      return generateSalesReport(storeId)
+    default:
+      return null
   }
-
-  if (name.includes('price') || name.includes('vigia') || name.includes('monitor')) {
-    return generatePriceReport(storeId)
-  }
-
-  if (name.includes('sales') || name.includes('caixa') || name.includes('analyst')) {
-    return generateSalesReport(storeId)
-  }
-
-  return null
 }

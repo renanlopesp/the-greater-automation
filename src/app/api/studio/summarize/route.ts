@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { checkRateLimit, maybeSweep, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * Reduce a Nuvemshop API response (or any tool result with `{resource,data}`)
@@ -128,6 +129,10 @@ export async function POST(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  maybeSweep()
+  const limit = checkRateLimit('studio-summarize', user.id, 20, 60_000)
+  if (!limit.ok) return rateLimitResponse(limit.retryAfter)
 
   const body = (await req.json().catch(() => ({}))) as {
     userQuestion?: string

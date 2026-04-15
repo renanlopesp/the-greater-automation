@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getActiveTeamId } from '@/lib/get-active-team'
 import { getSkillId } from '@/lib/actions/seasonal-calendar'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/skills/seasonal-calendar/generate')
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient()
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
       task_id: taskId,
     }),
   }).catch((err) => {
-    console.error('[generate-campaign] edge fn dispatch error:', err)
+    log.error({ err }, 'edge fn dispatch error')
   })
 
   return NextResponse.json({ ok: true, dateId, executionId })

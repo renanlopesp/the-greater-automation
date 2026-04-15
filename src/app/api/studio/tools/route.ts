@@ -7,6 +7,9 @@ import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
 import { getStoreConnection } from '@/lib/studio/ecommerce-connection'
 import { invokeTool } from '@/lib/chat/tools-client'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/studio/tools')
 
 /**
  * POST /api/studio/tools — Server-side executor for the `snew_*` actions
@@ -184,7 +187,7 @@ async function runRetailTool(
         if (synth) parsed.artifact = synth
       }
     } catch (synthErr) {
-      console.error('[studio/tools] synthesize failed:', synthErr)
+      log.error({ err: synthErr }, 'synthesize failed')
     }
     return parsed
   } catch (e) {

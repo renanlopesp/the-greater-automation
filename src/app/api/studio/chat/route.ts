@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { checkRateLimit, maybeSweep, rateLimitResponse } from '@/lib/rate-limit'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/studio/chat')
 
 /**
  * POST /api/studio/chat — Studio creative-director chat.
@@ -20,6 +24,12 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // 30 requests / minute per user — prevents a single account draining the
+  // Lovable credit budget.
+  maybeSweep()
+  const limit = checkRateLimit('studio-chat', user.id, 30, 60_000)
+  if (!limit.ok) return rateLimitResponse(limit.retryAfter)
 
   try {
     const { messages, creativeState } = (await request.json()) as {
@@ -122,7 +132,7 @@ REGRAS FINAIS:
         return NextResponse.json({ error: 'Payment required, please add funds.' }, { status: 402 })
       }
       const text = await res.text().catch(() => '')
-      console.error('AI gateway error:', res.status, text)
+      log.error({ status: res.status, detail: text.slice(0, 300) }, 'AI gateway error')
       return NextResponse.json({ error: 'AI gateway error' }, { status: 500 })
     }
 
@@ -169,7 +179,7 @@ REGRAS FINAIS:
 
     return NextResponse.json(parsed)
   } catch (error) {
-    console.error('studio-chat error:', error)
+    log.error({ err: error }, 'studio-chat error')
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

@@ -8,6 +8,9 @@ import { runMessagesEngine } from '@/lib/chat/engine-messages'
 import { detectMode } from '@/lib/chat/skill-detector'
 import { resolveModel } from '@/lib/chat/model-whitelist'
 import { isHybridChatEnabled } from '@/lib/chat/feature-flags'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/chat')
 
 /**
  * POST /api/chat — Hybrid chat router.
@@ -164,7 +167,7 @@ export async function POST(request: NextRequest) {
           metadata: { channel: 'web', engine: 'managed-agents', skill: slug },
         })
         .then((r: { error?: unknown }) => {
-          if (r?.error) console.error('[chat] Failed to store skill user message:', r.error)
+          if (r?.error) log.error({ err: r.error }, 'Failed to store skill user message')
         })
     }
 
@@ -184,14 +187,10 @@ export async function POST(request: NextRequest) {
       .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
 
-    console.log('[chat]', {
-      engine,
-      skill: slug,
-      conversationId,
-      taskId,
-      userId: user.id,
-      teamId,
-    })
+    log.info(
+      { engine, skill: slug, conversationId, taskId, userId: user.id, teamId },
+      'chat dispatched'
+    )
 
     return NextResponse.json(
       { ok: true, taskId, conversationId, skill: slug, message: `Gerando ${skillName}...` },
@@ -203,14 +202,16 @@ export async function POST(request: NextRequest) {
   } else if (hybridEnabled) {
     // Chat path with hybrid flag on: use fast Messages API engine
     engine = 'messages-api'
-    console.log('[chat]', {
-      engine,
-      skill: undefined,
-      conversationId: body.conversationId,
-      taskId: body.taskId,
-      userId: user.id,
-      teamId,
-    })
+    log.info(
+      {
+        engine,
+        conversationId: body.conversationId,
+        taskId: body.taskId,
+        userId: user.id,
+        teamId,
+      },
+      'chat dispatched'
+    )
     response = await runMessagesEngine({
       user: { id: user.id, email: user.email ?? '' },
       teamId,
@@ -221,14 +222,16 @@ export async function POST(request: NextRequest) {
   } else {
     // Legacy path: Managed Agents engine
     engine = 'managed-agents'
-    console.log('[chat]', {
-      engine,
-      skill: undefined,
-      conversationId: body.conversationId,
-      taskId: body.taskId,
-      userId: user.id,
-      teamId,
-    })
+    log.info(
+      {
+        engine,
+        conversationId: body.conversationId,
+        taskId: body.taskId,
+        userId: user.id,
+        teamId,
+      },
+      'chat dispatched'
+    )
     const agentResponse = await runAgentsEngine({ user, teamId, body, serviceClient })
     const headers = new Headers(agentResponse.headers)
     headers.set('X-Chat-Engine', 'managed-agents')
