@@ -12602,26 +12602,52 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
             }
 
             // Surface result as an activity card in chat (compact summary)
-            const summary =
-              action.type === 'snew_check_connections'
-                ? `${json?.count ?? 0} app(s) conectado(s)`
-                : action.type === 'snew_list_available_apps'
-                  ? `${json?.total ?? 0} integrações disponíveis`
-                  : action.type === 'snew_connect_app'
-                    ? `Abrindo fluxo de conexão: ${(action as { app?: string }).app ?? ''}`
-                    : action.type === 'snew_query_sales'
-                      ? (json?.message ?? 'Consulta de vendas realizada')
-                      : action.type === 'snew_query_stock'
-                        ? (json?.message ?? 'Consulta de estoque realizada')
-                        : action.type === 'snew_list_orders'
-                          ? (json?.message ?? 'Consulta de pedidos realizada')
-                          : action.type === 'snew_run_skill'
-                            ? `Skill ${(action as { slug?: string }).slug ?? ''} iniciada`
-                            : action.type === 'snew_post_to_app'
-                              ? json?.ok
-                                ? `Publicado em ${(action as { app?: string }).app ?? ''}`
-                                : `Falha ao publicar: ${json?.error ?? 'erro'}`
-                              : 'Feito'
+            // Retail tools (snew_query_*) come back from the MCP edge function
+            // with rich numeric fields (total_revenue, order_count, etc.) when
+            // the team is on Nuvemshop — show them instead of the placeholder
+            // message. Fall back to ECOMMERCE_NOT_CONNECTED / NUVEMSHOP_AUTH_EXPIRED.
+            const summary = (() => {
+              if (action.type === 'snew_check_connections')
+                return `${json?.count ?? 0} app(s) conectado(s)${json?.ecommerce?.kind ? ` · loja: ${json.ecommerce.kind}` : ''}`
+              if (action.type === 'snew_list_available_apps')
+                return `${json?.total ?? 0} integrações disponíveis`
+              if (action.type === 'snew_connect_app')
+                return `Abrindo fluxo de conexão: ${(action as { app?: string }).app ?? ''}`
+              if (
+                action.type === 'snew_query_sales' ||
+                action.type === 'snew_query_stock' ||
+                action.type === 'snew_list_orders'
+              ) {
+                if (json?.error_code === 'ECOMMERCE_NOT_CONNECTED')
+                  return 'Conecte sua loja para responder isso'
+                if (json?.error_code === 'NUVEMSHOP_AUTH_EXPIRED')
+                  return 'Autorização Nuvemshop expirou — reconecte em Apps'
+                if (json?.error_code === 'RETAIL_TOOL_FAILED')
+                  return `Falha ao consultar Nuvemshop: ${json?.message ?? 'erro'}`
+                if (action.type === 'snew_query_sales' && typeof json?.order_count === 'number')
+                  return `${json.order_count} pedido(s) · receita ${json.total_revenue ?? ''}${json.average_ticket ? ` · ticket médio ${json.average_ticket}` : ''}`
+                if (
+                  action.type === 'snew_query_stock' &&
+                  Array.isArray(json?.products ?? json?.items)
+                ) {
+                  const items = (json?.products ?? json?.items) as unknown[]
+                  return `${items.length} produto(s) com estoque listado(s)`
+                }
+                if (action.type === 'snew_list_orders' && Array.isArray(json?.orders))
+                  return `${json.orders.length} pedido(s) recente(s)`
+                return json?.message ?? 'Consulta concluída'
+              }
+              if (action.type === 'snew_run_skill')
+                return `Skill ${(action as { slug?: string }).slug ?? ''} iniciada`
+              if (action.type === 'snew_post_to_app') {
+                if (json?.error_code === 'ECOMMERCE_ALREADY_CONNECTED')
+                  return 'Sua loja é Nuvemshop — não há publicação via Shopify aqui.'
+                return json?.ok
+                  ? `Publicado em ${(action as { app?: string }).app ?? ''}`
+                  : `Falha ao publicar: ${json?.error ?? 'erro'}`
+              }
+              return 'Feito'
+            })()
 
             chatPanelRef.current?.pushActivity?.(
               action.type,
