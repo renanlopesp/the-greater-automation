@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 // RULE: Never use fontWeight 700 or "bold" for UI text elements (labels, buttons, headings, descriptions).
 // Use 600 (semi-bold) for headings and important labels. Use 500 for secondary labels. Use 400 for body text.
 // Exception: canvas text elements controlled by the user (textbox, copy) may use any weight.
@@ -79,6 +80,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { studioSupabase as supabase } from '@/lib/supabase/studio-client'
 import { uploadDataUrlToStorage } from '@/lib/studio/upload-data-url'
+import { useStudioSession } from '@/lib/studio/session-context'
 import html2canvas from 'html2canvas'
 import { seasonalCalendar } from '@/data/seasonalCalendar'
 import { seasonalL3Content } from '@/data/seasonalL3Content'
@@ -5469,6 +5471,83 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   const kbInline = useMemo(() => buildKBInline(storeCtx), [storeCtx])
   const brandContextBody = useMemo(() => buildBrandContextBody(storeCtx), [storeCtx])
 
+  // E-commerce backend discriminator (spec 069). Forwarded into `creativeState`
+  // on every chat turn so the studio-chat edge function knows whether to allow
+  // Composio Shopify suggestions or to keep them suppressed (Nuvemshop wins).
+  const studioSession = useStudioSession()
+  const [ecommerceKind, setEcommerceKind] = useState<'nuvemshop' | 'shopify-composio' | null>(null)
+  // Most recent product photo URL surfaced by a snew_nuvemshop_api call.
+  // When the user then asks the studio to generate an image / campaign, we
+  // feed this URL into Gemini as a reference so the generation preserves
+  // the real product (color, print, cut) instead of hallucinating a new one.
+  // Mirror in a ref because dispatch may run snew_nuvemshop_api and
+  // generate_image in the SAME async loop — setState wouldn't propagate
+  // through generateImageWithPrompt's closure in time.
+  const [chatProductImageUrl, setChatProductImageUrl] = useState<string | null>(null)
+  const chatProductImageUrlRef = useRef<string | null>(null)
+
+  // Spec 070: real store products surfaced in the inline `pick-product` card
+  // (feed/chat sidebar). Lives alongside the hardcoded `allProducts` seeds
+  // so a connected store gets REAL products in the chat flow, while
+  // disconnected teams keep the demo seeds working.
+  const realStoreProductsQuery = useQuery({
+    queryKey: ['studio-products', 'chat-sidebar'],
+    queryFn: async () => {
+      const res = await fetch('/api/studio/products?page=1&per_page=8', {
+        credentials: 'include',
+      })
+      if (!res.ok) return { products: [] as Array<{ id: string; name: string; image: string }> }
+      const d = (await res.json()) as {
+        products?: Array<{ id: string; name: string; image: string | null }>
+      }
+      return {
+        products: (d.products ?? [])
+          .filter((p) => !!p.image)
+          .map((p) => ({ id: p.id, name: p.name, image: p.image as string })),
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  })
+  const realStoreProducts = realStoreProductsQuery.data?.products ?? []
+
+  // Spec 070: when the user picks a product in the studio product picker,
+  // the session context's `activeProduct` changes. Mirror that selection
+  // into the three legacy state fields so every existing generation path
+  // (generateImageWithPrompt, carousel, video, canvas render) sees a single
+  // source of truth.
+  const sessionActiveProduct = studioSession.activeProduct
+  useEffect(() => {
+    if (sessionActiveProduct) {
+      if (sessionActiveProduct.image) {
+        setActiveImageUrl(sessionActiveProduct.image)
+        chatProductImageUrlRef.current = sessionActiveProduct.image
+        setChatProductImageUrl(sessionActiveProduct.image)
+      }
+      setSelectedProducts([sessionActiveProduct.id])
+    } else {
+      chatProductImageUrlRef.current = null
+      setChatProductImageUrl(null)
+      setSelectedProducts([])
+    }
+    // Intentionally narrow deps to the session product so unrelated state
+    // updates don't re-fire this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionActiveProduct?.id, sessionActiveProduct?.image])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/studio/ecommerce', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { kind: null }))
+      .then((data: { kind: 'nuvemshop' | 'shopify-composio' | null }) => {
+        if (!cancelled) setEcommerceKind(data?.kind ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const buildAutoPrompt = useCallback(() => {
     const currentProduct = allProducts.find((p) => p.id === selectedProducts[0]) ?? null
     const product = currentProduct?.name ?? activeProductName ?? ''
@@ -8432,8 +8511,23 @@ The output must feel like a macro photography detail of the exact same product.`
         const noTextInstruction =
           'IMPORTANT: NO text, NO letters, NO words, NO typography overlay in the image. Pure photography only. '
 
-        const cleanPrompt = fullStylePrompt
-          ? `${noTextInstruction}${compositionPrefix}${fullStylePrompt}. User intent: ${prompt}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
+        // When the user intent mentions a person/baby/model, a product-only
+        // style (e.g. e-commerce-photography) conflicts with "No person, no
+        // hands". Strip those forbidden tokens from the style base so the
+        // model can actually draw a person holding/wearing the product.
+        const userWantsPerson =
+          /\b(bebê|bebe|baby|baby's|babies|modelo|model|pessoa|person|human|criança|crianca|child|kid|mãe|mae|pai|homem|mulher|woman|man|gestante|grávida|gravida|família|familia)\b/i.test(
+            prompt ?? ''
+          )
+        const sanitizedStylePrompt = userWantsPerson
+          ? fullStylePrompt
+              .replace(/\bNo person,?\s*/gi, '')
+              .replace(/\bno hands,?\s*/gi, '')
+              .replace(/\bproduct only\b\.?,?\s*/gi, '')
+          : fullStylePrompt
+
+        const cleanPrompt = sanitizedStylePrompt
+          ? `${noTextInstruction}${compositionPrefix}${sanitizedStylePrompt}. User intent: ${prompt}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
           : `${noTextInstruction}${compositionPrefix}${prompt}${styleSuffix}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
 
         const modelForGeneration =
@@ -8488,6 +8582,26 @@ The output must feel like a macro photography detail of the exact same product.`
           }
         }
 
+        // Chat-surfaced product image (user asked Nuvemshop for a product
+        // and is now generating a campaign around it) — use as reference
+        // so Gemini preserves the real product. Read from ref so the value
+        // set earlier in this same dispatch loop is visible (state would
+        // be stale-closured).
+        const chatProductSrc = chatProductImageUrlRef.current ?? chatProductImageUrl
+        if (
+          chatProductSrc &&
+          !useProductReference &&
+          referenceImages.length === 0 &&
+          (!activeImageUrl || isPlaceholderImage(activeImageUrl))
+        ) {
+          try {
+            const base64 = await imageUrlToBase64(chatProductSrc)
+            allImages.push(base64)
+          } catch (e) {
+            console.warn('Could not convert chat product image to base64:', e)
+          }
+        }
+
         // Always include current canvas image as visual reference for regeneration
         if (activeImageUrl && !isPlaceholderImage(activeImageUrl)) {
           try {
@@ -8531,9 +8645,18 @@ The output must feel like a macro photography detail of the exact same product.`
             'vector art',
             'oversaturated',
             'stock photo smile',
-            // Estilo específico se disponível
+            // Estilo específico se disponível — mas quando o user pediu
+            // bebê/modelo/pessoa, remover tokens incompatíveis do estilo
+            // (ex: "person", "human", "hands") pra a imagem poder ter gente.
             ...(effectiveStyle?.negativePrompt
-              ? effectiveStyle.negativePrompt.split(',').map((s: string) => s.trim())
+              ? effectiveStyle.negativePrompt
+                  .split(',')
+                  .map((s: string) => s.trim())
+                  .filter((s: string) =>
+                    userWantsPerson
+                      ? !/^(person|human|hands?|people|model|pessoa|modelo)$/i.test(s)
+                      : true
+                  )
               : []),
           ].join(', '),
           personGeneration: (() => {
@@ -8721,6 +8844,7 @@ The output must feel like a macro photography detail of the exact same product.`
       saveToHistory,
       pushActivity,
       referenceImages,
+      chatProductImageUrl,
       buildCommercialPrompt,
     ]
   )
@@ -12051,8 +12175,13 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       cta,
       style: selectedStyleId,
       styleName: selectedImageStyle?.name ?? selectedStyleId ?? '',
-      product: activeProductName,
+      product: studioSession.activeProduct?.name ?? activeProductName,
       productDescription: (activeProduct as any)?.description ?? '',
+      // Spec 070: when the user picked a product via the Studio picker,
+      // the edge function must NOT call snew_nuvemshop_api — the product
+      // image is already set as generation reference.
+      activeProductName: studioSession.activeProduct?.name ?? '',
+      activeProductId: studioSession.activeProduct?.id ?? '',
       campaign: activeCampaign?.title ?? data.campaignTitle ?? '',
       isCarouselMode,
       textColor,
@@ -12068,6 +12197,10 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       // assetHistory, so we have to persist that too — otherwise the strip
       // disappears on reload until the user manually clicks each thumb in chat.
       assetHistory,
+      // E-commerce backend discriminator (spec 069 FR-008/-010). Sent every
+      // turn so the studio-chat edge function suppresses Composio Shopify
+      // suggestions when Nuvemshop is connected.
+      ecommerceKind,
       storeName: storeCtx?.name ?? '',
       storeNiche: storeCtx?.niche ?? '',
       storeTone: storeCtx?.tone ?? '',
@@ -12105,7 +12238,9 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       imgGallery,
       activeGalleryId,
       assetHistory,
+      ecommerceKind,
       storeCtx,
+      studioSession.activeProduct,
     ]
   )
 
@@ -12440,6 +12575,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
         case 'snew_query_sales':
         case 'snew_query_stock':
         case 'snew_list_orders':
+        case 'snew_nuvemshop_api':
         case 'snew_connect_app':
         case 'snew_run_skill':
         case 'snew_post_to_app': {
@@ -12516,25 +12652,30 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
             const res = await fetch('/api/studio/tools', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: action.type,
-                params: {
-                  app: (action as { app?: string }).app,
-                  period: (action as { period?: string }).period,
-                  product: (action as { product?: string }).product,
-                  limit: (action as { limit?: number }).limit,
-                  slug: (action as { slug?: string }).slug,
-                  // For snew_post_to_app, attach the canvas image + caption
-                  imageUrl:
-                    action.type === 'snew_post_to_app'
-                      ? ((action as { imageUrl?: string }).imageUrl ?? activeImageUrl ?? '')
-                      : undefined,
-                  caption:
-                    action.type === 'snew_post_to_app'
-                      ? ((action as { caption?: string }).caption ?? heading ?? '')
-                      : undefined,
-                },
-              }),
+              body: (() => {
+                // The AI sometimes emits nested params (`{type, params:{...}}`)
+                // and sometimes top-level keys — fold both into a single shape
+                // so the server-side router doesn't care.
+                const a = action as Record<string, unknown> & { params?: Record<string, unknown> }
+                const nested = (a.params ?? {}) as Record<string, unknown>
+                const merged: Record<string, unknown> = {
+                  app: (nested.app ?? a.app) as unknown,
+                  period: (nested.period ?? a.period) as unknown,
+                  product: (nested.product ?? a.product) as unknown,
+                  limit: (nested.limit ?? a.limit) as unknown,
+                  slug: (nested.slug ?? a.slug) as unknown,
+                  resource: (nested.resource ?? a.resource) as unknown,
+                  id: (nested.id ?? a.id) as unknown,
+                  query: (nested.query ?? a.query) as unknown,
+                }
+                if (action.type === 'snew_post_to_app') {
+                  merged.imageUrl =
+                    (nested.imageUrl as string) ?? (a.imageUrl as string) ?? activeImageUrl ?? ''
+                  merged.caption =
+                    (nested.caption as string) ?? (a.caption as string) ?? heading ?? ''
+                }
+                return JSON.stringify({ action: action.type, params: merged })
+              })(),
             })
             const json = await res.json()
 
@@ -12580,26 +12721,65 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
             }
 
             // Surface result as an activity card in chat (compact summary)
-            const summary =
-              action.type === 'snew_check_connections'
-                ? `${json?.count ?? 0} app(s) conectado(s)`
-                : action.type === 'snew_list_available_apps'
-                  ? `${json?.total ?? 0} integrações disponíveis`
-                  : action.type === 'snew_connect_app'
-                    ? `Abrindo fluxo de conexão: ${(action as { app?: string }).app ?? ''}`
-                    : action.type === 'snew_query_sales'
-                      ? (json?.message ?? 'Consulta de vendas realizada')
-                      : action.type === 'snew_query_stock'
-                        ? (json?.message ?? 'Consulta de estoque realizada')
-                        : action.type === 'snew_list_orders'
-                          ? (json?.message ?? 'Consulta de pedidos realizada')
-                          : action.type === 'snew_run_skill'
-                            ? `Skill ${(action as { slug?: string }).slug ?? ''} iniciada`
-                            : action.type === 'snew_post_to_app'
-                              ? json?.ok
-                                ? `Publicado em ${(action as { app?: string }).app ?? ''}`
-                                : `Falha ao publicar: ${json?.error ?? 'erro'}`
-                              : 'Feito'
+            // Retail tools (snew_query_*) come back from the MCP edge function
+            // with rich numeric fields (total_revenue, order_count, etc.) when
+            // the team is on Nuvemshop — show them instead of the placeholder
+            // message. Fall back to ECOMMERCE_NOT_CONNECTED / NUVEMSHOP_AUTH_EXPIRED.
+            const summary = (() => {
+              if (action.type === 'snew_check_connections')
+                return `${json?.count ?? 0} app(s) conectado(s)${json?.ecommerce?.kind ? ` · loja: ${json.ecommerce.kind}` : ''}`
+              if (action.type === 'snew_list_available_apps')
+                return `${json?.total ?? 0} integrações disponíveis`
+              if (action.type === 'snew_connect_app')
+                return `Abrindo fluxo de conexão: ${(action as { app?: string }).app ?? ''}`
+              if (
+                action.type === 'snew_query_sales' ||
+                action.type === 'snew_query_stock' ||
+                action.type === 'snew_list_orders' ||
+                action.type === 'snew_nuvemshop_api'
+              ) {
+                if (json?.error_code === 'ECOMMERCE_NOT_CONNECTED')
+                  return 'Conecte sua loja para responder isso'
+                if (json?.error_code === 'NUVEMSHOP_AUTH_EXPIRED')
+                  return 'Autorização Nuvemshop expirou — reconecte em Apps'
+                if (json?.error_code === 'RETAIL_TOOL_FAILED')
+                  return `Falha ao consultar Nuvemshop: ${json?.message ?? 'erro'}`
+                if (action.type === 'snew_query_sales' && typeof json?.order_count === 'number')
+                  return `${json.order_count} pedido(s) · receita ${json.total_revenue ?? ''}${json.average_ticket ? ` · ticket médio ${json.average_ticket}` : ''}`
+                if (
+                  action.type === 'snew_query_stock' &&
+                  Array.isArray(json?.products ?? json?.items)
+                ) {
+                  const items = (json?.products ?? json?.items) as unknown[]
+                  return `${items.length} produto(s) com estoque listado(s)`
+                }
+                if (action.type === 'snew_list_orders' && Array.isArray(json?.orders))
+                  return `${json.orders.length} pedido(s) recente(s)`
+                if (action.type === 'snew_nuvemshop_api') {
+                  const resource =
+                    (action as { resource?: string; params?: { resource?: string } }).resource ??
+                    (action as { params?: { resource?: string } }).params?.resource ??
+                    json?.resource
+                  // Activity card stays a one-liner — the rich answer comes
+                  // from /api/studio/summarize as a markdown chat bubble.
+                  if (Array.isArray(json?.data))
+                    return `${json.data.length} ${resource ?? 'item'}(s) carregado(s)`
+                  if (json?.data) return `${resource ?? 'Recurso'} carregado`
+                  return 'Consulta concluída'
+                }
+                return json?.message ?? 'Consulta concluída'
+              }
+              if (action.type === 'snew_run_skill')
+                return `Skill ${(action as { slug?: string }).slug ?? ''} iniciada`
+              if (action.type === 'snew_post_to_app') {
+                if (json?.error_code === 'ECOMMERCE_ALREADY_CONNECTED')
+                  return 'Sua loja é Nuvemshop — não há publicação via Shopify aqui.'
+                return json?.ok
+                  ? `Publicado em ${(action as { app?: string }).app ?? ''}`
+                  : `Falha ao publicar: ${json?.error ?? 'erro'}`
+              }
+              return 'Feito'
+            })()
 
             chatPanelRef.current?.pushActivity?.(
               action.type,
@@ -12608,6 +12788,85 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
               [],
               undefined
             )
+
+            // If the tool returned an artifact (e.g. STORE_QUERY_SALES
+            // attaches an HTML card via `artifact` or `__artifact`), surface
+            // it in the studio side panel. Coexists with the canvas —
+            // persisted under a sub-key so the creativeState snapshot isn't
+            // overwritten.
+            // After the data tool returns, hand the payload to a second
+            // lightweight LLM call so the chat gets a *real* markdown answer
+            // ("Vendi 3 bodys bordados, 2 placas..."), not a one-line count.
+            if (action.type === 'snew_nuvemshop_api' && json?.data && !json?.error_code) {
+              const allMsgs = (chatPanelRef.current?.getMessages?.() ?? []) as Array<{
+                role?: string
+                content?: string
+              }>
+              const lastUserMsg = [...allMsgs].reverse().find((m) => m.role === 'user')
+              void fetch('/api/studio/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userQuestion: lastUserMsg?.content ?? '',
+                  toolName: action.type,
+                  toolResult: { resource: json.resource, count: json.count, data: json.data },
+                }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((sum: { summary?: string } | null) => {
+                  const text = sum?.summary?.trim()
+                  if (text) {
+                    chatPanelRef.current?.pushAssistantMessage?.({ content: text })
+                    // Find the most recent assistant message's followUps so
+                    // they ride along on the persisted markdown bubble too —
+                    // otherwise on reload the chips end up under the wrong
+                    // message (or nowhere).
+                    const allMsgsForFollowups = (chatPanelRef.current?.getMessages?.() ??
+                      []) as Array<{ role?: string; followUps?: string[] }>
+                    let inherited: string[] | undefined
+                    for (let i = allMsgsForFollowups.length - 1; i >= 0; i--) {
+                      const m = allMsgsForFollowups[i]
+                      if (m?.role === 'assistant' && m.followUps && m.followUps.length > 0) {
+                        inherited = m.followUps
+                        break
+                      }
+                    }
+                    void studioSession.persistTurn({
+                      userMessage: '',
+                      assistantMessage: text,
+                      metadata: {
+                        engine: 'studio-summarize',
+                        tool: action.type,
+                        resource: json.resource,
+                        followUps: inherited ?? [],
+                      },
+                    })
+                  }
+                })
+                .catch(() => {
+                  /* best-effort */
+                })
+            }
+
+            // Remember the first product image URL from any products query —
+            // the next generate_image uses it as a visual reference so the
+            // generated campaign preserves the REAL product (not a hallucinated one).
+            if (action.type === 'snew_nuvemshop_api' && json?.resource === 'products') {
+              const products = Array.isArray(json.data) ? (json.data as unknown[]) : []
+              const firstWithImage = products
+                .map((p) => p as { images?: Array<{ src?: string }> })
+                .find((p) => Array.isArray(p.images) && p.images.some((i) => !!i?.src))
+              const firstSrc = firstWithImage?.images?.find((i) => !!i?.src)?.src
+              if (firstSrc) {
+                setChatProductImageUrl(firstSrc)
+                chatProductImageUrlRef.current = firstSrc
+              }
+            }
+
+            // Side-panel artifact rendering is intentionally disabled for
+            // Nuvemshop queries (spec 070 follow-up). Users asked for the raw
+            // data summary in the chat bubble only — no sticky side panel.
+            // The summarize route handles the markdown answer.
 
             // Feed the outcome back to the AI's next turn via a chat assistant
             // message so it stops pretending tools succeeded when they failed.
@@ -12904,9 +13163,13 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                   thumbnailUrl: s.thumbnailUrl ?? '',
                   description: s.description ?? '',
                 }))}
-                products={allProducts
-                  .slice(0, 8)
-                  .map((p) => ({ id: p.id, name: p.name, image: p.image }))}
+                products={
+                  realStoreProducts.length > 0
+                    ? realStoreProducts
+                    : allProducts
+                        .slice(0, 8)
+                        .map((p) => ({ id: p.id, name: p.name, image: p.image }))
+                }
                 onGenerateWithStyle={(styleId, productId) => {
                   const style = imageStyles.find((s) => s.id === styleId)
                   if (style) setSelectedImageStyle(style)
@@ -12919,9 +13182,18 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                     ? allProducts.find((p) => p.id === productId)
                     : activeProduct
                   const productName = currentProduct?.name?.trim() || ''
+                  // Grab the user's latest chat message so the style
+                  // template doesn't erase their actual intent (e.g. "coloque
+                  // esse body em um bebê real").
+                  const allMsgs = (chatPanelRef.current?.getMessages?.() ?? []) as Array<{
+                    role?: string
+                    content?: string
+                  }>
+                  const lastUserMsg = [...allMsgs].reverse().find((m) => m.role === 'user')
+                  const userIntent = (lastUserMsg?.content ?? '').trim()
                   setTimeout(() => {
                     if (style?.buildPrompt) {
-                      const prompt = style.buildPrompt({
+                      const base = style.buildPrompt({
                         productName: productName || 'the product',
                         productDescription: (currentProduct as any)?.description ?? '',
                         brandName: storeCtx?.name ?? data.campaignTitle ?? '',
@@ -12931,14 +13203,30 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                         modelAge: storeCtx?.modelProfile?.ageRange ?? '',
                         context: (selectedRatio as any)?.id ?? '1:1',
                       })
+                      const prompt = userIntent ? `${base}. User intent: ${userIntent}` : base
                       setImagePrompt(prompt)
                       generateImageWithPrompt(prompt, 1, style)
                     } else {
-                      generateImageWithPrompt(productName || buildAutoPrompt())
+                      generateImageWithPrompt(userIntent || productName || buildAutoPrompt())
                     }
                   }, 100)
                 }}
-                onAction={async (action) => {
+                onAction={async (rawAction) => {
+                  // The studio-chat edge function sometimes emits nested
+                  // params (`{type, params:{value,...}}`) and sometimes
+                  // top-level keys. Flatten so every case below reads from a
+                  // single shape.
+                  const nestedParams = (rawAction as { params?: Record<string, unknown> }).params
+                  const action = {
+                    ...(nestedParams ?? {}),
+                    ...rawAction,
+                    // Nested fills only if top-level is missing (top-level wins).
+                    ...Object.fromEntries(
+                      Object.entries(nestedParams ?? {}).filter(
+                        ([k]) => (rawAction as Record<string, unknown>)[k] === undefined
+                      )
+                    ),
+                  } as typeof rawAction
                   const label =
                     action.type === 'generate_image'
                       ? 'Gerando imagem...'

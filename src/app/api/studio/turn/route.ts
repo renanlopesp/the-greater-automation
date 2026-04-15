@@ -35,11 +35,14 @@ export async function POST(request: NextRequest) {
   const assistantMessage = body?.assistantMessage as string | undefined
   const metadata = (body?.metadata ?? {}) as Record<string, unknown>
 
-  if (!conversationId || typeof userMessage !== 'string') {
-    return NextResponse.json(
-      { error: 'conversationId and userMessage are required' },
-      { status: 400 }
-    )
+  if (!conversationId) {
+    return NextResponse.json({ error: 'conversationId is required' }, { status: 400 })
+  }
+  if (
+    (typeof userMessage !== 'string' || userMessage.length === 0) &&
+    (typeof assistantMessage !== 'string' || assistantMessage.length === 0)
+  ) {
+    return NextResponse.json({ error: 'userMessage or assistantMessage required' }, { status: 400 })
   }
 
   try {
@@ -56,15 +59,16 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString()
-    const rows: Array<Record<string, unknown>> = [
-      {
+    const rows: Array<Record<string, unknown>> = []
+    if (typeof userMessage === 'string' && userMessage.length > 0) {
+      rows.push({
         conversation_id: conversationId,
         role: 'user',
         content: userMessage,
         metadata: { engine: 'studio-chat', ...metadata },
         created_at: now,
-      },
-    ]
+      })
+    }
     if (typeof assistantMessage === 'string' && assistantMessage.length > 0) {
       rows.push({
         conversation_id: conversationId,

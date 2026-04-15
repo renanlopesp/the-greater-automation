@@ -5,6 +5,8 @@ import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeError } from '@/lib/safe-error'
 import { getComposio } from '@/lib/composio/client'
 import { getAvailableApps } from '@/lib/composio/actions/get-available-apps'
+import { getStoreConnection } from '@/lib/studio/ecommerce-connection'
+import { invokeTool } from '@/lib/chat/tools-client'
 
 /**
  * POST /api/studio/tools — Server-side executor for the `snew_*` actions
@@ -29,23 +31,38 @@ export async function POST(request: NextRequest) {
   const action = body.action ?? ''
   const params = body.params ?? {}
 
+  // Resolved once per request — every gating check + retail dispatch reads
+  // from this discriminator (FR-001 of spec 069).
+  const ecommerce = await getStoreConnection(teamId, user.id)
+
   try {
     switch (action) {
       case 'snew_check_connections':
-        return NextResponse.json(await checkConnections(user.id))
+        return NextResponse.json(await checkConnections(user.id, ecommerce))
       case 'snew_list_available_apps':
         return NextResponse.json(await listAvailableApps(user.id))
       case 'snew_connect_app': {
         const app = (params.app as string) ?? ''
         if (!app) return NextResponse.json({ error: 'app is required' }, { status: 400 })
+        if (app.toLowerCase() === 'shopify' && ecommerce.kind === 'nuvemshop') {
+          return NextResponse.json(ecommerceAlreadyConnectedError('connect', app), { status: 409 })
+        }
         return NextResponse.json(await connectApp(user.id, app))
       }
       case 'snew_query_sales':
-        return NextResponse.json(await querySales(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_QUERY_SALES', params)
+        )
       case 'snew_query_stock':
-        return NextResponse.json(await queryStock(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_QUERY_STOCK', params)
+        )
       case 'snew_list_orders':
-        return NextResponse.json(await listOrders(teamId, params))
+        return NextResponse.json(
+          await runRetailTool(teamId, user.id, ecommerce, 'STORE_LIST_ORDERS', params)
+        )
+      case 'snew_nuvemshop_api':
+        return NextResponse.json(await nuvemshopApi(ecommerce, params))
       case 'snew_run_skill': {
         const slug = (params.slug as string) ?? ''
         if (!slug) return NextResponse.json({ error: 'slug is required' }, { status: 400 })
@@ -57,6 +74,9 @@ export async function POST(request: NextRequest) {
         const caption = (params.caption as string) ?? ''
         if (!app || !imageUrl) {
           return NextResponse.json({ error: 'app and imageUrl are required' }, { status: 400 })
+        }
+        if (app.toLowerCase() === 'shopify' && ecommerce.kind === 'nuvemshop') {
+          return NextResponse.json(ecommerceAlreadyConnectedError('post', app), { status: 409 })
         }
         return NextResponse.json(await postToApp(user.id, app, imageUrl, caption))
       }
@@ -71,7 +91,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function checkConnections(userId: string) {
+async function checkConnections(
+  userId: string,
+  ecommerce?: Awaited<ReturnType<typeof getStoreConnection>>
+) {
   // STRICT Composio-only — no local cache fallback. If a connection doesn't
   // exist in Composio, we can't post/query through it, so surfacing a cached
   // row would be misleading.
@@ -91,7 +114,394 @@ async function checkConnections(userId: string) {
       connected_account_id: acc.id,
       auth_type: acc.state?.authScheme ?? 'unknown',
     }))
-  return { connected_apps: apps, count: apps.length }
+  return {
+    connected_apps: apps,
+    count: apps.length,
+    // FR-011 (spec 069): the AI must know which e-commerce backend is in use
+    // so it doesn't suggest connecting Composio Shopify to a Nuvemshop team.
+    ecommerce: ecommerce ? { kind: ecommerce.kind } : { kind: null },
+  }
+}
+
+function ecommerceAlreadyConnectedError(intent: 'connect' | 'post', app: string) {
+  return {
+    error_code: 'ECOMMERCE_ALREADY_CONNECTED',
+    intent,
+    requested_app: app,
+    active_kind: 'nuvemshop',
+    message:
+      intent === 'connect'
+        ? 'Sua loja já está conectada via Nuvemshop — não é necessário (nem permitido) conectar Shopify pelo Composio. Use as ferramentas de loja (estoque, vendas, pedidos) diretamente.'
+        : 'Publicação de Shopify pelo Composio está bloqueada porque sua loja já é Nuvemshop. Posts são pra redes sociais (Instagram, TikTok, etc.); para a loja, use os tools de produto/estoque.',
+  }
+}
+
+/**
+ * Delegate retail queries (`snew_query_*` / `snew_list_orders`) to the **same
+ * MCP edge function** the OLD chat already uses (`STORE_QUERY_SALES`,
+ * `STORE_QUERY_STOCK`, `STORE_LIST_ORDERS`). No reimplementation — we only
+ * change the transport from `/api/chat` → `/api/studio/tools`.
+ */
+async function runRetailTool(
+  teamId: string,
+  userId: string,
+  ecommerce: Awaited<ReturnType<typeof getStoreConnection>>,
+  toolName: 'STORE_QUERY_SALES' | 'STORE_QUERY_STOCK' | 'STORE_LIST_ORDERS',
+  params: Record<string, unknown>
+) {
+  if (ecommerce.kind !== 'nuvemshop') {
+    return {
+      error_code: 'ECOMMERCE_NOT_CONNECTED',
+      message:
+        'Para responder essa pergunta preciso de uma loja conectada. Conecte a Nuvemshop em Apps para liberar consultas de estoque, vendas e pedidos.',
+    }
+  }
+
+  try {
+    const result = await invokeTool({
+      name: toolName,
+      input: params ?? {},
+      context: {
+        teamId,
+        userId,
+        storeId: ecommerce.storeId,
+      },
+    })
+    const text = result.content[0]?.text ?? '{}'
+    let parsed: Record<string, unknown> = {}
+    try {
+      parsed = JSON.parse(text) as Record<string, unknown>
+    } catch {
+      return { raw: text }
+    }
+    try {
+      // Synthesize the side-panel artifact when the deployed MCP function
+      // didn't include an artifact field in its response. Use a plain key
+      // (not `__artifact`) — Next.js / JSON.stringify occasionally treats
+      // double-underscore prefixes specially in its runtime.
+      if (!parsed.artifact && !parsed.__artifact) {
+        const synth = synthesizeRetailArtifact(toolName, parsed)
+        if (synth) parsed.artifact = synth
+      }
+    } catch (synthErr) {
+      console.error('[studio/tools] synthesize failed:', synthErr)
+    }
+    return parsed
+  } catch (e) {
+    const msg = (e as Error)?.message ?? 'unknown'
+    if (/401|403|invalid/i.test(msg)) {
+      return {
+        error_code: 'NUVEMSHOP_AUTH_EXPIRED',
+        message:
+          'Sua autorização Nuvemshop expirou. Reconecte em Apps para continuar usando os tools de loja.',
+        reauth_url: '/api/nuvemshop/connect',
+      }
+    }
+    return {
+      error_code: 'RETAIL_TOOL_FAILED',
+      tool: toolName,
+      message: msg,
+    }
+  }
+}
+
+function escHtml(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Build the side-panel artifact when the deployed MCP function only returned
+ * the raw fields (older mcp-tools deploy). This is a fallback so the studio
+ * side panel still gets a polished card; once mcp-tools is redeployed with
+ * its own `__artifact` block, this is a no-op (the field is already present).
+ */
+function synthesizeRetailArtifact(
+  toolName: 'STORE_QUERY_SALES' | 'STORE_QUERY_STOCK' | 'STORE_LIST_ORDERS',
+  payload: Record<string, unknown>
+): { type: string; title: string; html: string; data: unknown } | null {
+  if (toolName === 'STORE_QUERY_SALES') {
+    const period = String(payload.period ?? 'today')
+    const periodLabel =
+      period === 'today'
+        ? 'Hoje'
+        : period === 'yesterday'
+          ? 'Ontem'
+          : period === 'this_week'
+            ? 'Esta semana'
+            : period === 'this_month'
+              ? 'Este mês'
+              : 'Período'
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Resumo de vendas — ${escHtml(periodLabel)}</div>
+        <div class="grid-3">
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.total_revenue ?? '—')}</span>
+            <span class="label">Receita</span>
+          </div>
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.order_count ?? 0)}</span>
+            <span class="label">Pedidos pagos</span>
+          </div>
+          <div class="card-elevated stat">
+            <span class="value tabular">${escHtml(payload.average_ticket ?? '—')}</span>
+            <span class="label">Ticket médio</span>
+          </div>
+        </div>
+      </div>`
+    return { type: 'chat-data', title: `Vendas — ${periodLabel}`, html, data: { ...payload } }
+  }
+  if (toolName === 'STORE_QUERY_STOCK') {
+    const items = (payload.products ?? payload.items ?? []) as Array<Record<string, unknown>>
+    const rows = items
+      .slice(0, 50)
+      .map(
+        (it) =>
+          `<tr><td>${escHtml(it.name ?? '—')}</td><td class="tabular">${escHtml(it.stock ?? it.total_stock ?? 0)}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Estoque (${items.length} produto${items.length === 1 ? '' : 's'})</div>
+        <div class="card-elevated"><table class="table"><thead><tr><th>Produto</th><th>Estoque</th></tr></thead><tbody>${rows || '<tr><td colspan="2">Sem itens.</td></tr>'}</tbody></table></div>
+      </div>`
+    return { type: 'chat-data', title: `Estoque (${items.length})`, html, data: { ...payload } }
+  }
+  if (toolName === 'STORE_LIST_ORDERS') {
+    const orders = (payload.orders ?? []) as Array<Record<string, unknown>>
+    const rows = orders
+      .slice(0, 30)
+      .map(
+        (o) =>
+          `<tr><td>#${escHtml(o.number ?? o.id ?? '')}</td><td>${escHtml(o.customer ?? o.customer_name ?? '—')}</td><td class="tabular">${escHtml(o.total ?? 0)}</td><td>${escHtml(o.status ?? '')}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Pedidos recentes (${orders.length})</div>
+        <div class="card-elevated"><table class="table"><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Sem pedidos.</td></tr>'}</tbody></table></div>
+      </div>`
+    return {
+      type: 'chat-data',
+      title: `Pedidos recentes (${orders.length})`,
+      html,
+      data: { ...payload },
+    }
+  }
+  return null
+}
+
+/**
+ * Generic passthrough to the Nuvemshop REST API
+ * (https://tiendanube.github.io/api-documentation/resources).
+ *
+ * Philosophy: the AI knows the Nuvemshop resource catalog and composes the
+ * query itself. We don't hand-code specific aggregations — any GET endpoint
+ * is reachable by emitting:
+ *   { action: 'snew_nuvemshop_api', params: { resource, id?, query? } }
+ *
+ * Examples the AI can issue without any new server code:
+ * - `{resource:'orders', query:{created_at_min, payment_status:'paid'}}` (list orders in a window)
+ * - `{resource:'products', query:{q:'camisa'}}` (search products)
+ * - `{resource:'orders', id:12345}` (single order)
+ * - `{resource:'customers', query:{}}` (list customers)
+ * - `{resource:'coupons', query:{}}`
+ *
+ * Write methods (POST/PUT/DELETE) are intentionally NOT enabled here yet —
+ * adding them is a separate risk surface and needs dedicated gating.
+ */
+async function nuvemshopApi(
+  ecommerce: Awaited<ReturnType<typeof getStoreConnection>>,
+  params: Record<string, unknown>
+) {
+  if (ecommerce.kind !== 'nuvemshop') {
+    return {
+      error_code: 'ECOMMERCE_NOT_CONNECTED',
+      message: 'Conecte sua loja Nuvemshop em Apps para liberar essa consulta.',
+    }
+  }
+  const resource = String(params.resource ?? '').replace(/^\/+|\/+$/g, '')
+  if (!resource) {
+    return { error_code: 'INVALID_PARAMS', message: 'resource é obrigatório.' }
+  }
+  const id = params.id ? String(params.id).replace(/[^0-9a-zA-Z_-]/g, '') : ''
+  const query =
+    typeof params.query === 'object' && params.query !== null
+      ? (params.query as Record<string, unknown>)
+      : {}
+
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) {
+    if (v === undefined || v === null) continue
+    qs.append(k, String(v))
+  }
+  // Sensible default so we don't blow up the response; the AI can override.
+  if (!qs.has('per_page') && !id) qs.set('per_page', '50')
+
+  const suffix = id ? `/${id}` : ''
+  const url = `https://api.nuvemshop.com.br/v1/${ecommerce.platformStoreId}/${resource}${suffix}?${qs.toString()}`
+
+  try {
+    const r = await fetch(url, {
+      headers: {
+        Authentication: `bearer ${ecommerce.accessToken}`,
+        'User-Agent': 'Snew/1.0',
+      },
+    })
+    const text = await r.text()
+    let data: unknown
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+
+    if (!r.ok) {
+      if (r.status === 401 || r.status === 403) {
+        return {
+          error_code: 'NUVEMSHOP_AUTH_EXPIRED',
+          message: 'Reautorize a Nuvemshop em Apps.',
+          reauth_url: '/api/nuvemshop/connect',
+        }
+      }
+      // Nuvemshop quirk: an EMPTY collection returns 404 with body
+      // `{description: "Last page is 0"}`. Treat that as a real "no data"
+      // result so the AI/chat can answer naturally instead of "Tool falhou".
+      const desc =
+        typeof data === 'object' && data !== null
+          ? String((data as Record<string, unknown>).description ?? '')
+          : ''
+      if (r.status === 404 && /last page is 0|no records/i.test(desc)) {
+        return {
+          resource,
+          id: id || null,
+          count: 0,
+          data: [],
+          artifact: synthesizeNuvemshopArtifact(resource, id, []),
+        }
+      }
+      return {
+        error_code: 'NUVEMSHOP_API_ERROR',
+        status: r.status,
+        resource,
+        id: id || null,
+        data,
+      }
+    }
+
+    return {
+      resource,
+      id: id || null,
+      count: Array.isArray(data) ? data.length : undefined,
+      data,
+      artifact: synthesizeNuvemshopArtifact(resource, id, data),
+    }
+  } catch (e) {
+    return {
+      error_code: 'RETAIL_TOOL_FAILED',
+      tool: 'snew_nuvemshop_api',
+      message: (e as Error).message ?? 'unknown',
+    }
+  }
+}
+
+/**
+ * Best-effort table render for whatever the Nuvemshop API returned. We don't
+ * pre-decide column shape per resource — pick the first ~6 scalar fields
+ * across the records and render them. The chat caller still has the raw
+ * `data` field for any further processing.
+ */
+function synthesizeNuvemshopArtifact(
+  resource: string,
+  id: string,
+  data: unknown
+): { type: string; title: string; html: string; data: unknown } | null {
+  const title = id ? `${resource} #${id}` : resource
+
+  if (Array.isArray(data)) {
+    const rows = data as Array<Record<string, unknown>>
+    if (rows.length === 0) {
+      const html = `<div class="section"><div class="h1 mb-4">${escHtml(title)}</div><div class="card-elevated">Nenhum item encontrado.</div></div>`
+      return { type: 'chat-data', title, html, data: { resource, count: 0 } }
+    }
+    // Pick up to 6 columns: prefer common identity/name/total/status/date keys.
+    const preferred = [
+      'id',
+      'number',
+      'name',
+      'title',
+      'email',
+      'status',
+      'payment_status',
+      'shipping_status',
+      'total',
+      'subtotal',
+      'created_at',
+      'paid_at',
+      'price',
+      'stock',
+    ]
+    const allKeys = new Set<string>()
+    for (const r of rows.slice(0, 30)) {
+      for (const k of Object.keys(r ?? {})) allKeys.add(k)
+    }
+    const cols = [
+      ...preferred.filter((k) => allKeys.has(k)),
+      ...[...allKeys].filter((k) => !preferred.includes(k)),
+    ]
+      .filter((k) => {
+        const v = rows[0]?.[k]
+        return v == null || typeof v !== 'object'
+      })
+      .slice(0, 6)
+    const fmt = (v: unknown) => {
+      if (v == null) return '—'
+      if (typeof v === 'object') return JSON.stringify(v).slice(0, 60)
+      const s = String(v)
+      return s.length > 80 ? s.slice(0, 77) + '…' : s
+    }
+    const head = cols.map((c) => `<th>${escHtml(c)}</th>`).join('')
+    const body = rows
+      .slice(0, 100)
+      .map((r) => `<tr>${cols.map((c) => `<td>${escHtml(fmt(r?.[c]))}</td>`).join('')}</tr>`)
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">${escHtml(title)} <span class="small">(${rows.length})</span></div>
+        <div class="card-elevated" style="padding:0;overflow:hidden;">
+          <table class="table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+        </div>
+      </div>`
+    return { type: 'chat-data', title, html, data: { resource, count: rows.length } }
+  }
+
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    const entries = Object.entries(obj)
+      .filter(([, v]) => v == null || typeof v !== 'object')
+      .slice(0, 20)
+    if (entries.length === 0) return null
+    const rows = entries
+      .map(
+        ([k, v]) =>
+          `<tr><td class="small">${escHtml(k)}</td><td>${escHtml(String(v ?? '—'))}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">${escHtml(title)}</div>
+        <div class="card-elevated" style="padding:0;overflow:hidden;">
+          <table class="table"><tbody>${rows}</tbody></table>
+        </div>
+      </div>`
+    return { type: 'chat-data', title, html, data: { resource } }
+  }
+
+  return null
 }
 
 async function listAvailableApps(userId: string) {
@@ -250,43 +660,10 @@ async function connectApp(userId: string, app: string) {
   }
 }
 
-async function querySales(teamId: string, params: Record<string, unknown>) {
-  const period = (params.period as string) ?? 'today'
-  // Minimal stub: call store summary if an endpoint exists, else placeholder.
-  try {
-    const res = await fetch(`/api/store/daily-summary?teamId=${teamId}&period=${period}`, {
-      method: 'GET',
-    }).catch(() => null)
-    if (res?.ok) {
-      const data = await res.json()
-      return { period, ...(data as object) }
-    }
-  } catch {
-    // ignore
-  }
-  return {
-    period,
-    status: 'no_data',
-    message: 'Integração de vendas não configurada. Conecte seu ecommerce para ver dados.',
-  }
-}
-
-async function queryStock(_teamId: string, params: Record<string, unknown>) {
-  return {
-    product: params.product ?? null,
-    status: 'no_data',
-    message: 'Consulta de estoque ainda não implementada no studio.',
-  }
-}
-
-async function listOrders(_teamId: string, params: Record<string, unknown>) {
-  const limit = (params.limit as number) ?? 10
-  return {
-    limit,
-    orders: [],
-    message: 'Consulta de pedidos ainda não implementada no studio.',
-  }
-}
+// Retail stubs (querySales/queryStock/listOrders) were replaced by
+// `runRetailTool` above — see spec 069 FR-002. The OLD chat's MCP tools
+// (STORE_QUERY_SALES / STORE_QUERY_STOCK / STORE_LIST_ORDERS) are reused
+// verbatim through `invokeTool`.
 
 async function uploadImageIfDataUrl(userId: string, imageUrl: string): Promise<string> {
   if (!imageUrl.startsWith('data:')) return imageUrl

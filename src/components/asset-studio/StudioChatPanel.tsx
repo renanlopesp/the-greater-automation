@@ -38,6 +38,8 @@ import {
 import { studioSupabase as supabase } from '@/lib/supabase/studio-client'
 import { createBrowserClient as createRelaySupabase } from '@/lib/supabase/client'
 import { useStudioSession } from '@/lib/studio/session-context'
+import { StudioProductPicker } from '@/components/asset-studio/StudioProductPicker'
+import { ActiveProductChip } from '@/components/asset-studio/ActiveProductChip'
 import { parseOrchestratorResponse } from '@/lib/chat/parse-orchestrator-response'
 import { uploadChatFileAction } from '@/lib/actions/chat-upload'
 import ReactMarkdown from 'react-markdown'
@@ -536,9 +538,14 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
             } as ActivityMessage
           }
           if (raw.role === 'user' || raw.role === 'assistant') {
+            const meta = raw.metadata ?? {}
+            const followUps = Array.isArray((meta as Record<string, unknown>).followUps)
+              ? ((meta as Record<string, unknown>).followUps as string[])
+              : undefined
             return {
               role: raw.role,
               content: raw.content,
+              followUps,
             } as ChatMessage
           }
           return null
@@ -548,7 +555,35 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
 
     const [messages, setMessages] = useState<DisplayMessage[]>(rebuiltInitial)
     const studioSession = useStudioSession()
+    const [productPickerOpen, setProductPickerOpen] = useState(false)
     const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
+
+    // Shared visual-upload pill style (ImageRef + Produto buttons).
+    const pillButtonStyle: React.CSSProperties = {
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      padding: '8px 12px',
+      borderRadius: 10,
+      border: '1.5px dashed #E0E0E0',
+      background: '#FAFAFA',
+      cursor: 'pointer',
+      transition: 'all 0.15s',
+      fontSize: 11,
+      color: '#999',
+      textAlign: 'left',
+      lineHeight: 1.3,
+      fontFamily: 'inherit',
+    }
+    const pillHoverIn = (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = '#CCC'
+      e.currentTarget.style.background = '#F5F5F5'
+    }
+    const pillHoverOut = (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = '#E0E0E0'
+      e.currentTarget.style.background = '#FAFAFA'
+    }
     const paperclipInputRef = useRef<HTMLInputElement>(null)
 
     // Keep the latest creativeState in a ref so snapshots read the freshest
@@ -604,29 +639,11 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
       }
     }, [])
 
-    // Contextual visibility of the "Referência de imagem" / "Produto" buttons.
-    // Show only when the user is actively working on visual output.
-    const showVisualUploads = useMemo(() => {
-      if (agentMode) return false
-      if (creativeState.hasImage) return true
-      const cs = creativeState as unknown as Record<string, unknown>
-      if (cs.styleId) return true
-      if (cs.style) return true
-      if (creativeState.isCarouselMode) return true
-      // Inspect the last 3 assistant messages for visual actions.
-      const VISUAL_ACTIONS = new Set([
-        'generate_image',
-        'generate_carousel',
-        'generate_video',
-        'set_style',
-        'set_channel',
-      ])
-      const recent = messages.slice(-6).filter((m) => !isActivity(m)) as ChatMessage[]
-      return recent.some(
-        (m) =>
-          m.role === 'assistant' && (m.actions ?? []).some((a) => VISUAL_ACTIONS.has(a.label ?? ''))
-      )
-    }, [agentMode, creativeState, messages])
+    // "Referência de imagem" / "Produto" buttons are always visible while in
+    // studio chat — the studio is a visual-first surface, hiding them caused
+    // users to miss that they could attach a product to the next gen.
+    // Only hide in agent (document) mode.
+    const showVisualUploads = !agentMode
     const [inputValue, setInputValue] = useState('')
     const [isThinking, setIsThinking] = useState(false)
     const [currentActionLabel, setCurrentActionLabel] = useState('')
@@ -920,6 +937,7 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
               engine: 'studio-chat',
               mode: 'canvas',
               actions: executedActions.map((a) => a.label),
+              followUps: result.follow_ups ?? [],
             },
           })
           snapshotNow()
@@ -979,13 +997,41 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
           setMessages((prev) => [...prev, msg])
         },
         pushAssistantMessage: ({ content, chips, onChipClick }) => {
+          // No chips → render as a regular ChatMessage so ReactMarkdown picks
+          // it up (the QualificationMessage path renders raw text and breaks
+          // **bold**, lists, etc.). Tool-result summaries take this path.
+          if (!chips || chips.length === 0) {
+            // Carry the follow-up chips from the most recent assistant
+            // message that had any — the markdown summary bubble visually
+            // becomes the new "last message", so quick-action chips would
+            // disappear without this hand-off.
+            setMessages((prev) => {
+              let inheritedFollowUps: string[] | undefined
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const m = prev[i]
+                if (isActivity(m)) continue
+                const cm = m as ChatMessage
+                if (cm.role === 'assistant' && cm.followUps && cm.followUps.length > 0) {
+                  inheritedFollowUps = cm.followUps
+                  break
+                }
+              }
+              const msg: ChatMessage = {
+                role: 'assistant',
+                content,
+                followUps: inheritedFollowUps,
+              }
+              return [...prev, msg]
+            })
+            return
+          }
           const msg: QualificationMessage = {
             role: 'assistant',
             content,
             type: 'qualification',
-            chips: chips?.map((c) => c.label),
+            chips: chips.map((c) => c.label),
             onChipClick: (label: string) => {
-              const chip = chips?.find((c) => c.label === label)
+              const chip = chips.find((c) => c.label === label)
               if (chip) onChipClick?.(chip)
               setMessages((prev) => [...prev, { role: 'user' as const, content: label }])
             },
@@ -2576,73 +2622,68 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
               boxSizing: 'border-box' as const,
             }}
           >
-            {/* Reference image upload buttons — outside chatbox. Contextual. */}
+            {/* Reference image (file upload) + Produto (opens picker). Contextual. */}
             {showVisualUploads && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 8 }}>
-                {[
-                  {
-                    label: 'Referência de imagem',
-                    icon: <ImageIcon size={14} style={{ color: '#999' }} />,
-                  },
-                  { label: 'Produto', icon: <Package size={14} style={{ color: '#999' }} /> },
-                ].map((btn, idx) => (
-                  <label
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      border: '1.5px dashed #E0E0E0',
-                      background: '#FAFAFA',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      fontSize: 11,
-                      color: '#999',
-                      textAlign: 'left' as const,
-                      lineHeight: 1.3,
-                      fontFamily: 'inherit',
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  flexWrap: 'wrap' as const,
+                  marginBottom: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <label
+                  style={pillButtonStyle}
+                  onMouseEnter={pillHoverIn}
+                  onMouseLeave={pillHoverOut}
+                >
+                  <ImageIcon size={14} style={{ color: '#999' }} />
+                  <span>Referência de imagem</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file?.type.startsWith('image/')) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const dataUrl = ev.target?.result as string
+                        const base64 = dataUrl.split(',')[1]
+                        onReferenceImageDrop?.(base64, file.type || 'image/jpeg', dataUrl)
+                        setAttachedImages((prev) => [
+                          ...prev.slice(-3),
+                          { dataUrl, base64, mimeType: file.type as 'image/jpeg' | 'image/png' },
+                        ])
+                      }
+                      reader.readAsDataURL(file)
+                      e.target.value = ''
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#CCC'
-                      e.currentTarget.style.background = '#F5F5F5'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#E0E0E0'
-                      e.currentTarget.style.background = '#FAFAFA'
-                    }}
-                  >
-                    {btn.icon}
-                    <span>{btn.label}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (!file?.type.startsWith('image/')) return
-                        const reader = new FileReader()
-                        reader.onload = (ev) => {
-                          const dataUrl = ev.target?.result as string
-                          const base64 = dataUrl.split(',')[1]
-                          if (idx === 0) {
-                            onReferenceImageDrop?.(base64, file.type || 'image/jpeg', dataUrl)
-                          }
-                          setAttachedImages((prev) => [
-                            ...prev.slice(-3),
-                            { dataUrl, base64, mimeType: file.type as 'image/jpeg' | 'image/png' },
-                          ])
-                        }
-                        reader.readAsDataURL(file)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                ))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setProductPickerOpen(true)}
+                  style={pillButtonStyle}
+                  onMouseEnter={pillHoverIn}
+                  onMouseLeave={pillHoverOut}
+                >
+                  <Package size={14} style={{ color: '#999' }} />
+                  <span>Produto</span>
+                </button>
+                <ActiveProductChip
+                  product={studioSession.activeProduct}
+                  onRemove={() => studioSession.setActiveProduct(null)}
+                />
               </div>
             )}
+            <StudioProductPicker
+              open={productPickerOpen}
+              onOpenChange={setProductPickerOpen}
+              onPick={(product) => studioSession.setActiveProduct(product)}
+              activeProductId={studioSession.activeProduct?.id ?? null}
+            />
             <div
               style={{
                 background: '#FFFFFF',

@@ -91,6 +91,9 @@ Existing specs are in `specs/` — always check if a spec already exists before 
 
 ## Active Technologies
 
+- TypeScript 5 (strict mode) + Next.js 16.1.6 (App Router), React 19.2.3, shadcn/ui (new-york), Tailwind CSS v4, TanStack React Query (for picker fetch cache), `@supabase/ssr`, lucide-react (070-studio-product-picker)
+- Supabase PostgreSQL — existing `tasks.artifact_data` JSONB (merge under `activeProduct` sub-key); existing `stores` row for Nuvemshop credentials; Composio Shopify connected accounts (existing) (070-studio-product-picker)
+
 - TypeScript 5 (strict mode), Next.js 16.1.6 (App Router), React 19.2.3 + `@anthropic-ai/sdk` (Messages API + beta Managed Agents), `@supabase/ssr`, `@supabase/supabase-js`, `ai` (UIMessage streaming helpers), `zod/v4` (063-hybrid-chat-api)
 - Supabase PostgreSQL — `conversations` (existing), `conversation_messages` (existing), `tasks` (existing, `artifact_type`/`artifact_data`/`skill_status` columns). No schema changes expected. (063-hybrid-chat-api)
 
