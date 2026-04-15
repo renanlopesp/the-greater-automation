@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           await runRetailTool(teamId, user.id, ecommerce, 'STORE_LIST_ORDERS', params)
         )
+      case 'snew_top_products_sold':
+        return NextResponse.json(await topProductsSold(ecommerce, params))
       case 'snew_run_skill': {
         const slug = (params.slug as string) ?? ''
         if (!slug) return NextResponse.json({ error: 'slug is required' }, { status: 400 })
@@ -291,6 +293,186 @@ function synthesizeRetailArtifact(
     }
   }
   return null
+}
+
+/**
+ * Aggregate paid orders in a window into a "top products sold" view + current
+ * stock per product. Direct Nuvemshop API call (no MCP indirection — keeps the
+ * studio response under one round-trip and avoids needing a fresh mcp-tools
+ * deploy). Answers the question "quais produtos vendi essa semana e quanto
+ * tem em estoque" with a single ranked table.
+ */
+async function topProductsSold(
+  ecommerce: Awaited<ReturnType<typeof getStoreConnection>>,
+  params: Record<string, unknown>
+) {
+  if (ecommerce.kind !== 'nuvemshop') {
+    return {
+      error_code: 'ECOMMERCE_NOT_CONNECTED',
+      message: 'Conecte sua loja Nuvemshop em Apps para liberar essa consulta.',
+    }
+  }
+  const period = String(params.period ?? 'this_week')
+  const limit = Math.max(1, Math.min(50, Number(params.limit ?? 10)))
+
+  const now = new Date()
+  let from = new Date(now)
+  let to: Date = now
+  if (period === 'today') {
+    from.setHours(0, 0, 0, 0)
+  } else if (period === 'yesterday') {
+    from = new Date(now)
+    from.setDate(from.getDate() - 1)
+    from.setHours(0, 0, 0, 0)
+    to = new Date(from)
+    to.setHours(23, 59, 59, 999)
+  } else if (period === 'this_week') {
+    from = new Date(now)
+    from.setDate(from.getDate() - from.getDay())
+    from.setHours(0, 0, 0, 0)
+  } else if (period === 'this_month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1)
+  } else if (period === 'last_30_days') {
+    from = new Date(now)
+    from.setDate(from.getDate() - 30)
+  }
+
+  const periodLabel =
+    period === 'today'
+      ? 'Hoje'
+      : period === 'yesterday'
+        ? 'Ontem'
+        : period === 'this_week'
+          ? 'Esta semana'
+          : period === 'this_month'
+            ? 'Este mês'
+            : period === 'last_30_days'
+              ? 'Últimos 30 dias'
+              : 'Período'
+
+  const apiBase = `https://api.nuvemshop.com.br/v1/${ecommerce.platformStoreId}`
+  const headers = {
+    Authentication: `bearer ${ecommerce.accessToken}`,
+    'User-Agent': 'Snew/1.0',
+  }
+
+  try {
+    const ordersUrl = `${apiBase}/orders?created_at_min=${from.toISOString()}&created_at_max=${to.toISOString()}&payment_status=paid&per_page=200`
+    const ordersRes = await fetch(ordersUrl, { headers })
+    if (!ordersRes.ok) {
+      const status = ordersRes.status
+      if (status === 401 || status === 403) {
+        return {
+          error_code: 'NUVEMSHOP_AUTH_EXPIRED',
+          message: 'Reautorize a Nuvemshop em Apps.',
+          reauth_url: '/api/nuvemshop/connect',
+        }
+      }
+      throw new Error(`Nuvemshop ${status}`)
+    }
+    const orders = (await ordersRes.json()) as Array<{
+      products?: Array<{
+        product_id?: number | string
+        variant_id?: number | string
+        name?: string
+        quantity?: number
+        price?: string
+      }>
+    }>
+
+    // Aggregate by product_id
+    const agg = new Map<
+      string,
+      { product_id: string; name: string; qty: number; revenue: number }
+    >()
+    for (const o of orders) {
+      for (const li of o.products ?? []) {
+        const pid = String(li.product_id ?? li.variant_id ?? li.name ?? 'unknown')
+        const name = String(li.name ?? 'Sem nome')
+        const qty = Number(li.quantity ?? 0)
+        const price = parseFloat(li.price ?? '0')
+        const cur = agg.get(pid) ?? { product_id: pid, name, qty: 0, revenue: 0 }
+        cur.qty += qty
+        cur.revenue += qty * price
+        agg.set(pid, cur)
+      }
+    }
+    const ranked = [...agg.values()].sort((a, b) => b.qty - a.qty).slice(0, limit)
+
+    // Fetch current stock per product (parallel, capped)
+    const stockMap = new Map<string, number>()
+    await Promise.all(
+      ranked.map(async (p) => {
+        if (!/^\d+$/.test(p.product_id)) return
+        try {
+          const r = await fetch(`${apiBase}/products/${p.product_id}`, { headers })
+          if (!r.ok) return
+          const prod = (await r.json()) as { variants?: Array<{ stock?: number }> }
+          const stock = (prod.variants ?? []).reduce(
+            (s, v) => s + (typeof v.stock === 'number' ? v.stock : 0),
+            0
+          )
+          stockMap.set(p.product_id, stock)
+        } catch {
+          /* skip individual failures */
+        }
+      })
+    )
+
+    const rows = ranked
+      .map((p) => {
+        const stock = stockMap.get(p.product_id)
+        const stockBadge =
+          stock === undefined
+            ? ''
+            : stock <= 5
+              ? `<span class="badge badge-red">${stock}</span>`
+              : stock <= 20
+                ? `<span class="badge badge-amber">${stock}</span>`
+                : `<span class="badge badge-green">${stock}</span>`
+        return `<tr><td>${escHtml(p.name)}</td><td class="number bold">${p.qty}</td><td class="number">R$ ${p.revenue.toFixed(2)}</td><td>${stockBadge || '—'}</td></tr>`
+      })
+      .join('')
+
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">Mais vendidos — ${escHtml(periodLabel)}</div>
+        <div class="card-elevated" style="padding:0;overflow:hidden;">
+          <table class="table">
+            <thead><tr><th>Produto</th><th>Vendidos</th><th>Receita</th><th>Estoque</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="4">Nenhuma venda no período.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>`
+
+    return {
+      period,
+      total_orders: orders.length,
+      top_products: ranked.map((p) => ({
+        product_id: p.product_id,
+        name: p.name,
+        quantity_sold: p.qty,
+        revenue: p.revenue,
+        current_stock: stockMap.get(p.product_id) ?? null,
+      })),
+      artifact: {
+        type: 'chat-data',
+        title: `Mais vendidos — ${periodLabel}`,
+        html,
+        data: {
+          period,
+          total_orders: orders.length,
+          products: ranked,
+        },
+      },
+    }
+  } catch (e) {
+    return {
+      error_code: 'RETAIL_TOOL_FAILED',
+      tool: 'snew_top_products_sold',
+      message: (e as Error).message ?? 'unknown',
+    }
+  }
 }
 
 async function listAvailableApps(userId: string) {

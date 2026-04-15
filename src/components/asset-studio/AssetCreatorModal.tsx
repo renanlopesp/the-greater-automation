@@ -12464,6 +12464,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
         case 'snew_query_sales':
         case 'snew_query_stock':
         case 'snew_list_orders':
+        case 'snew_top_products_sold':
         case 'snew_connect_app':
         case 'snew_run_skill':
         case 'snew_post_to_app': {
@@ -12618,7 +12619,8 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
               if (
                 action.type === 'snew_query_sales' ||
                 action.type === 'snew_query_stock' ||
-                action.type === 'snew_list_orders'
+                action.type === 'snew_list_orders' ||
+                action.type === 'snew_top_products_sold'
               ) {
                 if (json?.error_code === 'ECOMMERCE_NOT_CONNECTED')
                   return 'Conecte sua loja para responder isso'
@@ -12637,6 +12639,8 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 }
                 if (action.type === 'snew_list_orders' && Array.isArray(json?.orders))
                   return `${json.orders.length} pedido(s) recente(s)`
+                if (action.type === 'snew_top_products_sold' && Array.isArray(json?.top_products))
+                  return `Top ${json.top_products.length} produto(s) vendido(s) · ${json.total_orders ?? '?'} pedido(s) no período`
                 return json?.message ?? 'Consulta concluída'
               }
               if (action.type === 'snew_run_skill')

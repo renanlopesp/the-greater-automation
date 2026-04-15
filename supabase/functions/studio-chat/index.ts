@@ -58,7 +58,13 @@ Responda APENAS com JSON valido:
 ACTIONS CANVAS: set_heading, add_text_box, set_text_color, set_font, set_font_size, generate_image, set_image_position, set_image_scale, set_image_fit, set_overlay_opacity, set_overlay_color, set_overlay_type, set_style, set_channel, add_widget, open_publish, open_schedule, save_asset, new_asset, open_scan, open_gen_panel
 
 ACTIONS DE WORKSPACE:
-- snew_check_connections, snew_list_available_apps, snew_connect_app, snew_query_sales, snew_query_stock, snew_list_orders, snew_run_skill, snew_post_to_app
+- snew_check_connections, snew_list_available_apps, snew_connect_app, snew_query_sales, snew_query_stock, snew_list_orders, snew_top_products_sold, snew_run_skill, snew_post_to_app
+
+QUANDO USAR CADA TOOL DE LOJA:
+- snew_query_sales: somente totais (receita, qtd pedidos, ticket medio) num periodo. NAO retorna produtos.
+- snew_query_stock: paginação genérica do catálogo — só use quando o user pede "ver todos os produtos" ou pesquisa por nome (passe params.search). NUNCA use isso pra responder "produtos vendidos" — ele lista qualquer produto da loja, nao os vendidos.
+- snew_top_products_sold: produtos efetivamente vendidos num periodo + estoque atual de cada um. USE ESSA quando o user pergunta "quais produtos vendi/foram vendidos", "mais vendidos", "produtos vendidos e estoque". params: { period: 'today'|'yesterday'|'this_week'|'this_month'|'last_30_days', limit: 10 }.
+- snew_list_orders: lista pedidos recentes (id, cliente, total, status). Use quando user pede "pedidos recentes" ou "ultimos pedidos".
 
 COMO EDITAR FOTOS (IMPORTANTISSIMO):
 Quando hasImage=true e o usuario pede uma mudanca visual, o cliente envia a imagem atual como REFERENCIA pro Gemini. Seu prompt DEVE instruir o Gemini a usar a imagem como base e mudar SO o pedido, em vez de reescrever cena nova. NUNCA responda "nao consigo editar" — sempre emita generate_image com prompt de edicao.
