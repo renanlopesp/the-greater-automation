@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { seedSeasonalCalendar } from '@/lib/actions/skills'
 import { createLogger } from '@/lib/logger'
 
@@ -17,13 +18,8 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
-  if (!membership) return NextResponse.json({ error: 'No team' }, { status: 400 })
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team' }, { status: 400 })
 
   const rawBody = await request.json().catch(() => null)
   if (!rawBody) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -47,7 +43,7 @@ export async function POST(request: NextRequest) {
           rpc: (fn: string, params: Record<string, unknown>) => Promise<{ error: unknown }>
         }
       ).rpc('activate_skill', {
-        p_team_id: membership.team_id,
+        p_team_id: teamId,
         p_slug: slug,
       })
     } catch (e) {
@@ -59,7 +55,7 @@ export async function POST(request: NextRequest) {
   await serviceClient
     .from('stores')
     .update({ onboarding_completed: true } as never)
-    .eq('team_id', membership.team_id)
+    .eq('team_id', teamId)
 
   // Seed the Seasonal Calendar as the first real skill
   try {
@@ -71,8 +67,8 @@ export async function POST(request: NextRequest) {
   // Provision the Managed Agent now that brand DNA + skills are ready
   try {
     const { provisionAgent } = await import('@/lib/ai/agent-provisioning')
-    await provisionAgent(membership.team_id, user.id)
-    log.info({ teamId: membership.team_id }, 'Agent provisioned during onboarding')
+    await provisionAgent(teamId, user.id)
+    log.info({ teamId: teamId }, 'Agent provisioned during onboarding')
   } catch (e) {
     log.error({ err: e }, 'Failed to provision agent during onboarding')
     // Non-blocking — agent will auto-provision on first chat message if this fails

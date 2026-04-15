@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeDbError } from '@/lib/safe-error'
 
 const createSchema = z.object({
@@ -20,19 +21,14 @@ async function getStoreForUser() {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized', status: 401 } as const
 
-  const { data: member } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
-  if (!member) return { error: 'No team', status: 400 } as const
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return { error: 'No team', status: 400 } as const
 
   const serviceClient = createServiceRoleClient()
   const { data: store } = await serviceClient
     .from('stores')
     .select('id')
-    .eq('team_id', member.team_id)
+    .eq('team_id', teamId)
     .single()
   if (!store) return { error: 'No store', status: 404 } as const
 

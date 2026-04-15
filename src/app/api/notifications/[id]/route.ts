@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 import { safeDbError } from '@/lib/safe-error'
 
 const NotificationPatchSchema = z.object({
@@ -28,20 +29,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   const { is_read } = parsed.data
 
-  // Get user's team_id to verify access
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) return NextResponse.json({ error: 'No team found' }, { status: 404 })
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 404 })
 
   const { data, error } = await supabase
     .from('notifications')
     .update({ read: is_read })
     .eq('id', id)
-    .eq('team_id', membership.team_id)
+    .eq('team_id', teamId)
     .select('id, read, created_at')
     .single()
 

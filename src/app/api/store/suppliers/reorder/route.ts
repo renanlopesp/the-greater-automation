@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { getActiveTeamId } from '@/lib/get-active-team'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient()
@@ -8,19 +9,14 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: member } = await supabase
-    .from('team_members')
-    .select('team_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
-  if (!member) return NextResponse.json({ error: 'No team' }, { status: 400 })
+  const teamId = await getActiveTeamId(supabase, user.id)
+  if (!teamId) return NextResponse.json({ error: 'No team' }, { status: 400 })
 
   const serviceClient = createServiceRoleClient()
   const { data: store } = await serviceClient
     .from('stores')
     .select('id')
-    .eq('team_id', member.team_id)
+    .eq('team_id', teamId)
     .single()
   if (!store) return NextResponse.json({ error: 'No store' }, { status: 404 })
 
