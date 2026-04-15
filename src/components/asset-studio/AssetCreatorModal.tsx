@@ -1145,6 +1145,7 @@ export interface AssetCreatorData {
   styleDesc?: string | null
   restoreGallery?: { id: string; url: string }[]
   restoreActiveGalleryId?: string | null
+  restoreAssetHistory?: any[]
 }
 
 interface Props {
@@ -6887,7 +6888,9 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
     imageScale?: number
     imageFit?: 'cover' | 'contain'
   }
-  const [assetHistory, setAssetHistoryRaw] = useState<AssetHistoryItem[]>([])
+  const [assetHistory, setAssetHistoryRaw] = useState<AssetHistoryItem[]>(
+    () => (data.restoreAssetHistory as AssetHistoryItem[] | undefined) ?? []
+  )
   const setAssetHistory: typeof setAssetHistoryRaw = useCallback((updater) => {
     setAssetHistoryRaw((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater
@@ -12061,6 +12064,10 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       hasImage: !!activeImageUrl && !isPlaceholderImage(activeImageUrl),
       imgGallery,
       activeGalleryId,
+      // Bottom-of-canvas thumbnail strip (lines 15327+) renders from
+      // assetHistory, so we have to persist that too — otherwise the strip
+      // disappears on reload until the user manually clicks each thumb in chat.
+      assetHistory,
       storeName: storeCtx?.name ?? '',
       storeNiche: storeCtx?.niche ?? '',
       storeTone: storeCtx?.tone ?? '',
@@ -12097,6 +12104,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       activeImageUrl,
       imgGallery,
       activeGalleryId,
+      assetHistory,
       storeCtx,
     ]
   )
