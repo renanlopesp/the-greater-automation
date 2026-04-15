@@ -536,9 +536,14 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
             } as ActivityMessage
           }
           if (raw.role === 'user' || raw.role === 'assistant') {
+            const meta = raw.metadata ?? {}
+            const followUps = Array.isArray((meta as Record<string, unknown>).followUps)
+              ? ((meta as Record<string, unknown>).followUps as string[])
+              : undefined
             return {
               role: raw.role,
               content: raw.content,
+              followUps,
             } as ChatMessage
           }
           return null
@@ -920,6 +925,7 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
               engine: 'studio-chat',
               mode: 'canvas',
               actions: executedActions.map((a) => a.label),
+              followUps: result.follow_ups ?? [],
             },
           })
           snapshotNow()

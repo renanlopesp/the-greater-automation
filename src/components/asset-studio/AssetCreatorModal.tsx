@@ -12706,6 +12706,30 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                   const text = sum?.summary?.trim()
                   if (text) {
                     chatPanelRef.current?.pushAssistantMessage?.({ content: text })
+                    // Find the most recent assistant message's followUps so
+                    // they ride along on the persisted markdown bubble too —
+                    // otherwise on reload the chips end up under the wrong
+                    // message (or nowhere).
+                    const allMsgsForFollowups = (chatPanelRef.current?.getMessages?.() ??
+                      []) as Array<{ role?: string; followUps?: string[] }>
+                    let inherited: string[] | undefined
+                    for (let i = allMsgsForFollowups.length - 1; i >= 0; i--) {
+                      const m = allMsgsForFollowups[i]
+                      if (m?.role === 'assistant' && m.followUps && m.followUps.length > 0) {
+                        inherited = m.followUps
+                        break
+                      }
+                    }
+                    void studioSession.persistTurn({
+                      userMessage: '',
+                      assistantMessage: text,
+                      metadata: {
+                        engine: 'studio-summarize',
+                        tool: action.type,
+                        resource: json.resource,
+                        followUps: inherited ?? [],
+                      },
+                    })
                   }
                 })
                 .catch(() => {
