@@ -47,11 +47,14 @@ export async function POST(request: NextRequest) {
   const executionId = (execRow as { id: string } | null)?.id
 
   // Fire-and-forget to Edge Function
-  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-campaign?secret=${process.env.MCP_AUTH_TOKEN}`
+  const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-seasonal-campaign`
 
   fetch(edgeFnUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.MCP_AUTH_TOKEN}`,
+    },
     body: JSON.stringify({
       team_id: teamId,
       execution_id: executionId,
