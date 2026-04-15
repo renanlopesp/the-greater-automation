@@ -90,7 +90,7 @@ export async function provisionAgent(
     store
       ? {
           storeName: store.name,
-          segment: store.segment,
+          segment: store.segment ?? '',
           platform: store.platform,
           hasProducts,
         }

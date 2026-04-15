@@ -29,35 +29,32 @@ export async function GET() {
 
   const now = new Date().toISOString()
 
-  // Fetch everything in parallel
-  const [usageResult, subscriptionResult, teamResult, membersData, invitationsData, storeResult] =
-    await Promise.all([
-      supabase
-        .from('usage')
-        .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
-        .eq('team_id', teamId)
-        .lte('period_start', now)
-        .gte('period_end', now)
-        .order('period_start', { ascending: false })
-        .limit(1),
-      supabase
-        .from('subscriptions')
-        .select('stripe_subscription_id, cancel_at_period_end, status')
-        .eq('team_id', teamId)
-        .single(),
-      supabase
-        .from('teams')
-        .select('id, plan_id, plans(id, name, features, max_team_members)')
-        .eq('id', teamId)
-        .single(),
-      fetchTeamMembers(supabase, teamId),
-      fetchTeamInvitations(supabase, teamId),
-      supabase
-        .from('stores')
-        .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
-        .eq('team_id', teamId)
-        .single(),
-    ])
+  // Fetch everything in parallel. The legacy `subscriptions` table was
+  // dropped during the 2026-04-01 project move — Stripe/billing data is no
+  // longer tracked here, so hasStripeSubscription/cancelAtPeriodEnd default
+  // to false below.
+  const [usageResult, teamResult, membersData, invitationsData, storeResult] = await Promise.all([
+    supabase
+      .from('usage')
+      .select('steps_used, steps_limit, ai_credits_used, ai_credits_limit')
+      .eq('team_id', teamId)
+      .lte('period_start', now)
+      .gte('period_end', now)
+      .order('period_start', { ascending: false })
+      .limit(1),
+    supabase
+      .from('teams')
+      .select('id, plan_id, plans(id, name, features, max_team_members)')
+      .eq('id', teamId)
+      .single(),
+    fetchTeamMembers(supabase, teamId),
+    fetchTeamInvitations(supabase, teamId),
+    supabase
+      .from('stores')
+      .select('id, name, segment, platform, platform_store_id, last_sync_at, settings')
+      .eq('team_id', teamId)
+      .single(),
+  ])
 
   // Build usage
   const usageRow = usageResult.data?.[0]
@@ -79,8 +76,8 @@ export async function GET() {
         planName: planInfo?.name ?? 'Free',
         features: planInfo?.features ?? {},
         maxTeamMembers: planInfo?.max_team_members ?? 1,
-        hasStripeSubscription: !!subscriptionResult.data?.stripe_subscription_id,
-        cancelAtPeriodEnd: subscriptionResult.data?.cancel_at_period_end ?? false,
+        hasStripeSubscription: false,
+        cancelAtPeriodEnd: false,
       }
     : null
 
@@ -88,23 +85,12 @@ export async function GET() {
   const storeRow = storeResult.data
   let storeData = null
   if (storeRow) {
-    let platformStoreId = storeRow.platform_store_id ?? null
-    if (!platformStoreId && storeRow.platform) {
-      const { data: appConn } = await supabase
-        .from('app_connections')
-        .select('composio_connection_id')
-        .eq('team_id', teamId)
-        .eq('app_id', storeRow.platform)
-        .limit(1)
-        .single()
-      if (appConn?.composio_connection_id) {
-        platformStoreId = appConn.composio_connection_id
-        await supabase
-          .from('stores')
-          .update({ platform_store_id: platformStoreId })
-          .eq('id', storeRow.id)
-      }
-    }
+    const platformStoreId = storeRow.platform_store_id ?? null
+    // The legacy backfill path (read composio_connection_id from
+    // app_connections and reflect it on stores.platform_store_id) was
+    // removed in the 2026-04-15 schema refactor — app_connections.app_id
+    // and composio_connection_id are no longer columns; connection ids now
+    // live inside app_connections.credentials (jsonb).
     storeData = {
       id: storeRow.id,
       name: storeRow.name,

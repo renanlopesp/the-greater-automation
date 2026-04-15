@@ -66,22 +66,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${siteUrl}/dashboard?error=no_team`)
     }
 
-    // Upsert the connection in our DB
-    const { error: upsertError } = await supabase.from('app_connections').upsert(
-      {
-        user_id: user.id,
-        team_id: teamId,
-        app_id: pending.appId,
-        composio_connection_id: pending.connectedAccountId,
-        account_label: (account as Record<string, unknown>)?.accountId
-          ? String((account as Record<string, unknown>).accountId)
-          : pending.appId,
-        account_id: String((account as Record<string, unknown>)?.id ?? ''),
-        metadata: {},
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,app_id' }
-    )
+    // Upsert the connection. After the 2026-04-15 schema refactor,
+    // `app_connections` is keyed by (user_id, app_name) and stores the
+    // Composio connection id + account metadata under the `credentials`
+    // jsonb column. Legacy flat columns (app_id, composio_connection_id,
+    // account_label, account_id, metadata) were dropped.
+    const accountRecord = (account ?? {}) as Record<string, unknown>
+    const credentials = {
+      composio_connection_id: pending.connectedAccountId,
+      account_id: String(accountRecord.id ?? ''),
+      account_label: accountRecord.accountId ? String(accountRecord.accountId) : pending.appId,
+    }
+    const upsertRow = {
+      user_id: user.id,
+      team_id: teamId,
+      app_name: pending.appId,
+      credentials,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+    }
+    const { error: upsertError } = await supabase
+      .from('app_connections')
+      .upsert(upsertRow as never, { onConflict: 'user_id,app_name' })
 
     if (upsertError) {
       log.error({ err: upsertError }, 'Failed to save connection')

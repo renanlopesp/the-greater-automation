@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
-import type { Json } from '@/lib/supabase/database.types'
+import type { Json } from '@/types/database'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 
 type ActionResult<T = void> = T extends void ? { error?: string } : { error?: string } & T

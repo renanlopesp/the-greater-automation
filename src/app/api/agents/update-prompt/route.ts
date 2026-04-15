@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       store
         ? {
             storeName: store.name,
-            segment: store.segment,
+            segment: store.segment ?? '',
             platform: store.platform,
             hasProducts,
           }

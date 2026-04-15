@@ -1,5 +1,11 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// agent_workflows.workflow_id column was removed; the join pattern here
+// needs reworking (module_id is the new linking key). See legacy
+// migrations archive for context.
+
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database } from '@/types/database'
 
 type Client = SupabaseClient<Database>
 

@@ -3,27 +3,24 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { safeDbError } from '@/lib/safe-error'
 
-// Types
-export type NotificationType =
-  | 'workflow_published'
-  | 'workflow_unpublished'
-  | 'workflow_run_completed'
-  | 'workflow_run_failed'
-  | 'workflow_run_approval_required'
-  | 'general'
+// Types matching the current `notifications` table (2026-04-15 schema).
+export type NotificationUrgency = 'urgent' | 'opportunity' | 'insight'
 
 export interface NotificationRow {
   id: string
-  user_id: string
+  user_id: string | null
   team_id: string
-  workflow_id: string | null
-  type: NotificationType
+  urgency: NotificationUrgency
   title: string
-  message: string | null
-  read: boolean
+  body: string | null
+  cta_url: string | null
+  is_read: boolean
   created_at: string
 }
 
+// Kept for callers that still import the old name. The
+// `notification_preferences` table was dropped; all fields default to
+// sensible values and update is a no-op.
 export interface NotificationPreferencesRow {
   id: string
   user_id: string
@@ -34,7 +31,10 @@ export interface NotificationPreferencesRow {
   updated_at: string
 }
 
-// ─── Notifications CRUD ─────────────────────────────────────────────
+const normaliseUrgency = (u: string | null): NotificationUrgency => {
+  if (u === 'urgent' || u === 'opportunity') return u
+  return 'insight'
+}
 
 export async function getNotifications(limit = 50): Promise<{
   notifications: NotificationRow[]
@@ -48,7 +48,7 @@ export async function getNotifications(limit = 50): Promise<{
 
   const { data, error } = await supabase
     .from('notifications')
-    .select('id, user_id, team_id, workflow_id, type, title, message, read, created_at')
+    .select('id, user_id, team_id, urgency, title, body, cta_url, is_read, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -58,7 +58,19 @@ export async function getNotifications(limit = 50): Promise<{
       notifications: [],
       error: safeDbError('notifications/get', error, 'Failed to load notifications'),
     }
-  return { notifications: (data ?? []) as NotificationRow[] }
+
+  const notifications: NotificationRow[] = (data ?? []).map((n) => ({
+    id: n.id,
+    user_id: n.user_id,
+    team_id: n.team_id,
+    urgency: normaliseUrgency(n.urgency),
+    title: n.title,
+    body: n.body ?? null,
+    cta_url: n.cta_url ?? null,
+    is_read: n.is_read ?? false,
+    created_at: n.created_at,
+  }))
+  return { notifications }
 }
 
 export async function getUnreadCount(): Promise<{ count: number; error?: string }> {
@@ -72,7 +84,7 @@ export async function getUnreadCount(): Promise<{ count: number; error?: string 
     .from('notifications')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
-    .eq('read', false)
+    .eq('is_read', false)
 
   if (error)
     return {
@@ -91,7 +103,7 @@ export async function markAsRead(notificationId: string): Promise<{ error?: stri
 
   const { error } = await supabase
     .from('notifications')
-    .update({ read: true })
+    .update({ is_read: true })
     .eq('id', notificationId)
     .eq('user_id', user.id)
 
@@ -111,9 +123,9 @@ export async function markAllAsRead(): Promise<{ error?: string }> {
 
   const { error } = await supabase
     .from('notifications')
-    .update({ read: true })
+    .update({ is_read: true })
     .eq('user_id', user.id)
-    .eq('read', false)
+    .eq('is_read', false)
 
   if (error)
     return {
@@ -129,10 +141,10 @@ export async function markAllAsRead(): Promise<{ error?: string }> {
 export async function createNotification(params: {
   userId: string
   teamId: string
-  workflowId?: string
-  type: NotificationType
+  urgency?: NotificationUrgency
   title: string
-  message?: string
+  body?: string
+  ctaUrl?: string
 }): Promise<{ id?: string; error?: string }> {
   const supabase = await createServerClient()
   const {
@@ -140,7 +152,6 @@ export async function createNotification(params: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Verify caller is a member of the target team
   const { data: membership } = await supabase
     .from('team_members')
     .select('team_id')
@@ -149,7 +160,6 @@ export async function createNotification(params: {
     .single()
   if (!membership) return { error: 'Not a member of this team' }
 
-  // Notifications can only target the calling user (prevent impersonation)
   if (params.userId !== user.id) return { error: 'Cannot create notifications for other users' }
 
   const { data, error } = await supabase
@@ -157,10 +167,10 @@ export async function createNotification(params: {
     .insert({
       user_id: params.userId,
       team_id: params.teamId,
-      workflow_id: params.workflowId ?? null,
-      type: params.type,
+      urgency: params.urgency ?? 'insight',
       title: params.title,
-      message: params.message ?? null,
+      body: params.body ?? null,
+      cta_url: params.ctaUrl ?? null,
     })
     .select('id')
     .single()
@@ -170,71 +180,21 @@ export async function createNotification(params: {
   return { id: data?.id }
 }
 
-// ─── Notification Preferences ───────────────────────────────────────
-
+// Notification preferences: the `notification_preferences` table was
+// dropped in the 2026-04-15 refactor. These helpers return sensible
+// defaults so callers keep working; a real implementation should go
+// through a dedicated settings surface once the feature is revived.
 export async function getNotificationPreferences(): Promise<{
   preferences: NotificationPreferencesRow | null
   error?: string
 }> {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { preferences: null, error: 'Not authenticated' }
-
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .select('id, user_id, email_enabled, failures_enabled, digest_enabled, created_at, updated_at')
-    .eq('user_id', user.id)
-    .single()
-
-  if (error && error.code !== 'PGRST116') {
-    // PGRST116 = no rows returned, which is fine (use defaults)
-    return {
-      preferences: null,
-      error: safeDbError(
-        'notifications/get-preferences',
-        error,
-        'Failed to load notification preferences'
-      ),
-    }
-  }
-
-  return { preferences: (data as NotificationPreferencesRow) ?? null }
+  return { preferences: null }
 }
 
-export async function updateNotificationPreferences(prefs: {
+export async function updateNotificationPreferences(_prefs: {
   emailEnabled?: boolean
   failuresEnabled?: boolean
   digestEnabled?: boolean
 }): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
-
-  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (prefs.emailEnabled !== undefined) updateData.email_enabled = prefs.emailEnabled
-  if (prefs.failuresEnabled !== undefined) updateData.failures_enabled = prefs.failuresEnabled
-  if (prefs.digestEnabled !== undefined) updateData.digest_enabled = prefs.digestEnabled
-
-  // Upsert — create if not exists, update if exists
-  const { error } = await supabase.from('notification_preferences').upsert(
-    {
-      user_id: user.id,
-      ...updateData,
-    },
-    { onConflict: 'user_id' }
-  )
-
-  if (error)
-    return {
-      error: safeDbError(
-        'notifications/update-preferences',
-        error,
-        'Failed to update notification preferences'
-      ),
-    }
   return {}
 }

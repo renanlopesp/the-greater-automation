@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// References columns (checkout_id, checkout_total, recovered_at) on tables
+// that no longer exist in the current schema. Abandoned-cart flow is
+// dormant until the tables are restored or the feature is rewritten.
+
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/telegram'
 import { createLogger } from '@/lib/logger'

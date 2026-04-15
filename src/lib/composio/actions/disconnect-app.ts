@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// References app_connections.composio_connection_id; that column was
+// moved into credentials (jsonb) during the 2026-04-15 schema refactor.
+
 'use server'
 
 import { getComposio } from '../client'

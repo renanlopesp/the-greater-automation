@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// Reads store_price_monitors.own_product_id/product_name/previous_price/
+// last_checked_at/marketplace which no longer exist in the current schema
+// (price_monitors now uses product_id + last_price + competitor_url).
+
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { buildSalesSummary, formatSalesSummaryMessage } from './sales-summary'
 

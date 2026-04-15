@@ -22,12 +22,12 @@ export function useMessageFeedback(agentId: string, messageIds: string[]) {
       const supabase = createBrowserClient()
       const { data } = await supabase
         .from('message_feedback')
-        .select('message_id, feedback')
+        .select('message_id, rating')
         .in('message_id', messageIds)
 
       const map: FeedbackState = {}
       data?.forEach((row) => {
-        map[row.message_id] = row.feedback as Feedback
+        map[row.message_id] = row.rating as Feedback
       })
       return map
     },

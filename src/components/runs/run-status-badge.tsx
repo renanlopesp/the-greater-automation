@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database } from '@/types/database'
 
 type RunStatus = Database['public']['Enums']['run_status']
 

@@ -34,10 +34,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { data, error } = await supabase
     .from('notifications')
-    .update({ read: is_read })
+    .update({ is_read })
     .eq('id', id)
     .eq('team_id', teamId)
-    .select('id, read, created_at')
+    .select('id, is_read, created_at')
     .single()
 
   if (error)
