@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database } from '@/types/database'
 import { fetchSkillBySlug, fetchActiveSkills, type SkillRow } from '@/lib/queries/skills'
 import { skills as skillRegistry } from '@/data/skills'
 

@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import type { Json } from '@/lib/supabase/database.types'
+import type { Json } from '@/types/database'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('retail/provision-store')

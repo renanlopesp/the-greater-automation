@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'
-import type { Json } from '@/lib/supabase/database.types'
+import type { Json } from '@/types/database'
 
 const StoreSettingsPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),

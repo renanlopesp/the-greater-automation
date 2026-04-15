@@ -1,7 +1,7 @@
 import { jsonSchema } from 'ai'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'
-import type { Json } from '@/lib/supabase/database.types'
+import type { Json } from '@/types/database'
 
 type SupabaseClient = ReturnType<typeof createServiceRoleClient>
 

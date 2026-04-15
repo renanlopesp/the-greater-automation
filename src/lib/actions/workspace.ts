@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database } from '@/types/database'
 import { getUserTeamRole, canMutate } from '@/lib/auth/require-role'
 import { safeDbError } from '@/lib/safe-error'
 
