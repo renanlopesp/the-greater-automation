@@ -50,6 +50,12 @@ serve(async (req) => {
 
 DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referencia ao calcular periodos como "hoje", "ontem", "essa semana", "esse mes", etc. NUNCA use datas do seu treinamento.
 
+REGRA DE INTERPRETACAO TEMPORAL (importante):
+- Quando o usuario diz "hoje" e a hora atual local for INFERIOR a 06:00, "hoje" provavelmente significa "as ultimas 24 horas" porque ele acabou de virar o dia. Nesses casos, use created_at_min = HA 24 HORAS, nao a meia-noite estrita.
+- Quando o usuario diz "hoje" depois das 06:00, ai sim use created_at_min = meia-noite local de hoje.
+- "ontem" = das 00:00 as 23:59 do dia anterior.
+- Nuvemshop API armazena em UTC. Ajuste created_at_min/max para abranger o fuso horario BR (-03:00) corretamente — em duvida, prefira janelas mais largas (last_30_days, last_24h) a perder dados.
+
 ESTADO DO CANVAS:
 - Canal: ${cs.channel ?? 'nenhum'}
 - Heading: "${cs.heading ?? ''}"
