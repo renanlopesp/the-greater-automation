@@ -40,7 +40,15 @@ serve(async (req) => {
 
     const ecommerceKind: 'nuvemshop' | 'shopify-composio' | null = cs.ecommerceKind ?? null
 
+    // Inject the real current date — without this the AI defaults to its
+    // training-cutoff "today" and emits stale created_at_min/max windows
+    // (e.g. 2025-01-XX) when computing "esta semana".
+    const nowISO = new Date().toISOString()
+    const today = nowISO.slice(0, 10) // YYYY-MM-DD
+
     const systemPrompt = `Voce e o assistente criativo do Snew Studio — CMO senior, direto e pratico.
+
+DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referencia ao calcular periodos como "hoje", "ontem", "essa semana", "esse mes", etc. NUNCA use datas do seu treinamento.
 
 ESTADO DO CANVAS:
 - Canal: ${cs.channel ?? 'nenhum'}
