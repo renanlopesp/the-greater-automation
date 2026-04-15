@@ -22,7 +22,7 @@ export default function ActivityFeed() {
           <span className="text-foreground text-[13px] font-medium">Activity</span>
         </div>
         <Link
-          href="/chat"
+          href="/studio/create"
           className="text-muted-foreground hover:text-foreground text-[11px] transition-colors"
         >
           View all →

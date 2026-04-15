@@ -19,6 +19,7 @@ const protectedPrefixes = [
   '/workflows',
   '/skills',
   '/chat',
+  '/studio',
   '/apps',
   '/history',
   '/notifications',

@@ -112,7 +112,7 @@ export default function HistoryClient({ conversations: conversationRows }: Histo
                   <div key={chat.id}>
                     <div
                       className="group relative flex cursor-pointer items-center justify-between py-3"
-                      onClick={() => router.push(`/chat?c=${chat.id}`)}
+                      onClick={() => router.push(`/studio/create/${chat.id}`)}
                     >
                       <p className="text-foreground text-sm">{chat.title}</p>
                       <div className="ml-4 flex shrink-0 items-center gap-2">

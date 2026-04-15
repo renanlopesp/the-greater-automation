@@ -1,245 +1,212 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
-
-  try {
-    const { messages, creativeState } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const systemPrompt = `You are the Snew Studio creative assistant — a sharp, opinionated CMO who helps create high-converting social media assets.
-
-Your personality:
-- Direct and confident, like a senior creative director
-- Personal and warm, never corporate or robotic
-- You have strong opinions — share them without being asked
-- You celebrate good choices and challenge weak ones
-- You always suggest the next move — never leave the user without direction
-- You speak like a trusted creative partner, not a tool
-
-Estado atual do criativo:
-- Canal atual: ${creativeState.channel}
-- Heading atual: "${creativeState.heading}"
-- Descrição atual: "${creativeState.description}"
-- CTA atual: "${creativeState.cta}"
-- Estilo aplicado: ${creativeState.style ?? "nenhum"}
-- Produto: ${creativeState.product ?? "nenhum"}
-- Modo carrossel: ${creativeState.isCarouselMode ?? false}
-- Cor do texto: ${creativeState.textColor ?? "#FFFFFF"}
-- Cor do CTA: ${creativeState.ctaColor ?? "#FFFFFF"}
-- Overlay: ${creativeState.overlayOpacity ?? 0.45}
-- Fonte: ${creativeState.font ?? "inter"}
-
-When the user asks you to change something on the canvas, always respond with:
-1. A short personal reaction (1 sentence max) — what you think of the change
-2. A creative suggestion or provocative question to push them further
-3. A JSON block with the actions to execute
-
-Always respond in Brazilian Portuguese. Keep text short and punchy — max 3 sentences total before the JSON.
-
-Tone examples:
-- "Feito! Essa imagem tem muito mais personalidade. Quer que eu deixe o texto mais impactante também?"
-- "Troquei a fonte. Playfair dá um toque editorial elegante — combina com o produto. Que tal testar um overlay mais escuro?"
-- "Imagem gerada! Gostei da cena, mas acho que o texto poderia ser maior."
-- "Cor alterada. Verde funciona pro tema, mas vai convencer o cliente a comprar? Posso gerar uma versão mais emocional."
-- "Pronto. Esse CTA é direto, mas será que 'Garanta o seu' não converte mais?"
-
-Responda APENAS com JSON válido, sem markdown, sem code fences:
-{
-  "message": "mensagem pessoal e direta (1-2 frases curtas, tom de CMO criativo)",
-  "actions": [
-    { "type": "action_type", "value": "valor" }
-  ],
-  "follow_ups": [
-    "sugestão curta 1",
-    "sugestão curta 2",
-    "sugestão curta 3"
-  ]
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
-ACTIONS DISPONÍVEIS — use exatamente esses tipos:
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
+  try {
+    // Manual auth check — the Supabase gateway's verify_jwt uses legacy HS256 which
+    // does not validate ES256 asymmetric JWTs (used by projects with the new signing keys).
+    // We verify the user token inside the function instead, using the SDK's getUser().
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase env not configured')
+    const authClient = createClient(supabaseUrl, supabaseAnonKey)
+    const { data: userData, error: userError } = await authClient.auth.getUser(token)
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-TEXTO NO CANVAS:
-- set_heading: { type: "set_heading", value: "texto aqui" } — atualiza o texto principal visível no canvas
-- add_text_box: { type: "add_text_box", text: "texto aqui", position: "top"|"middle"|"bottom" } — adiciona NOVO textbox no canvas
-- set_text_color: { type: "set_text_color", value: "#FFFFFF" } — cor do texto principal
-- set_font: { type: "set_font", value: "playfair"|"inter"|"bebas"|"montserrat"|"dm-serif"|"cormorant"|"oswald"|"space-grotesk" }
-- set_font_size: { type: "set_font_size", value: 48 } — tamanho em px
+    const { messages, creativeState } = await req.json()
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+    if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured')
+    const cs = creativeState ?? {}
 
-IMAGEM:
-- generate_image: { type: "generate_image", prompt: "descrição detalhada", count: 1 } — gera imagem. Use count: 3 quando usuário pedir múltiplas versões/variações/opções
-- set_image_position: { type: "set_image_position", x: 50, y: 30 } — reposiciona (0-100)
-- set_image_scale: { type: "set_image_scale", value: 120 } — escala (80-300)
-- set_image_fit: { type: "set_image_fit", value: "cover"|"contain" }
+    const systemPrompt = `Voce e o assistente criativo do Snew Studio — CMO senior, direto e pratico.
 
-OVERLAY:
-- set_overlay_opacity: { type: "set_overlay_opacity", value: 0.4 } — 0 a 1
-- set_overlay_color: { type: "set_overlay_color", value: "#000000", opacity: 0.5 }
-- set_overlay_type: { type: "set_overlay_type", value: "solid"|"gradient-bottom"|"gradient-top"|"vignette" }
+ESTADO DO CANVAS:
+- Canal: ${cs.channel ?? 'nenhum'}
+- Heading: "${cs.heading ?? ''}"
+- CTA: "${cs.cta ?? ''}"
+- Estilo: ${cs.style ?? 'nenhum'}
+- Produto: ${cs.product ?? 'nenhum'}
+- Tem imagem no canvas: ${cs.hasImage ?? false}
+- Ultima prompt de geracao: "${cs.lastGeneratedPrompt ?? ''}"
 
-ESTILO E FORMATO:
-- set_style: { type: "set_style", value: "warm"|"cool"|"dark"|"minimal"|"bold"|"editorial" }
-- set_channel: { type: "set_channel", value: "9:16"|"1:1"|"16:9"|"4:5" }
+Responda APENAS com JSON valido:
+{ "message": "pt-BR 1-2 frases curtas", "actions": [], "follow_ups": ["a","b","c"] }
 
-WIDGETS:
-- add_widget: { type: "add_widget", widget: "countdown"|"price"|"social-proof"|"review"|"product-card" }
+ACTIONS CANVAS: set_heading, add_text_box, set_text_color, set_font, set_font_size, generate_image, set_image_position, set_image_scale, set_image_fit, set_overlay_opacity, set_overlay_color, set_overlay_type, set_style, set_channel, add_widget, open_publish, open_schedule, save_asset, new_asset, open_scan, open_gen_panel
 
-PUBLICAR E GERENCIAR:
-- open_publish: { type: "open_publish" }
-- open_schedule: { type: "open_schedule" }
-- save_asset: { type: "save_asset" } — salva o asset atual no histórico
-- new_asset: { type: "new_asset" } — salva e limpa o canvas para criar novo
-- open_scan: { type: "open_scan" } — abre análise de conversão
-- open_gen_panel: { type: "open_gen_panel" } — abre painel de geração de texto
+ACTIONS DE WORKSPACE:
+- snew_check_connections, snew_list_available_apps, snew_connect_app, snew_query_sales, snew_query_stock, snew_list_orders, snew_run_skill, snew_post_to_app
 
-REGRAS CRÍTICAS:
-1. Para adicionar texto NOVO no canvas: use add_text_box
-2. Para atualizar o texto EXISTENTE: use set_heading
-3. Nunca use set_description ou set_cta para canvas — esses campos não aparecem no canvas diretamente
-4. Sempre que o usuário pedir "adicionar texto", "inserir frase", "colocar texto" → use add_text_box
-5. Para "mudar o texto", "alterar o heading" → use set_heading
+COMO EDITAR FOTOS (IMPORTANTISSIMO):
+Quando hasImage=true e o usuario pede uma mudanca visual, o cliente envia a imagem atual como REFERENCIA pro Gemini. Seu prompt DEVE instruir o Gemini a usar a imagem como base e mudar SO o pedido, em vez de reescrever cena nova. NUNCA responda "nao consigo editar" — sempre emita generate_image com prompt de edicao.
 
-CANAIS DISPONÍVEIS — use o campo "value" com EXATAMENTE estes IDs:
-- "9:16"  → Stories / Reels / TikTok (1080×1920, vertical)
-- "1:1"   → Feed quadrado Instagram/Facebook (1080×1080)
-- "4:5"   → Feed retrato Instagram (1080×1350)
-- "16:9"  → YouTube / Widescreen / Banner (1920×1080)
-- "2:3"   → Pinterest / Retrato (1080×1620)
-- "3:4"   → Tradicional (1080×1440)
-- "1:2"   → Vertical longo (1080×2160)
-- "3:2"   → Standard horizontal (1620×1080)
-- "4:3"   → Clássico (1440×1080)
+Formato do prompt pra edicao (hasImage=true):
+"Use the reference image exactly as the base. Keep the same subject, pose, composition, lighting, and all other details. Change only: [mudanca pedida]. photorealistic, editorial."
 
-Mapeamento de linguagem natural para canal:
-- "instagram feed" / "feed quadrado" → "1:1"
-- "instagram stories" / "stories" / "reels" → "9:16"
-- "story" / "vertical" → "9:16"
-- "youtube" / "widescreen" / "banner horizontal" → "16:9"
-- "pinterest" → "2:3"
-- "feed retrato" / "4:5" → "4:5"
-- "whatsapp" → "1:1"
+Exemplos (hasImage=true):
+- User: "muda a cor do fato pra marrom" -> prompt: "Use the reference image exactly as the base. Keep subject, pose, composition, lighting identical. Change only: the blazer/suit color to brown. photorealistic, editorial."
+- User: "troca o fundo pra azul" -> prompt: "Use the reference image exactly as the base. Keep subject, pose, framing identical. Change only: the background color to deep blue. photorealistic, editorial."
+- User: "tira o colar" -> prompt: "Use the reference image exactly as the base. Keep everything identical. Change only: remove the necklace. photorealistic, editorial."
+- User: "outro angulo" -> prompt: "Use the reference image as composition base — same subject, same wardrobe, same lighting. Change only: shift camera to 3/4 angle. photorealistic, editorial."
 
-ESTILOS DE IMAGEM DISPONÍVEIS — use o campo "value" com EXATAMENTE estes IDs:
-ecommerce-photography, advertising-product, commercial-product, product-lifestyle, aesthetic-product-shoot, campaign-editorial
+Quando hasImage=false (gerar do zero): descreva a cena completa normalmente.
 
-ESTILOS VISUAIS (canvas) DISPONÍVEIS — use o campo "value" com EXATAMENTE estes IDs:
-brand-dna, minimal, bold, casual, modern, editorial, urgency, warm, dark-luxury, performance
+REGRAS ABSOLUTAS:
+1. ACTION OU CALA: Se falar "gerando", "postando", "conectando", "criando", "atualizando", voce DEVE emitir a action correspondente.
+2. GERAR IMAGEM: qualquer pedido de imagem, edicao de imagem, mudanca visual -> generate_image. Mesmo que ja exista imagem (substitui). NUNCA recuse dizendo "nao consigo editar".
+3. POSTAR: hasImage=true e usuario pede postar/publicar/mandar/enviar -> snew_post_to_app (NAO generate_image).
+4. CONECTAR: app nao conectado -> snew_check_connections + snew_connect_app.
+5. NUNCA invente dados. Tool falhou, reconheca.
+6. Follow_ups NUNCA pode conter "Conectar X" (e botao separado).
 
-FONTES DISPONÍVEIS — use o campo "value" com EXATAMENTE estes IDs:
-inter, poppins, montserrat, playfair, lora, cormorant, bebas, oswald, anton, dancing-script, great-vibes, pacifico, dm-serif, fraunces, space-grotesk, raleway
+CANAIS: 9:16 1:1 4:5 16:9 2:3 3:4 1:2 3:2 4:3
+ESTILOS CANVAS: brand-dna, minimal, bold, casual, modern, editorial, urgency, warm, dark-luxury, performance
+FONTES: inter, poppins, montserrat, playfair, lora, cormorant, bebas, oswald, anton
 
-Regras:
-1. Sempre responda APENAS com JSON válido, sem markdown, sem code fences.
-2. Gere textos curtos, impactantes, otimizados para ads e conversão.
-3. Se o usuário pedir algo genérico como "crie um criativo", infira pelo contexto e gere diretamente.
-4. Se pedir apenas uma mudança (ex: "muda a cor para verde"), altere só o que foi pedido.
-5. Para carrossel, use generate_carousel com o número de slides pedido.
-6. Para mudanças de formato/resolução/canal, use set_channel com o ID correto da lista acima.
-7. Para mudanças de estilo visual, use set_style com o id mais adequado ao pedido.
-8. Sempre escolha cópias em português brasileiro.
-9. Para generate_image, o prompt DEVE ser em inglês e descrever a cena visualmente.
-10. O campo "follow_ups" deve ter SEMPRE 3 sugestões de ação concreta — não perguntas. Máximo 5 palavras. Exemplos: "Gerar nova imagem", "Mudar para 1:1", "Aplicar estilo Bold".
-11. SEMPRE inclua o campo "actions" mesmo que vazio — é obrigatório.
-12. Quando o usuário pedir para mudar o canal/formato, inclua SEMPRE set_channel como primeira action.
-13. Para generate_image, o estilo padrão SEMPRE é fotografia editorial realista — NUNCA gere ilustração, aquarela, cartoon, watercolor ou arte digital a menos que o usuário peça EXPLICITAMENTE.
-14. Todo prompt de generate_image deve terminar com: "photorealistic, editorial photography, natural light. Avoid: illustration, watercolor, painting, cartoon, digital art, 3d render."
-15. CRÍTICO: Sua resposta deve ser APENAS o objeto JSON — sem texto antes, sem texto depois. O campo "message" contém sua resposta em português. NUNCA coloque o JSON dentro do campo message.
-16. Nunca use **bold** ou markdown. O campo "message" deve ser texto simples.`;
+format: pt-BR curto, sem markdown, follow_ups 3 acoes concretas (SEM "Conectar X"), actions sempre presente.
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...messages,
-          ],
-          response_format: { type: "json_object" },
-        }),
-      }
-    );
+generate_image prompt DEVE ser em ingles, terminando com: photorealistic, editorial photography, natural light. Avoid: illustration, watercolor, painting, cartoon, digital art, 3d render.`
 
+    const anthMessages = messages
+      .filter((m: { role?: string }) => m.role === 'user' || m.role === 'assistant')
+      .map((m: { role: string; content: unknown }) => ({
+        role: m.role,
+        content:
+          typeof m.content === 'string'
+            ? m.content
+            : Array.isArray(m.content)
+              ? m.content
+                  .map((part: { type?: string; text?: string }) =>
+                    part?.type === 'text' ? part.text : ''
+                  )
+                  .filter(Boolean)
+                  .join('\n')
+              : String(m.content ?? ''),
+      }))
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: anthMessages,
+      }),
+    })
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded, please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required, please add funds." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(
-        JSON.stringify({ error: "AI gateway error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (response.status === 429)
+        return new Response(JSON.stringify({ error: 'Rate limit' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      const t = await response.text()
+      return new Response(JSON.stringify({ error: 'AI error', detail: t }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
-
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
-
-    let parsed;
+    const data = await response.json()
+    const raw = data?.content?.[0]?.text?.trim() ?? ''
+    let parsed
     try {
-      // Try direct parse first
-      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(cleaned);
+      parsed = JSON.parse(
+        raw
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim()
+      )
     } catch {
-      // Try to extract JSON object from mixed text
-      try {
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        } else {
-          parsed = { message: raw, actions: [], follow_ups: [] };
-        }
-      } catch {
-        parsed = { message: raw, actions: [], follow_ups: [] };
-      }
+      const m = raw.match(/\{[\s\S]*\}/)
+      parsed = m ? JSON.parse(m[0]) : { message: raw, actions: [], follow_ups: [] }
     }
+    if (!Array.isArray(parsed.actions)) parsed.actions = []
+    if (!Array.isArray(parsed.follow_ups)) parsed.follow_ups = []
 
-    // Validate structure — if message contains JSON, extract it
-    if (parsed.message && typeof parsed.message === "string") {
-      try {
-        const innerJson = parsed.message.match(/\{[\s\S]*\}/);
-        if (innerJson) {
-          const inner = JSON.parse(innerJson[0]);
-          if (inner.message && inner.actions) {
-            parsed = inner;
-          }
-        }
-      } catch { /* keep parsed as-is */ }
+    const msgLower = String(parsed.message ?? '').toLowerCase()
+    const lastUserText = String(messages[messages.length - 1]?.content ?? '').toLowerCase()
+    const types = new Set(parsed.actions.map((a: { type: string }) => a.type))
+    const detectApp = (): string => {
+      if (/instagram/.test(msgLower)) return 'instagram'
+      if (/twitter|\bx\b/.test(msgLower)) return 'twitter'
+      if (/linkedin/.test(msgLower)) return 'linkedin'
+      if (/tiktok/.test(msgLower)) return 'tiktok'
+      if (/shopify/.test(msgLower)) return 'shopify'
+      if (/gmail/.test(msgLower)) return 'gmail'
+      return 'instagram'
     }
-
-    if (!Array.isArray(parsed.actions)) parsed.actions = [];
-    if (!Array.isArray(parsed.follow_ups)) parsed.follow_ups = [];
+    const USER_EDIT_OR_GENERATE =
+      /(ger(ar|a|e|ando)|cri(ar|a|e|ando)|faca|faz(er|endo|a)|quero (uma )?imagem|nova imagem|outra (versao|imagem|opcao)|variacao|mostra|mud(a|ar|e)|troc(a|ar|e)|coloc(a|ar|e)|tir(a|ar|e)|deixa|bota|ponha|editar?|edita|alter(a|ar|e))/i
+    const AI_GENERATE_VERB =
+      /(gerando|criando|gero|vou gerar|vou criar|fazendo|regerando|atualizando|reaplicando)/i
+    if (
+      (USER_EDIT_OR_GENERATE.test(lastUserText) || AI_GENERATE_VERB.test(msgLower)) &&
+      !types.has('generate_image') &&
+      !types.has('snew_post_to_app')
+    ) {
+      const product = cs.product ?? ''
+      const style = cs.style ?? ''
+      const lastPrompt = cs.lastGeneratedPrompt ?? ''
+      const hasImage = !!cs.hasImage
+      const hint = lastUserText.slice(0, 140).replace(/["']/g, '')
+      const editPrompt = hasImage
+        ? `Use the reference image exactly as the base. Keep the same subject, pose, composition, lighting, and all other details. Change only: ${hint}. ${style ? `Preserve style: ${style}. ` : ''}photorealistic, editorial photography. Avoid: illustration, watercolor, painting, cartoon, digital art, 3d render.`
+        : `${lastPrompt ? `${lastPrompt} Change: ${hint}` : hint}. ${product ? `featuring ${product}. ` : ''}${style ? `style: ${style}. ` : ''}photorealistic, editorial photography, natural light. Avoid: illustration, watercolor, painting, cartoon, digital art, 3d render.`
+      parsed.actions.unshift({
+        type: 'generate_image',
+        prompt: editPrompt,
+        count: 1,
+      })
+    }
+    const CONNECT_INTENT = /(conecta(ndo|r)|autoriz)/
+    if (CONNECT_INTENT.test(msgLower) && !types.has('snew_connect_app')) {
+      parsed.actions.push({ type: 'snew_connect_app', app: detectApp() })
+    }
+    const POST_INTENT = /(post(ando|ar|ei|o)|publica(ndo|r|rei|o)|enviand[oa]|compartilh)/
+    if (
+      POST_INTENT.test(msgLower) &&
+      !types.has('snew_post_to_app') &&
+      !types.has('snew_check_connections') &&
+      !types.has('snew_connect_app') &&
+      !CONNECT_INTENT.test(msgLower)
+    ) {
+      parsed.actions.push({ type: 'snew_post_to_app', app: detectApp() })
+    }
+    parsed.follow_ups = parsed.follow_ups.filter(
+      (f: string) => !/^\s*conectar\s/i.test(String(f)) && !/\bautorizar\s/i.test(String(f))
+    )
 
     return new Response(JSON.stringify(parsed), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   } catch (e) {
-    console.error("studio-chat error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'err' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
-});
+})

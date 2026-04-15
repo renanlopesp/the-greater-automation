@@ -70,7 +70,7 @@ export function useOrchestratorChat(options?: UseOrchestratorChatOptions) {
             const cloned = response.clone()
             const json = await cloned.json()
             if (json?.ok === true && json?.taskId) {
-              router.push(`/chat/task/${json.taskId}`)
+              router.push(`/studio/create/${json.taskId}`)
             }
             return response
           }
