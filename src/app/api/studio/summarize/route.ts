@@ -39,6 +39,12 @@ function compactRow(resource: string, row: unknown): unknown {
     }
   }
   if (resource === 'products') {
+    const images = Array.isArray(o.images)
+      ? (o.images as Array<{ src?: string }>)
+          .map((img) => img?.src)
+          .filter((s): s is string => typeof s === 'string')
+          .slice(0, 4)
+      : []
     return {
       id: o.id,
       name: typeof o.name === 'object' ? pickLocalized(o.name) : o.name,
@@ -53,6 +59,7 @@ function compactRow(resource: string, row: unknown): unknown {
         ? (o.variants as Array<{ price?: string }>)[0]?.price
         : undefined,
       variant_count: Array.isArray(o.variants) ? (o.variants as unknown[]).length : undefined,
+      images,
     }
   }
   if (resource === 'customers') {
@@ -149,7 +156,8 @@ REGRAS:
 - O toolResult ja esta pre-processado e tem TODOS os registros relevantes. NAO diga que os dados estao "truncados" ou "limitados". NUNCA sugira "verifique no painel da Nuvem Shop" — voce ja tem os dados.
 - Destaque produtos, valores e padroes relevantes.
 - Se for uma lista de pedidos, AGREGUE os produtos vendidos (some as quantidades por produto) e liste no topo os mais vendidos. NAO liste pedido-por-pedido.
-- Se for uma lista de produtos, destaque nome, estoque e preco quando disponivel.
+- Se for uma lista de produtos, destaque nome, estoque e preco quando disponivel. Se o produto tem o campo images, INCLUA a primeira imagem usando markdown ![nome do produto](url) logo apos o nome — o chat renderiza a imagem inline e o usuario pode usa-la no canvas.
+- Quando o usuario pede "a imagem do produto X", responda com ![X](url) usando a primeira URL do array images do produto. NUNCA diga que nao consegue fornecer a imagem — os dados estao no toolResult.
 - Maximo 8 linhas de texto. Use bullets e **negrito** com moderacao.
 - Se o toolResult esta realmente vazio, diga "Sem registros nesse periodo" e sugira uma janela maior.
 - NAO repita o JSON bruto, NAO use code blocks.

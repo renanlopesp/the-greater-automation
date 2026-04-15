@@ -609,29 +609,11 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
       }
     }, [])
 
-    // Contextual visibility of the "Referência de imagem" / "Produto" buttons.
-    // Show only when the user is actively working on visual output.
-    const showVisualUploads = useMemo(() => {
-      if (agentMode) return false
-      if (creativeState.hasImage) return true
-      const cs = creativeState as unknown as Record<string, unknown>
-      if (cs.styleId) return true
-      if (cs.style) return true
-      if (creativeState.isCarouselMode) return true
-      // Inspect the last 3 assistant messages for visual actions.
-      const VISUAL_ACTIONS = new Set([
-        'generate_image',
-        'generate_carousel',
-        'generate_video',
-        'set_style',
-        'set_channel',
-      ])
-      const recent = messages.slice(-6).filter((m) => !isActivity(m)) as ChatMessage[]
-      return recent.some(
-        (m) =>
-          m.role === 'assistant' && (m.actions ?? []).some((a) => VISUAL_ACTIONS.has(a.label ?? ''))
-      )
-    }, [agentMode, creativeState, messages])
+    // "Referência de imagem" / "Produto" buttons are always visible while in
+    // studio chat — the studio is a visual-first surface, hiding them caused
+    // users to miss that they could attach a product to the next gen.
+    // Only hide in agent (document) mode.
+    const showVisualUploads = !agentMode
     const [inputValue, setInputValue] = useState('')
     const [isThinking, setIsThinking] = useState(false)
     const [currentActionLabel, setCurrentActionLabel] = useState('')
