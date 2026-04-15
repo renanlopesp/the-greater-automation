@@ -8,6 +8,7 @@ import {
 } from '@/components/asset-studio/AssetCreatorModal'
 import { loadStoreContext } from '@/lib/studio/store-context'
 import { StudioSessionProvider, type ChatArtifact } from '@/lib/studio/session-context'
+import { NormalizedProductSchema, type NormalizedProduct } from '@/lib/studio/product-normalizer'
 import { StudioArtifactSidePanel } from '@/components/asset-studio/StudioArtifactSidePanel'
 
 interface StudioTaskClientProps {
@@ -65,6 +66,16 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
     return null
   }, [task.artifact_data])
 
+  // Persisted active product (spec 070). Validated via zod so legacy-shaped
+  // rows don't poison the context.
+  const persistedActiveProduct = useMemo<NormalizedProduct | null>(() => {
+    const d = task.artifact_data as Record<string, unknown> | null | undefined
+    const raw = d?.activeProduct
+    if (!raw) return null
+    const parsed = NormalizedProductSchema.safeParse(raw)
+    return parsed.success ? parsed.data : null
+  }, [task.artifact_data])
+
   // Legacy non-canvas artifact (e.g., seasonal-calendar from old chat) —
   // surfaces if no live/persisted chatArtifact and the task has its own type.
   const legacySidePanelArtifact =
@@ -109,6 +120,7 @@ export default function StudioTaskClient({ task, initialMessages }: StudioTaskCl
       taskId={task.id}
       conversationId={task.conversation_id}
       initialChatArtifact={persistedChatArtifact}
+      initialActiveProduct={persistedActiveProduct}
     >
       <StudioTaskShell
         task={task}

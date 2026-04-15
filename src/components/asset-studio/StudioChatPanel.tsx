@@ -38,6 +38,8 @@ import {
 import { studioSupabase as supabase } from '@/lib/supabase/studio-client'
 import { createBrowserClient as createRelaySupabase } from '@/lib/supabase/client'
 import { useStudioSession } from '@/lib/studio/session-context'
+import { StudioProductPicker } from '@/components/asset-studio/StudioProductPicker'
+import { ActiveProductChip } from '@/components/asset-studio/ActiveProductChip'
 import { parseOrchestratorResponse } from '@/lib/chat/parse-orchestrator-response'
 import { uploadChatFileAction } from '@/lib/actions/chat-upload'
 import ReactMarkdown from 'react-markdown'
@@ -553,7 +555,35 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
 
     const [messages, setMessages] = useState<DisplayMessage[]>(rebuiltInitial)
     const studioSession = useStudioSession()
+    const [productPickerOpen, setProductPickerOpen] = useState(false)
     const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
+
+    // Shared visual-upload pill style (ImageRef + Produto buttons).
+    const pillButtonStyle: React.CSSProperties = {
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      padding: '8px 12px',
+      borderRadius: 10,
+      border: '1.5px dashed #E0E0E0',
+      background: '#FAFAFA',
+      cursor: 'pointer',
+      transition: 'all 0.15s',
+      fontSize: 11,
+      color: '#999',
+      textAlign: 'left',
+      lineHeight: 1.3,
+      fontFamily: 'inherit',
+    }
+    const pillHoverIn = (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = '#CCC'
+      e.currentTarget.style.background = '#F5F5F5'
+    }
+    const pillHoverOut = (e: React.MouseEvent<HTMLElement>) => {
+      e.currentTarget.style.borderColor = '#E0E0E0'
+      e.currentTarget.style.background = '#FAFAFA'
+    }
     const paperclipInputRef = useRef<HTMLInputElement>(null)
 
     // Keep the latest creativeState in a ref so snapshots read the freshest
@@ -2592,73 +2622,68 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
               boxSizing: 'border-box' as const,
             }}
           >
-            {/* Reference image upload buttons — outside chatbox. Contextual. */}
+            {/* Reference image (file upload) + Produto (opens picker). Contextual. */}
             {showVisualUploads && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, marginBottom: 8 }}>
-                {[
-                  {
-                    label: 'Referência de imagem',
-                    icon: <ImageIcon size={14} style={{ color: '#999' }} />,
-                  },
-                  { label: 'Produto', icon: <Package size={14} style={{ color: '#999' }} /> },
-                ].map((btn, idx) => (
-                  <label
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      border: '1.5px dashed #E0E0E0',
-                      background: '#FAFAFA',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                      fontSize: 11,
-                      color: '#999',
-                      textAlign: 'left' as const,
-                      lineHeight: 1.3,
-                      fontFamily: 'inherit',
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  flexWrap: 'wrap' as const,
+                  marginBottom: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <label
+                  style={pillButtonStyle}
+                  onMouseEnter={pillHoverIn}
+                  onMouseLeave={pillHoverOut}
+                >
+                  <ImageIcon size={14} style={{ color: '#999' }} />
+                  <span>Referência de imagem</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file?.type.startsWith('image/')) return
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const dataUrl = ev.target?.result as string
+                        const base64 = dataUrl.split(',')[1]
+                        onReferenceImageDrop?.(base64, file.type || 'image/jpeg', dataUrl)
+                        setAttachedImages((prev) => [
+                          ...prev.slice(-3),
+                          { dataUrl, base64, mimeType: file.type as 'image/jpeg' | 'image/png' },
+                        ])
+                      }
+                      reader.readAsDataURL(file)
+                      e.target.value = ''
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#CCC'
-                      e.currentTarget.style.background = '#F5F5F5'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#E0E0E0'
-                      e.currentTarget.style.background = '#FAFAFA'
-                    }}
-                  >
-                    {btn.icon}
-                    <span>{btn.label}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (!file?.type.startsWith('image/')) return
-                        const reader = new FileReader()
-                        reader.onload = (ev) => {
-                          const dataUrl = ev.target?.result as string
-                          const base64 = dataUrl.split(',')[1]
-                          if (idx === 0) {
-                            onReferenceImageDrop?.(base64, file.type || 'image/jpeg', dataUrl)
-                          }
-                          setAttachedImages((prev) => [
-                            ...prev.slice(-3),
-                            { dataUrl, base64, mimeType: file.type as 'image/jpeg' | 'image/png' },
-                          ])
-                        }
-                        reader.readAsDataURL(file)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                ))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setProductPickerOpen(true)}
+                  style={pillButtonStyle}
+                  onMouseEnter={pillHoverIn}
+                  onMouseLeave={pillHoverOut}
+                >
+                  <Package size={14} style={{ color: '#999' }} />
+                  <span>Produto</span>
+                </button>
+                <ActiveProductChip
+                  product={studioSession.activeProduct}
+                  onRemove={() => studioSession.setActiveProduct(null)}
+                />
               </div>
             )}
+            <StudioProductPicker
+              open={productPickerOpen}
+              onOpenChange={setProductPickerOpen}
+              onPick={(product) => studioSession.setActiveProduct(product)}
+              activeProductId={studioSession.activeProduct?.id ?? null}
+            />
             <div
               style={{
                 background: '#FFFFFF',

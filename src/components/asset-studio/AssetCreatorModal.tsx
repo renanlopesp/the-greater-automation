@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 // RULE: Never use fontWeight 700 or "bold" for UI text elements (labels, buttons, headings, descriptions).
 // Use 600 (semi-bold) for headings and important labels. Use 500 for secondary labels. Use 400 for body text.
 // Exception: canvas text elements controlled by the user (textbox, copy) may use any weight.
@@ -5479,7 +5480,61 @@ CRITICAL: Medium/regular weight text that is fully visible > bold text that is c
   // When the user then asks the studio to generate an image / campaign, we
   // feed this URL into Gemini as a reference so the generation preserves
   // the real product (color, print, cut) instead of hallucinating a new one.
+  // Mirror in a ref because dispatch may run snew_nuvemshop_api and
+  // generate_image in the SAME async loop — setState wouldn't propagate
+  // through generateImageWithPrompt's closure in time.
   const [chatProductImageUrl, setChatProductImageUrl] = useState<string | null>(null)
+  const chatProductImageUrlRef = useRef<string | null>(null)
+
+  // Spec 070: real store products surfaced in the inline `pick-product` card
+  // (feed/chat sidebar). Lives alongside the hardcoded `allProducts` seeds
+  // so a connected store gets REAL products in the chat flow, while
+  // disconnected teams keep the demo seeds working.
+  const realStoreProductsQuery = useQuery({
+    queryKey: ['studio-products', 'chat-sidebar'],
+    queryFn: async () => {
+      const res = await fetch('/api/studio/products?page=1&per_page=8', {
+        credentials: 'include',
+      })
+      if (!res.ok) return { products: [] as Array<{ id: string; name: string; image: string }> }
+      const d = (await res.json()) as {
+        products?: Array<{ id: string; name: string; image: string | null }>
+      }
+      return {
+        products: (d.products ?? [])
+          .filter((p) => !!p.image)
+          .map((p) => ({ id: p.id, name: p.name, image: p.image as string })),
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  })
+  const realStoreProducts = realStoreProductsQuery.data?.products ?? []
+
+  // Spec 070: when the user picks a product in the studio product picker,
+  // the session context's `activeProduct` changes. Mirror that selection
+  // into the three legacy state fields so every existing generation path
+  // (generateImageWithPrompt, carousel, video, canvas render) sees a single
+  // source of truth.
+  const sessionActiveProduct = studioSession.activeProduct
+  useEffect(() => {
+    if (sessionActiveProduct) {
+      if (sessionActiveProduct.image) {
+        setActiveImageUrl(sessionActiveProduct.image)
+        chatProductImageUrlRef.current = sessionActiveProduct.image
+        setChatProductImageUrl(sessionActiveProduct.image)
+      }
+      setSelectedProducts([sessionActiveProduct.id])
+    } else {
+      chatProductImageUrlRef.current = null
+      setChatProductImageUrl(null)
+      setSelectedProducts([])
+    }
+    // Intentionally narrow deps to the session product so unrelated state
+    // updates don't re-fire this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionActiveProduct?.id, sessionActiveProduct?.image])
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/studio/ecommerce', { credentials: 'include' })
@@ -8456,8 +8511,23 @@ The output must feel like a macro photography detail of the exact same product.`
         const noTextInstruction =
           'IMPORTANT: NO text, NO letters, NO words, NO typography overlay in the image. Pure photography only. '
 
-        const cleanPrompt = fullStylePrompt
-          ? `${noTextInstruction}${compositionPrefix}${fullStylePrompt}. User intent: ${prompt}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
+        // When the user intent mentions a person/baby/model, a product-only
+        // style (e.g. e-commerce-photography) conflicts with "No person, no
+        // hands". Strip those forbidden tokens from the style base so the
+        // model can actually draw a person holding/wearing the product.
+        const userWantsPerson =
+          /\b(bebê|bebe|baby|baby's|babies|modelo|model|pessoa|person|human|criança|crianca|child|kid|mãe|mae|pai|homem|mulher|woman|man|gestante|grávida|gravida|família|familia)\b/i.test(
+            prompt ?? ''
+          )
+        const sanitizedStylePrompt = userWantsPerson
+          ? fullStylePrompt
+              .replace(/\bNo person,?\s*/gi, '')
+              .replace(/\bno hands,?\s*/gi, '')
+              .replace(/\bproduct only\b\.?,?\s*/gi, '')
+          : fullStylePrompt
+
+        const cleanPrompt = sanitizedStylePrompt
+          ? `${noTextInstruction}${compositionPrefix}${sanitizedStylePrompt}. User intent: ${prompt}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
           : `${noTextInstruction}${compositionPrefix}${prompt}${styleSuffix}${productInstruction}${refInstruction}${canvasRefInstruction}${dnaInstruction}${kbInline}${textInstruction ? '\n\n' + textInstruction : ''}`
 
         const modelForGeneration =
@@ -8514,15 +8584,18 @@ The output must feel like a macro photography detail of the exact same product.`
 
         // Chat-surfaced product image (user asked Nuvemshop for a product
         // and is now generating a campaign around it) — use as reference
-        // so Gemini preserves the real product.
+        // so Gemini preserves the real product. Read from ref so the value
+        // set earlier in this same dispatch loop is visible (state would
+        // be stale-closured).
+        const chatProductSrc = chatProductImageUrlRef.current ?? chatProductImageUrl
         if (
-          chatProductImageUrl &&
+          chatProductSrc &&
           !useProductReference &&
           referenceImages.length === 0 &&
           (!activeImageUrl || isPlaceholderImage(activeImageUrl))
         ) {
           try {
-            const base64 = await imageUrlToBase64(chatProductImageUrl)
+            const base64 = await imageUrlToBase64(chatProductSrc)
             allImages.push(base64)
           } catch (e) {
             console.warn('Could not convert chat product image to base64:', e)
@@ -8572,9 +8645,18 @@ The output must feel like a macro photography detail of the exact same product.`
             'vector art',
             'oversaturated',
             'stock photo smile',
-            // Estilo específico se disponível
+            // Estilo específico se disponível — mas quando o user pediu
+            // bebê/modelo/pessoa, remover tokens incompatíveis do estilo
+            // (ex: "person", "human", "hands") pra a imagem poder ter gente.
             ...(effectiveStyle?.negativePrompt
-              ? effectiveStyle.negativePrompt.split(',').map((s: string) => s.trim())
+              ? effectiveStyle.negativePrompt
+                  .split(',')
+                  .map((s: string) => s.trim())
+                  .filter((s: string) =>
+                    userWantsPerson
+                      ? !/^(person|human|hands?|people|model|pessoa|modelo)$/i.test(s)
+                      : true
+                  )
               : []),
           ].join(', '),
           personGeneration: (() => {
@@ -12093,8 +12175,13 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       cta,
       style: selectedStyleId,
       styleName: selectedImageStyle?.name ?? selectedStyleId ?? '',
-      product: activeProductName,
+      product: studioSession.activeProduct?.name ?? activeProductName,
       productDescription: (activeProduct as any)?.description ?? '',
+      // Spec 070: when the user picked a product via the Studio picker,
+      // the edge function must NOT call snew_nuvemshop_api — the product
+      // image is already set as generation reference.
+      activeProductName: studioSession.activeProduct?.name ?? '',
+      activeProductId: studioSession.activeProduct?.id ?? '',
       campaign: activeCampaign?.title ?? data.campaignTitle ?? '',
       isCarouselMode,
       textColor,
@@ -12153,6 +12240,7 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
       assetHistory,
       ecommerceKind,
       storeCtx,
+      studioSession.activeProduct,
     ]
   )
 
@@ -12769,28 +12857,16 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                 .map((p) => p as { images?: Array<{ src?: string }> })
                 .find((p) => Array.isArray(p.images) && p.images.some((i) => !!i?.src))
               const firstSrc = firstWithImage?.images?.find((i) => !!i?.src)?.src
-              if (firstSrc) setChatProductImageUrl(firstSrc)
+              if (firstSrc) {
+                setChatProductImageUrl(firstSrc)
+                chatProductImageUrlRef.current = firstSrc
+              }
             }
 
-            const toolArtifact =
-              (json as { artifact?: unknown; __artifact?: unknown })?.artifact ??
-              (json as { artifact?: unknown; __artifact?: unknown })?.__artifact
-            if (toolArtifact && typeof toolArtifact === 'object') {
-              const a = toolArtifact as {
-                type?: string
-                title?: string
-                html?: string
-                data?: unknown
-              }
-              if (a.type) {
-                studioSession.setChatArtifact({
-                  type: a.type,
-                  title: a.title,
-                  html: a.html,
-                  data: a.data,
-                })
-              }
-            }
+            // Side-panel artifact rendering is intentionally disabled for
+            // Nuvemshop queries (spec 070 follow-up). Users asked for the raw
+            // data summary in the chat bubble only — no sticky side panel.
+            // The summarize route handles the markdown answer.
 
             // Feed the outcome back to the AI's next turn via a chat assistant
             // message so it stops pretending tools succeeded when they failed.
@@ -13087,9 +13163,13 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                   thumbnailUrl: s.thumbnailUrl ?? '',
                   description: s.description ?? '',
                 }))}
-                products={allProducts
-                  .slice(0, 8)
-                  .map((p) => ({ id: p.id, name: p.name, image: p.image }))}
+                products={
+                  realStoreProducts.length > 0
+                    ? realStoreProducts
+                    : allProducts
+                        .slice(0, 8)
+                        .map((p) => ({ id: p.id, name: p.name, image: p.image }))
+                }
                 onGenerateWithStyle={(styleId, productId) => {
                   const style = imageStyles.find((s) => s.id === styleId)
                   if (style) setSelectedImageStyle(style)
@@ -13102,9 +13182,18 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                     ? allProducts.find((p) => p.id === productId)
                     : activeProduct
                   const productName = currentProduct?.name?.trim() || ''
+                  // Grab the user's latest chat message so the style
+                  // template doesn't erase their actual intent (e.g. "coloque
+                  // esse body em um bebê real").
+                  const allMsgs = (chatPanelRef.current?.getMessages?.() ?? []) as Array<{
+                    role?: string
+                    content?: string
+                  }>
+                  const lastUserMsg = [...allMsgs].reverse().find((m) => m.role === 'user')
+                  const userIntent = (lastUserMsg?.content ?? '').trim()
                   setTimeout(() => {
                     if (style?.buildPrompt) {
-                      const prompt = style.buildPrompt({
+                      const base = style.buildPrompt({
                         productName: productName || 'the product',
                         productDescription: (currentProduct as any)?.description ?? '',
                         brandName: storeCtx?.name ?? data.campaignTitle ?? '',
@@ -13114,14 +13203,30 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
                         modelAge: storeCtx?.modelProfile?.ageRange ?? '',
                         context: (selectedRatio as any)?.id ?? '1:1',
                       })
+                      const prompt = userIntent ? `${base}. User intent: ${userIntent}` : base
                       setImagePrompt(prompt)
                       generateImageWithPrompt(prompt, 1, style)
                     } else {
-                      generateImageWithPrompt(productName || buildAutoPrompt())
+                      generateImageWithPrompt(userIntent || productName || buildAutoPrompt())
                     }
                   }, 100)
                 }}
-                onAction={async (action) => {
+                onAction={async (rawAction) => {
+                  // The studio-chat edge function sometimes emits nested
+                  // params (`{type, params:{value,...}}`) and sometimes
+                  // top-level keys. Flatten so every case below reads from a
+                  // single shape.
+                  const nestedParams = (rawAction as { params?: Record<string, unknown> }).params
+                  const action = {
+                    ...(nestedParams ?? {}),
+                    ...rawAction,
+                    // Nested fills only if top-level is missing (top-level wins).
+                    ...Object.fromEntries(
+                      Object.entries(nestedParams ?? {}).filter(
+                        ([k]) => (rawAction as Record<string, unknown>)[k] === undefined
+                      )
+                    ),
+                  } as typeof rawAction
                   const label =
                     action.type === 'generate_image'
                       ? 'Gerando imagem...'

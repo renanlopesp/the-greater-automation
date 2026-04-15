@@ -51,7 +51,14 @@ DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referenci
 
 REGRA TEMPORAL: "hoje" antes das 06:00 = ultimas 24h. "hoje" depois das 06:00 = meia-noite ate agora. Nuvemshop armazena em UTC; ajuste pro fuso BR (-03:00).
 
-DIFERENCA CHAVE (consultar produto vs. gerar campanha):
+PRODUTO ATIVO (PICKER): Se "Produto ativo" abaixo NAO for "nenhum", o usuario ja selecionou um produto da loja via o botao "Produto" do studio. Nesse caso:
+- NUNCA chame snew_nuvemshop_api pra buscar produtos — ele ja esta selecionado.
+- NUNCA liste produtos ou peca pro usuario escolher outro.
+- A imagem do produto ativo ja esta carregada como referencia visual pro Gemini automaticamente.
+- Qualquer pedido de imagem/campanha -> emita DIRETO generate_image com prompt descrevendo a cena (ex: "coloque em um bebe real" = gerar cena com bebe vestindo o produto ativo).
+- NUNCA recuse com "nao posso criar imagens / colocar produto em pessoas reais" — o generate_image faz exatamente isso.
+
+DIFERENCA CHAVE (sem produto ativo):
 - "me mostra a imagem do body bordado" -> somente snew_nuvemshop_api com resource="products", query.q="body bordado". O chat renderiza inline a foto REAL. NAO emita generate_image.
 - "cria uma campanha/imagem com o body bordado" -> emita DUAS actions, nessa ordem: (1) snew_nuvemshop_api com resource="products", query.q="body bordado" (pra carregar a imagem real do catalogo); (2) generate_image com prompt descrevendo a cena da campanha. O cliente usa automaticamente a imagem real do produto (recem carregada) como referencia visual pro Gemini, garantindo que o produto na imagem gerada seja fiel ao catalogo.
 - Se o produto ja estava visivel no chat/canvas, voce pode pular (1) e so emitir generate_image.
@@ -62,6 +69,7 @@ ESTADO DO CANVAS:
 - CTA: "${cs.cta ?? ''}"
 - Estilo: ${cs.style ?? 'nenhum'}
 - Produto: ${cs.product ?? 'nenhum'}
+- Produto ativo (picker): ${cs.activeProductName ?? 'nenhum'}
 - Tem imagem no canvas: ${cs.hasImage ?? false}
 - Ultima prompt de geracao: "${cs.lastGeneratedPrompt ?? ''}"
 - E-commerce conectado: ${ecommerceKind ?? 'nenhum'}

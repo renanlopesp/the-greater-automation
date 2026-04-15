@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { NormalizedProduct } from './product-normalizer'
 
 /**
  * Side-panel artifact pushed by chat tools (e.g., STORE_QUERY_SALES returns a
@@ -19,6 +20,7 @@ export interface StudioSession {
   taskId: string | null
   conversationId: string | null
   chatArtifact: ChatArtifact | null
+  activeProduct: NormalizedProduct | null
   /** Ensures a task + conversation exist. Creates them via POST /api/tasks if missing. */
   ensureSession: (
     initialMessage: string
@@ -37,6 +39,11 @@ export interface StudioSession {
    * `artifact_data.chatArtifact` (JSONB merge, no canvas overwrite).
    */
   setChatArtifact: (artifact: ChatArtifact | null) => void
+  /**
+   * Set the studio's active product (spec 070). Clears with `null`. Persists
+   * under `artifact_data.activeProduct` via JSONB merge, debounced 500 ms.
+   */
+  setActiveProduct: (product: NormalizedProduct | null) => void
 }
 
 const StudioSessionContext = createContext<StudioSession | null>(null)
@@ -47,6 +54,7 @@ interface ProviderProps {
   taskId?: string | null
   conversationId?: string | null
   initialChatArtifact?: ChatArtifact | null
+  initialActiveProduct?: NormalizedProduct | null
   /** When true, a `router.replace('/studio/create/[id]')` fires after lazy creation. */
   replaceUrlOnCreate?: boolean
   children: ReactNode
@@ -56,12 +64,16 @@ export function StudioSessionProvider({
   taskId: initialTaskId = null,
   conversationId: initialConversationId = null,
   initialChatArtifact = null,
+  initialActiveProduct = null,
   replaceUrlOnCreate = false,
   children,
 }: ProviderProps) {
   const [taskId, setTaskId] = useState<string | null>(initialTaskId)
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId)
   const [chatArtifact, setChatArtifactState] = useState<ChatArtifact | null>(initialChatArtifact)
+  const [activeProduct, setActiveProductState] = useState<NormalizedProduct | null>(
+    initialActiveProduct
+  )
 
   // Mirror ids in refs so async callers (debounced snapshots, activity
   // persistence) read the freshest value even if their closure captured an
@@ -73,6 +85,8 @@ export function StudioSessionProvider({
 
   const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSnapshotRef = useRef<Record<string, unknown> | null>(null)
+  const activeProductTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingActiveProductRef = useRef<NormalizedProduct | null | undefined>(undefined)
   const creatingRef = useRef<Promise<{
     taskId: string
     conversationId: string | null
@@ -83,6 +97,7 @@ export function StudioSessionProvider({
       taskId,
       conversationId,
       chatArtifact,
+      activeProduct,
       setChatArtifact(artifact) {
         setChatArtifactState(artifact)
         // Persist under a sub-key so the canvas snapshot in artifact_data isn't
@@ -94,6 +109,32 @@ export function StudioSessionProvider({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ artifact_data: { chatArtifact: artifact }, merge: true }),
         }).catch(() => {})
+      },
+      setActiveProduct(product) {
+        setActiveProductState(product)
+        // Debounced merge persistence — avoids thrashing the DB when the user
+        // picks and re-picks quickly.
+        pendingActiveProductRef.current = product
+        if (activeProductTimerRef.current) clearTimeout(activeProductTimerRef.current)
+        activeProductTimerRef.current = setTimeout(async () => {
+          const pending = pendingActiveProductRef.current
+          pendingActiveProductRef.current = undefined
+          activeProductTimerRef.current = null
+          const tid = taskIdRef.current
+          if (!tid || pending === undefined) return
+          try {
+            await fetch(`/api/tasks/${tid}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artifact_data: { activeProduct: pending },
+                merge: true,
+              }),
+            })
+          } catch {
+            // best-effort
+          }
+        }, SNAPSHOT_DEBOUNCE_MS)
       },
       async ensureSession(initialMessage) {
         const currentTask = taskIdRef.current
@@ -181,7 +222,7 @@ export function StudioSessionProvider({
         }, SNAPSHOT_DEBOUNCE_MS)
       },
     }),
-    [taskId, conversationId, chatArtifact, replaceUrlOnCreate]
+    [taskId, conversationId, chatArtifact, activeProduct, replaceUrlOnCreate]
   )
 
   return <StudioSessionContext.Provider value={value}>{children}</StudioSessionContext.Provider>
@@ -194,11 +235,13 @@ export function useStudioSession(): StudioSession {
     taskId: null,
     conversationId: null,
     chatArtifact: null,
+    activeProduct: null,
     async ensureSession() {
       return null
     },
     persistTurn: async () => {},
     snapshotCanvas: () => {},
     setChatArtifact: () => {},
+    setActiveProduct: () => {},
   }
 }
