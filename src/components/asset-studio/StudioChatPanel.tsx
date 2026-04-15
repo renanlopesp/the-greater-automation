@@ -983,8 +983,28 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
           // it up (the QualificationMessage path renders raw text and breaks
           // **bold**, lists, etc.). Tool-result summaries take this path.
           if (!chips || chips.length === 0) {
-            const msg: ChatMessage = { role: 'assistant', content }
-            setMessages((prev) => [...prev, msg])
+            // Carry the follow-up chips from the most recent assistant
+            // message that had any — the markdown summary bubble visually
+            // becomes the new "last message", so quick-action chips would
+            // disappear without this hand-off.
+            setMessages((prev) => {
+              let inheritedFollowUps: string[] | undefined
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const m = prev[i]
+                if (isActivity(m)) continue
+                const cm = m as ChatMessage
+                if (cm.role === 'assistant' && cm.followUps && cm.followUps.length > 0) {
+                  inheritedFollowUps = cm.followUps
+                  break
+                }
+              }
+              const msg: ChatMessage = {
+                role: 'assistant',
+                content,
+                followUps: inheritedFollowUps,
+              }
+              return [...prev, msg]
+            })
             return
           }
           const msg: QualificationMessage = {
