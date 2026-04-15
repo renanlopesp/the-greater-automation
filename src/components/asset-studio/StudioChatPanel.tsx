@@ -979,13 +979,21 @@ export const StudioChatPanel = forwardRef<StudioChatPanelRef, StudioChatPanelPro
           setMessages((prev) => [...prev, msg])
         },
         pushAssistantMessage: ({ content, chips, onChipClick }) => {
+          // No chips → render as a regular ChatMessage so ReactMarkdown picks
+          // it up (the QualificationMessage path renders raw text and breaks
+          // **bold**, lists, etc.). Tool-result summaries take this path.
+          if (!chips || chips.length === 0) {
+            const msg: ChatMessage = { role: 'assistant', content }
+            setMessages((prev) => [...prev, msg])
+            return
+          }
           const msg: QualificationMessage = {
             role: 'assistant',
             content,
             type: 'qualification',
-            chips: chips?.map((c) => c.label),
+            chips: chips.map((c) => c.label),
             onChipClick: (label: string) => {
-              const chip = chips?.find((c) => c.label === label)
+              const chip = chips.find((c) => c.label === label)
               if (chip) onChipClick?.(chip)
               setMessages((prev) => [...prev, { role: 'user' as const, content: label }])
             },
