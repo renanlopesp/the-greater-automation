@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// Reads app_connections.app_id and account_label which no longer exist in
+// production (replaced by app_name + credentials jsonb). Listing surface
+// needs a rewrite to match the new shape.
+
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'

@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-unused-vars */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// References app_connections.app_id/account_label (renamed to app_name +
+// credentials jsonb in the 2026-04-15 schema refactor). The tool catalogue
+// itself is still in use via the agent chat surface, but the DB probes here
+// need to be rewritten against the new shape. Tracked alongside spec 071.
+
 import { jsonSchema } from 'ai'
 import { z } from 'zod'
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server'

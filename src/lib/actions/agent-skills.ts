@@ -115,9 +115,13 @@ export async function getAgentSkills(agentId: string) {
 
   const { data } = await supabase
     .from('agent_skills')
-    .select('id, name, description, content, source, is_enabled, type, parameters, version')
+    .select('id, name, description, content, source, is_enabled, type, metadata, version')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: true })
 
-  return data ?? []
+  // Expose `parameters` for consumers that still use the legacy name.
+  return (data ?? []).map((row) => ({
+    ...row,
+    parameters: row.metadata,
+  }))
 }

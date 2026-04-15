@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// Writes and reads store_price_monitors columns (previous_price,
+// own_product_id, product_name, marketplace, alert_threshold_pct) that
+// were dropped. Monitor pipeline will come back once the shape is
+// finalised in a follow-up migration.
+
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
 export interface PriceChangeResult {

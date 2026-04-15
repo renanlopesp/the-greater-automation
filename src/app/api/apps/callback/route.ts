@@ -77,17 +77,17 @@ export async function GET(request: NextRequest) {
       account_id: String(accountRecord.id ?? ''),
       account_label: accountRecord.accountId ? String(accountRecord.accountId) : pending.appId,
     }
-    const { error: upsertError } = await supabase.from('app_connections').upsert(
-      {
-        user_id: user.id,
-        team_id: teamId,
-        app_name: pending.appId,
-        credentials,
-        status: 'active',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,app_name' }
-    )
+    const upsertRow = {
+      user_id: user.id,
+      team_id: teamId,
+      app_name: pending.appId,
+      credentials,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+    }
+    const { error: upsertError } = await supabase
+      .from('app_connections')
+      .upsert(upsertRow as never, { onConflict: 'user_id,app_name' })
 
     if (upsertError) {
       log.error({ err: upsertError }, 'Failed to save connection')

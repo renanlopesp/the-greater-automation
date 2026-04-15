@@ -352,7 +352,7 @@ export async function runAnalysisPipeline(
         store
           ? {
               storeName: store.name,
-              segment: store.segment,
+              segment: store.segment ?? '',
               platform: store.platform,
               hasProducts: true,
             }
@@ -368,8 +368,8 @@ export async function runAnalysisPipeline(
         },
         'full'
       )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await anthropic.beta.agents.update(team.anthropic_agent_id, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         version: (currentAgent as any).version,
         system: prompt,
       })

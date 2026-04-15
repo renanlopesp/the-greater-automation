@@ -95,7 +95,7 @@ export async function processMessage(
   if (credits > 0) {
     await supabase.rpc('increment_ai_credits', {
       p_team_id: link.team_id,
-      p_credits: credits,
+      p_amount: credits,
     })
   }
 

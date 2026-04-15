@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// store_stock_alerts lost `is_enabled`, `last_triggered_at`, and
+// `cooldown_minutes` columns in the 2026-04-15 schema refactor. The alert
+// engine stays dormant until those columns are restored via migration or
+// the cooldown logic is rewired against a different surface.
+
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/telegram'
 

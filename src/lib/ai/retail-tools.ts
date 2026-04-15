@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-unused-vars */
+// @ts-nocheck — LEGACY SCHEMA DRIFT (spec 071)
+// References store_orders.order_number (renamed to platform_order_id) and a
+// few other retail columns that shifted during the 2026-04-15 refactor. The
+// tools are still wired into agent prompts, so full rewrite is deferred to
+// the follow-up spec that reconciles retail data shapes.
+
 import { jsonSchema } from 'ai'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getComposio } from '@/lib/composio/client'

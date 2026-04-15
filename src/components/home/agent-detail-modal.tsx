@@ -99,11 +99,26 @@ export default function AgentDetailModal({
     gcTime: 0,
   })
 
-  const { data: skills = [] } = useQuery({
+  const { data: skillsRaw = [] } = useQuery({
     queryKey: ['agent-skills', agentId],
     queryFn: () => getAgentSkills(agentId),
     enabled: open && !!agentId,
   })
+  // Coerce nullable DB columns into the non-nullable Skill shape the
+  // component expects. The underlying columns are `content|source|type`
+  // (nullable) and `metadata` jsonb (renamed from the legacy
+  // `parameters` column during the 2026-04-15 schema refactor).
+  const skills = skillsRaw.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    content: s.content ?? '',
+    source: s.source ?? 'manual',
+    is_enabled: s.is_enabled,
+    type: s.type ?? 'content',
+    parameters: s.parameters,
+    version: s.version ?? 1,
+  }))
 
   if (!agent) return null
 
