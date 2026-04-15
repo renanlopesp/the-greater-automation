@@ -368,6 +368,22 @@ async function nuvemshopApi(
           reauth_url: '/api/nuvemshop/connect',
         }
       }
+      // Nuvemshop quirk: an EMPTY collection returns 404 with body
+      // `{description: "Last page is 0"}`. Treat that as a real "no data"
+      // result so the AI/chat can answer naturally instead of "Tool falhou".
+      const desc =
+        typeof data === 'object' && data !== null
+          ? String((data as Record<string, unknown>).description ?? '')
+          : ''
+      if (r.status === 404 && /last page is 0|no records/i.test(desc)) {
+        return {
+          resource,
+          id: id || null,
+          count: 0,
+          data: [],
+          artifact: synthesizeNuvemshopArtifact(resource, id, []),
+        }
+      }
       return {
         error_code: 'NUVEMSHOP_API_ERROR',
         status: r.status,
