@@ -40,21 +40,20 @@ serve(async (req) => {
 
     const ecommerceKind: 'nuvemshop' | 'shopify-composio' | null = cs.ecommerceKind ?? null
 
-    // Inject the real current date — without this the AI defaults to its
-    // training-cutoff "today" and emits stale created_at_min/max windows
-    // (e.g. 2025-01-XX) when computing "esta semana".
+    // Inject the real current date so the AI doesn't fall back to its
+    // training-cutoff "today" and emit stale created_at_min/max windows.
     const nowISO = new Date().toISOString()
-    const today = nowISO.slice(0, 10) // YYYY-MM-DD
+    const today = nowISO.slice(0, 10)
 
     const systemPrompt = `Voce e o assistente criativo do Snew Studio — CMO senior, direto e pratico.
 
-DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referencia ao calcular periodos como "hoje", "ontem", "essa semana", "esse mes", etc. NUNCA use datas do seu treinamento.
+DATA ATUAL: ${today} (timestamp: ${nowISO}). Use SEMPRE essa data como referencia ao calcular periodos como "hoje", "ontem", "essa semana", "esse mes". NUNCA use datas do treinamento.
 
-REGRA DE INTERPRETACAO TEMPORAL (importante):
-- Quando o usuario diz "hoje" e a hora atual local for INFERIOR a 06:00, "hoje" provavelmente significa "as ultimas 24 horas" porque ele acabou de virar o dia. Nesses casos, use created_at_min = HA 24 HORAS, nao a meia-noite estrita.
-- Quando o usuario diz "hoje" depois das 06:00, ai sim use created_at_min = meia-noite local de hoje.
-- "ontem" = das 00:00 as 23:59 do dia anterior.
-- Nuvemshop API armazena em UTC. Ajuste created_at_min/max para abranger o fuso horario BR (-03:00) corretamente — em duvida, prefira janelas mais largas (last_30_days, last_24h) a perder dados.
+REGRA TEMPORAL: "hoje" antes das 06:00 = ultimas 24h. "hoje" depois das 06:00 = meia-noite ate agora. Nuvemshop armazena em UTC; ajuste pro fuso BR (-03:00).
+
+DIFERENCA CHAVE (consultar produto vs. gerar imagem):
+- "me mostra a imagem do body bordado" -> snew_nuvemshop_api com resource="products", query.q="body bordado". O chat renderiza inline a foto REAL do produto. NAO emita generate_image junto.
+- "gera/cria uma imagem com o body" -> generate_image (cena nova, body como referencia visual).
 
 ESTADO DO CANVAS:
 - Canal: ${cs.channel ?? 'nenhum'}
@@ -206,10 +205,27 @@ generate_image prompt DEVE ser em ingles, terminando com: photorealistic, editor
       /(ger(ar|a|e|ando)|cri(ar|a|e|ando)|faca|faz(er|endo|a)|quero (uma )?imagem|nova imagem|outra (versao|imagem|opcao)|variacao|mostra|mud(a|ar|e)|troc(a|ar|e)|coloc(a|ar|e)|tir(a|ar|e)|deixa|bota|ponha|editar?|edita|alter(a|ar|e))/i
     const AI_GENERATE_VERB =
       /(gerando|criando|gero|vou gerar|vou criar|fazendo|regerando|atualizando|reaplicando)/i
+    // Workspace tool actions imply the user wanted DATA, not a new image.
+    // If the AI emitted any of these, do NOT auto-synthesize generate_image
+    // even if the user's text contained "mostra"/"imagem"/"vê"/etc.
+    const WORKSPACE_TOOL_ACTIONS = new Set([
+      'snew_nuvemshop_api',
+      'snew_check_connections',
+      'snew_list_available_apps',
+      'snew_query_sales',
+      'snew_query_stock',
+      'snew_list_orders',
+      'snew_post_to_app',
+      'snew_run_skill',
+    ])
+    const aiEmittedWorkspaceTool = parsed.actions.some((a: { type: string }) =>
+      WORKSPACE_TOOL_ACTIONS.has(a.type)
+    )
     if (
       (USER_EDIT_OR_GENERATE.test(lastUserText) || AI_GENERATE_VERB.test(msgLower)) &&
       !types.has('generate_image') &&
-      !types.has('snew_post_to_app')
+      !types.has('snew_post_to_app') &&
+      !aiEmittedWorkspaceTool
     ) {
       const product = cs.product ?? ''
       const style = cs.style ?? ''
