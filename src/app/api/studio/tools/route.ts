@@ -382,6 +382,7 @@ async function nuvemshopApi(
       id: id || null,
       count: Array.isArray(data) ? data.length : undefined,
       data,
+      artifact: synthesizeNuvemshopArtifact(resource, id, data),
     }
   } catch (e) {
     return {
@@ -390,6 +391,101 @@ async function nuvemshopApi(
       message: (e as Error).message ?? 'unknown',
     }
   }
+}
+
+/**
+ * Best-effort table render for whatever the Nuvemshop API returned. We don't
+ * pre-decide column shape per resource — pick the first ~6 scalar fields
+ * across the records and render them. The chat caller still has the raw
+ * `data` field for any further processing.
+ */
+function synthesizeNuvemshopArtifact(
+  resource: string,
+  id: string,
+  data: unknown
+): { type: string; title: string; html: string; data: unknown } | null {
+  const title = id ? `${resource} #${id}` : resource
+
+  if (Array.isArray(data)) {
+    const rows = data as Array<Record<string, unknown>>
+    if (rows.length === 0) {
+      const html = `<div class="section"><div class="h1 mb-4">${escHtml(title)}</div><div class="card-elevated">Nenhum item encontrado.</div></div>`
+      return { type: 'chat-data', title, html, data: { resource, count: 0 } }
+    }
+    // Pick up to 6 columns: prefer common identity/name/total/status/date keys.
+    const preferred = [
+      'id',
+      'number',
+      'name',
+      'title',
+      'email',
+      'status',
+      'payment_status',
+      'shipping_status',
+      'total',
+      'subtotal',
+      'created_at',
+      'paid_at',
+      'price',
+      'stock',
+    ]
+    const allKeys = new Set<string>()
+    for (const r of rows.slice(0, 30)) {
+      for (const k of Object.keys(r ?? {})) allKeys.add(k)
+    }
+    const cols = [
+      ...preferred.filter((k) => allKeys.has(k)),
+      ...[...allKeys].filter((k) => !preferred.includes(k)),
+    ]
+      .filter((k) => {
+        const v = rows[0]?.[k]
+        return v == null || typeof v !== 'object'
+      })
+      .slice(0, 6)
+    const fmt = (v: unknown) => {
+      if (v == null) return '—'
+      if (typeof v === 'object') return JSON.stringify(v).slice(0, 60)
+      const s = String(v)
+      return s.length > 80 ? s.slice(0, 77) + '…' : s
+    }
+    const head = cols.map((c) => `<th>${escHtml(c)}</th>`).join('')
+    const body = rows
+      .slice(0, 100)
+      .map((r) => `<tr>${cols.map((c) => `<td>${escHtml(fmt(r?.[c]))}</td>`).join('')}</tr>`)
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">${escHtml(title)} <span class="small">(${rows.length})</span></div>
+        <div class="card-elevated" style="padding:0;overflow:hidden;">
+          <table class="table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+        </div>
+      </div>`
+    return { type: 'chat-data', title, html, data: { resource, count: rows.length } }
+  }
+
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    const entries = Object.entries(obj)
+      .filter(([, v]) => v == null || typeof v !== 'object')
+      .slice(0, 20)
+    if (entries.length === 0) return null
+    const rows = entries
+      .map(
+        ([k, v]) =>
+          `<tr><td class="small">${escHtml(k)}</td><td>${escHtml(String(v ?? '—'))}</td></tr>`
+      )
+      .join('')
+    const html = `
+      <div class="section">
+        <div class="h1 mb-4">${escHtml(title)}</div>
+        <div class="card-elevated" style="padding:0;overflow:hidden;">
+          <table class="table"><tbody>${rows}</tbody></table>
+        </div>
+      </div>`
+    return { type: 'chat-data', title, html, data: { resource } }
+  }
+
+  return null
 }
 
 async function listAvailableApps(userId: string) {

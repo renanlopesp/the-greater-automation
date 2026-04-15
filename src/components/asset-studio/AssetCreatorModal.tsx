@@ -12541,29 +12541,30 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
             const res = await fetch('/api/studio/tools', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: action.type,
-                params: {
-                  app: (action as { app?: string }).app,
-                  period: (action as { period?: string }).period,
-                  product: (action as { product?: string }).product,
-                  limit: (action as { limit?: number }).limit,
-                  slug: (action as { slug?: string }).slug,
-                  // snew_nuvemshop_api: generic passthrough params
-                  resource: (action as { resource?: string }).resource,
-                  id: (action as { id?: string | number }).id,
-                  query: (action as { query?: Record<string, unknown> }).query,
-                  // For snew_post_to_app, attach the canvas image + caption
-                  imageUrl:
-                    action.type === 'snew_post_to_app'
-                      ? ((action as { imageUrl?: string }).imageUrl ?? activeImageUrl ?? '')
-                      : undefined,
-                  caption:
-                    action.type === 'snew_post_to_app'
-                      ? ((action as { caption?: string }).caption ?? heading ?? '')
-                      : undefined,
-                },
-              }),
+              body: (() => {
+                // The AI sometimes emits nested params (`{type, params:{...}}`)
+                // and sometimes top-level keys — fold both into a single shape
+                // so the server-side router doesn't care.
+                const a = action as Record<string, unknown> & { params?: Record<string, unknown> }
+                const nested = (a.params ?? {}) as Record<string, unknown>
+                const merged: Record<string, unknown> = {
+                  app: (nested.app ?? a.app) as unknown,
+                  period: (nested.period ?? a.period) as unknown,
+                  product: (nested.product ?? a.product) as unknown,
+                  limit: (nested.limit ?? a.limit) as unknown,
+                  slug: (nested.slug ?? a.slug) as unknown,
+                  resource: (nested.resource ?? a.resource) as unknown,
+                  id: (nested.id ?? a.id) as unknown,
+                  query: (nested.query ?? a.query) as unknown,
+                }
+                if (action.type === 'snew_post_to_app') {
+                  merged.imageUrl =
+                    (nested.imageUrl as string) ?? (a.imageUrl as string) ?? activeImageUrl ?? ''
+                  merged.caption =
+                    (nested.caption as string) ?? (a.caption as string) ?? heading ?? ''
+                }
+                return JSON.stringify({ action: action.type, params: merged })
+              })(),
             })
             const json = await res.json()
 
