@@ -12728,6 +12728,36 @@ Output a complete ${ratioLabel} image with no seams, no borders, no artifacts.`
             // it in the studio side panel. Coexists with the canvas —
             // persisted under a sub-key so the creativeState snapshot isn't
             // overwritten.
+            // After the data tool returns, hand the payload to a second
+            // lightweight LLM call so the chat gets a *real* markdown answer
+            // ("Vendi 3 bodys bordados, 2 placas..."), not a one-line count.
+            if (action.type === 'snew_nuvemshop_api' && json?.data && !json?.error_code) {
+              const allMsgs = (chatPanelRef.current?.getMessages?.() ?? []) as Array<{
+                role?: string
+                content?: string
+              }>
+              const lastUserMsg = [...allMsgs].reverse().find((m) => m.role === 'user')
+              void fetch('/api/studio/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userQuestion: lastUserMsg?.content ?? '',
+                  toolName: action.type,
+                  toolResult: { resource: json.resource, count: json.count, data: json.data },
+                }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((sum: { summary?: string } | null) => {
+                  const text = sum?.summary?.trim()
+                  if (text) {
+                    chatPanelRef.current?.pushAssistantMessage?.({ content: text })
+                  }
+                })
+                .catch(() => {
+                  /* best-effort */
+                })
+            }
+
             const toolArtifact =
               (json as { artifact?: unknown; __artifact?: unknown })?.artifact ??
               (json as { artifact?: unknown; __artifact?: unknown })?.__artifact
